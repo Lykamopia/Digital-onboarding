@@ -18,7 +18,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
 
   const handleSelect = (memo: MemoWithActivity) => {
     if (memo.status === 'draft') {
-      router.push(`/dashboard/new?id=${memo.id}`);
+      router.push(`/dashboard/new`);
     } else {
       onSelectMemo(memo.id);
     }
@@ -32,7 +32,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
             key={memo.id}
             className={cn(
               "flex flex-col items-start gap-2 rounded-lg border border-transparent p-3 text-left text-sm transition-colors",
-              "hover:bg-accent/50",
+              "hover:bg-primary/10",
               selectedMemoId === memo.id && "bg-primary/10 border-primary/50"
             )}
             onClick={() => handleSelect(memo)}

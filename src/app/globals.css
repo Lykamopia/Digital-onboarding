@@ -80,3 +80,32 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  @media print {
+    body {
+        background-color: white;
+    }
+    .printable-memo {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+    }
+    .printable-memo-header, .printable-memo-content {
+        padding: 0 !important;
+    }
+    .printable-memo-header .grid > span {
+        font-family: 'Times New Roman', Times, serif;
+    }
+     .printable-memo .prose {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+    }
+    .no-print {
+      display: none !important;
+    }
+  }
+}

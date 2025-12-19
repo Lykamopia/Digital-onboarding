@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loggedInUser, users } from '@/lib/data';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const memoSchema = z.object({
   id: z.string().optional(),
@@ -37,9 +48,12 @@ const memoSchema = z.object({
 
 type MemoFormData = z.infer<typeof memoSchema>;
 
+const DRAFT_KEY = 'memo-draft';
+
 export default function NewMemoPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [isDraft, setIsDraft] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -53,22 +67,12 @@ export default function NewMemoPage() {
     },
   });
 
-  const getDraftId = () => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('id');
-    }
-    return null;
-  };
-
-  const draftId = useMemo(getDraftId, []);
-
   const saveDraft = useCallback((data: MemoFormData) => {
     if (typeof window === 'undefined') return;
     setIsSaving(true);
     
     const draft: Memo = {
-      id: draftId || `draft-${Date.now()}`,
+      id: `draft-${loggedInUser.id}`,
       memo_reference_number: 'DRAFT',
       from: loggedInUser,
       to: data.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
@@ -79,28 +83,15 @@ export default function NewMemoPage() {
       status: 'draft',
       attachments: [],
     };
-
-    let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
-    const existingDraftIndex = drafts.findIndex(d => d.id === draft.id);
-
-    if (existingDraftIndex > -1) {
-      drafts[existingDraftIndex] = draft;
-    } else {
-      drafts.push(draft);
-    }
     
-    localStorage.setItem('memo-drafts', JSON.stringify(drafts));
-    
-    if (!draftId) {
-      const newUrl = `/dashboard/new?id=${draft.id}`;
-      window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
-    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    setIsDraft(true);
     
     setTimeout(() => {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString());
     }, 500);
-  }, [draftId]);
+  }, []);
 
   const debouncedSave = useDebouncedCallback(saveDraft, 1000);
 
@@ -114,31 +105,34 @@ export default function NewMemoPage() {
   }, [form, debouncedSave]);
 
   useEffect(() => {
-    if (draftId && typeof window !== 'undefined') {
-      const drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
-      const draft = drafts.find(d => d.id === draftId);
-      if (draft) {
-        form.reset({
-          id: draft.id,
-          to: draft.to,
-          cc: draft.cc,
-          subject: draft.subject,
-          body: draft.body,
-        });
+    if (typeof window !== 'undefined') {
+      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        if (draft) {
+          form.reset({
+            to: draft.to || [],
+            cc: draft.cc || [],
+            subject: draft.subject || '',
+            body: draft.body || '',
+          });
+          setIsDraft(true);
+        }
       }
     }
-  }, [draftId, form]);
+  }, [form]);
 
   function deleteDraft() {
-      if (draftId && typeof window !== 'undefined') {
-          let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
-          drafts = drafts.filter(d => d.id !== draftId);
-          localStorage.setItem('memo-drafts', JSON.stringify(drafts));
+      if (typeof window !== 'undefined') {
+          localStorage.removeItem(DRAFT_KEY);
           toast({
               title: 'Draft Deleted',
               description: 'The draft has been permanently deleted.',
           });
-          router.push('/dashboard?tab=drafts');
+          form.reset({ to: [], cc: [], subject: '', body: ''});
+          setIsDraft(false);
+          setLastSaved(null);
+          router.push('/dashboard?tab=inbox');
       }
   }
 
@@ -185,10 +179,8 @@ export default function NewMemoPage() {
     sentMemos.push(newMemo);
     localStorage.setItem('memos', JSON.stringify(sentMemos));
 
-    if(draftId) {
-        let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
-        drafts = drafts.filter(d => d.id !== draftId);
-        localStorage.setItem('memo-drafts', JSON.stringify(drafts));
+    if(isDraft) {
+        localStorage.removeItem(DRAFT_KEY);
     }
 
     toast({
@@ -276,11 +268,28 @@ export default function NewMemoPage() {
             />
             <div className="flex justify-between">
               <div>
-                {draftId && (
-                  <Button type="button" variant="destructive" onClick={deleteDraft}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Draft
-                  </Button>
+                {isDraft && (
+                   <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Draft
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your
+                          draft.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={deleteDraft}>Continue</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
               <div className="flex gap-2">

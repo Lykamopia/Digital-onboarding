@@ -9,6 +9,7 @@ import {
   Share2,
   Edit,
   Send,
+  Printer,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { MemoWithActivity, User } from '@/lib/types';
@@ -16,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatTimestamp, loggedInUser, users } from '@/lib/data';
+import { formatTimestamp, loggedInUser } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -29,11 +30,7 @@ import {
 import { RecipientSelector } from './recipient-selector';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-
-interface MemoDisplayProps {
-  memo: MemoWithActivity | null;
-  onUpdate: () => void;
-}
+import { EmptyState } from './empty-state';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <Send className="h-4 w-4" />,
@@ -41,7 +38,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   acknowledged: <CheckCircle className="h-4 w-4 text-green-500" />,
   commented: <Reply className="h-4 w-4" />,
   delegated: <Share2 className="h-4 w-4 text-purple-500" />,
-  created: <Share2 className="h-4 w-4" />,
+  created: <Edit className="h-4 w-4" />,
 };
 
 const UserDisplay = ({
@@ -109,7 +106,7 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" className='no-print'>
           <Share2 className="mr-2 h-4 w-4" />
           Delegate
         </Button>
@@ -147,44 +144,52 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
   );
 }
 
-
 export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
+
+  const handlePrint = () => {
+    window.print();
+  }
+
   if (!memo) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <p>Select a memo to read</p>
-          <p className="text-sm">or create a new one to get started.</p>
+        <div className="h-full p-2">
+          <EmptyState 
+            title="Select a memo"
+            description="Select a memo from the list to read its content."
+          />
         </div>
-      </Card>
     );
   }
 
   if (memo.status === 'draft') {
     return (
-      <Card className="h-full flex flex-col items-center justify-center">
-        <div className="text-center text-muted-foreground p-8">
-          <h2 className="text-lg font-semibold text-foreground mb-2">
-            This is a draft
-          </h2>
-          <p className="mb-4">You can continue editing this memo.</p>
-          <Link href={`/dashboard/new?id=${memo.id}`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Draft
-            </Button>
-          </Link>
-        </div>
-      </Card>
+      <div className="h-full p-2">
+        <EmptyState
+            icon={<Edit className="h-16 w-16 text-muted-foreground/50" />}
+            title="This is a draft"
+            description="You can continue editing this memo or send it."
+            action={
+                <Link href={`/dashboard/new`}>
+                    <Button>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Draft
+                    </Button>
+                </Link>
+            }
+        />
+      </div>
     );
   }
   
   const currentHolder = memo.current_holder;
   const previousHolder = memo.previous_holders && memo.previous_holders.length > 0 ? memo.previous_holders[memo.previous_holders.length-1] : undefined;
+  
+  const isCC = memo.cc.some(u => u.id === loggedInUser.id) && memo.to.every(u => u.id !== loggedInUser.id);
+  const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
-    <Card className="h-full font-mono text-sm">
-      <CardHeader className="pb-4">
+    <Card className="h-full font-mono text-sm printable-memo">
+      <CardHeader className="pb-4 printable-memo-header">
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="font-headline text-xl mb-4">
@@ -244,7 +249,7 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className='printable-memo-content'>
         <Separator className="my-4" />
         <div
           className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono"
@@ -253,60 +258,64 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
 
         {memo.attachments.length > 0 && (
           <>
-            <Separator className="my-6" />
-            <h3 className="text-sm font-medium mb-2 font-sans">Attachments</h3>
-            <div className="flex flex-wrap gap-2">
-              {memo.attachments.map((att) => (
-                <Button
-                  key={att.id}
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="font-sans"
-                >
-                  <a href={att.url} download={att.name}>
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    {att.name} ({att.size})
-                  </a>
-                </Button>
-              ))}
+            <Separator className="my-6 no-print" />
+            <div className="no-print">
+              <h3 className="text-sm font-medium mb-2 font-sans">Attachments</h3>
+              <div className="flex flex-wrap gap-2">
+                {memo.attachments.map((att) => (
+                  <Button
+                    key={att.id}
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="font-sans"
+                  >
+                    <a href={att.url} download={att.name}>
+                      <Paperclip className="h-4 w-4 mr-2" />
+                      {att.name} ({att.size})
+                    </a>
+                  </Button>
+                ))}
+              </div>
             </div>
           </>
         )}
 
-        <Separator className="my-6" />
+        <Separator className="my-6 no-print" />
 
-        <div className="flex items-center gap-2 font-sans">
-          <Button variant="outline">
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Acknowledge
-          </Button>
+        <div className="flex items-center gap-2 font-sans no-print">
+          {!isCC && 
+            <Button variant="outline">
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Acknowledge
+            </Button>
+          }
           <Button variant="outline">
             <Reply className="mr-2 h-4 w-4" />
             Reply
           </Button>
-          {memo.current_holder?.id === loggedInUser.id && (
+          {canDelegate && (
             <DelegateDialog memo={memo} onUpdate={onUpdate} />
           )}
+          <Button variant="ghost" size="icon" onClick={handlePrint}>
+            <Printer className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon">
             <Archive className="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
 
-        <Separator className="my-6" />
+        <Separator className="my-6 no-print" />
 
-        <div className="font-sans">
+        <div className="font-sans no-print">
           <h3 className="text-sm font-medium mb-4">Activity History</h3>
           <ul className="space-y-4">
             {memo.activity.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((act) => (
               <li key={act.id} className="flex items-start gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                   <Avatar className="h-8 w-8">
-                      <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
-                      <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                  {actionIcons[act.action] || <Send className="h-4 w-4" />}
                 </span>
-                <div className="flex-1 pt-1">
+                <div className="flex-1">
                   <p className="text-sm">
                     <span className="font-medium">{act.actor.name}</span>
                     <span className="text-muted-foreground">
