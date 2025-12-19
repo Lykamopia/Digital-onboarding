@@ -8,20 +8,16 @@ import {
   Reply,
   Share2,
   User as UserIcon,
+  Edit,
 } from 'lucide-react';
-
+import Link from 'next/link';
 import type { MemoWithActivity } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { formatTimestamp } from '@/lib/data';
+import { Badge } from '@/components/ui/badge';
 
 interface MemoDisplayProps {
   memo: MemoWithActivity | null;
@@ -54,6 +50,23 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
         </div>
       </Card>
     );
+  }
+  
+  if (memo.status === 'draft') {
+      return (
+          <Card className="h-full flex flex-col items-center justify-center">
+            <div className="text-center text-muted-foreground p-8">
+              <h2 className="text-lg font-semibold text-foreground mb-2">This is a draft</h2>
+              <p className="mb-4">You can continue editing this memo.</p>
+              <Link href={`/dashboard/new?id=${memo.id}`}>
+                  <Button>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Draft
+                  </Button>
+              </Link>
+            </div>
+          </Card>
+      )
   }
 
   return (
@@ -104,9 +117,7 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
 
       <CardContent>
         <Separator className="my-4" />
-        <div className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono">
-          {memo.body}
-        </div>
+        <div className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: memo.body }} />
 
         {memo.attachments.length > 0 && (
           <>

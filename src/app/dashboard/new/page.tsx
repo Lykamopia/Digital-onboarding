@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { FilePlus, Send } from 'lucide-react';
+import { FilePlus, Send, Save, Trash2, DraftingCompass } from 'lucide-react';
 import Link from 'next/link';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -17,26 +19,31 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { User, Memo } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { loggedInUser, users } from '@/lib/data';
+import { Editor } from '@/components/editor';
+import { Badge } from '@/components/ui/badge';
 
 const memoSchema = z.object({
+  id: z.string().optional(),
   to: z.array(z.any()).min(1, 'Please select at least one recipient.'),
   cc: z.array(z.any()).optional(),
   subject: z.string().min(1, 'Subject is required.'),
   body: z.string().min(1, 'Body is required.'),
-  attachments: z.any().optional(),
 });
 
+type MemoFormData = z.infer<typeof memoSchema>;
+
 export default function NewMemoPage() {
-  const [to, setTo] = useState<User[]>([]);
-  const [cc, setCc] = useState<User[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof memoSchema>>({
+  const form = useForm<MemoFormData>({
     resolver: zodResolver(memoSchema),
     defaultValues: {
       to: [],
@@ -46,25 +53,121 @@ export default function NewMemoPage() {
     },
   });
 
-  // Sync local state with react-hook-form state
-  form.watch((value, { name }) => {
-    if (name === 'to') setTo(value.to || []);
-    if (name === 'cc') setCc(value.cc || []);
-  });
+  const getDraftId = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+    return null;
+  };
 
-  function onSubmit(values: z.infer<typeof memoSchema>) {
+  const draftId = useMemo(getDraftId, []);
+
+  const saveDraft = useCallback((data: MemoFormData) => {
+    if (typeof window === 'undefined') return;
+    setIsSaving(true);
+    
+    const draft: Memo = {
+      id: draftId || `draft-${Date.now()}`,
+      memo_reference_number: 'DRAFT',
+      from: loggedInUser,
+      to: data.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
+      cc: (data.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
+      subject: data.subject,
+      body: data.body,
+      createdAt: new Date().toISOString(),
+      status: 'draft',
+      attachments: [],
+    };
+
+    let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
+    const existingDraftIndex = drafts.findIndex(d => d.id === draft.id);
+
+    if (existingDraftIndex > -1) {
+      drafts[existingDraftIndex] = draft;
+    } else {
+      drafts.push(draft);
+    }
+    
+    localStorage.setItem('memo-drafts', JSON.stringify(drafts));
+    
+    if (!draftId) {
+      const newUrl = `/dashboard/new?id=${draft.id}`;
+      window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
+    }
+    
+    setTimeout(() => {
+        setIsSaving(false);
+        setLastSaved(new Date().toLocaleTimeString());
+    }, 500);
+  }, [draftId]);
+
+  const debouncedSave = useDebouncedCallback(saveDraft, 1000);
+
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+        if(value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0)) {
+            debouncedSave(value as MemoFormData);
+        }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, debouncedSave]);
+
+  useEffect(() => {
+    if (draftId && typeof window !== 'undefined') {
+      const drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
+      const draft = drafts.find(d => d.id === draftId);
+      if (draft) {
+        form.reset({
+          id: draft.id,
+          to: draft.to,
+          cc: draft.cc,
+          subject: draft.subject,
+          body: draft.body,
+        });
+      }
+    }
+  }, [draftId, form]);
+
+  function deleteDraft() {
+      if (draftId && typeof window !== 'undefined') {
+          let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
+          drafts = drafts.filter(d => d.id !== draftId);
+          localStorage.setItem('memo-drafts', JSON.stringify(drafts));
+          toast({
+              title: 'Draft Deleted',
+              description: 'The draft has been permanently deleted.',
+          });
+          router.push('/dashboard?tab=drafts');
+      }
+  }
+
+  function onSubmit(values: MemoFormData) {
     console.log('New Memo Submitted:', values);
+    if(draftId) {
+        let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
+        drafts = drafts.filter(d => d.id !== draftId);
+        localStorage.setItem('memo-drafts', JSON.stringify(drafts));
+    }
     toast({
       title: 'Memo Sent!',
       description: 'Your memo has been successfully sent.',
     });
     form.reset();
+    router.push('/dashboard?tab=sent');
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Compose New Memo</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+            <DraftingCompass className="h-6 w-6"/>
+            Compose New Memo
+        </CardTitle>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {isSaving && <Badge variant="secondary">Saving...</Badge>}
+            {!isSaving && lastSaved && <Badge variant="outline">Saved at {lastSaved}</Badge>}
+        </div>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -77,7 +180,7 @@ export default function NewMemoPage() {
                   <FormLabel>To</FormLabel>
                   <FormControl>
                     <RecipientSelector
-                      selected={to}
+                      selected={field.value || []}
                       setSelected={(users) => field.onChange(users)}
                       placeholder="Select recipients..."
                     />
@@ -94,7 +197,7 @@ export default function NewMemoPage() {
                   <FormLabel>CC</FormLabel>
                   <FormControl>
                     <RecipientSelector
-                      selected={cc}
+                      selected={field.value || []}
                       setSelected={(users) => field.onChange(users)}
                       placeholder="Select CC recipients..."
                     />
@@ -123,37 +226,30 @@ export default function NewMemoPage() {
                 <FormItem>
                   <FormLabel>Body</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Type your memo content here."
-                      className="min-h-[250px] font-mono"
-                      {...field}
-                    />
+                    <Editor value={field.value} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="attachments"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Attachments</FormLabel>
-                  <FormControl>
-                    <Input type="file" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-2">
-              <Link href="/dashboard">
-                <Button variant="outline">Cancel</Button>
-              </Link>
-              <Button type="submit">
-                <Send className="mr-2 h-4 w-4" />
-                Send Memo
-              </Button>
+            <div className="flex justify-between">
+              <div>
+                {draftId && (
+                  <Button type="button" variant="destructive" onClick={deleteDraft}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Draft
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Link href="/dashboard">
+                  <Button variant="outline">Cancel</Button>
+                </Link>
+                <Button type="submit" disabled={isSaving || !form.formState.isValid}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Memo
+                </Button>
+              </div>
             </div>
           </form>
         </Form>

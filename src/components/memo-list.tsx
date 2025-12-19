@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { MemoWithActivity } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -13,6 +14,16 @@ interface MemoListProps {
 }
 
 export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps) {
+  const router = useRouter();
+
+  const handleSelect = (memo: MemoWithActivity) => {
+    if (memo.status === 'draft') {
+      router.push(`/dashboard/new?id=${memo.id}`);
+    } else {
+      onSelectMemo(memo.id);
+    }
+  }
+
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-2 p-4 pt-0">
@@ -23,12 +34,13 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
               "flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent",
               selectedMemoId === memo.id && "bg-muted"
             )}
-            onClick={() => onSelectMemo(memo.id)}
+            onClick={() => handleSelect(memo)}
           >
             <div className="flex w-full flex-col gap-1">
               <div className="flex items-center">
                 <div className="flex items-center gap-2">
-                  <div className="font-semibold">{memo.from.name}</div>
+                  <div className="font-semibold">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
+                  {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
                 </div>
                 <div
                   className={cn(
@@ -41,11 +53,9 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
                   {formatTimestamp(memo.createdAt)}
                 </div>
               </div>
-              <div className="text-xs font-medium">{memo.subject}</div>
+              <div className="text-xs font-medium">{memo.subject || "No Subject"}</div>
             </div>
-            <div className="line-clamp-2 text-xs text-muted-foreground">
-              {memo.body.substring(0, 300)}
-            </div>
+            <div className="line-clamp-2 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
              <div className="flex items-center gap-2">
                 {memo.status === 'acknowledged' && <Badge variant="default" className="bg-green-600">Acknowledged</Badge>}
                 {memo.status === 'read' && <Badge variant="secondary">Read</Badge>}

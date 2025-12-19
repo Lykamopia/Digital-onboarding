@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { memos as allMemos, loggedInUser } from "@/lib/data"
-import type { MemoWithActivity } from "@/lib/types"
+import type { MemoWithActivity, Memo } from "@/lib/types"
 import { MemoList } from "@/components/memo-list"
 import { MemoDisplay } from "@/components/memo-display"
 import { Card } from "@/components/ui/card"
@@ -16,12 +16,23 @@ function DashboardContent() {
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
 
   useEffect(() => {
-    const filteredMemos = allMemos.filter(memo => {
+    let drafts: Memo[] = [];
+    if (typeof window !== 'undefined') {
+        const draftsFromStorage = localStorage.getItem('memo-drafts');
+        drafts = draftsFromStorage ? JSON.parse(draftsFromStorage) : [];
+    }
+
+    const allCombinedMemos = [...drafts.map(d => ({...d, activity: []})), ...allMemos];
+
+    const filteredMemos = allCombinedMemos.filter(memo => {
       if (tab === 'inbox') {
-        return memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id)
+        return memo.status !== 'draft' && (memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id))
       }
       if (tab === 'sent') {
-        return memo.from.id === loggedInUser.id
+        return memo.status === 'sent' && memo.from.id === loggedInUser.id
+      }
+      if (tab === 'drafts') {
+          return memo.status === 'draft';
       }
       if (tab === 'archive') {
         // Implement archive logic if needed

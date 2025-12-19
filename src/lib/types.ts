@@ -25,7 +25,7 @@ export type Memo = {
   body: string;
   attachments: Attachment[];
   createdAt: string;
-  status: 'sent' | 'read' | 'acknowledged';
+  status: 'draft' | 'sent' | 'read' | 'acknowledged';
 };
 
 export type Activity = {

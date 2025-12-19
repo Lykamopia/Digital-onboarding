@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft, FilePlus } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit } from "lucide-react"
 
 import {
   SidebarProvider,
@@ -36,6 +36,10 @@ const MobileSidebar = () => {
                         <Inbox className="h-5 w-5" />
                         Inbox
                     </Link>
+                    <Link href="/dashboard?tab=drafts" className={`flex items-center gap-4 px-2.5 ${pathname.includes('drafts') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <Edit className="h-5 w-5" />
+                        Drafts
+                    </Link>
                     <Link href="/dashboard?tab=sent" className={`flex items-center gap-4 px-2.5 ${pathname.includes('sent') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                         <Send className="h-5 w-5" />
                         Sent
@@ -67,6 +71,10 @@ const DesktopSidebar = () => {
                          <Link href="/dashboard?tab=inbox" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname === '/dashboard' || pathname.includes('inbox') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
                             <Inbox className="h-4 w-4" />
                             Inbox
+                        </Link>
+                        <Link href="/dashboard?tab=drafts" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('drafts') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
+                            <Edit className="h-4 w-4" />
+                            Drafts
                         </Link>
                         <Link href="/dashboard?tab=sent" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('sent') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
                             <Send className="h-4 w-4" />
