@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo } from '@/lib/types';
+import type { User, Memo, Activity } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loggedInUser, users } from '@/lib/data';
 import { Editor } from '@/components/editor';
@@ -144,26 +144,42 @@ export default function NewMemoPage() {
 
   function onSubmit(values: MemoFormData) {
     const sentMemos = JSON.parse(localStorage.getItem('memos') || '[]');
+    
+    const toUsers = values.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
+    const ccUsers = (values.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
+    
+    const creationActivity: Activity = {
+        id: `act-${Date.now()}-create`,
+        actor: loggedInUser,
+        action: 'created',
+        timestamp: new Date().toISOString(),
+        details: 'Memo draft created.'
+    };
+    
+    const sentActivity: Activity = {
+        id: `act-${Date.now()}-send`,
+        actor: loggedInUser,
+        action: 'sent',
+        timestamp: new Date().toISOString(),
+        details: `Sent to ${toUsers.map(u => u.name).join(', ')}.` + (ccUsers.length > 0 ? ` CC: ${ccUsers.map(u => u.name).join(', ')}` : '')
+    };
+
     const newMemo = {
       id: `memo-${Date.now()}`,
       memo_reference_number: `MEMO-${new Date().getFullYear()}-00${sentMemos.length + 5}`,
       from: loggedInUser,
-      to: values.to,
-      cc: values.cc,
+      to: toUsers,
+      cc: ccUsers,
       subject: values.subject,
       body: values.body,
       createdAt: new Date().toISOString(),
-      status: 'sent',
+      status: 'sent' as const,
       attachments: [],
       activity: [
-          {
-              id: `act-${Date.now()}`,
-              actor: loggedInUser,
-              action: 'sent',
-              timestamp: new Date().toISOString()
-          }
+          creationActivity,
+          sentActivity,
       ],
-      current_holder: values.to[0],
+      current_holder: toUsers[0],
       previous_holders: []
     }
     sentMemos.push(newMemo);

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { MemoWithActivity } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { formatTimestamp } from "@/lib/data"
+import { formatDistanceToNow } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 
 interface MemoListProps {
@@ -26,13 +26,14 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-2 p-4 pt-0">
+      <div className="flex flex-col gap-0.5 p-2">
         {memos.map((memo) => (
           <button
             key={memo.id}
             className={cn(
-              "flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent",
-              selectedMemoId === memo.id && "bg-muted"
+              "flex flex-col items-start gap-2 rounded-lg border border-transparent p-3 text-left text-sm transition-colors",
+              "hover:bg-accent/50",
+              selectedMemoId === memo.id && "bg-primary/10 border-primary/50"
             )}
             onClick={() => handleSelect(memo)}
           >
@@ -50,16 +51,12 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
                       : "text-muted-foreground"
                   )}
                 >
-                  {formatTimestamp(memo.createdAt)}
+                  {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
                 </div>
               </div>
-              <div className="text-xs font-medium">{memo.subject || "No Subject"}</div>
+              <div className="text-sm font-medium">{memo.subject || "No Subject"}</div>
             </div>
             <div className="line-clamp-2 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
-             <div className="flex items-center gap-2">
-                {memo.status === 'acknowledged' && <Badge variant="default" className="bg-green-600">Acknowledged</Badge>}
-                {memo.status === 'read' && <Badge variant="secondary">Read</Badge>}
-            </div>
           </button>
         ))}
       </div>

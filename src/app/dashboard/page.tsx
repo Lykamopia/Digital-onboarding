@@ -29,9 +29,11 @@ function DashboardContent() {
 
     const filteredMemos = allCombinedMemos.filter(memo => {
       if (tab === 'inbox') {
-        const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id);
+        const isTo = memo.to.some(user => user.id === loggedInUser.id);
+        const isCc = memo.cc.some(user => user.id === loggedInUser.id);
         const isCurrentHolder = memo.current_holder?.id === loggedInUser.id;
-        return memo.status !== 'draft' && (isRecipient || isCurrentHolder);
+        // Show in inbox if I am a recipient (To or CC) OR the current holder, and it's not a draft from another user
+        return memo.status !== 'draft' && (isTo || isCc || isCurrentHolder);
       }
       if (tab === 'sent') {
         return memo.from.id === loggedInUser.id && memo.status !== 'draft';
@@ -43,8 +45,13 @@ function DashboardContent() {
         // Implement archive logic if needed
         return false;
       }
-      return true
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Default case for unknown tabs: don't show anything
+      return false;
+    }).sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+    });
     
     setMemos(filteredMemos);
 
@@ -59,6 +66,12 @@ function DashboardContent() {
 
   useEffect(() => {
     loadMemos();
+    // A listener to reload memos if local storage changes
+    const handleStorageChange = () => loadMemos();
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    }
   }, [tab, loadMemos]);
 
 

@@ -47,13 +47,16 @@ const actionIcons: { [key: string]: React.ReactNode } = {
 const UserDisplay = ({
   user,
 }: {
-  user: { name: string; division: string; department: string; office: string };
-}) => (
-  <div className="grid grid-cols-[max-content_1fr] gap-x-2">
-    <span className="font-semibold">{user.name}</span>
-    <span className="text-muted-foreground">{`${user.division}, ${user.department}, ${user.office}`}</span>
-  </div>
-);
+  user: User | undefined;
+}) => {
+    if (!user) return null;
+    return (
+        <div className="grid grid-cols-[max-content_1fr] gap-x-2">
+            <span className="font-semibold">{user.name}</span>
+            <span className="text-muted-foreground">{`${user.division}, ${user.department}, ${user.office}`}</span>
+        </div>
+    )
+};
 
 function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
   const [selectedUser, setSelectedUser] = React.useState<User[]>([]);
@@ -73,17 +76,17 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
     const delegateTo = selectedUser[0];
 
     const newActivity = {
-      id: `act-${memo.id}-${memo.activity.length + 1}`,
+      id: `act-${Date.now()}`,
       actor: loggedInUser,
       action: 'delegated' as const,
       timestamp: new Date().toISOString(),
-      details: `Delegated from ${loggedInUser.name} to ${delegateTo.name}.${remark ? ` Remark: ${remark}` : ''}`,
+      details: `Delegated from ${loggedInUser.name} to ${delegateTo.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
     };
     
     const updatedMemo = {
         ...memo,
         current_holder: delegateTo,
-        previous_holders: [...(memo.previous_holders || []), loggedInUser],
+        previous_holders: [...(memo.previous_holders || []), memo.current_holder].filter(Boolean) as User[],
         activity: [...memo.activity, newActivity],
     };
 
@@ -96,7 +99,7 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
             title: "Memo Delegated",
             description: `Successfully delegated to ${delegateTo.name}.`
         });
-        onUpdate(); // Re-fetch memos in parent
+        onUpdate();
         setOpen(false);
         setSelectedUser([]);
         setRemark('');
@@ -176,8 +179,8 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
     );
   }
   
-  const currentHolder = memo.current_holder || memo.to.find(u => u.id === loggedInUser.id) || memo.cc.find(u => u.id === loggedInUser.id) || memo.from;
-
+  const currentHolder = memo.current_holder;
+  const previousHolder = memo.previous_holders && memo.previous_holders.length > 0 ? memo.previous_holders[memo.previous_holders.length-1] : undefined;
 
   return (
     <Card className="h-full font-mono text-sm">
@@ -196,14 +199,16 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
         <Separator />
 
         <div className="space-y-2">
-          <div className="grid grid-cols-[120px_1fr] items-start">
+            {currentHolder && (
+              <div className="grid grid-cols-[120px_1fr] items-start">
                 <span className="font-semibold">CURRENT HOLDER:</span>
                 <UserDisplay user={currentHolder} />
-            </div>
-            {memo.previous_holders && memo.previous_holders.length > 0 && (
+              </div>
+            )}
+            {previousHolder && (
                 <div className="grid grid-cols-[120px_1fr] items-start">
                     <span className="font-semibold">PREVIOUS HOLDER:</span>
-                     <UserDisplay user={memo.previous_holders[memo.previous_holders.length-1]} />
+                     <UserDisplay user={previousHolder} />
                 </div>
             )}
           <div className="grid grid-cols-[120px_1fr] items-start">
@@ -280,7 +285,9 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
             <Reply className="mr-2 h-4 w-4" />
             Reply
           </Button>
-          <DelegateDialog memo={memo} onUpdate={onUpdate} />
+          {memo.current_holder?.id === loggedInUser.id && (
+            <DelegateDialog memo={memo} onUpdate={onUpdate} />
+          )}
           <Button variant="ghost" size="icon">
             <Archive className="h-4 w-4 text-muted-foreground" />
           </Button>
@@ -291,7 +298,7 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
         <div className="font-sans">
           <h3 className="text-sm font-medium mb-4">Activity History</h3>
           <ul className="space-y-4">
-            {memo.activity.map((act) => (
+            {memo.activity.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((act) => (
               <li key={act.id} className="flex items-start gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                    <Avatar className="h-8 w-8">
