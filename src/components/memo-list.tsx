@@ -31,9 +31,9 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
           <button
             key={memo.id}
             className={cn(
-              "flex flex-col items-start gap-2 rounded-lg border border-transparent p-3 text-left text-sm transition-colors",
-              "hover:bg-primary/10",
-              selectedMemoId === memo.id && "bg-primary/10 border-primary/50"
+              "flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-colors",
+              "hover:bg-primary/5",
+              selectedMemoId === memo.id ? "bg-primary/10 border-primary/20" : "border-transparent"
             )}
             onClick={() => handleSelect(memo)}
           >

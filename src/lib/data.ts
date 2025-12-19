@@ -95,15 +95,16 @@ export const memos: MemoWithActivity[] = [
   },
 ];
 
-export const formatTimestamp = (timestamp: string) => {
+export const formatTimestamp = (timestamp: string, relative: boolean = true) => {
   if (!timestamp) return '';
   try {
     const date = new Date(timestamp);
-    // Check if the date is valid
     if (isNaN(date.getTime())) {
       return '';
     }
     const formattedDate = format(date, "MMMM d, yyyy 'at' h:mm a");
+    if (!relative) return format(date, "MMMM d, yyyy");
+    
     const relativeDate = formatDistanceToNow(date, { addSuffix: true });
     return `${formattedDate} (${relativeDate})`;
   } catch (e) {

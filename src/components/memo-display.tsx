@@ -12,6 +12,7 @@ import {
   Printer,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { MemoWithActivity, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -43,14 +44,16 @@ const actionIcons: { [key: string]: React.ReactNode } = {
 
 const UserDisplay = ({
   user,
+  showDetails = true,
 }: {
   user: User | undefined;
+  showDetails?: boolean;
 }) => {
     if (!user) return null;
     return (
-        <div className="grid grid-cols-[max-content_1fr] gap-x-2">
-            <span className="font-semibold">{user.name}</span>
-            <span className="text-muted-foreground">{`${user.division}, ${user.department}, ${user.office}`}</span>
+        <div>
+            <span>{user.name}</span>
+            {showDetails && <span className="text-muted-foreground text-xs block">{`${user.division}, ${user.department}, ${user.office}`}</span>}
         </div>
     )
 };
@@ -144,6 +147,13 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
   );
 }
 
+const MemoField = ({ label, children }: { label: string, children: React.ReactNode }) => (
+    <div className="grid grid-cols-[80px_1fr] items-start border-b py-2">
+        <span className="font-semibold text-sm">{label}</span>
+        <div>{children}</div>
+    </div>
+);
+
 export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
 
   const handlePrint = () => {
@@ -181,76 +191,49 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
     );
   }
   
-  const currentHolder = memo.current_holder;
-  const previousHolder = memo.previous_holders && memo.previous_holders.length > 0 ? memo.previous_holders[memo.previous_holders.length-1] : undefined;
-  
   const isCC = memo.cc.some(u => u.id === loggedInUser.id) && memo.to.every(u => u.id !== loggedInUser.id);
   const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
     <Card className="h-full font-mono text-sm printable-memo">
-      <CardHeader className="pb-4 printable-memo-header">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="font-headline text-xl mb-4">
-              INTERNAL MEMORANDUM
-            </CardTitle>
-          </div>
-          <div className="text-right text-xs text-muted-foreground">
-            Ref: {memo.memo_reference_number}
-          </div>
+      <CardHeader className="p-6 printable-memo-header">
+         <div className="flex flex-col items-center mb-6">
+            <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
+            <p className="text-lg font-semibold mt-2">Memorandum</p>
         </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-            {currentHolder && (
-              <div className="grid grid-cols-[120px_1fr] items-start">
-                <span className="font-semibold">CURRENT HOLDER:</span>
-                <UserDisplay user={currentHolder} />
-              </div>
+        <div className="text-right text-xs text-muted-foreground mb-4">
+            Ref: {memo.memo_reference_number}
+        </div>
+        <div className="border-t border-b">
+            <MemoField label="Date">
+                {formatTimestamp(memo.createdAt, false)}
+            </MemoField>
+             <MemoField label="From">
+                <UserDisplay user={memo.from} />
+            </MemoField>
+            <MemoField label="To">
+                 <div className="flex flex-col gap-2">
+                    {memo.to.map((user) => (
+                        <UserDisplay key={user.id} user={user} showDetails={false} />
+                    ))}
+                 </div>
+            </MemoField>
+            {memo.cc.length > 0 && (
+                 <MemoField label="CC">
+                     <div className="flex flex-col gap-2">
+                        {memo.cc.map((user) => (
+                            <UserDisplay key={user.id} user={user} showDetails={false} />
+                        ))}
+                    </div>
+                </MemoField>
             )}
-            {previousHolder && (
-                <div className="grid grid-cols-[120px_1fr] items-start">
-                    <span className="font-semibold">PREVIOUS HOLDER:</span>
-                     <UserDisplay user={previousHolder} />
-                </div>
-            )}
-          <div className="grid grid-cols-[120px_1fr] items-start">
-            <span className="font-semibold">DATE:</span>
-            <span>{formatTimestamp(memo.createdAt)}</span>
-          </div>
-          <div className="grid grid-cols-[120px_1fr] items-start">
-            <span className="font-semibold">FROM:</span>
-            <UserDisplay user={memo.from} />
-          </div>
-          <div className="grid grid-cols-[120px_1fr] items-start">
-            <span className="font-semibold">TO:</span>
-            <div className="flex flex-col gap-1">
-              {memo.to.map((user) => (
-                <UserDisplay key={user.id} user={user} />
-              ))}
-            </div>
-          </div>
-          {memo.cc.length > 0 && (
-            <div className="grid grid-cols-[120px_1fr] items-start">
-              <span className="font-semibold">CC:</span>
-              <div className="flex flex-col gap-1">
-                {memo.cc.map((user) => (
-                  <UserDisplay key={user.id} user={user} />
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-[120px_1fr] items-start">
-            <span className="font-semibold">SUBJECT:</span>
-            <span>{memo.subject}</span>
-          </div>
+             <MemoField label="Subject">
+                <span className="font-medium">{memo.subject}</span>
+            </MemoField>
         </div>
       </CardHeader>
 
-      <CardContent className='printable-memo-content'>
-        <Separator className="my-4" />
+      <CardContent className='pt-6 printable-memo-content'>
         <div
           className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono"
           dangerouslySetInnerHTML={{ __html: memo.body }}
@@ -297,6 +280,7 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
           {canDelegate && (
             <DelegateDialog memo={memo} onUpdate={onUpdate} />
           )}
+          <div className="flex-grow" />
           <Button variant="ghost" size="icon" onClick={handlePrint}>
             <Printer className="h-4 w-4" />
           </Button>
@@ -310,10 +294,13 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
         <div className="font-sans no-print">
           <h3 className="text-sm font-medium mb-4">Activity History</h3>
           <ul className="space-y-4">
-            {memo.activity.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((act) => (
+            {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
               <li key={act.id} className="flex items-start gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                  {actionIcons[act.action] || <Send className="h-4 w-4" />}
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
+                    <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
                 </span>
                 <div className="flex-1">
                   <p className="text-sm">
@@ -337,4 +324,9 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
       </CardContent>
     </Card>
   );
+}
+
+interface MemoDisplayProps {
+  memo: MemoWithActivity | null;
+  onUpdate: () => void;
 }

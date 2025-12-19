@@ -22,8 +22,8 @@
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
 
-    --accent: 45 92% 52%; /* #f6bb14 */
-    --accent-foreground: 48 95.5% 12.5%;
+    --accent: 26 61% 90%; /* Lighter brown for hover */
+    --accent-foreground: 26 61% 20%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -60,8 +60,8 @@
     --muted: 215 27.9% 16.9%;
     --muted-foreground: 217.9 10.6% 64.9%;
 
-    --accent: 45 92% 52%;
-    --accent-foreground: 48 95.5% 12.5%;
+    --accent: 26 61% 15%;
+    --accent-foreground: 26 61% 80%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 85.7% 97.3%;
@@ -84,7 +84,8 @@
 @layer utilities {
   @media print {
     body {
-        background-color: white;
+        background-color: white !important;
+        color: black !important;
     }
     .printable-memo {
         box-shadow: none !important;
@@ -93,6 +94,7 @@
         margin: 0 !important;
         font-family: 'Times New Roman', Times, serif;
         font-size: 12pt;
+        color: black;
     }
     .printable-memo-header, .printable-memo-content {
         padding: 0 !important;
@@ -103,6 +105,10 @@
      .printable-memo .prose {
         font-family: 'Times New Roman', Times, serif;
         font-size: 12pt;
+        color: black;
+    }
+    .printable-memo * {
+      color: black !important;
     }
     .no-print {
       display: none !important;
