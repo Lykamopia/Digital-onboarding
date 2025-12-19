@@ -16,7 +16,7 @@ import Image from 'next/image';
 import type { MemoWithActivity, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatTimestamp, loggedInUser } from '@/lib/data';
 import {
@@ -147,14 +147,29 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
   );
 }
 
-const MemoField = ({ label, children }: { label: string, children: React.ReactNode }) => (
-    <div className="grid grid-cols-[80px_1fr] items-start border-b py-2">
-        <span className="font-semibold text-sm">{label}</span>
-        <div>{children}</div>
-    </div>
-);
+const MemoField = ({ label, children, isAmharic=false }: { label: string, children: React.ReactNode, isAmharic?: boolean }) => {
+    const enLabel = label;
+    const amLabel = isAmharic ? ` - ${label}` : '';
+    let finalLabel = label;
+    switch(label) {
+        case 'Date': finalLabel = 'Date - ቀን'; break;
+        case 'From': finalLabel = 'From - ከ'; break;
+        case 'To': finalLabel = 'To - ለ'; break;
+        case 'Subject': finalLabel = 'Subject - ጉዳዩ'; break;
+        case 'CC': finalLabel = 'CC - ግልባጭ'; break;
+        case 'ENC': finalLabel = 'ENC - አባሪ'; break;
+    }
 
-export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
+
+    return (
+        <div className="grid grid-cols-[120px_1fr] items-start border-b py-2">
+            <span className="font-semibold text-sm">{finalLabel}</span>
+            <div>{children}</div>
+        </div>
+    );
+};
+
+export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
 
   const handlePrint = () => {
     window.print();
@@ -171,7 +186,7 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
     );
   }
 
-  if (memo.status === 'draft') {
+  if (memo.status === 'draft' && !isPreview) {
     return (
       <div className="h-full p-2">
         <EmptyState
@@ -195,7 +210,7 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
   const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
-    <Card className="h-full font-mono text-sm printable-memo">
+    <Card className="h-full font-mono text-sm printable-memo" id={isPreview ? '' : 'memo-content'}>
       <CardHeader className="p-6 printable-memo-header">
          <div className="flex flex-col items-center mb-6">
             <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
@@ -263,64 +278,66 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
             </div>
           </>
         )}
-
-        <Separator className="my-6 no-print" />
-
-        <div className="flex items-center gap-2 font-sans no-print">
-          {!isCC && 
-            <Button variant="outline">
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Acknowledge
-            </Button>
-          }
-          <Button variant="outline">
-            <Reply className="mr-2 h-4 w-4" />
-            Reply
-          </Button>
-          {canDelegate && (
-            <DelegateDialog memo={memo} onUpdate={onUpdate} />
-          )}
-          <div className="flex-grow" />
-          <Button variant="ghost" size="icon" onClick={handlePrint}>
-            <Printer className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Archive className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </div>
-
-        <Separator className="my-6 no-print" />
-
-        <div className="font-sans no-print">
-          <h3 className="text-sm font-medium mb-4">Activity History</h3>
-          <ul className="space-y-4">
-            {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
-              <li key={act.id} className="flex items-start gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
-                    <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-medium">{act.actor.name}</span>
-                    <span className="text-muted-foreground">
-                      {' '}
-                      {act.action} this memo.
-                    </span>
-                  </p>
-                  {act.details && (
-                    <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatTimestamp(act.timestamp)}
-                  </p>
+        
+        { !isPreview && (
+            <>
+                <Separator className="my-6 no-print" />
+                <div className="flex items-center gap-2 font-sans no-print">
+                {!isCC && 
+                    <Button variant="outline">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Acknowledge
+                    </Button>
+                }
+                <Button variant="outline">
+                    <Reply className="mr-2 h-4 w-4" />
+                    Reply
+                </Button>
+                {canDelegate && (
+                    <DelegateDialog memo={memo} onUpdate={onUpdate} />
+                )}
+                <div className="flex-grow" />
+                <Button variant="ghost" size="icon" onClick={handlePrint}>
+                    <Printer className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon">
+                    <Archive className="h-4 w-4 text-muted-foreground" />
+                </Button>
                 </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+                <Separator className="my-6 no-print" />
+
+                <div className="font-sans no-print">
+                <h3 className="text-sm font-medium mb-4">Activity History</h3>
+                <ul className="space-y-4">
+                    {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
+                    <li key={act.id} className="flex items-start gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
+                            <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        </span>
+                        <div className="flex-1">
+                        <p className="text-sm">
+                            <span className="font-medium">{act.actor.name}</span>
+                            <span className="text-muted-foreground">
+                            {' '}
+                            {act.action} this memo.
+                            </span>
+                        </p>
+                        {act.details && (
+                            <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {formatTimestamp(act.timestamp)}
+                        </p>
+                        </div>
+                    </li>
+                    ))}
+                </ul>
+                </div>
+            </>
+        )}
       </CardContent>
     </Card>
   );
@@ -329,4 +346,5 @@ export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
 interface MemoDisplayProps {
   memo: MemoWithActivity | null;
   onUpdate: () => void;
+  isPreview?: boolean;
 }
