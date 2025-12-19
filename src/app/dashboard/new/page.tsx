@@ -221,7 +221,7 @@ export default function NewMemoPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -349,11 +349,11 @@ export default function NewMemoPage() {
                               Preview
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
+                          <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
                             <DialogHeader>
                               <DialogTitle>Live Preview</DialogTitle>
                             </DialogHeader>
-                            <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden mt-4">
+                            <div className="flex-1 overflow-y-auto rounded-lg border bg-card text-card-foreground shadow-sm mt-4">
                                 <MemoPreview memoData={previewMemo} />
                             </div>
                           </DialogContent>
