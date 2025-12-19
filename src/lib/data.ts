@@ -1,6 +1,6 @@
 import type { User, MemoWithActivity } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 const userImages = PlaceHolderImages.reduce((acc, img) => {
   acc[img.id] = img.imageUrl;
@@ -20,6 +20,7 @@ export const loggedInUser = users[0];
 export const memos: MemoWithActivity[] = [
   {
     id: 'memo-1',
+    memo_reference_number: "MEMO-2024-001",
     from: users[1],
     to: [users[0], users[2]],
     cc: [users[3]],
@@ -36,11 +37,12 @@ export const memos: MemoWithActivity[] = [
   },
   {
     id: 'memo-2',
+    memo_reference_number: "MEMO-2024-002",
     from: users[3],
     to: [users[0]],
     cc: [],
     subject: 'New Security Protocol Implementation',
-    body: 'Team, we will be rolling out a new security protocol starting next Monday. Please ensure all your team members complete the mandatory training module by then. See attached document for details.',
+    body: 'Team,\n\nWe will be rolling out a new security protocol starting next Monday. Please ensure all your team members complete the mandatory training module by then. See attached document for details.\n\nThank you.',
     attachments: [{ id: 'att-2', name: 'Security_Protocol_v2.docx', size: '780 KB', url: '#' }],
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'acknowledged',
@@ -52,6 +54,7 @@ export const memos: MemoWithActivity[] = [
   },
   {
     id: 'memo-3',
+    memo_reference_number: "MEMO-2024-003",
     from: users[0],
     to: [users[4]],
     cc: [users[1]],
@@ -66,6 +69,7 @@ export const memos: MemoWithActivity[] = [
   },
   {
     id: 'memo-4',
+    memo_reference_number: "MEMO-2024-004",
     from: users[2],
     to: [users[0], users[1], users[3], users[4]],
     cc: [],
@@ -84,5 +88,8 @@ export const memos: MemoWithActivity[] = [
 ];
 
 export const formatTimestamp = (timestamp: string) => {
-  return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    const date = new Date(timestamp);
+    const formattedDate = format(date, "MMMM d, yyyy 'at' h:mm a");
+    const relativeDate = formatDistanceToNow(date, { addSuffix: true });
+    return `${formattedDate} (${relativeDate})`;
 };

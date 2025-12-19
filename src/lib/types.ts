@@ -17,6 +17,7 @@ export type Attachment = {
 
 export type Memo = {
   id: string;
+  memo_reference_number: string;
   from: User;
   to: User[];
   cc: User[];

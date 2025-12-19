@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus } from "lucide-react"
 
 import {
   SidebarProvider,
@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button"
 import Logo from "@/components/logo"
 import { UserNav } from "@/components/user-nav"
-import { NewMemoDialog } from "@/components/new-memo-dialog"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 const MobileSidebar = () => {
@@ -98,7 +97,12 @@ function DashboardLayoutContent({
                     <div className="w-full flex-1">
                         {/* Optional: Add a search bar here */}
                     </div>
-                    <NewMemoDialog />
+                     <Link href="/dashboard/new">
+                        <Button>
+                          <FilePlus className="mr-2 h-4 w-4" />
+                          New Memo
+                        </Button>
+                    </Link>
                     <UserNav />
                 </header>
                 <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
