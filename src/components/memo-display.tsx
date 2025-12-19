@@ -1,30 +1,42 @@
 'use client';
 
+import * as React from 'react';
 import {
   Archive,
   CheckCircle,
-  Clock,
   Paperclip,
   Reply,
   Share2,
-  User as UserIcon,
   Edit,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { MemoWithActivity } from '@/lib/types';
+import type { MemoWithActivity, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatTimestamp } from '@/lib/data';
-import { Badge } from '@/components/ui/badge';
+import { formatTimestamp, loggedInUser, users } from '@/lib/data';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { RecipientSelector } from './recipient-selector';
+import { Textarea } from './ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 interface MemoDisplayProps {
   memo: MemoWithActivity | null;
+  onUpdate: () => void;
 }
 
-const actionIcons = {
-  sent: <Share2 className="h-4 w-4" />,
+const actionIcons: { [key: string]: React.ReactNode } = {
+  sent: <Send className="h-4 w-4" />,
   viewed: <CheckCircle className="h-4 w-4 text-blue-500" />,
   acknowledged: <CheckCircle className="h-4 w-4 text-green-500" />,
   commented: <Reply className="h-4 w-4" />,
@@ -32,15 +44,108 @@ const actionIcons = {
   created: <Share2 className="h-4 w-4" />,
 };
 
-const UserDisplay = ({ user }: { user: { name: string; division: string; department: string; office: string; } }) => (
-    <div className="grid grid-cols-[max-content_1fr] gap-x-2">
-        <span className="font-semibold">{user.name}</span>
-        <span className="text-muted-foreground">{`${user.division}, ${user.department}, ${user.office}`}</span>
-    </div>
+const UserDisplay = ({
+  user,
+}: {
+  user: { name: string; division: string; department: string; office: string };
+}) => (
+  <div className="grid grid-cols-[max-content_1fr] gap-x-2">
+    <span className="font-semibold">{user.name}</span>
+    <span className="text-muted-foreground">{`${user.division}, ${user.department}, ${user.office}`}</span>
+  </div>
 );
 
+function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
+  const [selectedUser, setSelectedUser] = React.useState<User[]>([]);
+  const [remark, setRemark] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const { toast } = useToast();
 
-export function MemoDisplay({ memo }: MemoDisplayProps) {
+  const handleDelegate = () => {
+    if (selectedUser.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No user selected',
+        description: 'Please select a user to delegate the memo to.',
+      });
+      return;
+    }
+    const delegateTo = selectedUser[0];
+
+    const newActivity = {
+      id: `act-${memo.id}-${memo.activity.length + 1}`,
+      actor: loggedInUser,
+      action: 'delegated' as const,
+      timestamp: new Date().toISOString(),
+      details: `Delegated from ${loggedInUser.name} to ${delegateTo.name}.${remark ? ` Remark: ${remark}` : ''}`,
+    };
+    
+    const updatedMemo = {
+        ...memo,
+        current_holder: delegateTo,
+        previous_holders: [...(memo.previous_holders || []), loggedInUser],
+        activity: [...memo.activity, newActivity],
+    };
+
+    const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
+    const memoIndex = memos.findIndex(m => m.id === memo.id);
+    if(memoIndex > -1) {
+        memos[memoIndex] = updatedMemo;
+        localStorage.setItem('memos', JSON.stringify(memos));
+        toast({
+            title: "Memo Delegated",
+            description: `Successfully delegated to ${delegateTo.name}.`
+        });
+        onUpdate(); // Re-fetch memos in parent
+        setOpen(false);
+        setSelectedUser([]);
+        setRemark('');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Share2 className="mr-2 h-4 w-4" />
+          Delegate
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delegate Memo</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Delegate to</p>
+            <RecipientSelector
+              selected={selectedUser}
+              setSelected={(users) => setSelectedUser(users.slice(0, 1))}
+              placeholder="Select a user..."
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Remark (Optional)</p>
+            <Textarea
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="Add a remark..."
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button onClick={handleDelegate}>Delegate</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+export function MemoDisplay({ memo, onUpdate }: MemoDisplayProps) {
   if (!memo) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -51,73 +156,95 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
       </Card>
     );
   }
-  
+
   if (memo.status === 'draft') {
-      return (
-          <Card className="h-full flex flex-col items-center justify-center">
-            <div className="text-center text-muted-foreground p-8">
-              <h2 className="text-lg font-semibold text-foreground mb-2">This is a draft</h2>
-              <p className="mb-4">You can continue editing this memo.</p>
-              <Link href={`/dashboard/new?id=${memo.id}`}>
-                  <Button>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Draft
-                  </Button>
-              </Link>
-            </div>
-          </Card>
-      )
+    return (
+      <Card className="h-full flex flex-col items-center justify-center">
+        <div className="text-center text-muted-foreground p-8">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
+            This is a draft
+          </h2>
+          <p className="mb-4">You can continue editing this memo.</p>
+          <Link href={`/dashboard/new?id=${memo.id}`}>
+            <Button>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Draft
+            </Button>
+          </Link>
+        </div>
+      </Card>
+    );
   }
+  
+  const currentHolder = memo.current_holder || memo.to.find(u => u.id === loggedInUser.id) || memo.cc.find(u => u.id === loggedInUser.id) || memo.from;
+
 
   return (
     <Card className="h-full font-mono text-sm">
       <CardHeader className="pb-4">
         <div className="flex justify-between items-start">
-            <div>
-                <CardTitle className="font-headline text-xl mb-4">
-                INTERNAL MEMORANDUM
-                </CardTitle>
-            </div>
-             <div className="text-right text-xs text-muted-foreground">
-                Ref: {memo.memo_reference_number}
-             </div>
+          <div>
+            <CardTitle className="font-headline text-xl mb-4">
+              INTERNAL MEMORANDUM
+            </CardTitle>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            Ref: {memo.memo_reference_number}
+          </div>
         </div>
 
         <Separator />
-        
+
         <div className="space-y-2">
-            <div className="grid grid-cols-[60px_1fr] items-start">
-                <span className="font-semibold">DATE:</span>
-                <span>{formatTimestamp(memo.createdAt)}</span>
+          <div className="grid grid-cols-[120px_1fr] items-start">
+                <span className="font-semibold">CURRENT HOLDER:</span>
+                <UserDisplay user={currentHolder} />
             </div>
-            <div className="grid grid-cols-[60px_1fr] items-start">
-                <span className="font-semibold">FROM:</span>
-                <UserDisplay user={memo.from} />
-            </div>
-            <div className="grid grid-cols-[60px_1fr] items-start">
-                <span className="font-semibold">TO:</span>
-                <div className="flex flex-col gap-1">
-                    {memo.to.map((user) => <UserDisplay key={user.id} user={user} />)}
-                </div>
-            </div>
-            {memo.cc.length > 0 && (
-                 <div className="grid grid-cols-[60px_1fr] items-start">
-                    <span className="font-semibold">CC:</span>
-                    <div className="flex flex-col gap-1">
-                        {memo.cc.map((user) => <UserDisplay key={user.id} user={user} />)}
-                    </div>
+            {memo.previous_holders && memo.previous_holders.length > 0 && (
+                <div className="grid grid-cols-[120px_1fr] items-start">
+                    <span className="font-semibold">PREVIOUS HOLDER:</span>
+                     <UserDisplay user={memo.previous_holders[memo.previous_holders.length-1]} />
                 </div>
             )}
-            <div className="grid grid-cols-[60px_1fr] items-start">
-                <span className="font-semibold">SUBJECT:</span>
-                <span>{memo.subject}</span>
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="font-semibold">DATE:</span>
+            <span>{formatTimestamp(memo.createdAt)}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="font-semibold">FROM:</span>
+            <UserDisplay user={memo.from} />
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="font-semibold">TO:</span>
+            <div className="flex flex-col gap-1">
+              {memo.to.map((user) => (
+                <UserDisplay key={user.id} user={user} />
+              ))}
             </div>
+          </div>
+          {memo.cc.length > 0 && (
+            <div className="grid grid-cols-[120px_1fr] items-start">
+              <span className="font-semibold">CC:</span>
+              <div className="flex flex-col gap-1">
+                {memo.cc.map((user) => (
+                  <UserDisplay key={user.id} user={user} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="font-semibold">SUBJECT:</span>
+            <span>{memo.subject}</span>
+          </div>
         </div>
       </CardHeader>
 
       <CardContent>
         <Separator className="my-4" />
-        <div className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono" dangerouslySetInnerHTML={{ __html: memo.body }} />
+        <div
+          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono"
+          dangerouslySetInnerHTML={{ __html: memo.body }}
+        />
 
         {memo.attachments.length > 0 && (
           <>
@@ -125,7 +252,13 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
             <h3 className="text-sm font-medium mb-2 font-sans">Attachments</h3>
             <div className="flex flex-wrap gap-2">
               {memo.attachments.map((att) => (
-                <Button key={att.id} variant="outline" size="sm" asChild className="font-sans">
+                <Button
+                  key={att.id}
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="font-sans"
+                >
                   <a href={att.url} download={att.name}>
                     <Paperclip className="h-4 w-4 mr-2" />
                     {att.name} ({att.size})
@@ -147,10 +280,7 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
             <Reply className="mr-2 h-4 w-4" />
             Reply
           </Button>
-          <Button variant="outline">
-            <Share2 className="mr-2 h-4 w-4" />
-            Delegate
-          </Button>
+          <DelegateDialog memo={memo} onUpdate={onUpdate} />
           <Button variant="ghost" size="icon">
             <Archive className="h-4 w-4 text-muted-foreground" />
           </Button>
@@ -164,7 +294,10 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
             {memo.activity.map((act) => (
               <li key={act.id} className="flex items-start gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                  {actionIcons[act.action] || <UserIcon className="h-4 w-4" />}
+                   <Avatar className="h-8 w-8">
+                      <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
+                      <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
                 </span>
                 <div className="flex-1 pt-1">
                   <p className="text-sm">
@@ -175,9 +308,7 @@ export function MemoDisplay({ memo }: MemoDisplayProps) {
                     </span>
                   </p>
                   {act.details && (
-                    <p className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2">
-                      {act.details}
-                    </p>
+                    <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatTimestamp(act.timestamp)}

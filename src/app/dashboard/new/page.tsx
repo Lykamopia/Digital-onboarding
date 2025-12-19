@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { FilePlus, Send, Save, Trash2, DraftingCompass } from 'lucide-react';
+import { Send, Trash2, DraftingCompass } from 'lucide-react';
 import Link from 'next/link';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
 import type { User, Memo } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loggedInUser, users } from '@/lib/data';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
@@ -143,12 +143,38 @@ export default function NewMemoPage() {
   }
 
   function onSubmit(values: MemoFormData) {
-    console.log('New Memo Submitted:', values);
+    const sentMemos = JSON.parse(localStorage.getItem('memos') || '[]');
+    const newMemo = {
+      id: `memo-${Date.now()}`,
+      memo_reference_number: `MEMO-${new Date().getFullYear()}-00${sentMemos.length + 5}`,
+      from: loggedInUser,
+      to: values.to,
+      cc: values.cc,
+      subject: values.subject,
+      body: values.body,
+      createdAt: new Date().toISOString(),
+      status: 'sent',
+      attachments: [],
+      activity: [
+          {
+              id: `act-${Date.now()}`,
+              actor: loggedInUser,
+              action: 'sent',
+              timestamp: new Date().toISOString()
+          }
+      ],
+      current_holder: values.to[0],
+      previous_holders: []
+    }
+    sentMemos.push(newMemo);
+    localStorage.setItem('memos', JSON.stringify(sentMemos));
+
     if(draftId) {
         let drafts: Memo[] = JSON.parse(localStorage.getItem('memo-drafts') || '[]');
         drafts = drafts.filter(d => d.id !== draftId);
         localStorage.setItem('memo-drafts', JSON.stringify(drafts));
     }
+
     toast({
       title: 'Memo Sent!',
       description: 'Your memo has been successfully sent.',

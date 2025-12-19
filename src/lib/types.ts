@@ -26,6 +26,8 @@ export type Memo = {
   attachments: Attachment[];
   createdAt: string;
   status: 'draft' | 'sent' | 'read' | 'acknowledged';
+  current_holder?: User;
+  previous_holders?: User[];
 };
 
 export type Activity = {

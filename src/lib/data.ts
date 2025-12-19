@@ -29,6 +29,7 @@ export const memos: MemoWithActivity[] = [
     attachments: [{ id: 'att-1', name: 'Q3_Financials.pdf', size: '2.5 MB', url: '#' }],
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     status: 'read',
+    current_holder: users[0],
     activity: [
       { id: 'act-1-1', actor: users[1], action: 'sent', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
       { id: 'act-1-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() },
@@ -46,6 +47,7 @@ export const memos: MemoWithActivity[] = [
     attachments: [{ id: 'att-2', name: 'Security_Protocol_v2.docx', size: '780 KB', url: '#' }],
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'acknowledged',
+    current_holder: users[0],
     activity: [
       { id: 'act-2-1', actor: users[3], action: 'sent', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
       { id: 'act-2-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString() },
@@ -63,6 +65,7 @@ export const memos: MemoWithActivity[] = [
     attachments: [],
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'sent',
+    current_holder: users[4],
     activity: [
        { id: 'act-3-1', actor: users[0], action: 'sent', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
     ],
@@ -78,10 +81,12 @@ export const memos: MemoWithActivity[] = [
     attachments: [],
     createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'sent',
+    current_holder: users[1],
+    previous_holders: [users[0]],
      activity: [
-      { id: 'act-4-1', actor: users[2], action: 'sent', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: 'act-4-1', actor: users[2], action: 'sent', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), details: 'Sent to Alice Johnson, Bob Williams, Diana Prince, Ethan Hunt.' },
       { id: 'act-4-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'act-4-3', actor: users[0], action: 'delegated', details: 'Delegated to Bob Williams', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
+      { id: 'act-4-3', actor: users[0], action: 'delegated', details: 'Delegated from Alice Johnson to Bob Williams.\nRemark: Bob, can you handle this?', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
       { id: 'act-4-4', actor: users[1], action: 'commented', details: 'Will there be a remote option?', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
     ],
   },

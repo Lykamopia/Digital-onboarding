@@ -5,7 +5,6 @@ import { Check, ChevronsUpDown, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -24,11 +23,13 @@ import type { User } from "@/lib/types"
 
 type RecipientSelectorProps = {
   selected: User[];
-  setSelected: React.Dispatch<React.SetStateAction<User[]>>;
+  setSelected: (users: User[]) => void;
   placeholder?: string;
+  className?: string;
+  popoverClassName?: string;
 };
 
-export function RecipientSelector({ selected, setSelected, placeholder = "Select recipients..." }: RecipientSelectorProps) {
+export function RecipientSelector({ selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleUnselect = (userToUnselect: User) => {
@@ -41,7 +42,6 @@ export function RecipientSelector({ selected, setSelected, placeholder = "Select
     }
   }
   
-  // Close the popover when the user presses Escape
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -55,7 +55,7 @@ export function RecipientSelector({ selected, setSelected, placeholder = "Select
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="flex w-full flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm">
+        <div className={cn("flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm", className)}>
           {selected.map((user) => (
             <Badge
               key={user.id}
@@ -81,7 +81,7 @@ export function RecipientSelector({ selected, setSelected, placeholder = "Select
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", popoverClassName)}>
         <Command>
           <CommandInput placeholder="Search by name or email..." />
           <CommandList>
