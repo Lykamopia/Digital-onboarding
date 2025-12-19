@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -37,8 +37,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { MemoDisplay } from '@/components/memo-display';
-import Image from 'next/image';
 
 const memoSchema = z.object({
   id: z.string().optional(),
@@ -215,8 +221,8 @@ export default function NewMemoPage() {
   }
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-        <Card className='h-fit'>
+    <div className="max-w-4xl mx-auto">
+        <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
@@ -336,6 +342,22 @@ export default function NewMemoPage() {
                         <Link href="/dashboard">
                         <Button variant="outline">Cancel</Button>
                         </Link>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline">
+                              <Eye className="mr-2 h-4 w-4" />
+                              Preview
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl">
+                            <DialogHeader>
+                              <DialogTitle>Live Preview</DialogTitle>
+                            </DialogHeader>
+                            <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden mt-4">
+                                <MemoPreview memoData={previewMemo} />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                         <Button type="submit" disabled={isSaving || !form.formState.isValid}>
                         <Send className="mr-2 h-4 w-4" />
                         Send Memo
@@ -346,12 +368,6 @@ export default function NewMemoPage() {
                 </Form>
             </CardContent>
         </Card>
-        <div className="h-fit">
-            <CardTitle className="mb-4">Live Preview</CardTitle>
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
-                <MemoPreview memoData={previewMemo} />
-            </div>
-        </div>
     </div>
   );
 }
