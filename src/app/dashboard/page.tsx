@@ -104,7 +104,7 @@ function DashboardContent() {
 
   return (
     <div className="grid md:grid-cols-[minmax(300px,_1fr)_2fr] gap-4 h-[calc(100vh-8rem)]">
-      <Card>
+      <Card className="no-print">
         {memos.length > 0 ? (
           <MemoList memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={setSelectedMemoId} />
         ) : (
@@ -113,8 +113,11 @@ function DashboardContent() {
           </div>
         )}
       </Card>
-      <div className="h-full overflow-y-auto rounded-lg">
+      <div className="h-full overflow-y-auto rounded-lg no-print">
         <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
+      </div>
+      <div className="hidden print:block col-span-2">
+         <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
       </div>
     </div>
   )

@@ -149,12 +149,12 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
 
 const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
-        <div className={`grid grid-cols-[100px_1fr] border-b border-black ${className}`}>
+        <div className={`grid grid-cols-[120px_1fr] border-b border-black ${className}`}>
             <div className="font-semibold text-sm border-r border-black p-2 flex flex-col justify-center">
                 <span>{label}</span>
                 <span className="text-xs">{amharic}</span>
             </div>
-            <div className="p-2">{children}</div>
+            <div className="p-2 flex items-center">{children}</div>
         </div>
     );
 };
@@ -201,122 +201,128 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
-    <Card className="h-full font-serif text-sm printable-memo" id={isPreview ? '' : 'memo-content'}>
-      <CardHeader className="p-6 printable-memo-header">
-         <div className="flex flex-col items-center mb-6">
-            <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
-            <p className="text-xl font-semibold mt-2">Memorandum</p>
-        </div>
-        <div className="border-t-4 border-b-4 border-double border-black">
-            <MemoField label="Date" amharic="ቀን">
-                {formatTimestamp(memo.createdAt, false)}
-            </MemoField>
-             <MemoField label="From" amharic="ከ">
-                <div>
-                    <div className='font-semibold'>{memo.from.name}</div>
-                    <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
+    <Card className={`h-full font-serif text-sm printable-memo-container ${!isPreview ? 'overflow-y-auto' : ''}`} id={!isPreview ? 'memo-content-wrapper' : ''}>
+        <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
+            <CardHeader className="p-0 printable-memo-header">
+                <div className="flex flex-col items-center mb-6">
+                    <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
+                    <p className="text-xl font-bold mt-4 tracking-wider">MEMORANDUM</p>
                 </div>
-            </MemoField>
-            <MemoField label="To" amharic="ለ">
-                 <div className="flex flex-col gap-1">
-                    {memo.to.map((user) => (
-                       <div key={user.id}>{user.name} - <span className='text-xs'>{user.department}</span></div>
-                    ))}
-                 </div>
-            </MemoField>
-            <MemoField label="Subject" amharic="ጉዳዩ">
-                <span className="font-medium">{memo.subject}</span>
-            </MemoField>
-            {memo.cc.length > 0 && (
-                 <MemoField label="CC" amharic="ግልባጭ">
-                     <div className="flex flex-col gap-2">
-                        {memo.cc.map((user) => (
-                            <div key={user.id}>{user.name}</div>
-                        ))}
-                    </div>
-                </MemoField>
-            )}
-             <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
-                {memo.attachments.length > 0 ? (
-                     <div className="flex flex-col gap-1">
-                        {memo.attachments.map(att => (
-                           <div key={att.id}>{att.name}</div>
-                        ))}
-                    </div>
-                ) : (
-                    <span>.</span>
-                )}
-            </MemoField>
-        </div>
-        
-      </CardHeader>
-
-      <CardContent className='pt-6 printable-memo-content'>
-        <div
-          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black word-break-break-word"
-          dangerouslySetInnerHTML={{ __html: memo.body }}
-        />
-
-        { !isPreview && (
-            <>
-                <Separator className="my-6 no-print" />
-                <div className="flex items-center gap-2 font-sans no-print">
-                {!isCC && 
-                    <Button variant="outline">
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Acknowledge
-                    </Button>
-                }
-                <Button variant="outline">
-                    <Reply className="mr-2 h-4 w-4" />
-                    Reply
-                </Button>
-                {canDelegate && (
-                    <DelegateDialog memo={memo} onUpdate={onUpdate} />
-                )}
-                <div className="flex-grow" />
-                <Button variant="ghost" size="icon" onClick={handlePrint}>
-                    <Printer className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                    <Archive className="h-4 w-4 text-muted-foreground" />
-                </Button>
-                </div>
-                <Separator className="my-6 no-print" />
-
-                <div className="font-sans no-print">
-                <h3 className="text-sm font-medium mb-4">Activity History</h3>
-                <ul className="space-y-4">
-                    {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
-                    <li key={act.id} className="flex items-start gap-3">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
-                            <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        </span>
-                        <div className="flex-1">
-                        <p className="text-sm">
-                            <span className="font-medium">{act.actor.name}</span>
-                            <span className="text-muted-foreground">
-                            {' '}
-                            {act.action} this memo.
-                            </span>
-                        </p>
-                        {act.details && (
-                            <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {formatTimestamp(act.timestamp)}
-                        </p>
+                <div className="border-t-4 border-b-4 border-double border-black">
+                     <MemoField label="Ref. No" amharic="ቁጥር">
+                        <span className="font-medium">{memo.memo_reference_number}</span>
+                    </MemoField>
+                    <MemoField label="Date" amharic="ቀን">
+                        {formatTimestamp(memo.createdAt, false)}
+                    </MemoField>
+                    <MemoField label="From" amharic="ከ">
+                        <div>
+                            <div className='font-semibold'>{memo.from.name}</div>
+                            <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
                         </div>
-                    </li>
-                    ))}
-                </ul>
+                    </MemoField>
+                    <MemoField label="To" amharic="ለ">
+                        <div className="flex flex-col gap-1">
+                            {memo.to.map((user) => (
+                            <div key={user.id}>{user.name} - <span className='text-xs'>{user.department}</span></div>
+                            ))}
+                        </div>
+                    </MemoField>
+                    
+                    {memo.cc.length > 0 && (
+                        <MemoField label="CC" amharic="ግልባጭ">
+                            <div className="flex flex-col gap-2">
+                                {memo.cc.map((user) => (
+                                    <div key={user.id}>{user.name}</div>
+                                ))}
+                            </div>
+                        </MemoField>
+                    )}
+                    <MemoField label="Subject" amharic="ጉዳዩ">
+                        <span className="font-medium underline">{memo.subject}</span>
+                    </MemoField>
+                    <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
+                        {memo.attachments.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                                {memo.attachments.map(att => (
+                                <div key={att.id}>{att.name}</div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span>.</span>
+                        )}
+                    </MemoField>
                 </div>
-            </>
-        )}
-      </CardContent>
+                
+            </CardHeader>
+
+            <CardContent className='pt-6 printable-memo-content'>
+                <div
+                className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black word-break-break-word"
+                dangerouslySetInnerHTML={{ __html: memo.body }}
+                />
+
+                { !isPreview && (
+                    <>
+                        <Separator className="my-6 no-print" />
+                        <div className="flex items-center gap-2 font-sans no-print">
+                        {!isCC && 
+                            <Button variant="outline">
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Acknowledge
+                            </Button>
+                        }
+                        <Button variant="outline">
+                            <Reply className="mr-2 h-4 w-4" />
+                            Reply
+                        </Button>
+                        {canDelegate && (
+                            <DelegateDialog memo={memo} onUpdate={onUpdate} />
+                        )}
+                        <div className="flex-grow" />
+                        <Button variant="ghost" size="icon" onClick={handlePrint}>
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon">
+                            <Archive className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        </div>
+                        <Separator className="my-6 no-print" />
+
+                        <div className="font-sans no-print">
+                        <h3 className="text-sm font-medium mb-4">Activity History</h3>
+                        <ul className="space-y-4">
+                            {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
+                            <li key={act.id} className="flex items-start gap-3">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
+                                    <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                </span>
+                                <div className="flex-1">
+                                <p className="text-sm">
+                                    <span className="font-medium">{act.actor.name}</span>
+                                    <span className="text-muted-foreground">
+                                    {' '}
+                                    {act.action} this memo.
+                                    </span>
+                                </p>
+                                {act.details && (
+                                    <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {formatTimestamp(act.timestamp)}
+                                </p>
+                                </div>
+                            </li>
+                            ))}
+                        </ul>
+                        </div>
+                    </>
+                )}
+            </CardContent>
+        </div>
     </Card>
   );
 }

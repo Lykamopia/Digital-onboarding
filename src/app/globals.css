@@ -22,8 +22,8 @@
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
 
-    --accent: 26 61% 90%; /* Lighter brown for hover */
-    --accent-foreground: 26 61% 20%;
+    --accent: 42 91% 54%;
+    --accent-foreground: 355.7 100% 97.3%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -82,40 +82,55 @@
 }
 
 @layer utilities {
-  .word-break-break-word {
-    word-break: break-word;
-  }
-  @media print {
-    body {
-        background-color: white !important;
+    .word-break-break-word {
+      word-break: break-word;
+    }
+    @media print {
+      body {
+          background-color: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+      }
+      .printable-memo-container {
+        display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: auto;
+        margin: 0;
+        padding: 2rem;
+      }
+
+      .printable-memo {
+          box-shadow: none !important;
+          border: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          font-family: 'Times New Roman', Times, serif !important;
+          font-size: 12pt;
+          color: black;
+          background-color: white !important;
+      }
+      .printable-memo-header, .printable-memo-content {
+          padding: 0 !important;
+      }
+      .printable-memo-header div {
+          font-family: 'Times New Roman', Times, serif !important;
+      }
+       .printable-memo .prose {
+          font-family: 'Times New Roman', Times, serif !important;
+          font-size: 12pt;
+          color: black;
+      }
+      .printable-memo * {
         color: black !important;
-    }
-    .printable-memo {
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        font-family: 'Times New Roman', Times, serif !important;
-        font-size: 12pt;
-        color: black;
-    }
-    .printable-memo-header, .printable-memo-content {
-        padding: 0 !important;
-    }
-    .printable-memo-header div {
-        font-family: 'Times New Roman', Times, serif !important;
-    }
-     .printable-memo .prose {
-        font-family: 'Times New Roman', Times, serif !important;
-        font-size: 12pt;
-        color: black;
-    }
-    .printable-memo * {
-      color: black !important;
-      border-color: black !important;
-    }
-    .no-print {
-      display: none !important;
+        border-color: black !important;
+        background-color: transparent !important;
+      }
+      .no-print {
+        display: none !important;
+      }
     }
   }
-}
