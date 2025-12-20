@@ -38,7 +38,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   viewed: <CheckCircle className="h-4 w-4 text-blue-500" />,
   acknowledged: <CheckCircle className="h-4 w-4 text-green-500" />,
   commented: <Reply className="h-4 w-4" />,
-  delegated: <Share2 className="h-4 w-4 text-purple-500" />,
+  forwarded: <Share2 className="h-4 w-4 text-purple-500" />,
   created: <Edit className="h-4 w-4" />,
 };
 
@@ -58,34 +58,34 @@ const UserDisplay = ({
     )
 };
 
-function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
+function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
   const [selectedUser, setSelectedUser] = React.useState<User[]>([]);
   const [remark, setRemark] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const { toast } = useToast();
 
-  const handleDelegate = () => {
+  const handleForward = () => {
     if (selectedUser.length === 0) {
       toast({
         variant: 'destructive',
         title: 'No user selected',
-        description: 'Please select a user to delegate the memo to.',
+        description: 'Please select a user to forward the memo to.',
       });
       return;
     }
-    const delegateTo = selectedUser[0];
+    const forwardTo = selectedUser[0];
 
     const newActivity = {
       id: `act-${Date.now()}`,
       actor: loggedInUser,
-      action: 'delegated' as const,
+      action: 'forwarded' as const,
       timestamp: new Date().toISOString(),
-      details: `Delegated from ${loggedInUser.name} to ${delegateTo.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
+      details: `Forwarded from ${loggedInUser.name} to ${forwardTo.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
     };
     
     const updatedMemo = {
         ...memo,
-        current_holder: delegateTo,
+        current_holder: forwardTo,
         previous_holders: [...(memo.previous_holders || []), memo.current_holder].filter(Boolean) as User[],
         activity: [...memo.activity, newActivity],
     };
@@ -96,8 +96,8 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
         memos[memoIndex] = updatedMemo;
         localStorage.setItem('memos', JSON.stringify(memos));
         toast({
-            title: "Memo Delegated",
-            description: `Successfully delegated to ${delegateTo.name}.`
+            title: "Memo Forwarded",
+            description: `Successfully forwarded to ${forwardTo.name}.`
         });
         onUpdate();
         setOpen(false);
@@ -111,16 +111,16 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
       <DialogTrigger asChild>
         <Button variant="outline" className='no-print'>
           <Share2 className="mr-2 h-4 w-4" />
-          Delegate
+          Forward
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delegate Memo</DialogTitle>
+          <DialogTitle>Forward Memo</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <p className="text-sm font-medium">Delegate to</p>
+            <p className="text-sm font-medium">Forward to</p>
             <RecipientSelector
               selected={selectedUser}
               setSelected={(users) => setSelectedUser(users.slice(0, 1))}
@@ -140,7 +140,7 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button onClick={handleDelegate}>Delegate</Button>
+          <Button onClick={handleForward}>Forward</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -185,7 +185,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
             title="This is a draft"
             description="You can continue editing this memo or send it."
             action={
-                <Link href={`/dashboard/new`}>
+                <Link href={`/dashboard/new?id=${memo.id}`}>
                     <Button>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Draft
@@ -198,7 +198,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id) && memo.to.every(u => u.id !== loggedInUser.id);
-  const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
+  const canForward = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
     <Card className={`h-full font-serif text-sm printable-memo-container ${!isPreview ? 'overflow-y-auto' : ''}`} id={!isPreview ? 'memo-content-wrapper' : ''}>
@@ -273,8 +273,8 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                             <Reply className="mr-2 h-4 w-4" />
                             Reply
                         </Button>
-                        {canDelegate && (
-                            <DelegateDialog memo={memo} onUpdate={onUpdate} />
+                        {canForward && (
+                            <ForwardDialog memo={memo} onUpdate={onUpdate} />
                         )}
                         <div className="flex-grow" />
                         <Button variant="ghost" size="icon" onClick={handlePrint}>

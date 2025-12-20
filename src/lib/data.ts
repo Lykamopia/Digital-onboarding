@@ -112,7 +112,7 @@ export const memos: MemoWithActivity[] = [
      activity: [
       { id: 'act-4-1', actor: users[2], action: 'sent', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), details: 'Sent to Alice Johnson, Bob Williams, Diana Prince, Ethan Hunt.' },
       { id: 'act-4-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'act-4-3', actor: users[0], action: 'delegated', details: 'Delegated from Alice Johnson to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
+      { id: 'act-4-3', actor: users[0], action: 'forwarded', details: 'Forwarded from Alice Johnson to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
       { id: 'act-4-4', actor: users[1], action: 'commented', details: 'Will there be a remote option?', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
     ],
   },
