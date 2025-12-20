@@ -150,7 +150,7 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
 const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
         <div className={`grid grid-cols-[120px_1fr] border-b border-black ${className}`}>
-            <div className="font-semibold text-sm border-r border-black p-2 flex flex-col justify-center">
+            <div className="font-semibold text-sm border-r border-black p-2 flex flex-col justify-center text-right">
                 <span>{label}</span>
                 <span className="text-xs">{amharic}</span>
             </div>
@@ -329,5 +329,3 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
-
-    
