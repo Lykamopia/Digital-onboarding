@@ -1,52 +1,52 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navItems = [
-    { href: "/admin/divisions", label: "Divisions" },
-    { href: "/admin/departments", label: "Departments" },
-    { href: "/admin/offices", label: "Offices" },
-    { href: "/admin/users", label: "Users" },
+    { value: "/admin/divisions", label: "Divisions" },
+    { value: "/admin/departments", label: "Departments" },
+    { value: "/admin/offices", label: "Offices" },
+    { value: "/admin/users", label: "Users" },
   ];
 
+  // Determine the active tab value. Default to divisions if the path is just /admin.
+  const activeTab = pathname === '/admin' ? '/admin/divisions' : pathname;
+
+  const handleTabChange = (value: string) => {
+    router.push(value);
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Settings</CardTitle>
-          <CardDescription>
-            Manage organizational structure and users.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <nav className="flex flex-col space-y-2">
-            {navItems.map((item) => (
-              <Button
-                key={item.href}
-                asChild
-                variant={pathname === item.href ? "secondary" : "ghost"}
-                className="justify-start"
-              >
-                <Link href={item.href}>{item.label}</Link>
-              </Button>
-            ))}
-          </nav>
-        </CardContent>
-      </Card>
-      <div>{children}</div>
-    </div>
+    <Card>
+       <CardHeader>
+        <CardTitle>Admin Settings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-4">
+             {navItems.map((item) => (
+                <TabsTrigger key={item.value} value={item.value}>
+                    {item.label}
+                </TabsTrigger>
+             ))}
+          </TabsList>
+          <TabsContent value={pathname} className="mt-4">
+            {children}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 
