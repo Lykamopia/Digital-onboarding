@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -56,7 +56,7 @@ const memoSchema = z.object({
 
 type MemoFormData = z.infer<typeof memoSchema>;
 
-const DRAFT_KEY = 'memo-draft';
+const DRAFT_KEY_PREFIX = 'memo-draft-';
 
 const MemoPreview = ({ memoData }: { memoData: MemoWithActivity | null }) => {
   if (!memoData) return null;
@@ -68,7 +68,10 @@ export default function NewMemoPage() {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [isDraft, setIsDraft] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  const draftId = searchParams.get('id');
+  const DRAFT_KEY = draftId ? `${DRAFT_KEY_PREFIX}${draftId}` : 'memo-draft';
 
   const form = useForm<MemoFormData>({
     resolver: zodResolver(memoSchema),
@@ -101,7 +104,7 @@ export default function NewMemoPage() {
     setIsSaving(true);
 
     const draft: Memo = {
-      id: `draft-${loggedInUser.id}`,
+      id: draftId || `draft-${Date.now()}`,
       memo_reference_number: 'DRAFT',
       from: loggedInUser,
       to: data.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
@@ -114,13 +117,19 @@ export default function NewMemoPage() {
     };
     
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    if (!draftId) {
+      // If it's a new draft, we need to update the URL to include the ID
+      // so subsequent saves update the same draft.
+      router.replace(`/dashboard/new?id=${draft.id}`, { scroll: false });
+    }
+    
     setIsDraft(true);
     
     setTimeout(() => {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString());
     }, 500);
-  }, []);
+  }, [DRAFT_KEY, draftId, router]);
 
   const debouncedSave = useDebouncedCallback(saveDraft, 1000);
 
@@ -134,7 +143,7 @@ export default function NewMemoPage() {
   }, [form, debouncedSave]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && draftId) {
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
@@ -148,8 +157,12 @@ export default function NewMemoPage() {
           setIsDraft(true);
         }
       }
+    } else {
+        form.reset({ to: [], cc: [], subject: '', body: ''});
+        setIsDraft(false);
+        setLastSaved(null);
     }
-  }, [form]);
+  }, [form, draftId, DRAFT_KEY]);
 
   function deleteDraft() {
       if (typeof window !== 'undefined') {

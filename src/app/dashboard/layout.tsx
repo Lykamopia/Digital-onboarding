@@ -104,6 +104,13 @@ function DashboardLayoutContent({
   }: {
     children: React.ReactNode
   }) {
+
+    const handleNewMemoClick = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('memo-draft');
+        }
+    }
+    
     return (
         <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
             <DesktopSidebar />
@@ -113,7 +120,7 @@ function DashboardLayoutContent({
                     <div className="w-full flex-1">
                         {/* Optional: Add a search bar here */}
                     </div>
-                     <Link href="/dashboard/new">
+                     <Link href="/dashboard/new" onClick={handleNewMemoClick}>
                         <Button>
                           <FilePlus className="mr-2 h-4 w-4" />
                           New Memo

@@ -18,7 +18,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
 
   const handleSelect = (memo: MemoWithActivity) => {
     if (memo.status === 'draft') {
-      router.push(`/dashboard/new`);
+      router.push(`/dashboard/new?id=${memo.id}`);
     } else {
       onSelectMemo(memo.id);
     }

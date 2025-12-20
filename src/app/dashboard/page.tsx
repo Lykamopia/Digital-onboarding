@@ -19,21 +19,28 @@ function DashboardContent() {
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
 
   const loadMemos = useCallback(() => {
-    let draft: Memo | null = null;
+    let allDrafts: Memo[] = [];
     let sentMemos: MemoWithActivity[] = [];
     
     if (typeof window !== 'undefined') {
-        const draftFromStorage = localStorage.getItem('memo-draft');
-        if (draftFromStorage) {
-            draft = JSON.parse(draftFromStorage);
+        // scan localStorage for all drafts
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('memo-draft-')) {
+                const draftContent = localStorage.getItem(key);
+                if (draftContent) {
+                    allDrafts.push(JSON.parse(draftContent));
+                }
+            }
         }
+        
         const sentMemosFromStorage = localStorage.getItem('memos');
         sentMemos = sentMemosFromStorage ? JSON.parse(sentMemosFromStorage) : [];
     }
     
-    const drafts = draft ? [{...draft, activity: []}] : [];
+    const draftsWithActivity = allDrafts.map(d => ({ ...d, activity: []}));
 
-    const allCombinedMemos = [...drafts, ...initialMemos, ...sentMemos];
+    const allCombinedMemos = [...draftsWithActivity, ...initialMemos, ...sentMemos];
 
     const filteredMemos = allCombinedMemos.filter(memo => {
       if (tab === 'inbox') {
