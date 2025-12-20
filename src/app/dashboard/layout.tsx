@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Building2 } from "lucide-react"
 
 import {
   SidebarProvider,
@@ -48,6 +48,10 @@ const MobileSidebar = () => {
                         <Archive className="h-5 w-5" />
                         Archive
                     </Link>
+                    <Link href="/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <Building2 className="h-5 w-5" />
+                        Admin
+                    </Link>
                 </nav>
             </SheetContent>
         </Sheet>
@@ -83,6 +87,10 @@ const DesktopSidebar = () => {
                          <Link href="/dashboard?tab=archive" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('archive') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
                             <Archive className="h-4 w-4" />
                             Archive
+                        </Link>
+                        <Link href="/admin" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.startsWith('/admin') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
+                            <Building2 className="h-4 w-4" />
+                            Admin
                         </Link>
                     </nav>
                 </div>

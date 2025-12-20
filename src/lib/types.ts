@@ -1,11 +1,32 @@
+export type Division = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+export type Department = {
+  id: string;
+  name: string;
+  code: string;
+  divisionId: string;
+};
+
+export type Office = {
+  id: string;
+  name: string;
+  code: string;
+  departmentId: string;
+};
+
 export type User = {
   id: string;
   name: string;
   email: string;
   avatar: string;
-  division: string;
-  department: string;
-  office: string;
+  officeId: string;
+  division: string; // denormalized for convenience
+  department: string; // denormalized for convenience
+  office: string; // denormalized for convenience
 };
 
 export type Attachment = {

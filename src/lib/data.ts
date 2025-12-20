@@ -1,4 +1,4 @@
-import type { User, MemoWithActivity } from '@/lib/types';
+import type { User, MemoWithActivity, Division, Department, Office } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -7,12 +7,35 @@ const userImages = PlaceHolderImages.reduce((acc, img) => {
   return acc;
 }, {} as Record<string, string>);
 
+export const divisions: Division[] = [
+  { id: 'div-1', name: 'Retail Banking', code: 'RB' },
+  { id: 'div-2', name: 'Corporate Banking', code: 'CB' },
+  { id: 'div-3', name: 'Investment Banking', code: 'IB' },
+  { id: 'div-4', name: 'Information Technology', code: 'IT' },
+];
+
+export const departments: Department[] = [
+  { id: 'dept-1', name: 'Client Services', code: 'CS', divisionId: 'div-1' },
+  { id: 'dept-2', name: 'Operations', code: 'OPS', divisionId: 'div-1' },
+  { id: 'dept-3', name: 'Loan Origination', code: 'LO', divisionId: 'div-2' },
+  { id: 'dept-4', name: 'Mergers & Acquisitions', code: 'MA', divisionId: 'div-3' },
+  { id: 'dept-5', name: 'Infrastructure', code: 'INFRA', divisionId: 'div-4' },
+];
+
+export const offices: Office[] = [
+    { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1' },
+    { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-2' },
+    { id: 'off-3', name: 'Headquarters', code: 'HQ', departmentId: 'dept-3' },
+    { id: 'off-4', name: 'Headquarters', code: 'HQ', departmentId: 'dept-4' },
+    { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
+];
+
 export const users: User[] = [
-  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch' },
-  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters' },
-  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters' },
-  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', division: 'Retail Banking', department: 'Operations', office: 'North Branch' },
-  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', division: 'IT', department: 'Infrastructure', office: 'Data Center' },
+  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', officeId: 'off-1', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch' },
+  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', officeId: 'off-3', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters' },
+  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', officeId: 'off-4', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters' },
+  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', officeId: 'off-2', division: 'Retail Banking', department: 'Operations', office: 'North Branch' },
+  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', officeId: 'off-5', division: 'IT', department: 'Infrastructure', office: 'Data Center' },
 ];
 
 export const loggedInUser = users[0];
