@@ -10,6 +10,7 @@ import {
   Edit,
   Send,
   Printer,
+  Signature,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -147,27 +148,18 @@ function DelegateDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: 
   );
 }
 
-const MemoField = ({ label, children, isAmharic=false }: { label: string, children: React.ReactNode, isAmharic?: boolean }) => {
-    const enLabel = label;
-    const amLabel = isAmharic ? ` - ${label}` : '';
-    let finalLabel = label;
-    switch(label) {
-        case 'Date': finalLabel = 'Date - ቀን'; break;
-        case 'From': finalLabel = 'From - ከ'; break;
-        case 'To': finalLabel = 'To - ለ'; break;
-        case 'Subject': finalLabel = 'Subject - ጉዳዩ'; break;
-        case 'CC': finalLabel = 'CC - ግልባጭ'; break;
-        case 'ENC': finalLabel = 'ENC - አባሪ'; break;
-    }
-
-
+const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
-        <div className="grid grid-cols-[120px_1fr] items-start border-b py-2">
-            <span className="font-semibold text-sm">{finalLabel}</span>
-            <div>{children}</div>
+        <div className={`grid grid-cols-[100px_1fr] border-b border-black ${className}`}>
+            <div className="font-semibold text-sm border-r border-black p-2 flex flex-col justify-center">
+                <span>{label}</span>
+                <span className="text-xs">{amharic}</span>
+            </div>
+            <div className="p-2">{children}</div>
         </div>
     );
 };
+
 
 export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
 
@@ -210,75 +202,67 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const canDelegate = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
-    <Card className="h-full font-mono text-sm printable-memo" id={isPreview ? '' : 'memo-content'}>
+    <Card className="h-full font-serif text-sm printable-memo" id={isPreview ? '' : 'memo-content'}>
       <CardHeader className="p-6 printable-memo-header">
          <div className="flex flex-col items-center mb-6">
             <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
-            <p className="text-lg font-semibold mt-2">Memorandum</p>
+            <p className="text-xl font-semibold mt-2">Memorandum</p>
         </div>
-        <div className="text-right text-xs text-muted-foreground mb-4">
-            Ref: {memo.memo_reference_number}
-        </div>
-        <div className="border-t border-b">
-            <MemoField label="Date">
+        <div className="border-t-2 border-b border-black">
+            <MemoField label="Date" amharic="ቀን">
                 {formatTimestamp(memo.createdAt, false)}
             </MemoField>
-             <MemoField label="From">
-                <UserDisplay user={memo.from} />
+             <MemoField label="From" amharic="ከ">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <div className='font-semibold'>{memo.from.name}</div>
+                        <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
+                    </div>
+                    <div className='w-28 h-12 flex items-center justify-center'>
+                       <Signature className='w-20 h-20 text-gray-400' />
+                    </div>
+                </div>
             </MemoField>
-            <MemoField label="To">
-                 <div className="flex flex-col gap-2">
+            <MemoField label="To" amharic="ለ">
+                 <div className="flex flex-col gap-1">
                     {memo.to.map((user) => (
-                        <UserDisplay key={user.id} user={user} showDetails={false} />
+                       <div key={user.id}>{user.name} - <span className='text-xs'>{user.department}</span></div>
                     ))}
                  </div>
             </MemoField>
+            <MemoField label="Subject" amharic="ጉዳዩ">
+                <span className="font-medium">{memo.subject}</span>
+            </MemoField>
             {memo.cc.length > 0 && (
-                 <MemoField label="CC">
+                 <MemoField label="CC" amharic="ግልባጭ">
                      <div className="flex flex-col gap-2">
                         {memo.cc.map((user) => (
-                            <UserDisplay key={user.id} user={user} showDetails={false} />
+                            <div key={user.id}>{user.name}</div>
                         ))}
                     </div>
                 </MemoField>
             )}
-             <MemoField label="Subject">
-                <span className="font-medium">{memo.subject}</span>
+             <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
+                {memo.attachments.length > 0 ? (
+                     <div className="flex flex-col gap-1">
+                        {memo.attachments.map(att => (
+                           <div key={att.id}>{att.name}</div>
+                        ))}
+                    </div>
+                ) : (
+                    <span>.</span>
+                )}
             </MemoField>
         </div>
+        <div className='border-t-2 border-black mt-px'></div>
       </CardHeader>
 
       <CardContent className='pt-6 printable-memo-content'>
         <div
-          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-mono"
+          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black"
           dangerouslySetInnerHTML={{ __html: memo.body }}
         />
 
-        {memo.attachments.length > 0 && (
-          <>
-            <Separator className="my-6 no-print" />
-            <div className="no-print">
-              <h3 className="text-sm font-medium mb-2 font-sans">Attachments</h3>
-              <div className="flex flex-wrap gap-2">
-                {memo.attachments.map((att) => (
-                  <Button
-                    key={att.id}
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="font-sans"
-                  >
-                    <a href={att.url} download={att.name}>
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      {att.name} ({att.size})
-                    </a>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-        
         { !isPreview && (
             <>
                 <Separator className="my-6 no-print" />

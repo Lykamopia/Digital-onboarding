@@ -47,7 +47,7 @@ export function Editor({ value, onChange }: EditorProps) {
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        className="prose dark:prose-invert max-w-none min-h-[250px] p-4 font-mono text-sm focus:outline-none"
+        className="prose dark:prose-invert max-w-none min-h-[250px] p-4 font-serif text-sm focus:outline-none"
       />
     </div>
   );

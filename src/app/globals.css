@@ -92,23 +92,24 @@
         border: none !important;
         padding: 0 !important;
         margin: 0 !important;
-        font-family: 'Times New Roman', Times, serif;
+        font-family: 'Times New Roman', Times, serif !important;
         font-size: 12pt;
         color: black;
     }
     .printable-memo-header, .printable-memo-content {
         padding: 0 !important;
     }
-    .printable-memo-header .grid > span {
-        font-family: 'Times New Roman', Times, serif;
+    .printable-memo-header div {
+        font-family: 'Times New Roman', Times, serif !important;
     }
      .printable-memo .prose {
-        font-family: 'Times New Roman', Times, serif;
+        font-family: 'Times New Roman', Times, serif !important;
         font-size: 12pt;
         color: black;
     }
     .printable-memo * {
       color: black !important;
+      border-color: black !important;
     }
     .no-print {
       display: none !important;
