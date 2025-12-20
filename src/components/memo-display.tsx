@@ -10,7 +10,6 @@ import {
   Edit,
   Send,
   Printer,
-  Signature,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -208,19 +207,14 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
             <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
             <p className="text-xl font-semibold mt-2">Memorandum</p>
         </div>
-        <div className="border-t-2 border-b border-black">
+        <div className="border-y-2 border-black">
             <MemoField label="Date" amharic="ቀን">
                 {formatTimestamp(memo.createdAt, false)}
             </MemoField>
              <MemoField label="From" amharic="ከ">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <div className='font-semibold'>{memo.from.name}</div>
-                        <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
-                    </div>
-                    <div className='w-28 h-12 flex items-center justify-center'>
-                       <Signature className='w-20 h-20 text-gray-400' />
-                    </div>
+                <div>
+                    <div className='font-semibold'>{memo.from.name}</div>
+                    <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
                 </div>
             </MemoField>
             <MemoField label="To" amharic="ለ">
@@ -254,7 +248,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                 )}
             </MemoField>
         </div>
-        <div className='border-t-2 border-black mt-px'></div>
+        
       </CardHeader>
 
       <CardContent className='pt-6 printable-memo-content'>
