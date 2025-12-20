@@ -88,13 +88,10 @@ const DesktopSidebar = () => {
     return (
         <Sidebar collapsible="icon" className="hidden md:flex no-print">
             <SidebarContent>
-                <SidebarHeader className="h-14 lg:h-[60px] border-b justify-between">
+                <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
                     <div className="flex items-center gap-2">
                         <Logo className="group-data-[collapsible=icon]:hidden" />
                         <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
-                    </div>
-                    <div>
-                      <SidebarTrigger />
                     </div>
                 </SidebarHeader>
                 <SidebarMenu className="flex-1">
@@ -136,6 +133,7 @@ function DashboardLayoutContent({
             <div className="flex flex-col">
                 <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 no-print">
                     <MobileSidebar />
+                    <SidebarTrigger className="hidden md:flex" />
                     <div className="w-full flex-1">
                         {/* Optional: Add a search bar here */}
                     </div>
