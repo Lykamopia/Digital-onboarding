@@ -88,11 +88,12 @@ const DesktopSidebar = () => {
     return (
         <Sidebar collapsible="icon" className="hidden md:flex no-print">
             <SidebarContent>
-                <SidebarHeader className="h-14 lg:h-[60px] border-b">
-                    <Link href="/">
-                        <Logo />
-                    </Link>
-                    <div className="group-data-[collapsible=icon]:hidden">
+                <SidebarHeader className="h-14 lg:h-[60px] border-b justify-between">
+                    <div className="flex items-center gap-2">
+                        <Logo className="group-data-[collapsible=icon]:hidden" />
+                        <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
+                    </div>
+                    <div>
                       <SidebarTrigger />
                     </div>
                 </SidebarHeader>
