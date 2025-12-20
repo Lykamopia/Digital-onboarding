@@ -1,12 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Building2 } from "lucide-react"
 
 import {
   SidebarProvider,
   useSidebar,
+  Sidebar,
+  SidebarTrigger,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import Logo from "@/components/logo"
@@ -59,43 +67,51 @@ const MobileSidebar = () => {
 }
 
 const DesktopSidebar = () => {
-    const { state } = useSidebar();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const { state } = useSidebar();
+    
+    const isInboxActive = pathname === '/dashboard' && (searchParams.get('tab') === 'inbox' || !searchParams.get('tab'));
+    const isDraftsActive = searchParams.get('tab') === 'drafts';
+    const isSentActive = searchParams.get('tab') === 'sent';
+    const isArchiveActive = searchParams.get('tab') === 'archive';
+
+
+    const navItems = [
+        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive },
+        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive },
+        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive },
+        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive },
+        { href: "/admin", icon: <Building2 />, label: "Admin", active: pathname.startsWith('/admin') },
+    ]
 
     return (
-        <aside className="hidden border-r bg-card md:block no-print">
-            <div className="flex h-full max-h-screen flex-col gap-2">
-                <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-                    <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Sidebar collapsible="icon" className="hidden md:flex no-print">
+            <SidebarContent>
+                <SidebarHeader className="h-14 lg:h-[60px] border-b">
+                    <Link href="/">
                         <Logo />
                     </Link>
-                </div>
-                <div className="flex-1">
-                    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-                         <Link href="/dashboard?tab=inbox" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname === '/dashboard' || pathname.includes('inbox') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
-                            <Inbox className="h-4 w-4" />
-                            Inbox
-                        </Link>
-                        <Link href="/dashboard?tab=drafts" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('drafts') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
-                            <Edit className="h-4 w-4" />
-                            Drafts
-                        </Link>
-                        <Link href="/dashboard?tab=sent" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('sent') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
-                            <Send className="h-4 w-4" />
-                            Sent
-                        </Link>
-                         <Link href="/dashboard?tab=archive" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.includes('archive') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
-                            <Archive className="h-4 w-4" />
-                            Archive
-                        </Link>
-                        <Link href="/admin" className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${pathname.startsWith('/admin') ? 'text-primary bg-muted' : 'text-muted-foreground hover:text-primary'}`}>
-                            <Building2 className="h-4 w-4" />
-                            Admin
-                        </Link>
-                    </nav>
-                </div>
-            </div>
-        </aside>
+                    <div className="group-data-[collapsible=icon]:hidden">
+                      <SidebarTrigger />
+                    </div>
+                </SidebarHeader>
+                <SidebarMenu className="flex-1">
+                    {navItems.map(item => (
+                        <SidebarMenuItem key={item.label}>
+                            <Link href={item.href}>
+                                <SidebarMenuButton 
+                                    tooltip={item.label}
+                                    isActive={item.active}>
+                                        {item.icon}
+                                        <span>{item.label}</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarContent>
+        </Sidebar>
     )
 }
 
@@ -105,6 +121,8 @@ function DashboardLayoutContent({
     children: React.ReactNode
   }) {
 
+    const { state, isMobile } = useSidebar();
+
     const handleNewMemoClick = () => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('memo-draft');
@@ -112,7 +130,7 @@ function DashboardLayoutContent({
     }
     
     return (
-        <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+        <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 ${!isMobile && state === 'expanded' ? 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]' : 'md:grid-cols-[68px_1fr] lg:grid-cols-[68px_1fr]'}`}>
             <DesktopSidebar />
             <div className="flex flex-col">
                 <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 no-print">
