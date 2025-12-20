@@ -209,10 +209,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     <p className="text-xl font-bold mt-4 tracking-wider">MEMORANDUM</p>
                 </div>
                 <div className="border-t-4 border-b-4 border-double border-black">
-                     <MemoField label="Ref. No" amharic="ቁጥር">
-                        <span className="font-medium">{memo.memo_reference_number}</span>
-                    </MemoField>
-                    <MemoField label="Date" amharic="ቀን">
+                     <MemoField label="Date" amharic="ቀን">
                         {formatTimestamp(memo.createdAt, false)}
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
