@@ -207,7 +207,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
             <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
             <p className="text-xl font-semibold mt-2">Memorandum</p>
         </div>
-        <div className="border-y-2 border-black">
+        <div className="border-t-4 border-b-4 border-double border-black">
             <MemoField label="Date" amharic="ቀን">
                 {formatTimestamp(memo.createdAt, false)}
             </MemoField>
@@ -253,7 +253,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
       <CardContent className='pt-6 printable-memo-content'>
         <div
-          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black"
+          className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black word-break-break-word"
           dangerouslySetInnerHTML={{ __html: memo.body }}
         />
 

@@ -82,6 +82,9 @@
 }
 
 @layer utilities {
+  .word-break-break-word {
+    word-break: break-word;
+  }
   @media print {
     body {
         background-color: white !important;
