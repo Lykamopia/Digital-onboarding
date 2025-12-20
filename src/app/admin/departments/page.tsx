@@ -21,13 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { departments as initialDepartments, divisions } from "@/lib/data";
 import type { Department } from "@/lib/types";
 
@@ -35,6 +29,7 @@ export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>(initialDepartments);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -43,7 +38,7 @@ export default function DepartmentsPage() {
         id: editingDepartment ? editingDepartment.id : `dept-${Date.now()}`,
         name: formData.get('name') as string,
         code: formData.get('code') as string,
-        divisionId: formData.get('divisionId') as string,
+        divisionId: selectedDivisionId || '',
     }
 
     if (editingDepartment) {
@@ -54,21 +49,34 @@ export default function DepartmentsPage() {
     
     setIsDialogOpen(false);
     setEditingDepartment(null);
+    setSelectedDivisionId(undefined);
   };
 
   const handleEdit = (department: Department) => {
     setEditingDepartment(department);
+    setSelectedDivisionId(department.divisionId)
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingDepartment(null);
+    setSelectedDivisionId(undefined);
     setIsDialogOpen(true);
+  }
+  
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+        setEditingDepartment(null);
+        setSelectedDivisionId(undefined);
+    }
+    setIsDialogOpen(open);
   }
 
   const getDivisionName = (divisionId: string) => {
       return divisions.find(d => d.id === divisionId)?.name || 'N/A';
   }
+
+  const divisionOptions = divisions.map(d => ({ value: d.id, label: d.name }));
 
   return (
     <Card>
@@ -102,7 +110,7 @@ export default function DepartmentsPage() {
           </TableBody>
         </Table>
 
-         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingDepartment ? "Edit Department" : "Add New Department"}</DialogTitle>
@@ -119,16 +127,14 @@ export default function DepartmentsPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="divisionId" className="text-right">Division</Label>
-                   <Select name="divisionId" defaultValue={editingDepartment?.divisionId}>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select a division" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {divisions.map(division => (
-                                <SelectItem key={division.id} value={division.id}>{division.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                   <Combobox
+                        options={divisionOptions}
+                        value={selectedDivisionId}
+                        onChange={setSelectedDivisionId}
+                        placeholder="Select a division"
+                        searchPlaceholder="Search divisions..."
+                        className="col-span-3"
+                    />
                 </div>
               </div>
               <DialogFooter>

@@ -20,13 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { offices as initialOffices, departments, divisions } from "@/lib/data";
 import type { Office } from "@/lib/types";
 
@@ -34,6 +28,7 @@ export default function OfficesPage() {
   const [offices, setOffices] = useState<Office[]>(initialOffices);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,7 +37,7 @@ export default function OfficesPage() {
       id: editingOffice ? editingOffice.id : `off-${Date.now()}`,
       name: formData.get("name") as string,
       code: formData.get("code") as string,
-      departmentId: formData.get("departmentId") as string,
+      departmentId: selectedDepartmentId || '',
     };
 
     if (editingOffice) {
@@ -53,17 +48,28 @@ export default function OfficesPage() {
 
     setIsDialogOpen(false);
     setEditingOffice(null);
+    setSelectedDepartmentId(undefined);
   };
 
   const handleEdit = (office: Office) => {
     setEditingOffice(office);
+    setSelectedDepartmentId(office.departmentId);
     setIsDialogOpen(true);
   };
 
   const handleAddNew = () => {
     setEditingOffice(null);
+    setSelectedDepartmentId(undefined);
     setIsDialogOpen(true);
   };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+        setEditingOffice(null);
+        setSelectedDepartmentId(undefined);
+    }
+    setIsDialogOpen(open);
+  }
 
   const getDepartmentInfo = (departmentId: string) => {
     const dept = departments.find((d) => d.id === departmentId);
@@ -71,6 +77,8 @@ export default function OfficesPage() {
     const div = divisions.find((d) => d.id === dept.divisionId);
     return { name: dept.name, division: div?.name || "N/A" };
   };
+
+  const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
 
   return (
     <Card>
@@ -113,7 +121,7 @@ export default function OfficesPage() {
           </TableBody>
         </Table>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingOffice ? "Edit Office" : "Add New Office"}</DialogTitle>
@@ -130,18 +138,14 @@ export default function OfficesPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="departmentId" className="text-right">Department</Label>
-                  <Select name="departmentId" defaultValue={editingOffice?.departmentId}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                        options={departmentOptions}
+                        value={selectedDepartmentId}
+                        onChange={setSelectedDepartmentId}
+                        placeholder="Select a department"
+                        searchPlaceholder="Search departments..."
+                        className="col-span-3"
+                    />
                 </div>
               </div>
               <DialogFooter>

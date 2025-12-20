@@ -20,13 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { users as initialUsers, offices, departments, divisions } from "@/lib/data";
 import type { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,6 +29,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
 
   const getOfficeInfo = (officeId: string) => {
     const office = offices.find(o => o.id === officeId);
@@ -52,7 +47,7 @@ export default function UsersPage() {
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const officeId = formData.get('officeId') as string;
+    const officeId = selectedOfficeId || '';
     const officeInfo = getOfficeInfo(officeId);
     
     const userData: User = {
@@ -74,17 +69,33 @@ export default function UsersPage() {
     
     setIsDialogOpen(false);
     setEditingUser(null);
+    setSelectedOfficeId(undefined);
   };
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
+    setSelectedOfficeId(user.officeId);
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser(null);
+    setSelectedOfficeId(undefined);
     setIsDialogOpen(true);
   }
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+        setEditingUser(null);
+        setSelectedOfficeId(undefined);
+    }
+    setIsDialogOpen(open);
+  }
+
+  const officeOptions = offices.map(o => ({ 
+      value: o.id, 
+      label: `${o.name} (${getOfficeInfo(o.id).department})` 
+  }));
 
   return (
     <Card>
@@ -134,7 +145,7 @@ export default function UsersPage() {
           </TableBody>
         </Table>
 
-         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
@@ -151,16 +162,14 @@ export default function UsersPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="officeId" className="text-right">Office</Label>
-                   <Select name="officeId" defaultValue={editingUser?.officeId}>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select an office" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {offices.map(office => (
-                                <SelectItem key={office.id} value={office.id}>{office.name} ({getOfficeInfo(office.id).department})</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                   <Combobox
+                        options={officeOptions}
+                        value={selectedOfficeId}
+                        onChange={setSelectedOfficeId}
+                        placeholder="Select an office"
+                        searchPlaceholder="Search offices..."
+                        className="col-span-3"
+                    />
                 </div>
               </div>
               <DialogFooter>
