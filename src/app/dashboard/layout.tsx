@@ -150,7 +150,7 @@ function DashboardLayoutContent({
                     </div>
                 </header>
                 <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
-                    <div className="flex-1 py-4 lg:py-6 px-4 lg:px-6">
+                    <div className="flex-1 p-2">
                         {children}
                     </div>
                 </main>
