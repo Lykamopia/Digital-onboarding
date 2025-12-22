@@ -1,13 +1,6 @@
-import { LogOut, User as UserIcon, Settings } from "lucide-react"
+import { LogOut, User as UserIcon } from "lucide-react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -21,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { loggedInUser } from "@/lib/data"
-import { NotificationSettings } from "./notification-settings";
 
 export function UserNav() {
   const router = useRouter();
@@ -34,7 +26,6 @@ export function UserNav() {
   }
 
   return (
-    <Dialog>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -61,12 +52,6 @@ export function UserNav() {
                 <span>Profile</span>
               </DropdownMenuItem>
             </Link>
-             <DialogTrigger asChild>
-                <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                </DropdownMenuItem>
-            </DialogTrigger>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
@@ -75,14 +60,5 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Notification Settings</DialogTitle>
-        </DialogHeader>
-        <div className="py-4">
-            <NotificationSettings />
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }
