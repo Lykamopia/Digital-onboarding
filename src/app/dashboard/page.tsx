@@ -176,6 +176,12 @@ function DashboardContent() {
   }
   const emptyState = getEmptyState();
 
+  const memoListToggle = (
+    <Button variant="ghost" size="icon" onClick={() => setIsListExpanded(!isListExpanded)} className="hidden md:flex">
+        {isListExpanded ? <PanelLeft /> : <PanelRight />}
+    </Button>
+  );
+
   return (
     <div 
         className={cn(
@@ -193,11 +199,7 @@ function DashboardContent() {
             status={status}
             setStatus={setStatus}
             isExpanded={isListExpanded}
-            toggle={
-                 <Button variant="ghost" size="icon" onClick={() => setIsListExpanded(!isListExpanded)} className="hidden md:flex">
-                    {isListExpanded ? <PanelLeft /> : <PanelRight />}
-                </Button>
-            }
+            toggle={memoListToggle}
         />
         {memos.length > 0 ? (
           <MemoList 
@@ -216,8 +218,6 @@ function DashboardContent() {
         <MemoDisplay 
             memo={selectedMemo} 
             onUpdate={loadMemos} 
-            listVisible={isListExpanded}
-            setListVisible={setIsListExpanded}
         />
       </div>
       <div className="hidden print:block col-span-2">
