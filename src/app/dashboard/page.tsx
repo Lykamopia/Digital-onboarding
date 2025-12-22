@@ -43,6 +43,14 @@ function DashboardContent() {
     const allCombinedMemos = [...draftsWithActivity, ...initialMemos, ...sentMemos];
 
     const filteredMemos = allCombinedMemos.filter(memo => {
+      const isArchivedByCurrentUser = memo.archivedBy?.includes(loggedInUser.id);
+
+      if (tab === 'archive') {
+        return isArchivedByCurrentUser;
+      }
+      
+      if (isArchivedByCurrentUser) return false;
+
       if (tab === 'inbox') {
         const isTo = memo.to.some(user => user.id === loggedInUser.id);
         const isCc = memo.cc.some(user => user.id === loggedInUser.id);
@@ -54,9 +62,6 @@ function DashboardContent() {
       }
       if (tab === 'drafts') {
           return memo.status === 'draft' && memo.from.id === loggedInUser.id;
-      }
-      if (tab === 'archive') {
-        return false;
       }
       return false;
     }).sort((a, b) => {

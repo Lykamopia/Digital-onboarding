@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import type { MemoWithActivity, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   commented: <Reply className="h-4 w-4" />,
   forwarded: <Share2 className="h-4 w-4 text-purple-500" />,
   created: <Edit className="h-4 w-4" />,
+  archived: <Archive className="h-4 w-4" />,
 };
 
 const UserDisplay = ({
@@ -161,9 +163,92 @@ const MemoField = ({ label, amharic, children, className }: { label: string, amh
 
 
 export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handlePrint = () => {
     window.print();
+  }
+
+  const updateMemoInStorage = (updatedMemo: MemoWithActivity) => {
+    const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
+    const memoIndex = memos.findIndex(m => m.id === updatedMemo.id);
+    if (memoIndex > -1) {
+        memos[memoIndex] = updatedMemo;
+    } else {
+        // This handles cases where we might be updating a memo from the initial static data
+        const initialMemos: MemoWithActivity[] = JSON.parse(JSON.stringify(require('@/lib/data').memos));
+        const initialMemoIndex = initialMemos.findIndex(m => m.id === updatedMemo.id);
+        if(initialMemoIndex > -1) {
+             memos.push(updatedMemo);
+        } else {
+            console.error("Could not find memo to update")
+            return false;
+        }
+    }
+    localStorage.setItem('memos', JSON.stringify(memos));
+    onUpdate();
+    return true;
+  }
+
+  const handleAcknowledge = () => {
+    if (!memo) return;
+
+    const newActivity = {
+      id: `act-${Date.now()}`,
+      actor: loggedInUser,
+      action: 'acknowledged' as const,
+      timestamp: new Date().toISOString(),
+      details: 'Acknowledged receipt of the memo.',
+    };
+
+    const updatedMemo = {
+      ...memo,
+      status: 'acknowledged' as const,
+      activity: [...memo.activity, newActivity],
+    };
+    
+    if (updateMemoInStorage(updatedMemo)) {
+        toast({
+            title: "Memo Acknowledged",
+            description: "You have acknowledged receipt of this memo."
+        });
+    }
+  }
+
+  const handleArchive = () => {
+    if (!memo) return;
+    const newActivity = {
+        id: `act-${Date.now()}`,
+        actor: loggedInUser,
+        action: 'archived' as const,
+        timestamp: new Date().toISOString(),
+        details: 'Archived the memo.',
+    };
+    const updatedMemo = {
+        ...memo,
+        archivedBy: [...(memo.archivedBy || []), loggedInUser.id],
+        activity: [...memo.activity, newActivity],
+    };
+     if (updateMemoInStorage(updatedMemo)) {
+        toast({
+            title: "Memo Archived",
+            description: "The memo has been moved to your archive."
+        });
+    }
+  }
+
+  const handleReply = () => {
+    if(!memo) return;
+
+    const replyContent = {
+        to: [memo.from],
+        subject: `Re: ${memo.subject}`,
+        body: `<br><br><hr><p>On ${formatTimestamp(memo.createdAt)}, ${memo.from.name} wrote:</p><blockquote>${memo.body}</blockquote>`
+    };
+
+    localStorage.setItem('memo-reply', JSON.stringify(replyContent));
+    router.push('/dashboard/new?reply=true');
   }
 
   if (!memo) {
@@ -198,6 +283,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id) && memo.to.every(u => u.id !== loggedInUser.id);
+  const canAcknowledge = memo.status !== 'acknowledged' && memo.current_holder?.id === loggedInUser.id && !isCC;
   const canForward = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
@@ -207,6 +293,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                 <div className="flex flex-col items-center mb-6">
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
                     <p className="text-xl font-bold mt-4 tracking-wider">MEMORANDUM</p>
+                    <p className="text-sm mt-1">{memo.memo_reference_number}</p>
                 </div>
                 <div className="border-t-4 border-b-4 border-double border-black">
                      <MemoField label="Date" amharic="ቀን">
@@ -263,13 +350,13 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     <>
                         <Separator className="my-6 no-print" />
                         <div className="flex items-center gap-2 font-sans no-print">
-                        {!isCC && 
-                            <Button variant="outline">
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Acknowledge
+                        {canAcknowledge && 
+                            <Button variant="outline" onClick={handleAcknowledge}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Acknowledge
                             </Button>
                         }
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={handleReply}>
                             <Reply className="mr-2 h-4 w-4" />
                             Reply
                         </Button>
@@ -280,7 +367,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <Button variant="ghost" size="icon" onClick={handlePrint}>
                             <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={handleArchive}>
                             <Archive className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         </div>

@@ -46,15 +46,16 @@ export type Memo = {
   body: string;
   attachments: Attachment[];
   createdAt: string;
-  status: 'draft' | 'sent' | 'read' | 'acknowledged';
+  status: 'draft' | 'sent' | 'read' | 'acknowledged' | 'archived';
   current_holder?: User;
   previous_holders?: User[];
+  archivedBy?: string[]; // Array of user IDs who have archived this memo
 };
 
 export type Activity = {
   id: string;
   actor: User;
-  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded';
+  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived';
   timestamp: string;
   details?: string;
 };

@@ -57,6 +57,7 @@ const memoSchema = z.object({
 type MemoFormData = z.infer<typeof memoSchema>;
 
 const DRAFT_KEY_PREFIX = 'memo-draft-';
+const REPLY_KEY = 'memo-reply';
 
 const MemoPreview = ({ memoData }: { memoData: MemoWithActivity | null }) => {
   if (!memoData) return null;
@@ -71,6 +72,7 @@ export default function NewMemoPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const draftId = searchParams.get('id');
+  const isReply = searchParams.get('reply');
   const DRAFT_KEY = draftId ? `${DRAFT_KEY_PREFIX}${draftId}` : 'memo-draft';
 
   const form = useForm<MemoFormData>({
@@ -134,16 +136,25 @@ export default function NewMemoPage() {
   const debouncedSave = useDebouncedCallback(saveDraft, 1000);
 
   useEffect(() => {
-    const subscription = form.watch((value) => {
-        if(value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0)) {
+    const subscription = form.watch((value, { name }) => {
+        if (!isReply && (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0))) {
             debouncedSave(value as MemoFormData);
         }
     });
     return () => subscription.unsubscribe();
-  }, [form, debouncedSave]);
+  }, [form, debouncedSave, isReply]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && draftId) {
+    if (typeof window === 'undefined') return;
+
+    if (isReply) {
+        const replyContent = localStorage.getItem(REPLY_KEY);
+        if (replyContent) {
+            const { to, subject, body } = JSON.parse(replyContent);
+            form.reset({ to, subject, body, cc: [] });
+            localStorage.removeItem(REPLY_KEY);
+        }
+    } else if (draftId) {
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
@@ -162,7 +173,7 @@ export default function NewMemoPage() {
         setIsDraft(false);
         setLastSaved(null);
     }
-  }, [form, draftId, DRAFT_KEY]);
+  }, [form, draftId, DRAFT_KEY, isReply]);
 
   function deleteDraft() {
       if (typeof window !== 'undefined') {
@@ -249,12 +260,12 @@ export default function NewMemoPage() {
             <CardContent>
                 <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-[80px_1fr] items-center border-b py-2">
-                        <span className="font-semibold text-sm">Date - ቀን</span>
+                    <div className="grid grid-cols-[120px_1fr] items-center border-b py-2">
+                        <span className="font-semibold text-sm text-right pr-4">Date - ቀን</span>
                         <div>{formatTimestamp(new Date().toISOString(), false)}</div>
                     </div>
-                    <div className="grid grid-cols-[80px_1fr] items-start border-b py-2">
-                        <span className="font-semibold text-sm">From - ከ</span>
+                    <div className="grid grid-cols-[120px_1fr] items-start border-b py-2">
+                        <span className="font-semibold text-sm text-right pr-4">From - ከ</span>
                         <div>
                             <span>{loggedInUser.name}</span>
                             <span className="text-muted-foreground text-xs block">{`${loggedInUser.division}, ${loggedInUser.department}, ${loggedInUser.office}`}</span>
@@ -264,8 +275,8 @@ export default function NewMemoPage() {
                     control={form.control}
                     name="to"
                     render={({ field }) => (
-                        <FormItem className="grid grid-cols-[80px_1fr] items-center space-y-0">
-                            <FormLabel>To - ለ</FormLabel>
+                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                            <FormLabel className='text-right pr-4'>To - ለ</FormLabel>
                             <FormControl>
                                 <RecipientSelector
                                 selected={field.value || []}
@@ -281,8 +292,8 @@ export default function NewMemoPage() {
                     control={form.control}
                     name="cc"
                     render={({ field }) => (
-                        <FormItem className="grid grid-cols-[80px_1fr] items-center space-y-0">
-                            <FormLabel>CC - ግልባጭ</FormLabel>
+                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                            <FormLabel className='text-right pr-4'>CC - ግልባጭ</FormLabel>
                             <FormControl>
                                 <RecipientSelector
                                 selected={field.value || []}
@@ -298,8 +309,8 @@ export default function NewMemoPage() {
                     control={form.control}
                     name="subject"
                     render={({ field }) => (
-                        <FormItem className="grid grid-cols-[80px_1fr] items-center space-y-0">
-                            <FormLabel>Subject - ጉዳዩ</FormLabel>
+                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                            <FormLabel className='text-right pr-4'>Subject - ጉዳዩ</FormLabel>
                             <FormControl>
                                 <Input placeholder="Enter memo subject" {...field} />
                             </FormControl>
@@ -320,8 +331,8 @@ export default function NewMemoPage() {
                         </FormItem>
                     )}
                     />
-                    <div className="grid grid-cols-[80px_1fr] items-center space-y-0">
-                        <FormLabel>ENC - አባሪ</FormLabel>
+                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                        <FormLabel className='text-right pr-4'>ENC - አባሪ</FormLabel>
                         <Button type="button" variant="outline" size="sm">Add Attachment</Button>
                     </div>
 
