@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useRouter } from "next/navigation"
@@ -48,9 +47,9 @@ const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWith
                 {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
                 </div>
             </div>
-            <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
+            <div className="text-sm font-medium truncate break-words">{memo.subject || "No Subject"}</div>
             </div>
-            <div className="line-clamp-1 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
+            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
         </button>
         ))}
     </div>

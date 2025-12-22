@@ -493,7 +493,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   return (
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 overflow-hidden">
                 <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
             </div>
             {!isPreview && (
