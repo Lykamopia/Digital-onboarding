@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useEffect } from 'react';
 import { useNotification } from '@/components/notification-provider';
-import type { MemoWithActivity } from '@/lib/types';
+import type { MemoWithActivity, User } from '@/lib/types';
 import { loggedInUser } from '@/lib/data';
 
 export function NotificationListener() {
@@ -35,17 +36,17 @@ export function NotificationListener() {
     
     const handleMemoSent = (event: Event) => {
         const { memo } = (event as CustomEvent).detail;
-        memo.to.forEach((user:any) => {
-            handleMemoEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId: user.id, type: 'new' } }));
+        memo.to.forEach((user: User) => {
+            window.dispatchEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId: user.id, type: 'new' } }));
         });
-        memo.cc.forEach((user:any) => {
-            handleMemoEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId: user.id, type: 'new' } }));
+        memo.cc.forEach((user: User) => {
+            window.dispatchEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId: user.id, type: 'new' } }));
         });
     }
 
     const handleMemoForwarded = (event: Event) => {
         const { memo, recipientId } = (event as CustomEvent).detail;
-        handleMemoEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId, type: 'forward' } }));
+        window.dispatchEvent(new CustomEvent('memoEvent', { detail: { memo, recipientId, type: 'forward' } }));
     }
 
     const handleStorageChange = (event: StorageEvent) => {
@@ -59,23 +60,25 @@ export function NotificationListener() {
         );
 
         if (newMemo) {
-            handleMemoEvent(new CustomEvent('memoEvent', { detail: { memo: newMemo, recipientId: loggedInUser.id, type: 'new' } }));
+            window.dispatchEvent(new CustomEvent('memoEvent', { detail: { memo: newMemo, recipientId: loggedInUser.id, type: 'new' } }));
         }
 
         newMemos.forEach(newM => {
             const oldM = oldMemos.find(om => om.id === newM.id);
             if (oldM && newM.current_holder?.id === loggedInUser.id && oldM.current_holder?.id !== loggedInUser.id) {
-                handleMemoEvent(new CustomEvent('memoEvent', { detail: { memo: newM, recipientId: loggedInUser.id, type: 'forward' } }));
+                window.dispatchEvent(new CustomEvent('memoEvent', { detail: { memo: newM, recipientId: loggedInUser.id, type: 'forward' } }));
             }
         });
       }
     };
 
+    window.addEventListener('memoEvent', handleMemoEvent);
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('memoSent', handleMemoSent);
     window.addEventListener('memoForwarded', handleMemoForwarded);
 
     return () => {
+      window.removeEventListener('memoEvent', handleMemoEvent);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('memoSent', handleMemoSent);
       window.removeEventListener('memoForwarded', handleMemoForwarded);
