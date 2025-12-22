@@ -33,13 +33,13 @@ const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWith
         >
             <div className="flex w-full flex-col gap-0.5">
             <div className="flex items-center">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 truncate">
                 <div className="font-semibold truncate">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
                 {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
                 </div>
                 <div
                 className={cn(
-                    "ml-auto text-xs",
+                    "ml-auto text-xs shrink-0",
                     selectedMemoId === memo.id
                     ? "text-foreground"
                     : "text-muted-foreground"
