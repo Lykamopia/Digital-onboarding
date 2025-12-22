@@ -22,9 +22,10 @@ interface MemoFiltersProps {
   setDateRange: (date: DateRange | undefined) => void;
   status: string;
   setStatus: (status: string) => void;
+  toggle: React.ReactNode;
 }
 
-export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus }: MemoFiltersProps) {
+export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, toggle }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
@@ -55,20 +56,23 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
 
   return (
     <div className="p-2 border-b">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search memos..."
-          className="w-full rounded-lg bg-background pl-8"
-          value={search}
-          onChange={(e) => {
-              setSearch(e.target.value);
-              debouncedSetSearch(e.target.value);
-            }
-          }
-        />
-      </div>
+        <div className='flex items-center gap-2'>
+            {toggle}
+            <div className="relative w-full">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                type="search"
+                placeholder="Search memos..."
+                className="w-full rounded-lg bg-background pl-8"
+                value={search}
+                onChange={(e) => {
+                    setSearch(e.target.value);
+                    debouncedSetSearch(e.target.value);
+                    }
+                }
+                />
+            </div>
+        </div>
       <div className="flex min-w-0 items-center flex-wrap gap-2 mt-2">
         <Popover>
           <PopoverTrigger asChild>

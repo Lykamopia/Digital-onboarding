@@ -13,6 +13,7 @@ import {
   Printer,
   Expand,
   Undo2,
+  PanelRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -179,7 +180,7 @@ const formatFileSize = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
+export function MemoDisplay({ memo, onUpdate, isPreview = false, listVisible, setListVisible }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -493,7 +494,14 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   return (
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
-            <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
+            <div className="flex items-center gap-2">
+                 {!listVisible && setListVisible && (
+                    <Button variant="ghost" size="icon" onClick={() => setListVisible(true)} className="md:flex">
+                        <PanelRight />
+                    </Button>
+                )}
+                <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
+            </div>
             {!isPreview && (
                  <Dialog>
                     <DialogTrigger asChild>
@@ -523,6 +531,8 @@ interface MemoDisplayProps {
   memo: MemoWithActivity | null;
   onUpdate: () => void;
   isPreview?: boolean;
+  listVisible?: boolean;
+  setListVisible?: (visible: boolean) => void;
 }
 
     

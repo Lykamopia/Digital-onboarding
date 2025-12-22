@@ -14,6 +14,8 @@ import { MemoFilters } from "@/components/memo-filters"
 import { useSearchParams } from "@/hooks/use-search-params"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval, startOfDay, endOfDay } from "date-fns"
+import { PanelLeft, PanelRight } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 function DashboardContent() {
   const { searchParams } = useSearchParams()
@@ -22,6 +24,7 @@ function DashboardContent() {
 
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
+  const [isListVisible, setIsListVisible] = useState(true);
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -173,8 +176,16 @@ function DashboardContent() {
   const emptyState = getEmptyState();
 
   return (
-    <div className="grid md:grid-cols-[minmax(300px,_1fr)_2fr] gap-4 h-[calc(100vh-8rem)]">
-      <Card className="no-print flex flex-col">
+    <div 
+        className={cn(
+            "grid gap-4 h-[calc(100vh-8rem)] transition-all",
+            isListVisible ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[0px_1fr]"
+        )}
+    >
+      <Card className={cn(
+            "no-print flex-col transition-all duration-300", 
+            isListVisible ? "flex" : "hidden"
+            )}>
         <MemoFilters
             tab={tab}
             search={search}
@@ -183,6 +194,11 @@ function DashboardContent() {
             setDateRange={setDateRange}
             status={status}
             setStatus={setStatus}
+            toggle={
+                 <Button variant="ghost" size="icon" onClick={() => setIsListVisible(!isListVisible)} className="hidden md:flex">
+                    {isListVisible ? <PanelLeft /> : <PanelRight />}
+                </Button>
+            }
         />
         {memos.length > 0 ? (
           <MemoList memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={setSelectedMemoId} />
@@ -193,7 +209,12 @@ function DashboardContent() {
         )}
       </Card>
       <div className="h-full overflow-y-auto rounded-lg no-print">
-        <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
+        <MemoDisplay 
+            memo={selectedMemo} 
+            onUpdate={loadMemos} 
+            listVisible={isListVisible}
+            setListVisible={setIsListVisible}
+        />
       </div>
       <div className="hidden print:block col-span-2">
          <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
