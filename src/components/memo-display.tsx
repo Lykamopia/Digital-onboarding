@@ -213,19 +213,32 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   const updateMemoInStorage = (updatedMemo: MemoWithActivity, showToast = true) => {
     const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
-    const memoIndex = memos.findIndex(m => m.id === updatedMemo.id);
-    if (memoIndex > -1) {
-        memos[memoIndex] = updatedMemo;
-    } else {
-        const initialMemos: MemoWithActivity[] = JSON.parse(JSON.stringify(require('@/lib/data').memos));
+    let memoIndex = memos.findIndex(m => m.id === updatedMemo.id);
+
+    // If memo is not in localStorage memos, it might be an initial memo.
+    if (memoIndex === -1) {
+        const initialMemos: MemoWithActivity[] = require('@/lib/data').memos;
         const initialMemoIndex = initialMemos.findIndex(m => m.id === updatedMemo.id);
-        if(initialMemoIndex > -1) {
-             memos.push(updatedMemo);
-        } else {
-            console.error("Could not find memo to update")
-            return false;
+        
+        if (initialMemoIndex !== -1) {
+            // It's an initial memo, so we add it (and any others not in storage) to localStorage.
+            const initialMemosNotInStorage = initialMemos.filter(im => !memos.some(m => m.id === im.id));
+            const combinedMemos = [...memos, ...initialMemosNotInStorage];
+            memoIndex = combinedMemos.findIndex(m => m.id === updatedMemo.id);
+            if (memoIndex !== -1) {
+                combinedMemos[memoIndex] = updatedMemo;
+                localStorage.setItem('memos', JSON.stringify(combinedMemos));
+                onUpdate();
+                return true;
+            }
         }
+        
+        console.error("Could not find memo to update");
+        return false;
     }
+    
+    // Memo found in localStorage, so update it.
+    memos[memoIndex] = updatedMemo;
     localStorage.setItem('memos', JSON.stringify(memos));
     onUpdate();
     return true;
@@ -526,5 +539,7 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
+
+    
 
     
