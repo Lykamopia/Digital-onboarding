@@ -1,22 +1,38 @@
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { memos as initialMemos, loggedInUser } from "@/lib/data"
-import type { MemoWithActivity, Memo } from "@/lib/types"
+import type { MemoWithActivity, Memo, User } from "@/lib/types"
 import { MemoList } from "@/components/memo-list"
 import { MemoDisplay } from "@/components/memo-display"
 import { Card } from "@/components/ui/card"
 import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
+import { MemoFilters } from "@/components/memo-filters"
+import { useSearchParams } from "@/hooks/use-search-params"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval, startOfDay, endOfDay } from "date-fns"
 
 function DashboardContent() {
-  const searchParams = useSearchParams()
+  const { searchParams } = useSearchParams()
   const router = useRouter();
   const tab = searchParams.get("tab") || "inbox"
 
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
+
+  // Filter states
+  const [search, setSearch] = useState(searchParams.get('q') || '');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    if (from && to) {
+      return { from: new Date(from), to: new Date(to) };
+    }
+    return undefined;
+  });
+  const [status, setStatus] = useState(searchParams.get('status') || '');
 
   const loadMemos = useCallback(() => {
     let allDrafts: Memo[] = [];
@@ -44,7 +60,7 @@ function DashboardContent() {
 
     const allCombinedMemos = [...draftsWithActivity, ...filteredInitialMemos, ...sentMemos];
 
-    const filteredMemos = allCombinedMemos.filter(memo => {
+    let filteredMemos = allCombinedMemos.filter(memo => {
       const isArchivedByCurrentUser = memo.archivedBy?.includes(loggedInUser.id);
 
       if (tab === 'archive') {
@@ -66,7 +82,31 @@ function DashboardContent() {
           return memo.status === 'draft' && memo.from.id === loggedInUser.id;
       }
       return false;
-    }).sort((a, b) => {
+    });
+
+    // Apply search and filters
+    if (search) {
+        const lowercasedSearch = search.toLowerCase();
+        filteredMemos = filteredMemos.filter(memo => 
+            memo.subject.toLowerCase().includes(lowercasedSearch) ||
+            memo.memo_reference_number.toLowerCase().includes(lowercasedSearch) ||
+            memo.from.name.toLowerCase().includes(lowercasedSearch) ||
+            memo.to.some(u => u.name.toLowerCase().includes(lowercasedSearch))
+        );
+    }
+    
+    if (status) {
+        filteredMemos = filteredMemos.filter(memo => memo.status === status);
+    }
+
+    if (dateRange?.from && dateRange?.to) {
+        const interval = { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) };
+        filteredMemos = filteredMemos.filter(memo => 
+            isWithinInterval(new Date(memo.createdAt), interval)
+        );
+    }
+    
+    filteredMemos = filteredMemos.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
@@ -75,20 +115,18 @@ function DashboardContent() {
     setMemos(filteredMemos);
 
     if (filteredMemos.length > 0) {
-        // If there's no selected memo, or the selected one is no longer in the list, select the first one.
         if (!selectedMemoId || !filteredMemos.some(m => m.id === selectedMemoId)) {
             setSelectedMemoId(filteredMemos[0].id);
         }
     } else {
         setSelectedMemoId(null);
     }
-  }, [tab, selectedMemoId]);
+  }, [tab, selectedMemoId, search, status, dateRange]);
 
   useEffect(() => {
     loadMemos();
     const handleStorageChange = () => loadMemos();
     window.addEventListener('storage', handleStorageChange);
-    // This is for when the user clicks "New Memo" and a new draft is created.
     window.addEventListener('draft-created', handleStorageChange);
     
     return () => {
@@ -101,6 +139,9 @@ function DashboardContent() {
   const selectedMemo = memos.find(memo => memo.id === selectedMemoId) || null;
 
   const getEmptyState = () => {
+      if (search || status || dateRange) {
+        return { title: "No Memos Found", description: "Try adjusting your search or filters."}
+      }
       switch(tab) {
           case 'inbox':
               return { title: "Inbox Zero", description: "You've read all your memos. Great job!" };
@@ -118,7 +159,15 @@ function DashboardContent() {
 
   return (
     <div className="grid md:grid-cols-[minmax(300px,_1fr)_2fr] gap-4 h-[calc(100vh-8rem)]">
-      <Card className="no-print">
+      <Card className="no-print flex flex-col">
+        <MemoFilters
+            search={search}
+            setSearch={setSearch}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            status={status}
+            setStatus={setStatus}
+        />
         {memos.length > 0 ? (
           <MemoList memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={setSelectedMemoId} />
         ) : (
