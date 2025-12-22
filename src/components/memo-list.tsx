@@ -26,18 +26,18 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-0.5 p-2">
+      <div className="flex flex-col gap-0.5 p-1">
         {memos.map((memo) => (
           <button
             key={memo.id}
             className={cn(
-              "flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-colors",
+              "flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-colors",
               "hover:bg-primary/5",
               selectedMemoId === memo.id ? "bg-primary/10 border-primary/20" : "border-transparent"
             )}
             onClick={() => handleSelect(memo)}
           >
-            <div className="flex w-full flex-col gap-1">
+            <div className="flex w-full flex-col gap-0.5">
               <div className="flex items-center">
                 <div className="flex items-center gap-2">
                   <div className="font-semibold">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
@@ -56,7 +56,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
               </div>
               <div className="text-sm font-medium">{memo.subject || "No Subject"}</div>
             </div>
-            <div className="line-clamp-2 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
+            <div className="line-clamp-1 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
           </button>
         ))}
       </div>
