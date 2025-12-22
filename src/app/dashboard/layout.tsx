@@ -106,7 +106,7 @@ const DesktopSidebar = () => {
                         <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                     </div>
                 </SidebarHeader>
-                <SidebarMenu className="flex-1">
+                <SidebarMenu className="flex-1 px-3">
                     {navItems.filter(item => item.visible).map(item => (
                         <SidebarMenuItem key={item.label}>
                             <Link href={item.href}>
