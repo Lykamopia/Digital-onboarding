@@ -12,6 +12,7 @@ import {
   Send,
   Printer,
   Expand,
+  Undo2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -36,6 +37,7 @@ import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <Send className="h-4 w-4" />,
@@ -45,6 +47,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   forwarded: <Share2 className="h-4 w-4 text-purple-500" />,
   created: <Edit className="h-4 w-4" />,
   archived: <Archive className="h-4 w-4" />,
+  unarchived: <Undo2 className="h-4 w-4" />,
 };
 
 const UserDisplay = ({
@@ -202,7 +205,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
           updateMemoInStorage(updatedMemo, false);
       }
     }
-  }, [memo, isPreview, onUpdate]);
+  }, [memo, isPreview]);
 
   const handlePrint = () => {
     window.print();
@@ -281,6 +284,28 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     }
   }
 
+  const handleUnarchive = () => {
+    if (!memo) return;
+     const newActivity = {
+        id: `act-${Date.now()}`,
+        actor: loggedInUser,
+        action: 'unarchived' as const,
+        timestamp: new Date().toISOString(),
+        details: 'Unarchived the memo.',
+    };
+    const updatedMemo = {
+        ...memo,
+        archivedBy: (memo.archivedBy || []).filter(id => id !== loggedInUser.id),
+        activity: [...memo.activity, newActivity],
+    };
+    if (updateMemoInStorage(updatedMemo)) {
+        toast({
+            title: "Memo Unarchived",
+            description: "The memo has been restored from your archive."
+        });
+    }
+  }
+
   const handleReply = () => {
     if(!memo) return;
     router.push(`/dashboard/new?replyTo=${memo.id}`);
@@ -322,6 +347,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const hasAcknowledged = memo.acknowledgedBy?.includes(loggedInUser.id);
   const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
   const canForward = isRecipient && !isCC;
+  const isArchived = memo.archivedBy?.includes(loggedInUser.id);
 
 
   const MemoContent = () => (
@@ -415,9 +441,15 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <Button variant="ghost" size="icon" onClick={handlePrint}>
                             <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={handleArchive}>
-                            <Archive className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        {isArchived ? (
+                            <Button variant="ghost" size="icon" onClick={handleUnarchive} title="Unarchive">
+                                <Undo2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        ) : (
+                            <Button variant="ghost" size="icon" onClick={handleArchive} title="Archive">
+                                <Archive className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        )}
                         </div>
                         <Separator className="my-6 no-print" />
 
@@ -492,3 +524,5 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
+
+    

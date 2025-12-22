@@ -58,7 +58,7 @@ export type Memo = {
 export type Activity = {
   id: string;
   actor: User;
-  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived' | 'replied';
+  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived' | 'unarchived' | 'replied';
   timestamp: string;
   details?: string;
 };
@@ -66,3 +66,5 @@ export type Activity = {
 export type MemoWithActivity = Memo & {
   activity: Activity[];
 };
+
+    
