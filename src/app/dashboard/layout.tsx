@@ -131,22 +131,26 @@ function DashboardLayoutContent({
         <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 ${!isMobile && state === 'expanded' ? 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]' : 'md:grid-cols-[68px_1fr] lg:grid-cols-[68px_1fr]'}`}>
             <DesktopSidebar />
             <div className="flex flex-col h-screen">
-                <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 no-print shrink-0">
-                    <MobileSidebar />
-                    <SidebarTrigger className="hidden md:flex" />
-                    <div className="w-full flex-1">
-                        {/* Optional: Add a search bar here */}
+                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
+                    <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
+                        <MobileSidebar />
+                        <SidebarTrigger className="hidden md:flex" />
+                        <div className="w-full flex-1">
+                            {/* Optional: Add a search bar here */}
+                        </div>
+                        <Link href="/dashboard/new" onClick={handleNewMemoClick}>
+                            <Button>
+                            <FilePlus className="mr-2 h-4 w-4" />
+                            New Memo
+                            </Button>
+                        </Link>
+                        <UserNav />
                     </div>
-                     <Link href="/dashboard/new" onClick={handleNewMemoClick}>
-                        <Button>
-                          <FilePlus className="mr-2 h-4 w-4" />
-                          New Memo
-                        </Button>
-                    </Link>
-                    <UserNav />
                 </header>
-                <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto no-print">
-                    {children}
+                <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
+                    <div className="flex-1 p-4 lg:p-6">
+                        {children}
+                    </div>
                 </main>
                 <div className="hidden print:block">
                      {children}
