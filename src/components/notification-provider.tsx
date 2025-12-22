@@ -5,6 +5,14 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { useToast } from '@/hooks/use-toast';
 import type { Toast } from '@/hooks/use-toast';
 
+type Notification = {
+  id: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  createdAt: Date;
+  read: boolean;
+};
+
 type NotificationSettings = {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
@@ -13,9 +21,11 @@ type NotificationSettings = {
 type NotificationContextType = {
   settings: NotificationSettings;
   setSettings: (settings: Partial<NotificationSettings>) => void;
-  showNotification: (props: Toast) => void;
-  notificationCount: number;
-  resetNotificationCount: () => void;
+  showNotification: (props: Omit<Toast, 'id' | 'createdAt' | 'read'>) => void;
+  notifications: Notification[];
+  unreadCount: number;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -23,10 +33,9 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    // Audio can only be initialized on the client
     const audioInstance = new Audio('/ring.mp3');
     audioInstance.load();
     setAudio(audioInstance);
@@ -55,22 +64,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const showNotification = useCallback((props: Toast) => {
+  const showNotification = useCallback((props: Omit<Toast, 'id'>) => {
     if (settings.notificationsEnabled) {
       toast(props);
-      setNotificationCount(prev => prev + 1);
+      setNotifications(prev => [
+        { 
+          id: `notif-${Date.now()}`,
+          title: props.title || '',
+          description: props.description,
+          createdAt: new Date(),
+          read: false
+        }, 
+        ...prev
+      ]);
       if (settings.soundEnabled && audio) {
         audio.play().catch(error => console.error("Audio playback failed:", error));
       }
     }
   }, [settings, toast, audio]);
 
-  const resetNotificationCount = useCallback(() => {
-    setNotificationCount(0);
+  const markAsRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
+  const markAllAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
-    <NotificationContext.Provider value={{ settings, setSettings, showNotification, notificationCount, resetNotificationCount }}>
+    <NotificationContext.Provider value={{ settings, setSettings, showNotification, notifications, unreadCount, markAsRead, markAllAsRead }}>
       {children}
     </NotificationContext.Provider>
   );
