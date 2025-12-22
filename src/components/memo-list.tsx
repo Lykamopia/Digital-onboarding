@@ -27,7 +27,7 @@ const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWith
             className={cn(
             "flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-colors",
             "hover:bg-primary/5",
-            selectedMemoId === memo.id ? "bg-primary/10 border-primary/20" : "border-transparent"
+            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50 border-transparent" : "border-transparent"
             )}
             onClick={() => handleSelect(memo)}
         >
