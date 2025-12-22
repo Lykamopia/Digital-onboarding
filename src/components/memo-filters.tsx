@@ -15,6 +15,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { cn } from '@/lib/utils';
 
 interface MemoFiltersProps {
+  tab: string;
   search: string;
   setSearch: (search: string) => void;
   dateRange: DateRange | undefined;
@@ -23,11 +24,10 @@ interface MemoFiltersProps {
   setStatus: (status: string) => void;
 }
 
-export function MemoFilters({ search, setSearch, dateRange, setDateRange, status, setStatus }: MemoFiltersProps) {
+export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
-    setSearch(value);
     setSearchParams({ q: value });
   }, 300);
 
@@ -106,17 +106,18 @@ export function MemoFilters({ search, setSearch, dateRange, setDateRange, status
             />
           </PopoverContent>
         </Popover>
-        <Select value={status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-full sm:w-auto flex-1">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="sent">Sent</SelectItem>
-            <SelectItem value="read">Read</SelectItem>
-            <SelectItem value="acknowledged">Acknowledged</SelectItem>
-          </SelectContent>
-        </Select>
+        {tab === 'inbox' && (
+            <Select value={status} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-full sm:w-auto flex-1">
+                <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="acknowledged">Acknowledged</SelectItem>
+            </SelectContent>
+            </Select>
+        )}
         {hasActiveFilters && (
              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
                 <X className="mr-1 h-4 w-4" />

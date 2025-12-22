@@ -97,8 +97,14 @@ function DashboardContent() {
     }
     
     const trimmedStatus = status.trim();
-    if (trimmedStatus && trimmedStatus !== 'all') {
-        filteredMemos = filteredMemos.filter(memo => memo.status === trimmedStatus);
+    if (tab === 'inbox' && trimmedStatus && trimmedStatus !== 'all') {
+        if (trimmedStatus === 'read') {
+            filteredMemos = filteredMemos.filter(memo => 
+                memo.activity.some(act => act.action === 'viewed' && act.actor.id === loggedInUser.id)
+            );
+        } else if (trimmedStatus === 'acknowledged') {
+             filteredMemos = filteredMemos.filter(memo => memo.acknowledgedBy?.includes(loggedInUser.id));
+        }
     }
 
     if (dateRange?.from) {
@@ -143,7 +149,7 @@ function DashboardContent() {
   const selectedMemo = memos.find(memo => memo.id === selectedMemoId) || null;
 
   const getEmptyState = () => {
-      if (search || status || dateRange) {
+      if (search || (status && tab === 'inbox') || dateRange) {
         return { title: "No Memos Found", description: "Try adjusting your search or filters."}
       }
       switch(tab) {
@@ -165,6 +171,7 @@ function DashboardContent() {
     <div className="grid md:grid-cols-[minmax(300px,_1fr)_2fr] gap-4 h-[calc(100vh-8rem)]">
       <Card className="no-print flex flex-col">
         <MemoFilters
+            tab={tab}
             search={search}
             setSearch={setSearch}
             dateRange={dateRange}

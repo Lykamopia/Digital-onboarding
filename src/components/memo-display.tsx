@@ -179,11 +179,37 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const router = useRouter();
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    if (memo && !isPreview) {
+      // Check if logged in user is the sender
+      const isSender = memo.from.id === loggedInUser.id;
+      // check if user has already viewed
+      const hasViewed = memo.activity.some(act => act.actor.id === loggedInUser.id && act.action === 'viewed');
+
+      if (isSender && !hasViewed) {
+         const newActivity = {
+            id: `act-${Date.now()}-view`,
+            actor: loggedInUser,
+            action: 'viewed' as const,
+            timestamp: new Date().toISOString(),
+            details: 'Sender viewed the memo.'
+          };
+
+          const updatedMemo = {
+            ...memo,
+            status: 'read' as const,
+            activity: [...memo.activity, newActivity],
+          };
+          updateMemoInStorage(updatedMemo, false);
+      }
+    }
+  }, [memo, isPreview, onUpdate]);
+
   const handlePrint = () => {
     window.print();
   }
 
-  const updateMemoInStorage = (updatedMemo: MemoWithActivity) => {
+  const updateMemoInStorage = (updatedMemo: MemoWithActivity, showToast = true) => {
     const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
     const memoIndex = memos.findIndex(m => m.id === updatedMemo.id);
     if (memoIndex > -1) {
