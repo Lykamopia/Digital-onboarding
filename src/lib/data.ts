@@ -1,4 +1,4 @@
-import type { User, MemoWithActivity, Division, Department, Office } from '@/lib/types';
+import type { User, MemoWithActivity, Division, Department, Office, Role } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -30,15 +30,36 @@ export const offices: Office[] = [
     { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
 ];
 
-export const users: User[] = [
-  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', officeId: 'off-1', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch' },
-  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', officeId: 'off-3', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters' },
-  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', officeId: 'off-4', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters' },
-  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', officeId: 'off-2', division: 'Retail Banking', department: 'Operations', office: 'North Branch' },
-  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', officeId: 'off-5', division: 'IT', department: 'Infrastructure', office: 'Data Center' },
+export const roles: Role[] = ['Admin', 'Member'];
+
+export let users: User[] = [
+  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', officeId: 'off-1', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch', role: 'Admin' },
+  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', officeId: 'off-3', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters', role: 'Member' },
+  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', officeId: 'off-4', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters', role: 'Member' },
+  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', officeId: 'off-2', division: 'Retail Banking', department: 'Operations', office: 'North Branch', role: 'Member' },
+  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', officeId: 'off-5', division: 'IT', department: 'Infrastructure', office: 'Data Center', role: 'Member' },
 ];
 
-export const loggedInUser = users[0];
+if (typeof window !== 'undefined') {
+  const storedUsers = localStorage.getItem('users');
+  if (storedUsers) {
+    users = JSON.parse(storedUsers);
+  } else {
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+}
+
+export let loggedInUser = users[0];
+
+if (typeof window !== 'undefined') {
+    const storedLoggedInUser = localStorage.getItem('loggedInUser');
+    if (storedLoggedInUser) {
+        loggedInUser = JSON.parse(storedLoggedInUser);
+    } else {
+        localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+    }
+}
+
 
 export const memos: MemoWithActivity[] = [
   {
@@ -113,7 +134,7 @@ export const memos: MemoWithActivity[] = [
      activity: [
       { id: 'act-4-1', actor: users[2], action: 'sent', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), details: 'Sent to Alice Johnson, Bob Williams, Diana Prince, Ethan Hunt.' },
       { id: 'act-4-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'act-4-3', actor: users[0], action: 'forwarded', details: 'Forwarded from Alice Johnson to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
+      { id: 'act-4-3', actor: users[0], action: 'forwarded', details: 'Forwarded from Alice Johnson to Bob Williams.\n&lt;b&gt;Remark:&lt;/b&gt; Bob, can you handle this?', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString() },
       { id: 'act-4-4', actor: users[1], action: 'commented', details: 'Will there be a remote option?', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
     ],
   },

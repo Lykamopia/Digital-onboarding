@@ -2,8 +2,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield } from "lucide-react"
+import { useEffect } from "react"
 
 import {
   SidebarProvider,
@@ -23,9 +24,11 @@ import { UserNav } from "@/components/user-nav"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
+import { loggedInUser } from "@/lib/data"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
+    const showAdminLink = loggedInUser.role === 'Admin';
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -59,10 +62,12 @@ const MobileSidebar = () => {
                         <Archive className="h-5 w-5" />
                         Archive
                     </Link>
-                    <Link href="/dashboard/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Shield className="h-5 w-5" />
-                        Admin
-                    </Link>
+                    {showAdminLink && (
+                        <Link href="/dashboard/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                            <Shield className="h-5 w-5" />
+                            Admin
+                        </Link>
+                    )}
                 </nav>
             </SheetContent>
         </Sheet>
@@ -78,6 +83,7 @@ const DesktopSidebar = () => {
     const isDraftsActive = searchParams.get('tab') === 'drafts';
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
+    const showAdminLink = loggedInUser.role === 'Admin';
 
 
     const navItems = [
@@ -85,8 +91,11 @@ const DesktopSidebar = () => {
         { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive },
         { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive },
         { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive },
-        { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin') },
-    ]
+    ];
+
+    if (showAdminLink) {
+        navItems.push({ href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin') });
+    }
 
     return (
         <Sidebar collapsible="icon" className="hidden md:flex no-print">
@@ -123,6 +132,14 @@ function DashboardLayoutContent({
   }) {
 
     const { state, isMobile } = useSidebar();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    useEffect(() => {
+        if (loggedInUser.role !== 'Admin' && pathname.startsWith('/dashboard/admin')) {
+            router.replace('/dashboard?tab=inbox');
+        }
+    }, [pathname, router]);
 
     const handleNewMemoClick = () => {
         if (typeof window !== 'undefined') {

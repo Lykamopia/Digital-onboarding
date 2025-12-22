@@ -1,3 +1,6 @@
+
+export type Role = 'Admin' | 'Member';
+
 export type Division = {
   id: string;
   name: string;
@@ -27,6 +30,7 @@ export type User = {
   division: string; // denormalized for convenience
   department: string; // denormalized for convenience
   office: string; // denormalized for convenience
+  role: Role;
 };
 
 export type Attachment = {

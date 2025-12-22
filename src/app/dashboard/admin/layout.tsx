@@ -27,6 +27,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { value: "/dashboard/admin/departments", label: "Departments" },
     { value: "/dashboard/admin/offices", label: "Offices" },
     { value: "/dashboard/admin/users", label: "Users" },
+    { value: "/dashboard/admin/roles", label: "Roles & Permissions" },
   ];
 
   // Determine the active tab value. Default to divisions if the path is just /admin.
@@ -43,7 +44,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
              {navItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
