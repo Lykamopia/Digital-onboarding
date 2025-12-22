@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, X, File as FileIcon, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Activity, MemoWithActivity } from '@/lib/types';
+import type { User, Memo, Activity, MemoWithActivity, Attachment } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loggedInUser, users, formatTimestamp } from '@/lib/data';
 import { Editor } from '@/components/editor';
@@ -46,12 +46,15 @@ import {
 } from '@/components/ui/dialog';
 import { MemoDisplay } from '@/components/memo-display';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 const memoSchema = z.object({
   id: z.string().optional(),
   to: z.array(z.any()).min(1, 'Please select at least one recipient.'),
   cc: z.array(z.any()).optional(),
   subject: z.string().min(1, 'Subject is required.'),
   body: z.string().min(1, 'Body is required.'),
+  attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
 });
 
@@ -73,6 +76,7 @@ export default function NewMemoPage() {
   const { toast } = useToast();
   const draftId = searchParams.get('id');
   const DRAFT_KEY = draftId ? `${DRAFT_KEY_PREFIX}${draftId}` : 'memo-draft';
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<MemoFormData>({
     resolver: zodResolver(memoSchema),
@@ -81,6 +85,7 @@ export default function NewMemoPage() {
       cc: [],
       subject: '',
       body: '',
+      attachments: [],
       replyTo: undefined,
     },
   });
@@ -95,7 +100,7 @@ export default function NewMemoPage() {
     cc: currentFormData.cc?.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[] || [],
     subject: currentFormData.subject || '',
     body: currentFormData.body || '',
-    attachments: [],
+    attachments: currentFormData.attachments || [],
     createdAt: new Date().toISOString(),
     status: 'draft',
     activity: [],
@@ -116,14 +121,12 @@ export default function NewMemoPage() {
       body: data.body,
       createdAt: new Date().toISOString(),
       status: 'draft',
-      attachments: [],
+      attachments: data.attachments || [],
       replyTo: data.replyTo,
     };
     
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     if (!draftId) {
-      // If it's a new draft, we need to update the URL to include the ID
-      // so subsequent saves update the same draft.
       router.replace(`/dashboard/new?id=${draft.id}`, { scroll: false });
     }
     
@@ -139,7 +142,7 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-        if (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0)) {
+        if (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0) || (value.attachments && value.attachments.length > 0)) {
             debouncedSave(value as MemoFormData);
         }
     });
@@ -159,16 +162,15 @@ export default function NewMemoPage() {
             cc: draft.cc || [],
             subject: draft.subject || '',
             body: draft.body || '',
+            attachments: draft.attachments || [],
             replyTo: draft.replyTo,
           });
           setIsDraft(true);
         }
       }
     } else {
-        // This case handles a brand new memo, not from a draft.
-        // It clears any old `memo-draft` that doesn't have an ID.
         localStorage.removeItem('memo-draft');
-        form.reset({ to: [], cc: [], subject: '', body: '', replyTo: undefined });
+        form.reset({ to: [], cc: [], subject: '', body: '', attachments: [], replyTo: undefined });
         setIsDraft(false);
         setLastSaved(null);
     }
@@ -181,7 +183,7 @@ export default function NewMemoPage() {
               title: 'Draft Deleted',
               description: 'The draft has been permanently deleted.',
           });
-          form.reset({ to: [], cc: [], subject: '', body: ''});
+          form.reset({ to: [], cc: [], subject: '', body: '', attachments: []});
           setIsDraft(false);
           setLastSaved(null);
           router.push('/dashboard?tab=inbox');
@@ -220,7 +222,7 @@ export default function NewMemoPage() {
       body: values.body,
       createdAt: new Date().toISOString(),
       status: 'sent' as const,
-      attachments: [],
+      attachments: values.attachments || [],
       activity: [
           creationActivity,
           sentActivity,
@@ -230,7 +232,6 @@ export default function NewMemoPage() {
       replyTo: values.replyTo,
     }
 
-    // If it's a reply, add an activity to the original memo
     if (values.replyTo) {
       const originalMemoIndex = sentMemos.findIndex(m => m.id === values.replyTo);
       if (originalMemoIndex > -1) {
@@ -259,6 +260,53 @@ export default function NewMemoPage() {
     form.reset();
     router.push('/dashboard?tab=sent');
   }
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const currentAttachments = form.getValues('attachments') || [];
+    const newAttachments: Attachment[] = [...currentAttachments];
+
+    Array.from(files).forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: `${file.name} exceeds the 5MB size limit.`,
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newAttachment: Attachment = {
+          id: `att-${Date.now()}-${file.name}`,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: e.target?.result as string,
+        };
+        newAttachments.push(newAttachment);
+        form.setValue('attachments', newAttachments, { shouldValidate: true, shouldDirty: true });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (id: string) => {
+    const currentAttachments = form.getValues('attachments') || [];
+    const newAttachments = currentAttachments.filter(att => att.id !== id);
+    form.setValue('attachments', newAttachments, { shouldValidate: true, shouldDirty: true });
+  };
+  
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   return (
     <div className="w-full">
@@ -347,9 +395,35 @@ export default function NewMemoPage() {
                         </FormItem>
                     )}
                     />
-                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                        <FormLabel className='text-right pr-4'>ENC - አባሪ</FormLabel>
-                        <Button type="button" variant="outline" size="sm">Add Attachment</Button>
+                    <div className="grid grid-cols-[120px_1fr] items-start space-y-0">
+                        <FormLabel className='text-right pr-4 pt-2'>ENC - አባሪ</FormLabel>
+                        <div className="col-start-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                              <Paperclip className="mr-2 h-4 w-4" />
+                              Add Attachment
+                          </Button>
+                          <Input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            multiple
+                          />
+                          <div className="mt-2 space-y-2">
+                            {(currentFormData.attachments || []).map((att) => (
+                              <div key={att.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                                <div className="flex items-center gap-2">
+                                  <FileIcon className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">{att.name}</span>
+                                  <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(att.id)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                     </div>
 
                     <div className="flex justify-between pt-4">

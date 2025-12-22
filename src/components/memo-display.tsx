@@ -14,7 +14,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { MemoWithActivity, User, Memo } from '@/lib/types';
+import type { MemoWithActivity, User, Memo, Attachment } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -161,6 +161,13 @@ const MemoField = ({ label, amharic, children, className }: { label: string, amh
     );
 };
 
+const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
   const router = useRouter();
@@ -176,7 +183,6 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     if (memoIndex > -1) {
         memos[memoIndex] = updatedMemo;
     } else {
-        // This handles cases where we might be updating a memo from the initial static data
         const initialMemos: MemoWithActivity[] = JSON.parse(JSON.stringify(require('@/lib/data').memos));
         const initialMemoIndex = initialMemos.findIndex(m => m.id === updatedMemo.id);
         if(initialMemoIndex > -1) {
@@ -335,10 +341,13 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <span className="font-medium underline">{memo.subject}</span>
                     </MemoField>
                     <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
-                        {memo.attachments.length > 0 ? (
-                            <div className="flex flex-col gap-1">
+                         {memo.attachments.length > 0 ? (
+                            <div className="flex flex-col gap-1 font-sans">
                                 {memo.attachments.map(att => (
-                                <div key={att.id}>{att.name}</div>
+                                <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
+                                    <Paperclip className='h-4 w-4' />
+                                    {att.name} ({formatFileSize(att.size)})
+                                </a>
                                 ))}
                             </div>
                         ) : (

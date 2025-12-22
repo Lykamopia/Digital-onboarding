@@ -32,12 +32,13 @@ export type User = {
 export type Attachment = {
   id: string;
   name: string;
-  size: string;
-  url: string;
+  size: number; // size in bytes
+  type: string; // mime type
+  url: string; // data URL for preview and storage
 };
 
 export type Memo = {
-  id: string;
+  id:string;
   memo_reference_number: string;
   from: User;
   to: User[];
