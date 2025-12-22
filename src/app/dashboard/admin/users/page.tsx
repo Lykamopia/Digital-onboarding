@@ -22,15 +22,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { users as initialUsers, offices, departments, divisions } from "@/lib/data";
-import type { User } from "@/lib/types";
+import { users as initialUsers, offices, departments, divisions, roles as initialRoles } from "@/lib/data";
+import type { User, Role } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>(initialUsers);
+  const [roles] = useState<Role[]>(initialRoles);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(undefined);
 
   const getOfficeInfo = (officeId: string) => {
     const office = offices.find(o => o.id === officeId);
@@ -60,6 +62,7 @@ export default function UsersPage() {
         division: officeInfo.division,
         department: officeInfo.department,
         office: officeInfo.office,
+        roleId: selectedRoleId || (roles.find(r => r.name === 'Member')?.id || ''),
     };
 
     if (editingUser) {
@@ -71,17 +74,20 @@ export default function UsersPage() {
     setIsDialogOpen(false);
     setEditingUser(null);
     setSelectedOfficeId(undefined);
+    setSelectedRoleId(undefined);
   };
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
     setSelectedOfficeId(user.officeId);
+    setSelectedRoleId(user.roleId);
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser(null);
     setSelectedOfficeId(undefined);
+    setSelectedRoleId(undefined);
     setIsDialogOpen(true);
   }
 
@@ -89,6 +95,7 @@ export default function UsersPage() {
     if (!open) {
         setEditingUser(null);
         setSelectedOfficeId(undefined);
+        setSelectedRoleId(undefined);
     }
     setIsDialogOpen(open);
   }
@@ -97,6 +104,12 @@ export default function UsersPage() {
       value: o.id, 
       label: `${o.name} (${getOfficeInfo(o.id).department})` 
   }));
+
+  const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
+
+  const getRoleName = (roleId: string) => {
+      return roles.find(r => r.id === roleId)?.name || 'N/A';
+  }
 
   return (
     <Card>
@@ -109,6 +122,7 @@ export default function UsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead>Office</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Division</TableHead>
@@ -132,6 +146,7 @@ export default function UsersPage() {
                             </div>
                         </div>
                     </TableCell>
+                    <TableCell>{getRoleName(user.roleId)}</TableCell>
                     <TableCell>{officeInfo.office}</TableCell>
                     <TableCell>{officeInfo.department}</TableCell>
                     <TableCell>{officeInfo.division}</TableCell>
@@ -169,6 +184,17 @@ export default function UsersPage() {
                         onChange={setSelectedOfficeId}
                         placeholder="Select an office"
                         searchPlaceholder="Search offices..."
+                        className="col-span-3"
+                    />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="roleId" className="text-right">Role</Label>
+                   <Combobox
+                        options={roleOptions}
+                        value={selectedRoleId}
+                        onChange={setSelectedRoleId}
+                        placeholder="Select a role"
+                        searchPlaceholder="Search roles..."
                         className="col-span-3"
                     />
                 </div>

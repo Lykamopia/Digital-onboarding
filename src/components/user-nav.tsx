@@ -19,9 +19,9 @@ export function UserNav() {
   const router = useRouter();
 
   const handleLogout = () => {
-    // In a real app, you'd clear session/token here.
-    // For this demo, we just navigate to the home page.
-    console.log("User logged out");
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('loggedInUser');
+    }
     router.push('/');
   }
 

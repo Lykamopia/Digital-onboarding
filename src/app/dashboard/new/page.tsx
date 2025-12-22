@@ -508,9 +508,9 @@ export default function NewMemoPage() {
                                         <Editor value={field.value} onChange={field.onChange} />
                                     </FormControl>
                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                 </FormItem>
+                             )}
+                         />
                     )}
 
 

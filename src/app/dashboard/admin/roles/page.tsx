@@ -11,103 +11,231 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { users as initialUsers, roles } from "@/lib/data";
-import type { User, Role } from "@/lib/types";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { roles as initialRoles, permissions, users as allUsers } from "@/lib/data";
+import type { Role, Permission } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
-export default function RolesPage() {
-  const [users, setUsers] = useState<User[]>([]);
+export default function RoleManagementPage() {
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [roleName, setRoleName] = useState("");
+  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedUsers = localStorage.getItem("users");
-    if (storedUsers) {
-      setUsers(JSON.parse(storedUsers));
+    const storedRoles = localStorage.getItem("roles");
+    if (storedRoles) {
+      setRoles(JSON.parse(storedRoles));
     } else {
-      setUsers(initialUsers);
+      setRoles(initialRoles);
     }
   }, []);
 
-  const handleRoleChange = (userId: string, newRole: Role) => {
-    const updatedUsers = users.map((user) =>
-      user.id === userId ? { ...user, role: newRole } : user
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
+  const saveRolesToLocalStorage = (updatedRoles: Role[]) => {
+    setRoles(updatedRoles);
+    localStorage.setItem("roles", JSON.stringify(updatedRoles));
+  };
 
-    // Also update loggedInUser if they are the one being changed
-    const loggedInUserFromStorage = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
-    if (loggedInUserFromStorage.id === userId) {
-        localStorage.setItem('loggedInUser', JSON.stringify({ ...loggedInUserFromStorage, role: newRole }));
+  const handleAddNew = () => {
+    setEditingRole(null);
+    setRoleName("");
+    setSelectedPermissions([]);
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (role: Role) => {
+    setEditingRole(role);
+    setRoleName(role.name);
+    setSelectedPermissions(role.permissions);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (roleId: string) => {
+    const isRoleInUse = allUsers.some(user => user.roleId === roleId);
+    if (isRoleInUse) {
+      toast({
+        variant: "destructive",
+        title: "Cannot delete role",
+        description: "This role is currently assigned to one or more users.",
+      });
+      return;
     }
 
-
+    const updatedRoles = roles.filter((r) => r.id !== roleId);
+    saveRolesToLocalStorage(updatedRoles);
     toast({
-      title: "Role Updated",
-      description: `The role for the user has been successfully changed to ${newRole}.`,
+      title: "Role Deleted",
+      description: "The role has been successfully deleted.",
     });
   };
 
+  const handleSave = () => {
+    if (!roleName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid name",
+        description: "Role name cannot be empty.",
+      });
+      return;
+    }
+
+    if (editingRole) {
+      const updatedRoles = roles.map((r) =>
+        r.id === editingRole.id ? { ...r, name: roleName, permissions: selectedPermissions } : r
+      );
+      saveRolesToLocalStorage(updatedRoles);
+      toast({ title: "Role Updated", description: `The ${roleName} role has been updated.` });
+    } else {
+      const newRole: Role = {
+        id: `role-${Date.now()}`,
+        name: roleName,
+        permissions: selectedPermissions,
+      };
+      saveRolesToLocalStorage([...roles, newRole]);
+      toast({ title: "Role Created", description: `The ${roleName} role has been created.` });
+    }
+
+    setIsDialogOpen(false);
+  };
+
+  const onPermissionChange = (permission: Permission, checked: boolean) => {
+    setSelectedPermissions((prev) =>
+      checked ? [...prev, permission] : prev.filter((p) => p !== permission)
+    );
+  };
+
+  const usersInRole = (roleId: string) => {
+    return allUsers.filter(user => user.roleId === roleId).length;
+  }
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Roles & Permissions</CardTitle>
+      <CardHeader className="flex flex-row justify-between items-center">
+        <CardTitle>Role Management</CardTitle>
+        <Button onClick={handleAddNew}>Add New Role</Button>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Current Role</TableHead>
-              <TableHead className="text-right">Change Role</TableHead>
+              <TableHead>Role Name</TableHead>
+              <TableHead>Users</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="font-medium">{user.name}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.role}</TableCell>
-                <TableCell className="text-right">
-                  <Select
-                    value={user.role}
-                    onValueChange={(newRole: Role) =>
-                      handleRoleChange(user.id, newRole)
-                    }
-                  >
-                    <SelectTrigger className="w-[180px] ml-auto">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {roles.map((role) => (
+              <TableRow key={role.id}>
+                <TableCell className="font-medium">{role.name}</TableCell>
+                <TableCell>{usersInRole(role.id)}</TableCell>
+                <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
+                    Edit
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={role.name === 'Admin'}>
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the role.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(role.id)}>
+                          Continue
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingRole ? "Edit Role" : "Add New Role"}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="role-name" className="text-right">
+                  Role Name
+                </Label>
+                <Input
+                  id="role-name"
+                  value={roleName}
+                  onChange={(e) => setRoleName(e.target.value)}
+                  className="col-span-3"
+                  disabled={editingRole?.name === 'Admin'}
+                />
+              </div>
+              <div>
+                <Label className="text-lg font-semibold">Permissions</Label>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-1">
+                  {permissions.map((permission) => (
+                    <div key={permission.id} className="flex items-start gap-3 rounded-lg border p-3">
+                      <Checkbox
+                        id={`perm-${permission.id}`}
+                        checked={selectedPermissions.includes(permission.id)}
+                        onCheckedChange={(checked) => onPermissionChange(permission.id, !!checked)}
+                        disabled={editingRole?.name === 'Admin'}
+                      />
+                      <div className="grid gap-1.5 leading-none">
+                        <label
+                          htmlFor={`perm-${permission.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {permission.label}
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          {permission.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleSave}>Save Role</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

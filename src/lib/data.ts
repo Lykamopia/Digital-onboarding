@@ -1,4 +1,4 @@
-import type { User, MemoWithActivity, Division, Department, Office, Role } from '@/lib/types';
+import type { User, MemoWithActivity, Division, Department, Office, Role, Permission } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -30,14 +30,36 @@ export const offices: Office[] = [
     { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
 ];
 
-export const roles: Role[] = ['Admin', 'Member'];
+export const permissions: { id: Permission, label: string, description: string }[] = [
+    { id: 'view-dashboard', label: 'View Dashboard', description: 'Can view the main dashboard and memos' },
+    { id: 'manage-memos', label: 'Manage Memos', description: 'Can create, edit, and send memos' },
+    { id: 'view-admin', label: 'View Admin Section', description: 'Can access the admin section' },
+    { id: 'manage-divisions', label: 'Manage Divisions', description: 'Can create, edit, and delete divisions' },
+    { id: 'manage-departments', label: 'Manage Departments', description: 'Can create, edit, and delete departments' },
+    { id: 'manage-offices', label: 'Manage Offices', description: 'Can create, edit, and delete offices' },
+    { id: 'manage-users', label: 'Manage Users', description: 'Can create, edit, and delete users' },
+    { id: 'manage-roles', label: 'Manage Roles', description: 'Can create, edit, and manage roles and permissions' },
+];
+
+export const roles: Role[] = [
+    { 
+        id: 'role-1', 
+        name: 'Admin', 
+        permissions: ['view-dashboard', 'manage-memos', 'view-admin', 'manage-divisions', 'manage-departments', 'manage-offices', 'manage-users', 'manage-roles'] 
+    },
+    { 
+        id: 'role-2', 
+        name: 'Member', 
+        permissions: ['view-dashboard', 'manage-memos'] 
+    }
+];
 
 export let users: User[] = [
-  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', officeId: 'off-1', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch', role: 'Admin' },
-  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', officeId: 'off-3', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters', role: 'Member' },
-  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', officeId: 'off-4', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters', role: 'Member' },
-  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', officeId: 'off-2', division: 'Retail Banking', department: 'Operations', office: 'North Branch', role: 'Member' },
-  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', officeId: 'off-5', division: 'IT', department: 'Infrastructure', office: 'Data Center', role: 'Member' },
+  { id: 'user-1', name: 'Alice Johnson', email: 'alice.j@bank.com', avatar: userImages['user-1'] || '', officeId: 'off-1', division: 'Retail Banking', department: 'Client Services', office: 'Main Branch', roleId: 'role-1' },
+  { id: 'user-2', name: 'Bob Williams', email: 'bob.w@bank.com', avatar: userImages['user-2'] || '', officeId: 'off-3', division: 'Corporate Banking', department: 'Loan Origination', office: 'Headquarters', roleId: 'role-2' },
+  { id: 'user-3', name: 'Charlie Brown', email: 'charlie.b@bank.com', avatar: userImages['user-3'] || '', officeId: 'off-4', division: 'Investment Banking', department: 'Mergers & Acquisitions', office: 'Headquarters', roleId: 'role-2' },
+  { id: 'user-4', name: 'Diana Prince', email: 'diana.p@bank.com', avatar: userImages['user-4'] || '', officeId: 'off-2', division: 'Retail Banking', department: 'Operations', office: 'North Branch', roleId: 'role-2' },
+  { id: 'user-5', name: 'Ethan Hunt', email: 'ethan.h@bank.com', avatar: userImages['user-5'] || '', officeId: 'off-5', division: 'IT', department: 'Infrastructure', office: 'Data Center', roleId: 'role-2' },
 ];
 
 if (typeof window !== 'undefined') {
@@ -49,14 +71,19 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export let loggedInUser = users[0];
+export let loggedInUser: User & { role: Role } = { 
+    ...users[0], 
+    role: roles.find(r => r.id === users[0].roleId) || roles[1] 
+};
 
 if (typeof window !== 'undefined') {
     const storedLoggedInUser = localStorage.getItem('loggedInUser');
     if (storedLoggedInUser) {
-        loggedInUser = JSON.parse(storedLoggedInUser);
+        const parsedUser = JSON.parse(storedLoggedInUser);
+        const userRole = roles.find(r => r.id === parsedUser.roleId) || roles[1];
+        loggedInUser = { ...parsedUser, role: userRole };
     } else {
-        localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+        localStorage.setItem('loggedInUser', JSON.stringify(users[0]));
     }
 }
 
@@ -156,5 +183,3 @@ export const formatTimestamp = (timestamp: string, relative: boolean = true) => 
     return '';
   }
 };
-
-    

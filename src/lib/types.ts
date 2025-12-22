@@ -1,5 +1,12 @@
 
-export type Role = 'Admin' | 'Member';
+
+export type Permission = 'view-dashboard' | 'manage-memos' | 'view-admin' | 'manage-divisions' | 'manage-departments' | 'manage-offices' | 'manage-users' | 'manage-roles';
+
+export type Role = {
+  id: string;
+  name: string;
+  permissions: Permission[];
+};
 
 export type Division = {
   id: string;
@@ -30,7 +37,7 @@ export type User = {
   division: string; // denormalized for convenience
   department: string; // denormalized for convenience
   office: string; // denormalized for convenience
-  role: Role;
+  roleId: string;
 };
 
 export type Attachment = {

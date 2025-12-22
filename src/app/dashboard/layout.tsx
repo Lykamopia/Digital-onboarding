@@ -4,7 +4,7 @@
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 
 import {
   SidebarProvider,
@@ -28,7 +28,8 @@ import { loggedInUser } from "@/lib/data"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
-    const showAdminLink = loggedInUser.role === 'Admin';
+    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
+    
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -77,24 +78,23 @@ const MobileSidebar = () => {
 const DesktopSidebar = () => {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { state } = useSidebar();
     
     const isInboxActive = pathname === '/dashboard' && (searchParams.get('tab') === 'inbox' || !searchParams.get('tab'));
     const isDraftsActive = searchParams.get('tab') === 'drafts';
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
-    const showAdminLink = loggedInUser.role === 'Admin';
+    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
 
 
     const navItems = [
-        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive },
-        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive },
-        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive },
-        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive },
+        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: loggedInUser.role.permissions.includes('view-dashboard') },
+        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: loggedInUser.role.permissions.includes('manage-memos') },
+        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: loggedInUser.role.permissions.includes('manage-memos') },
+        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: loggedInUser.role.permissions.includes('view-dashboard') },
     ];
 
     if (showAdminLink) {
-        navItems.push({ href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin') });
+        navItems.push({ href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: true });
     }
 
     return (
@@ -107,7 +107,7 @@ const DesktopSidebar = () => {
                     </div>
                 </SidebarHeader>
                 <SidebarMenu className="flex-1 px-2">
-                    {navItems.map(item => (
+                    {navItems.filter(item => item.visible).map(item => (
                         <SidebarMenuItem key={item.label}>
                             <Link href={item.href}>
                                 <SidebarMenuButton 
@@ -131,15 +131,16 @@ function DashboardLayoutContent({
     children: React.ReactNode
   }) {
 
-    const { state, isMobile } = useSidebar();
     const router = useRouter();
     const pathname = usePathname();
 
+    const canAccessAdmin = useMemo(() => loggedInUser.role.permissions.includes('view-admin'), []);
+
     useEffect(() => {
-        if (loggedInUser.role !== 'Admin' && pathname.startsWith('/dashboard/admin')) {
+        if (!canAccessAdmin && pathname.startsWith('/dashboard/admin')) {
             router.replace('/dashboard?tab=inbox');
         }
-    }, [pathname, router]);
+    }, [pathname, router, canAccessAdmin]);
 
     const handleNewMemoClick = () => {
         if (typeof window !== 'undefined') {
@@ -158,12 +159,14 @@ function DashboardLayoutContent({
                         <div className="w-full flex-1">
                             {/* Optional: Add a search bar here */}
                         </div>
-                        <Link href="/dashboard/new" onClick={handleNewMemoClick}>
-                            <Button>
-                            <FilePlus className="mr-2 h-4 w-4" />
-                            New Memo
-                            </Button>
-                        </Link>
+                        {loggedInUser.role.permissions.includes('manage-memos') && (
+                            <Link href="/dashboard/new" onClick={handleNewMemoClick}>
+                                <Button>
+                                <FilePlus className="mr-2 h-4 w-4" />
+                                New Memo
+                                </Button>
+                            </Link>
+                        )}
                          <NotificationBell />
                         <UserNav />
                     </div>
