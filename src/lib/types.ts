@@ -50,12 +50,13 @@ export type Memo = {
   current_holder?: User;
   previous_holders?: User[];
   archivedBy?: string[]; // Array of user IDs who have archived this memo
+  replyTo?: string; // ID of the memo this is a reply to
 };
 
 export type Activity = {
   id: string;
   actor: User;
-  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived';
+  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived' | 'replied';
   timestamp: string;
   details?: string;
 };

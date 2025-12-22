@@ -52,12 +52,12 @@ const memoSchema = z.object({
   cc: z.array(z.any()).optional(),
   subject: z.string().min(1, 'Subject is required.'),
   body: z.string().min(1, 'Body is required.'),
+  replyTo: z.string().optional(),
 });
 
 type MemoFormData = z.infer<typeof memoSchema>;
 
 const DRAFT_KEY_PREFIX = 'memo-draft-';
-const REPLY_KEY = 'memo-reply';
 
 const MemoPreview = ({ memoData }: { memoData: MemoWithActivity | null }) => {
   if (!memoData) return null;
@@ -72,7 +72,6 @@ export default function NewMemoPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const draftId = searchParams.get('id');
-  const isReply = searchParams.get('reply');
   const DRAFT_KEY = draftId ? `${DRAFT_KEY_PREFIX}${draftId}` : 'memo-draft';
 
   const form = useForm<MemoFormData>({
@@ -82,6 +81,7 @@ export default function NewMemoPage() {
       cc: [],
       subject: '',
       body: '',
+      replyTo: undefined,
     },
   });
 
@@ -99,6 +99,7 @@ export default function NewMemoPage() {
     createdAt: new Date().toISOString(),
     status: 'draft',
     activity: [],
+    replyTo: currentFormData.replyTo,
   };
 
   const saveDraft = useCallback((data: MemoFormData) => {
@@ -116,6 +117,7 @@ export default function NewMemoPage() {
       createdAt: new Date().toISOString(),
       status: 'draft',
       attachments: [],
+      replyTo: data.replyTo,
     };
     
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -137,24 +139,17 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-        if (!isReply && (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0))) {
+        if (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0)) {
             debouncedSave(value as MemoFormData);
         }
     });
     return () => subscription.unsubscribe();
-  }, [form, debouncedSave, isReply]);
+  }, [form, debouncedSave]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    if (isReply) {
-        const replyContent = localStorage.getItem(REPLY_KEY);
-        if (replyContent) {
-            const { to, subject, body } = JSON.parse(replyContent);
-            form.reset({ to, subject, body, cc: [] });
-            localStorage.removeItem(REPLY_KEY);
-        }
-    } else if (draftId) {
+    if (draftId) {
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
@@ -164,16 +159,20 @@ export default function NewMemoPage() {
             cc: draft.cc || [],
             subject: draft.subject || '',
             body: draft.body || '',
+            replyTo: draft.replyTo,
           });
           setIsDraft(true);
         }
       }
     } else {
-        form.reset({ to: [], cc: [], subject: '', body: ''});
+        // This case handles a brand new memo, not from a draft.
+        // It clears any old `memo-draft` that doesn't have an ID.
+        localStorage.removeItem('memo-draft');
+        form.reset({ to: [], cc: [], subject: '', body: '', replyTo: undefined });
         setIsDraft(false);
         setLastSaved(null);
     }
-  }, [form, draftId, DRAFT_KEY, isReply]);
+  }, [form, draftId, DRAFT_KEY]);
 
   function deleteDraft() {
       if (typeof window !== 'undefined') {
@@ -190,7 +189,7 @@ export default function NewMemoPage() {
   }
 
   function onSubmit(values: MemoFormData) {
-    const sentMemos = JSON.parse(localStorage.getItem('memos') || '[]');
+    const sentMemos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
     
     const toUsers = values.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
     const ccUsers = (values.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
@@ -211,7 +210,7 @@ export default function NewMemoPage() {
         details: `Sent to ${toUsers.map(u => u.name).join(', ')}.` + (ccUsers.length > 0 ? ` CC: ${ccUsers.map(u => u.name).join(', ')}` : '')
     };
 
-    const newMemo = {
+    const newMemo: MemoWithActivity = {
       id: `memo-${Date.now()}`,
       memo_reference_number: `MEMO-${new Date().getFullYear()}-00${sentMemos.length + 5}`,
       from: loggedInUser,
@@ -227,8 +226,25 @@ export default function NewMemoPage() {
           sentActivity,
       ],
       current_holder: toUsers[0],
-      previous_holders: []
+      previous_holders: [],
+      replyTo: values.replyTo,
     }
+
+    // If it's a reply, add an activity to the original memo
+    if (values.replyTo) {
+      const originalMemoIndex = sentMemos.findIndex(m => m.id === values.replyTo);
+      if (originalMemoIndex > -1) {
+          const replyActivity: Activity = {
+              id: `act-${Date.now()}-reply`,
+              actor: loggedInUser,
+              action: 'replied',
+              timestamp: new Date().toISOString(),
+              details: `Replied to this memo. See memo ${newMemo.memo_reference_number}`
+          };
+          sentMemos[originalMemoIndex].activity.push(replyActivity);
+      }
+    }
+    
     sentMemos.push(newMemo);
     localStorage.setItem('memos', JSON.stringify(sentMemos));
 
@@ -250,7 +266,7 @@ export default function NewMemoPage() {
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
-                    Compose New Memo
+                    {currentFormData.replyTo ? 'Compose Reply' : 'Compose New Memo'}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {isSaving && <Badge variant="secondary">Saving...</Badge>}

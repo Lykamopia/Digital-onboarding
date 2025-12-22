@@ -14,7 +14,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { MemoWithActivity, User } from '@/lib/types';
+import type { MemoWithActivity, User, Memo } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -241,14 +241,23 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const handleReply = () => {
     if(!memo) return;
 
-    const replyContent = {
+    const draftId = `draft-${Date.now()}`;
+    const replyDraft: Memo = {
+        id: draftId,
+        memo_reference_number: 'DRAFT',
+        from: loggedInUser,
         to: [memo.from],
+        cc: [],
         subject: `Re: ${memo.subject}`,
-        body: `<br><br><hr><p>On ${formatTimestamp(memo.createdAt)}, ${memo.from.name} wrote:</p><blockquote>${memo.body}</blockquote>`
+        body: `<br><br><hr><p>On ${formatTimestamp(memo.createdAt)}, ${memo.from.name} wrote:</p><blockquote>${memo.body}</blockquote>`,
+        createdAt: new Date().toISOString(),
+        status: 'draft',
+        attachments: [],
+        replyTo: memo.id,
     };
 
-    localStorage.setItem('memo-reply', JSON.stringify(replyContent));
-    router.push('/dashboard/new?reply=true');
+    localStorage.setItem(`memo-draft-${draftId}`, JSON.stringify(replyDraft));
+    router.push(`/dashboard/new?id=${draftId}`);
   }
 
   if (!memo) {
