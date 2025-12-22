@@ -51,6 +51,7 @@ export type Memo = {
   current_holder?: User;
   previous_holders?: User[];
   archivedBy?: string[]; // Array of user IDs who have archived this memo
+  acknowledgedBy?: string[]; // Array of user IDs who have acknowledged this memo
   replyTo?: string; // ID of the memo this is a reply to
 };
 

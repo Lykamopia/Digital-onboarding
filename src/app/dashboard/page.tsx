@@ -54,7 +54,7 @@ function DashboardContent() {
         sentMemos = sentMemosFromStorage ? JSON.parse(sentMemosFromStorage) : [];
     }
     
-    const draftsWithActivity = allDrafts.map(d => ({ ...d, activity: []}));
+    const draftsWithActivity = allDrafts.map(d => ({ ...d, activity: [], acknowledgedBy: []}));
     const sentMemoIds = new Set(sentMemos.map(m => m.id));
     const filteredInitialMemos = initialMemos.filter(m => !sentMemoIds.has(m.id));
 

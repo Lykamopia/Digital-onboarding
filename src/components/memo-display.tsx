@@ -34,6 +34,7 @@ import { RecipientSelector } from './recipient-selector';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
+import { Badge } from './ui/badge';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <Send className="h-4 w-4" />,
@@ -213,9 +214,15 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
       details: 'Acknowledged receipt of the memo.',
     };
 
+    const newAcknowledgedBy = [...(memo.acknowledgedBy || []), loggedInUser.id];
+    
+    // Determine if all recipients have acknowledged
+    const allAcknowledged = memo.to.every(recipient => newAcknowledgedBy.includes(recipient.id));
+
     const updatedMemo = {
       ...memo,
-      status: 'acknowledged' as const,
+      acknowledgedBy: newAcknowledgedBy,
+      status: allAcknowledged ? 'acknowledged' as const : memo.status,
       activity: [...memo.activity, newActivity],
     };
     
@@ -286,7 +293,8 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id);
-  const canAcknowledge = memo.status !== 'acknowledged' && memo.current_holder?.id === loggedInUser.id && !isCC;
+  const hasAcknowledged = memo.acknowledgedBy?.includes(loggedInUser.id);
+  const canAcknowledge = !hasAcknowledged && memo.current_holder?.id === loggedInUser.id && !isCC;
   const canForward = memo.current_holder?.id === loggedInUser.id && !isCC;
 
   return (
@@ -309,9 +317,14 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         </div>
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 font-sans">
                             {memo.to.map((user) => (
-                            <div key={user.id}>{user.name} - <span className='text-xs'>{user.department}</span></div>
+                                <div key={user.id} className="flex items-center gap-2">
+                                    <span>{user.name} - <span className='text-xs'>{user.department}</span></span>
+                                    {memo.acknowledgedBy?.includes(user.id) && (
+                                        <Badge variant="secondary" className="text-xs font-mono bg-green-100 text-green-800">Acknowledged</Badge>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </MemoField>
