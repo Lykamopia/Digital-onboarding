@@ -69,7 +69,7 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
           }
         />
       </div>
-      <div className="flex items-center flex-wrap gap-2 mt-2">
+      <div className="flex min-w-0 items-center flex-wrap gap-2 mt-2">
         <Popover>
           <PopoverTrigger asChild>
             <Button
