@@ -28,7 +28,7 @@ import { loggedInUser } from "@/lib/data"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
-    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
+    const showAdminLink = true; // Always show for dev purposes
     
     return (
         <Sheet>
@@ -83,7 +83,7 @@ const DesktopSidebar = () => {
     const isDraftsActive = searchParams.get('tab') === 'drafts';
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
-    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
+    const showAdminLink = true; // Always show for dev purposes
 
 
     const navItems = [
@@ -106,7 +106,7 @@ const DesktopSidebar = () => {
                         <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                     </div>
                 </SidebarHeader>
-                <SidebarMenu className="flex-1 px-2">
+                <SidebarMenu className="flex-1">
                     {navItems.filter(item => item.visible).map(item => (
                         <SidebarMenuItem key={item.label}>
                             <Link href={item.href}>
