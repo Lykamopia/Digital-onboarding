@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -55,7 +56,8 @@ const memoSchema = z.object({
   to: z.array(z.any()).min(1, 'Please select at least one recipient.'),
   cc: z.array(z.any()).optional(),
   subject: z.string().min(1, 'Subject is required.'),
-  body: z.string().min(1, 'Body is required.'),
+  body: z.string(),
+  replyBody: z.string().optional(),
   attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
 });
@@ -87,12 +89,22 @@ export default function NewMemoPage() {
       cc: [],
       subject: '',
       body: '',
+      replyBody: '',
       attachments: [],
       replyTo: undefined,
     },
   });
 
   const currentFormData = form.watch();
+
+  const getCombinedBody = () => {
+    if (currentFormData.replyTo && currentFormData.body) {
+      return `${currentFormData.replyBody || ''}<br><br><hr>${currentFormData.body}`;
+    }
+    return currentFormData.replyBody || currentFormData.body || '';
+  };
+  
+  const finalBody = getCombinedBody();
 
   const previewMemo: MemoWithActivity = {
     id: 'preview',
@@ -101,7 +113,7 @@ export default function NewMemoPage() {
     to: currentFormData.to?.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[] || [],
     cc: currentFormData.cc?.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[] || [],
     subject: currentFormData.subject || '',
-    body: currentFormData.body || '',
+    body: finalBody,
     attachments: currentFormData.attachments || [],
     createdAt: new Date().toISOString(),
     status: 'draft',
@@ -112,6 +124,11 @@ export default function NewMemoPage() {
   const saveDraft = useCallback((data: MemoFormData) => {
     if (typeof window === 'undefined') return;
     setIsSaving(true);
+    
+    let draftBody = data.replyTo ? (data.replyBody || '') : (data.body || '');
+    if (data.replyTo && data.body) {
+        draftBody = `${data.replyBody}<br><br><hr>${data.body}`;
+    }
 
     const draft: Memo = {
       id: draftId || `draft-${Date.now()}`,
@@ -120,7 +137,7 @@ export default function NewMemoPage() {
       to: data.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
       cc: (data.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
       subject: data.subject,
-      body: data.body,
+      body: draftBody,
       createdAt: new Date().toISOString(),
       status: 'draft',
       attachments: data.attachments || [],
@@ -144,8 +161,11 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-        if (value.subject || value.body || (value.to && value.to.length > 0) || (value.cc && value.cc.length > 0) || (value.attachments && value.attachments.length > 0)) {
-            debouncedSave(value as MemoFormData);
+        const formData = value as MemoFormData;
+        const hasContent = formData.subject || formData.body || formData.replyBody || formData.to?.length || formData.cc?.length || formData.attachments?.length;
+
+        if (hasContent) {
+            debouncedSave(formData);
         }
     });
     return () => subscription.unsubscribe();
@@ -159,11 +179,21 @@ export default function NewMemoPage() {
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
         if (draft) {
+          let body = draft.body || '';
+          let replyBody = '';
+          if (draft.replyTo && draft.body.includes('<hr>')) {
+              const parts = draft.body.split('<hr>');
+              replyBody = parts[0].replace(/<br><br>$/, '');
+              body = parts.slice(1).join('<hr>');
+          }
+
+
           form.reset({
             to: draft.to || [],
             cc: draft.cc || [],
             subject: draft.subject || '',
-            body: draft.body || '',
+            body: draft.replyTo ? body : draft.body,
+            replyBody: draft.replyTo ? replyBody : '',
             attachments: draft.attachments || [],
             replyTo: draft.replyTo,
           });
@@ -173,10 +203,20 @@ export default function NewMemoPage() {
     } else {
         const replyToId = searchParams.get('replyTo');
         if (replyToId) {
+            // Check memos from localStorage first
             const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
-            const originalMemo = memos.find(m => m.id === replyToId);
+            let originalMemo = memos.find(m => m.id === replyToId);
+            
+            // If not in localStorage, check initial data
+            if (!originalMemo) {
+                const initialMemos: MemoWithActivity[] = require('@/lib/data').memos;
+                originalMemo = initialMemos.find(m => m.id === replyToId);
+            }
+            
             if (originalMemo) {
                 const newReplyDraftId = `draft-${Date.now()}`;
+                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
+                
                 const replyDraft: Memo = {
                     id: newReplyDraftId,
                     memo_reference_number: 'DRAFT',
@@ -184,7 +224,7 @@ export default function NewMemoPage() {
                     to: [originalMemo.from],
                     cc: [],
                     subject: `Re: ${originalMemo.subject}`,
-                    body: `<br><br><hr><p>On ${formatTimestamp(originalMemo.createdAt)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`,
+                    body: `<br><br><hr>${originalContent}`,
                     attachments: [],
                     createdAt: new Date().toISOString(),
                     status: 'draft',
@@ -195,7 +235,7 @@ export default function NewMemoPage() {
             }
         } else {
             localStorage.removeItem('memo-draft');
-            form.reset({ to: [], cc: [], subject: '', body: '', attachments: [], replyTo: undefined });
+            form.reset({ to: [], cc: [], subject: '', body: '', replyBody: '', attachments: [], replyTo: undefined });
         }
         setIsDraft(false);
         setLastSaved(null);
@@ -218,6 +258,16 @@ export default function NewMemoPage() {
   }
 
   function onSubmit(values: MemoFormData) {
+    if(!values.replyTo && !values.body) {
+        form.setError('body', { type: 'manual', message: 'Body is required.' });
+        return;
+    }
+    if(values.replyTo && !values.replyBody) {
+        form.setError('replyBody', { type: 'manual', message: 'Reply body is required.' });
+        return;
+    }
+
+
     const sentMemos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
     
     const toUsers = values.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
@@ -239,6 +289,8 @@ export default function NewMemoPage() {
         details: `Sent to ${toUsers.map(u => u.name).join(', ')}.` + (ccUsers.length > 0 ? ` CC: ${ccUsers.map(u => u.name).join(', ')}` : '')
     };
 
+    const finalBody = getCombinedBody();
+
     const newMemo: MemoWithActivity = {
       id: `memo-${Date.now()}`,
       memo_reference_number: `MEMO-${new Date().getFullYear()}-00${sentMemos.length + 5}`,
@@ -246,7 +298,7 @@ export default function NewMemoPage() {
       to: toUsers,
       cc: ccUsers,
       subject: values.subject,
-      body: values.body,
+      body: finalBody,
       createdAt: new Date().toISOString(),
       status: 'sent' as const,
       attachments: values.attachments || [],
@@ -339,13 +391,15 @@ export default function NewMemoPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const isReplying = !!currentFormData.replyTo;
+
   return (
     <div className="w-full">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
-                    {currentFormData.replyTo ? 'Compose Reply' : 'Compose New Memo'}
+                    {isReplying ? 'Compose Reply' : 'Compose New Memo'}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {isSaving && <Badge variant="secondary">Saving...</Badge>}
@@ -413,19 +467,53 @@ export default function NewMemoPage() {
                         </FormItem>
                     )}
                     />
-                    <FormField
-                    control={form.control}
-                    name="body"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Body</FormLabel>
-                            <FormControl>
-                                <Editor value={field.value} onChange={field.onChange} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                    
+                    {isReplying ? (
+                         <>
+                         <FormField
+                             control={form.control}
+                             name="replyBody"
+                             render={({ field }) => (
+                                 <FormItem>
+                                     <FormLabel>Reply</FormLabel>
+                                     <FormControl>
+                                         <Editor value={field.value || ''} onChange={field.onChange} />
+                                     </FormControl>
+                                     <FormMessage />
+                                 </FormItem>
+                             )}
+                         />
+                         <FormField
+                             control={form.control}
+                             name="body"
+                             render={({ field }) => (
+                                 <FormItem>
+                                     <FormLabel>Original Message</FormLabel>
+                                     <FormControl>
+                                         <Editor value={field.value} onChange={field.onChange} readOnly />
+                                     </FormControl>
+                                     <FormMessage />
+                                 </FormItem>
+                             )}
+                         />
+                         </>
+                    ) : (
+                        <FormField
+                            control={form.control}
+                            name="body"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Body</FormLabel>
+                                    <FormControl>
+                                        <Editor value={field.value} onChange={field.onChange} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     )}
-                    />
+
+
                     <div className="grid grid-cols-[120px_1fr] items-start space-y-0">
                         <FormLabel className='text-right pr-4 pt-2'>ENC - አባሪ</FormLabel>
                         <div className="col-start-2">
