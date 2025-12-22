@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -246,24 +247,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   const handleReply = () => {
     if(!memo) return;
-
-    const draftId = `draft-${Date.now()}`;
-    const replyDraft: Memo = {
-        id: draftId,
-        memo_reference_number: 'DRAFT',
-        from: loggedInUser,
-        to: [memo.from],
-        cc: [],
-        subject: `Re: ${memo.subject}`,
-        body: `<br><br><hr><p>On ${formatTimestamp(memo.createdAt)}, ${memo.from.name} wrote:</p><blockquote>${memo.body}</blockquote>`,
-        createdAt: new Date().toISOString(),
-        status: 'draft',
-        attachments: [],
-        replyTo: memo.id,
-    };
-
-    localStorage.setItem(`memo-draft-${draftId}`, JSON.stringify(replyDraft));
-    router.push(`/dashboard/new?id=${draftId}`);
+    router.push(`/dashboard/new?replyTo=${memo.id}`);
   }
 
   if (!memo) {

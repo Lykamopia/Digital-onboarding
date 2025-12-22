@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useRouter } from "next/navigation"
@@ -40,7 +41,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
             <div className="flex w-full flex-col gap-0.5">
               <div className="flex items-center">
                 <div className="flex items-center gap-2">
-                  <div className="font-semibold">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
+                  <div className="font-semibold truncate">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
                   {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
                 </div>
                 <div
@@ -54,7 +55,7 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo }: MemoListProps)
                   {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
                 </div>
               </div>
-              <div className="text-sm font-medium">{memo.subject || "No Subject"}</div>
+              <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
             </div>
             <div className="line-clamp-1 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
           </button>
