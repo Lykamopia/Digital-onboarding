@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, X, File as FileIcon, Paperclip } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, X, File as FileIcon, Paperclip, Expand } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -215,7 +215,7 @@ export default function NewMemoPage() {
             
             if (originalMemo) {
                 const newReplyDraftId = `draft-${Date.now()}`;
-                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
+                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
                 
                 const replyDraft: Memo = {
                     id: newReplyDraftId,
@@ -621,3 +621,5 @@ export default function NewMemoPage() {
     </div>
   );
 }
+
+    

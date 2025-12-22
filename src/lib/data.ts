@@ -49,7 +49,7 @@ export const memos: MemoWithActivity[] = [
     cc: [users[3]],
     subject: 'Q3 Financial Report Review',
     body: '<p>Please review the attached Q3 financial report and provide your feedback by EOD Friday.</p><p>We need to finalize this for the board meeting next week.</p>',
-    attachments: [{ id: 'att-1', name: 'Q3_Financials.pdf', size: '2.5 MB', url: '#' }],
+    attachments: [{ id: 'att-1', name: 'Q3_Financials.pdf', size: 2621440, type: 'application/pdf', url: '#' }],
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     status: 'read',
     current_holder: users[0],
@@ -68,7 +68,7 @@ export const memos: MemoWithActivity[] = [
     cc: [],
     subject: 'New Security Protocol Implementation',
     body: '<p>Team,</p><p>We will be rolling out a new security protocol starting next Monday. Please ensure all your team members complete the mandatory training module by then. See attached document for details.</p><p>Thank you.</p>',
-    attachments: [{ id: 'att-2', name: 'Security_Protocol_v2.docx', size: '780 KB', url: '#' }],
+    attachments: [{ id: 'att-2', name: 'Security_Protocol_v2.docx', size: 798720, type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', url: '#' }],
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'acknowledged',
     current_holder: users[0],
@@ -78,6 +78,7 @@ export const memos: MemoWithActivity[] = [
       { id: 'act-2-2', actor: users[0], action: 'viewed', timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString() },
       { id: 'act-2-3', actor: users[0], action: 'acknowledged', timestamp: new Date(Date.now() - 21 * 60 * 60 * 1000).toISOString() },
     ],
+    acknowledgedBy: ['user-1']
   },
   {
     id: 'memo-3',
@@ -126,7 +127,7 @@ export const formatTimestamp = (timestamp: string, relative: boolean = true) => 
       return '';
     }
     const formattedDate = format(date, "MMMM d, yyyy 'at' h:mm a");
-    if (!relative) return format(date, "MMMM d, yyyy");
+    if (!relative) return formattedDate;
     
     const relativeDate = formatDistanceToNow(date, { addSuffix: true });
     return `${formattedDate} (${relativeDate})`;
@@ -134,3 +135,5 @@ export const formatTimestamp = (timestamp: string, relative: boolean = true) => 
     return '';
   }
 };
+
+    
