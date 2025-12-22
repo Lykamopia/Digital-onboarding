@@ -98,6 +98,10 @@ function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: (
     if(memoIndex > -1) {
         memos[memoIndex] = updatedMemo;
         localStorage.setItem('memos', JSON.stringify(memos));
+        
+        // Dispatch event for notification
+        window.dispatchEvent(new CustomEvent('memoForwarded', { detail: { memo: updatedMemo, recipientId: forwardTo.id } }));
+
         toast({
             title: "Memo Forwarded",
             description: `Successfully forwarded to ${forwardTo.name}.`

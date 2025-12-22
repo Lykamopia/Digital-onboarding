@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import Logo from "@/components/logo"
 import { UserNav } from "@/components/user-nav"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { NotificationListener } from "@/components/notification-listener"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
@@ -131,8 +132,8 @@ function DashboardLayoutContent({
         <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 ${!isMobile && state === 'expanded' ? 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]' : 'md:grid-cols-[68px_1fr] lg:grid-cols-[68px_1fr]'}`}>
             <DesktopSidebar />
             <div className="flex flex-col h-screen">
-                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
-                    <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
+                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px] px-4 lg:px-6">
+                    <div className="flex items-center gap-4 w-full h-full">
                         <MobileSidebar />
                         <SidebarTrigger className="hidden md:flex" />
                         <div className="w-full flex-1">
@@ -167,6 +168,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
+        <NotificationListener />
         <DashboardLayoutContent>{children}</DashboardLayoutContent>
     </SidebarProvider>
   )

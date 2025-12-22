@@ -176,14 +176,22 @@ export default function NewMemoPage() {
             const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
             const originalMemo = memos.find(m => m.id === replyToId);
             if (originalMemo) {
-                form.reset({
+                const newReplyDraftId = `draft-${Date.now()}`;
+                const replyDraft: Memo = {
+                    id: newReplyDraftId,
+                    memo_reference_number: 'DRAFT',
+                    from: loggedInUser,
                     to: [originalMemo.from],
                     cc: [],
                     subject: `Re: ${originalMemo.subject}`,
                     body: `<br><br><hr><p>On ${formatTimestamp(originalMemo.createdAt)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`,
                     attachments: [],
+                    createdAt: new Date().toISOString(),
+                    status: 'draft',
                     replyTo: replyToId,
-                });
+                };
+                localStorage.setItem(`${DRAFT_KEY_PREFIX}${newReplyDraftId}`, JSON.stringify(replyDraft));
+                router.replace(`/dashboard/new?id=${newReplyDraftId}`);
             }
         } else {
             localStorage.removeItem('memo-draft');
@@ -192,7 +200,7 @@ export default function NewMemoPage() {
         setIsDraft(false);
         setLastSaved(null);
     }
-  }, [form, draftId, DRAFT_KEY, searchParams]);
+  }, [form, draftId, DRAFT_KEY, searchParams, router]);
 
 
   function deleteDraft() {
@@ -267,6 +275,10 @@ export default function NewMemoPage() {
     
     sentMemos.push(newMemo);
     localStorage.setItem('memos', JSON.stringify(sentMemos));
+
+    // Dispatch event for notification
+    window.dispatchEvent(new CustomEvent('memoSent', { detail: { memo: newMemo } }));
+
 
     if(isDraft) {
         localStorage.removeItem(DRAFT_KEY);
