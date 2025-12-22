@@ -39,8 +39,10 @@ function DashboardContent() {
     }
     
     const draftsWithActivity = allDrafts.map(d => ({ ...d, activity: []}));
+    const sentMemoIds = new Set(sentMemos.map(m => m.id));
+    const filteredInitialMemos = initialMemos.filter(m => !sentMemoIds.has(m.id));
 
-    const allCombinedMemos = [...draftsWithActivity, ...initialMemos, ...sentMemos];
+    const allCombinedMemos = [...draftsWithActivity, ...filteredInitialMemos, ...sentMemos];
 
     const filteredMemos = allCombinedMemos.filter(memo => {
       const isArchivedByCurrentUser = memo.archivedBy?.includes(loggedInUser.id);
