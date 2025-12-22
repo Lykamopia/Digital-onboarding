@@ -102,7 +102,7 @@ export function MemoFilters({ search, setSearch, dateRange, setDateRange, status
               defaultMonth={dateRange?.from}
               selected={dateRange}
               onSelect={handleDateChange}
-              numberOfMonths={1}
+              numberOfMonths={2}
             />
           </PopoverContent>
         </Popover>
