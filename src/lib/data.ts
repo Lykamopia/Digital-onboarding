@@ -1,3 +1,4 @@
+
 import type { User, MemoWithActivity, Division, Department, Office, Role, Permission } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format, formatDistanceToNow } from 'date-fns';
