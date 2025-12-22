@@ -62,17 +62,21 @@ export function MemoFilters({ search, setSearch, dateRange, setDateRange, status
           placeholder="Search memos..."
           className="w-full rounded-lg bg-background pl-8"
           value={search}
-          onChange={(e) => debouncedSetSearch(e.target.value)}
+          onChange={(e) => {
+              setSearch(e.target.value);
+              debouncedSetSearch(e.target.value);
+            }
+          }
         />
       </div>
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex items-center flex-wrap gap-2 mt-2">
         <Popover>
           <PopoverTrigger asChild>
             <Button
               id="date"
               variant={"outline"}
               className={cn(
-                "w-full justify-start text-left font-normal",
+                "w-full sm:w-auto flex-1 justify-start text-left font-normal",
                 !dateRange && "text-muted-foreground"
               )}
             >
@@ -98,12 +102,12 @@ export function MemoFilters({ search, setSearch, dateRange, setDateRange, status
               defaultMonth={dateRange?.from}
               selected={dateRange}
               onSelect={handleDateChange}
-              numberOfMonths={2}
+              numberOfMonths={1}
             />
           </PopoverContent>
         </Popover>
         <Select value={status} onValueChange={handleStatusChange}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full sm:w-auto flex-1">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

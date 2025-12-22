@@ -85,8 +85,9 @@ function DashboardContent() {
     });
 
     // Apply search and filters
-    if (search) {
-        const lowercasedSearch = search.toLowerCase();
+    const trimmedSearch = search.trim();
+    if (trimmedSearch) {
+        const lowercasedSearch = trimmedSearch.toLowerCase();
         filteredMemos = filteredMemos.filter(memo => 
             memo.subject.toLowerCase().includes(lowercasedSearch) ||
             memo.memo_reference_number.toLowerCase().includes(lowercasedSearch) ||
@@ -95,12 +96,15 @@ function DashboardContent() {
         );
     }
     
-    if (status) {
-        filteredMemos = filteredMemos.filter(memo => memo.status === status);
+    const trimmedStatus = status.trim();
+    if (trimmedStatus && trimmedStatus !== 'all') {
+        filteredMemos = filteredMemos.filter(memo => memo.status === trimmedStatus);
     }
 
-    if (dateRange?.from && dateRange?.to) {
-        const interval = { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) };
+    if (dateRange?.from) {
+        const start = startOfDay(dateRange.from);
+        const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        const interval = { start, end };
         filteredMemos = filteredMemos.filter(memo => 
             isWithinInterval(new Date(memo.createdAt), interval)
         );
