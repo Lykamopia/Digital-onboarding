@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -14,14 +15,14 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   const navItems = [
-    { value: "/admin/divisions", label: "Divisions" },
-    { value: "/admin/departments", label: "Departments" },
-    { value: "/admin/offices", label: "Offices" },
-    { value: "/admin/users", label: "Users" },
+    { value: "/dashboard/admin/divisions", label: "Divisions" },
+    { value: "/dashboard/admin/departments", label: "Departments" },
+    { value: "/dashboard/admin/offices", label: "Offices" },
+    { value: "/dashboard/admin/users", label: "Users" },
   ];
 
   // Determine the active tab value. Default to divisions if the path is just /admin.
-  const activeTab = pathname === '/admin' ? '/admin/divisions' : pathname;
+  const activeTab = pathname === '/dashboard/admin' ? '/dashboard/admin/divisions' : pathname;
 
   const handleTabChange = (value: string) => {
     router.push(value);

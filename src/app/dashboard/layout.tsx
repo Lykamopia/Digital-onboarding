@@ -59,7 +59,7 @@ const MobileSidebar = () => {
                         <Archive className="h-5 w-5" />
                         Archive
                     </Link>
-                    <Link href="/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <Link href="/dashboard/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                         <Building2 className="h-5 w-5" />
                         Admin
                     </Link>
@@ -85,7 +85,7 @@ const DesktopSidebar = () => {
         { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive },
         { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive },
         { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive },
-        { href: "/admin", icon: <Building2 />, label: "Admin", active: pathname.startsWith('/admin') },
+        { href: "/dashboard/admin", icon: <Building2 />, label: "Admin", active: pathname.startsWith('/dashboard/admin') },
     ]
 
     return (
@@ -97,7 +97,7 @@ const DesktopSidebar = () => {
                         <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                     </div>
                 </SidebarHeader>
-                <SidebarMenu className="flex-1 p-2">
+                <SidebarMenu className="flex-1">
                     {navItems.map(item => (
                         <SidebarMenuItem key={item.label}>
                             <Link href={item.href}>

@@ -1,5 +1,6 @@
+
 import { redirect } from 'next/navigation';
 
 export default function AdminPage() {
-  redirect('/admin/divisions');
+  redirect('/dashboard/admin/divisions');
 }
