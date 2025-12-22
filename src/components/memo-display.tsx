@@ -281,7 +281,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     );
   }
   
-  const isCC = memo.cc.some(u => u.id === loggedInUser.id) && memo.to.every(u => u.id !== loggedInUser.id);
+  const isCC = memo.cc.some(u => u.id === loggedInUser.id);
   const canAcknowledge = memo.status !== 'acknowledged' && memo.current_holder?.id === loggedInUser.id && !isCC;
   const canForward = memo.current_holder?.id === loggedInUser.id && !isCC;
 
