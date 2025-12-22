@@ -113,6 +113,7 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="unread">Unread</SelectItem>
                 <SelectItem value="read">Read</SelectItem>
                 <SelectItem value="acknowledged">Acknowledged</SelectItem>
             </SelectContent>

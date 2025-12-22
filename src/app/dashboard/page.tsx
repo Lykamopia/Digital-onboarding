@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
@@ -101,6 +102,10 @@ function DashboardContent() {
         if (trimmedStatus === 'read') {
             filteredMemos = filteredMemos.filter(memo => 
                 memo.activity.some(act => act.action === 'viewed' && act.actor.id === loggedInUser.id)
+            );
+        } else if (trimmedStatus === 'unread') {
+            filteredMemos = filteredMemos.filter(memo => 
+                !memo.activity.some(act => act.action === 'viewed' && act.actor.id === loggedInUser.id)
             );
         } else if (trimmedStatus === 'acknowledged') {
              filteredMemos = filteredMemos.filter(memo => memo.acknowledgedBy?.includes(loggedInUser.id));
