@@ -22,6 +22,7 @@ import Logo from "@/components/logo"
 import { UserNav } from "@/components/user-nav"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationListener } from "@/components/notification-listener"
+import { NotificationBell } from "@/components/notification-bell"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
@@ -146,6 +147,7 @@ function DashboardLayoutContent({
                             New Memo
                             </Button>
                         </Link>
+                         <NotificationBell />
                         <UserNav />
                     </div>
                 </header>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
@@ -13,6 +14,8 @@ type NotificationContextType = {
   settings: NotificationSettings;
   setSettings: (settings: Partial<NotificationSettings>) => void;
   showNotification: (props: Toast) => void;
+  notificationCount: number;
+  resetNotificationCount: () => void;
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -20,6 +23,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
     // Audio can only be initialized on the client
@@ -54,14 +58,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const showNotification = useCallback((props: Toast) => {
     if (settings.notificationsEnabled) {
       toast(props);
+      setNotificationCount(prev => prev + 1);
       if (settings.soundEnabled && audio) {
         audio.play().catch(error => console.error("Audio playback failed:", error));
       }
     }
   }, [settings, toast, audio]);
 
+  const resetNotificationCount = useCallback(() => {
+    setNotificationCount(0);
+  }, []);
+
   return (
-    <NotificationContext.Provider value={{ settings, setSettings, showNotification }}>
+    <NotificationContext.Provider value={{ settings, setSettings, showNotification, notificationCount, resetNotificationCount }}>
       {children}
     </NotificationContext.Provider>
   );
