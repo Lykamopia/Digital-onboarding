@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Building2 } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield } from "lucide-react"
 
 import {
   SidebarProvider,
@@ -60,7 +60,7 @@ const MobileSidebar = () => {
                         Archive
                     </Link>
                     <Link href="/dashboard/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Building2 className="h-5 w-5" />
+                        <Shield className="h-5 w-5" />
                         Admin
                     </Link>
                 </nav>
@@ -85,7 +85,7 @@ const DesktopSidebar = () => {
         { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive },
         { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive },
         { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive },
-        { href: "/dashboard/admin", icon: <Building2 />, label: "Admin", active: pathname.startsWith('/dashboard/admin') },
+        { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin') },
     ]
 
     return (
