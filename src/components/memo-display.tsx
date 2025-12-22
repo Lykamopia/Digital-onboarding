@@ -11,14 +11,15 @@ import {
   Edit,
   Send,
   Printer,
+  Expand,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { MemoWithActivity, User, Memo, Attachment } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatTimestamp, loggedInUser } from '@/lib/data';
 import {
@@ -181,23 +182,20 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   React.useEffect(() => {
     if (memo && !isPreview) {
-      // Check if logged in user is the sender
-      const isSender = memo.from.id === loggedInUser.id;
-      // check if user has already viewed
+      const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id);
       const hasViewed = memo.activity.some(act => act.actor.id === loggedInUser.id && act.action === 'viewed');
 
-      if (isSender && !hasViewed) {
+      if (isRecipient && !hasViewed) {
          const newActivity = {
             id: `act-${Date.now()}-view`,
             actor: loggedInUser,
             action: 'viewed' as const,
             timestamp: new Date().toISOString(),
-            details: 'Sender viewed the memo.'
+            details: 'Viewed the memo.'
           };
 
           const updatedMemo = {
             ...memo,
-            status: 'read' as const,
             activity: [...memo.activity, newActivity],
           };
           updateMemoInStorage(updatedMemo, false);
@@ -319,18 +317,22 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id);
+  const isRecipient = memo.to.some(u => u.id === loggedInUser.id);
   const hasAcknowledged = memo.acknowledgedBy?.includes(loggedInUser.id);
-  const canAcknowledge = !hasAcknowledged && memo.current_holder?.id === loggedInUser.id && !isCC;
-  const canForward = memo.current_holder?.id === loggedInUser.id && !isCC;
+  const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
+  const canForward = isRecipient && !isCC;
 
-  return (
-    <Card className={`h-full font-serif text-sm printable-memo-container ${!isPreview ? 'overflow-y-auto' : ''}`} id={!isPreview ? 'memo-content-wrapper' : ''}>
+
+  const MemoContent = () => (
+    <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card' : ''}`}>
         <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
             <CardHeader className="p-0 printable-memo-header">
-                <div className="flex flex-col items-center mb-6">
+                <div className="flex items-center justify-between mb-6">
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
-                    <p className="text-xl font-bold mt-4 tracking-wider">MEMORANDUM</p>
-                    <p className="text-sm mt-1">{memo.memo_reference_number}</p>
+                    <div className='text-right'>
+                        <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
+                        <p className="text-sm mt-1">{memo.memo_reference_number}</p>
+                    </div>
                 </div>
                 <div className="border-t-4 border-b-4 border-double border-black">
                      <MemoField label="Date" amharic="ቀን">
@@ -451,6 +453,34 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     </>
                 )}
             </CardContent>
+        </div>
+    </div>
+  );
+
+  return (
+    <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
+        <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
+            <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
+            {!isPreview && (
+                 <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <Expand className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0">
+                        <DialogHeader className="p-4 border-b">
+                            <DialogTitle>Full Memo View</DialogTitle>
+                        </DialogHeader>
+                        <div className="overflow-y-auto flex-1">
+                            <MemoContent />
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </CardHeader>
+        <div className="flex-1 overflow-y-auto">
+            <MemoContent />
         </div>
     </Card>
   );
