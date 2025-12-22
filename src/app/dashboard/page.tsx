@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
@@ -24,7 +25,7 @@ function DashboardContent() {
 
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
-  const [isListVisible, setIsListVisible] = useState(true);
+  const [isListExpanded, setIsListExpanded] = useState(true);
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -179,13 +180,10 @@ function DashboardContent() {
     <div 
         className={cn(
             "grid gap-4 h-[calc(100vh-8rem)] transition-all",
-            isListVisible ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[0px_1fr]"
+            isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
         )}
     >
-      <Card className={cn(
-            "no-print flex-col transition-all duration-300", 
-            isListVisible ? "flex" : "hidden"
-            )}>
+      <Card className="no-print flex flex-col transition-all duration-300">
         <MemoFilters
             tab={tab}
             search={search}
@@ -194,14 +192,20 @@ function DashboardContent() {
             setDateRange={setDateRange}
             status={status}
             setStatus={setStatus}
+            isExpanded={isListExpanded}
             toggle={
-                 <Button variant="ghost" size="icon" onClick={() => setIsListVisible(!isListVisible)} className="hidden md:flex">
-                    {isListVisible ? <PanelLeft /> : <PanelRight />}
+                 <Button variant="ghost" size="icon" onClick={() => setIsListExpanded(!isListExpanded)} className="hidden md:flex">
+                    {isListExpanded ? <PanelLeft /> : <PanelRight />}
                 </Button>
             }
         />
         {memos.length > 0 ? (
-          <MemoList memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={setSelectedMemoId} />
+          <MemoList 
+            memos={memos} 
+            selectedMemoId={selectedMemoId} 
+            onSelectMemo={setSelectedMemoId}
+            isExpanded={isListExpanded}
+            />
         ) : (
           <div className="h-full p-2">
             <EmptyState title={emptyState.title} description={emptyState.description} action={emptyState.action} />
@@ -212,8 +216,8 @@ function DashboardContent() {
         <MemoDisplay 
             memo={selectedMemo} 
             onUpdate={loadMemos} 
-            listVisible={isListVisible}
-            setListVisible={setIsListVisible}
+            listVisible={isListExpanded}
+            setListVisible={setIsListExpanded}
         />
       </div>
       <div className="hidden print:block col-span-2">
