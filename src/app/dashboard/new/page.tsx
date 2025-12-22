@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Send, Trash2, DraftingCompass, Eye, X, File as FileIcon, Paperclip } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@/components/ui/button';
@@ -169,12 +171,29 @@ export default function NewMemoPage() {
         }
       }
     } else {
-        localStorage.removeItem('memo-draft');
-        form.reset({ to: [], cc: [], subject: '', body: '', attachments: [], replyTo: undefined });
+        const replyToId = searchParams.get('replyTo');
+        if (replyToId) {
+            const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
+            const originalMemo = memos.find(m => m.id === replyToId);
+            if (originalMemo) {
+                form.reset({
+                    to: [originalMemo.from],
+                    cc: [],
+                    subject: `Re: ${originalMemo.subject}`,
+                    body: `<br><br><hr><p>On ${formatTimestamp(originalMemo.createdAt)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`,
+                    attachments: [],
+                    replyTo: replyToId,
+                });
+            }
+        } else {
+            localStorage.removeItem('memo-draft');
+            form.reset({ to: [], cc: [], subject: '', body: '', attachments: [], replyTo: undefined });
+        }
         setIsDraft(false);
         setLastSaved(null);
     }
-  }, [form, draftId, DRAFT_KEY]);
+  }, [form, draftId, DRAFT_KEY, searchParams]);
+
 
   function deleteDraft() {
       if (typeof window !== 'undefined') {
@@ -409,17 +428,34 @@ export default function NewMemoPage() {
                             className="hidden"
                             multiple
                           />
-                          <div className="mt-2 space-y-2">
+                          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {(currentFormData.attachments || []).map((att) => (
-                              <div key={att.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
-                                <div className="flex items-center gap-2">
-                                  <FileIcon className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">{att.name}</span>
-                                  <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                              <div key={att.id} className="relative group border rounded-lg overflow-hidden">
+                                {att.type.startsWith('image/') ? (
+                                    <Image src={att.url} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                ) : (
+                                    <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
+                                        <FileIcon className="h-10 w-10 text-muted-foreground" />
+                                        <p className="text-xs text-center mt-2 text-muted-foreground break-all">{att.name}</p>
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/60 flex flex-col justify-between p-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div>
+                                        <p className="text-xs font-bold break-all">{att.name}</p>
+                                        <p className="text-xs">{formatFileSize(att.size)}</p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="sm"
+                                      className='w-full h-8 text-xs'
+                                      onClick={() => removeAttachment(att.id)}
+                                    >
+                                      <Trash2 className="mr-2 h-3 w-3" />
+                                      Remove
+                                    </Button>
                                 </div>
-                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(att.id)}>
-                                  <X className="h-4 w-4" />
-                                </Button>
+
                               </div>
                             ))}
                           </div>
