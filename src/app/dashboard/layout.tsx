@@ -130,8 +130,8 @@ function DashboardLayoutContent({
     return (
         <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 ${!isMobile && state === 'expanded' ? 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]' : 'md:grid-cols-[68px_1fr] lg:grid-cols-[68px_1fr]'}`}>
             <DesktopSidebar />
-            <div className="flex flex-col">
-                <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 no-print">
+            <div className="flex flex-col h-screen">
+                <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 no-print shrink-0">
                     <MobileSidebar />
                     <SidebarTrigger className="hidden md:flex" />
                     <div className="w-full flex-1">
