@@ -91,13 +91,13 @@ const DesktopSidebar = () => {
     return (
         <Sidebar collapsible="icon" className="hidden md:flex no-print">
             <SidebarContent>
-                <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center p-2">
-                    <div className="flex items-center justify-center gap-2">
+                <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
+                    <div className="flex items-center group-data-[collapsible=icon]:justify-center">
                         <Logo className="group-data-[collapsible=icon]:hidden" />
                         <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                     </div>
                 </SidebarHeader>
-                <SidebarMenu className="flex-1">
+                <SidebarMenu className="flex-1 px-2">
                     {navItems.map(item => (
                         <SidebarMenuItem key={item.label}>
                             <Link href={item.href}>
