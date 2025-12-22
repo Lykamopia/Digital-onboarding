@@ -182,10 +182,11 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   React.useEffect(() => {
     if (memo && !isPreview) {
-      const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id);
+      const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
+      const isSender = memo.from.id === loggedInUser.id;
       const hasViewed = memo.activity.some(act => act.actor.id === loggedInUser.id && act.action === 'viewed');
 
-      if (isRecipient && !hasViewed) {
+      if ((isRecipient || isSender) && !hasViewed) {
          const newActivity = {
             id: `act-${Date.now()}-view`,
             actor: loggedInUser,
@@ -317,7 +318,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id);
-  const isRecipient = memo.to.some(u => u.id === loggedInUser.id);
+  const isRecipient = memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
   const hasAcknowledged = memo.acknowledgedBy?.includes(loggedInUser.id);
   const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
   const canForward = isRecipient && !isCC;
@@ -327,9 +328,9 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card' : ''}`}>
         <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
             <CardHeader className="p-0 printable-memo-header">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col items-center justify-center mb-6">
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
-                    <div className='text-right'>
+                    <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                         <p className="text-sm mt-1">{memo.memo_reference_number}</p>
                     </div>
