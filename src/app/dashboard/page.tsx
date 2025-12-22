@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
@@ -19,12 +18,13 @@ import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function DashboardContent() {
-  const { searchParams } = useSearchParams()
+  const { searchParams, setSearchParams } = useSearchParams()
   const router = useRouter();
   const tab = searchParams.get("tab") || "inbox"
+  const memoIdFromUrl = searchParams.get('id');
 
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(memoIdFromUrl);
   const [isListExpanded, setIsListExpanded] = useState(true);
 
   // Filter states
@@ -38,6 +38,11 @@ function DashboardContent() {
     return undefined;
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
+
+  const handleSelectMemo = (id: string) => {
+    setSelectedMemoId(id);
+    setSearchParams({ id });
+  }
 
   const loadMemos = useCallback(() => {
     let allDrafts: Memo[] = [];
@@ -133,14 +138,18 @@ function DashboardContent() {
     
     setMemos(filteredMemos);
 
+    const currentMemoId = selectedMemoId || memoIdFromUrl;
+
     if (filteredMemos.length > 0) {
-        if (!selectedMemoId || !filteredMemos.some(m => m.id === selectedMemoId)) {
-            setSelectedMemoId(filteredMemos[0].id);
+        if (!currentMemoId || !filteredMemos.some(m => m.id === currentMemoId)) {
+            handleSelectMemo(filteredMemos[0].id);
+        } else {
+            setSelectedMemoId(currentMemoId);
         }
     } else {
         setSelectedMemoId(null);
     }
-  }, [tab, selectedMemoId, search, status, dateRange]);
+  }, [tab, selectedMemoId, search, status, dateRange, memoIdFromUrl]);
 
   useEffect(() => {
     loadMemos();
@@ -153,6 +162,12 @@ function DashboardContent() {
       window.removeEventListener('draft-created', handleStorageChange);
     }
   }, [tab, loadMemos]);
+  
+  useEffect(() => {
+    if (memoIdFromUrl) {
+      setSelectedMemoId(memoIdFromUrl);
+    }
+  }, [memoIdFromUrl]);
 
 
   const selectedMemo = memos.find(memo => memo.id === selectedMemoId) || null;
@@ -205,7 +220,7 @@ function DashboardContent() {
           <MemoList 
             memos={memos} 
             selectedMemoId={selectedMemoId} 
-            onSelectMemo={setSelectedMemoId}
+            onSelectMemo={handleSelectMemo}
             isExpanded={isListExpanded}
             />
         ) : (

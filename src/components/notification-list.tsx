@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-provider';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,6 +9,14 @@ import { Mail } from 'lucide-react';
 
 export function NotificationList() {
     const { notifications, markAsRead } = useNotification();
+    const router = useRouter();
+
+    const handleClick = (notification: typeof notifications[0]) => {
+        markAsRead(notification.id);
+        if (notification.memoId) {
+            router.push(`/dashboard?tab=inbox&id=${notification.memoId}`);
+        }
+    }
 
     if (notifications.length === 0) {
         return (
@@ -27,7 +36,7 @@ export function NotificationList() {
                         "flex items-start gap-3 p-3 border-b transition-colors cursor-pointer hover:bg-muted/50",
                         !notification.read && "bg-primary/5"
                     )}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => handleClick(notification)}
                 >
                     <div className="relative">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">

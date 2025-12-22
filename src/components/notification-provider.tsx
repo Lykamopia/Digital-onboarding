@@ -11,21 +11,24 @@ type Notification = {
   description?: React.ReactNode;
   createdAt: Date;
   read: boolean;
+  memoId?: string;
+};
+
+type ShowNotificationProps = Omit<Toast, 'id'> & { memoId?: string };
+
+type NotificationContextType = {
+  settings: NotificationSettings;
+  setSettings: (settings: Partial<NotificationSettings>) => void;
+  showNotification: (props: ShowNotificationProps) => void;
+  notifications: Notification[];
+  unreadCount: number;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
 };
 
 type NotificationSettings = {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
-};
-
-type NotificationContextType = {
-  settings: NotificationSettings;
-  setSettings: (settings: Partial<NotificationSettings>) => void;
-  showNotification: (props: Omit<Toast, 'id' | 'createdAt' | 'read'>) => void;
-  notifications: Notification[];
-  unreadCount: number;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -36,9 +39,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    const audioInstance = new Audio('/ring.mp3');
-    audioInstance.load();
-    setAudio(audioInstance);
+    if (typeof window !== 'undefined') {
+        const audioInstance = new Audio('/ring.mp3');
+        audioInstance.load();
+        setAudio(audioInstance);
+    }
   }, []);
   
   const [settings, setSettingsState] = useState<NotificationSettings>(() => {
@@ -64,7 +69,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const showNotification = useCallback((props: Omit<Toast, 'id'>) => {
+  const showNotification = useCallback(({ memoId, ...props }: ShowNotificationProps) => {
     if (settings.notificationsEnabled) {
       toast(props);
       setNotifications(prev => [
@@ -73,7 +78,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           title: props.title || '',
           description: props.description,
           createdAt: new Date(),
-          read: false
+          read: false,
+          memoId: memoId,
         }, 
         ...prev
       ]);

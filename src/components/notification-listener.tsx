@@ -30,7 +30,7 @@ export function NotificationListener() {
       }
 
       if (title) {
-        showNotification({ title, description });
+        showNotification({ title, description, memoId: memo.id });
       }
     };
     
