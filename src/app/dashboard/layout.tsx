@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -129,11 +130,11 @@ function DashboardLayoutContent({
     }
     
     return (
-        <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 ${!isMobile && state === 'expanded' ? 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]' : 'md:grid-cols-[68px_1fr] lg:grid-cols-[68px_1fr]'}`}>
+        <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]`}>
             <DesktopSidebar />
             <div className="flex flex-col h-screen">
-                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px] px-4 lg:px-6">
-                    <div className="flex items-center gap-4 w-full h-full">
+                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
+                    <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
                         <MobileSidebar />
                         <SidebarTrigger className="hidden md:flex" />
                         <div className="w-full flex-1">
@@ -149,7 +150,7 @@ function DashboardLayoutContent({
                     </div>
                 </header>
                 <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
-                    <div className="flex-1 p-4 lg:p-6">
+                    <div className="flex-1 py-4 lg:py-6">
                         {children}
                     </div>
                 </main>
