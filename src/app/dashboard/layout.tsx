@@ -2,9 +2,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield } from "lucide-react"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   SidebarProvider,
@@ -130,22 +130,19 @@ function DashboardLayoutContent({
   }: {
     children: React.ReactNode
   }) {
-
-    const router = useRouter();
-    const pathname = usePathname();
-
-    const canAccessAdmin = useMemo(() => loggedInUser.role.permissions.includes('view-admin'), []);
-
+    const [isClient, setIsClient] = useState(false);
     useEffect(() => {
-        if (!canAccessAdmin && pathname.startsWith('/dashboard/admin')) {
-            router.replace('/dashboard?tab=inbox');
-        }
-    }, [pathname, router, canAccessAdmin]);
+        setIsClient(true);
+    }, []);
 
     const handleNewMemoClick = () => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('memo-draft');
         }
+    }
+
+    if (!isClient) {
+        return null; // or a loading skeleton
     }
     
     return (
