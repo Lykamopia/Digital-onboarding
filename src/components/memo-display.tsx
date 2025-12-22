@@ -371,7 +371,6 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
                     <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
-                        <p className="text-sm mt-1">{memo.memo_reference_number}</p>
                     </div>
                 </div>
                 <div className="border-t-4 border-b-4 border-double border-black">
