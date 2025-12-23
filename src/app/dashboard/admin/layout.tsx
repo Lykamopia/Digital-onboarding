@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, use } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Card,
@@ -12,12 +12,17 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { getLoggedInUser } from "@/app/actions/memo";
-import type { Permission } from "@/lib/types";
+import type { Permission, User } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const user = use(getLoggedInUser());
+  const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
+
+  useEffect(() => {
+    getLoggedInUser().then(setUser);
+  }, []);
 
   const navItems = useMemo(() => [
     { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage_divisions" },
@@ -27,9 +32,13 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { value: "/dashboard/admin/roles", label: "Role Management", permission: "manage_roles" },
   ], []);
 
-  const accessibleNavItems = useMemo(() => navItems.filter(item => user.role.permissions.includes(item.permission as Permission)), [navItems, user]);
+  const accessibleNavItems = useMemo(() => {
+    if (!user) return [];
+    return navItems.filter(item => user.role.permissions.includes(item.permission as Permission))
+  }, [navItems, user]);
 
   useEffect(() => {
+    if (!user) return;
     if (pathname === '/dashboard/admin' && accessibleNavItems.length > 0) {
       router.replace(accessibleNavItems[0].value);
     } else if (accessibleNavItems.length > 0 && !accessibleNavItems.some(item => pathname.startsWith(item.value))) {
@@ -37,15 +46,19 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     } else if (accessibleNavItems.length === 0) {
         router.replace('/dashboard');
     }
-  }, [pathname, router, accessibleNavItems]);
+  }, [pathname, router, accessibleNavItems, user]);
 
   const activeTab = accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
 
   const handleTabChange = (value: string) => {
     router.push(value);
   };
+  
+  if (!user) {
+    return <Card><CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader><CardContent><Skeleton className="h-[200px] w-full" /></CardContent></Card>;
+  }
 
-  if (accessibleNavItems.length === 0 || !user) {
+  if (accessibleNavItems.length === 0) {
     return null; 
   }
 
@@ -70,7 +83,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
              ))}
           </TabsList>
           <TabsContent value={pathname} className="mt-4">
-            {children}
+            <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+              {children}
+            </Suspense>
           </TabsContent>
         </Tabs>
       </CardContent>
