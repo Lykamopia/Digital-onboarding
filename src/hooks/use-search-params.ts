@@ -13,7 +13,7 @@ export function useSearchParams() {
     (paramsToUpdate: Record<string, string | number | null>) => {
       const params = new URLSearchParams(searchParams.toString());
       Object.entries(paramsToUpdate).forEach(([key, value]) => {
-        if (value === null || value === '') {
+        if (value === null || value === '' || value === undefined) {
           params.delete(key);
         } else {
           params.set(key, String(value));

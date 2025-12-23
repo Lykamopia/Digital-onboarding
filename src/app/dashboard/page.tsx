@@ -149,7 +149,7 @@ function DashboardContent() {
     } else {
         setSelectedMemoId(null);
     }
-  }, [tab, selectedMemoId, search, status, dateRange, memoIdFromUrl]);
+  }, [tab, selectedMemoId, search, status, dateRange, memoIdFromUrl, setSearchParams]);
 
   useEffect(() => {
     loadMemos();
