@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import {
@@ -28,8 +28,20 @@ import { loggedInUser } from "@/lib/data"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
-    const showAdminLink = true; // Always show for dev purposes
+    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
     
+    const navItems = [
+        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", visible: loggedInUser.role.permissions.includes('view-dashboard') },
+        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", visible: loggedInUser.role.permissions.includes('manage-memos') },
+        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", visible: loggedInUser.role.permissions.includes('manage-memos') },
+        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", visible: loggedInUser.role.permissions.includes('view-dashboard') },
+        { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", visible: true },
+    ];
+
+    if (showAdminLink) {
+        navItems.push({ href: "/dashboard/admin", icon: <Shield />, label: "Admin", visible: true });
+    }
+
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -47,28 +59,12 @@ const MobileSidebar = () => {
                        <Logo />
                        <span className="sr-only">Nib Memo</span>
                     </Link>
-                    <Link href="/dashboard?tab=inbox" className={`flex items-center gap-4 px-2.5 ${pathname === '/dashboard' || pathname.includes('inbox') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Inbox className="h-5 w-5" />
-                        Inbox
-                    </Link>
-                    <Link href="/dashboard?tab=drafts" className={`flex items-center gap-4 px-2.5 ${pathname.includes('drafts') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Edit className="h-5 w-5" />
-                        Drafts
-                    </Link>
-                    <Link href="/dashboard?tab=sent" className={`flex items-center gap-4 px-2.5 ${pathname.includes('sent') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Send className="h-5 w-5" />
-                        Sent
-                    </Link>
-                    <Link href="/dashboard?tab=archive" className={`flex items-center gap-4 px-2.5 ${pathname.includes('archive') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        <Archive className="h-5 w-5" />
-                        Archive
-                    </Link>
-                    {showAdminLink && (
-                        <Link href="/dashboard/admin" className={`flex items-center gap-4 px-2.5 ${pathname.includes('admin') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                            <Shield className="h-5 w-5" />
-                            Admin
+                    {navItems.filter(item => item.visible).map(item => (
+                         <Link key={item.label} href={item.href} className={`flex items-center gap-4 px-2.5 ${pathname.startsWith(item.href.split('?')[0]) ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                            {item.icon}
+                            {item.label}
                         </Link>
-                    )}
+                    ))}
                 </nav>
             </SheetContent>
         </Sheet>
@@ -83,7 +79,7 @@ const DesktopSidebar = () => {
     const isDraftsActive = searchParams.get('tab') === 'drafts';
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
-    const showAdminLink = true; // Always show for dev purposes
+    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
 
 
     const navItems = [
@@ -91,6 +87,7 @@ const DesktopSidebar = () => {
         { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: loggedInUser.role.permissions.includes('manage-memos') },
         { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: loggedInUser.role.permissions.includes('manage-memos') },
         { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: loggedInUser.role.permissions.includes('view-dashboard') },
+        { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
     ];
 
     if (showAdminLink) {
@@ -169,7 +166,7 @@ function DashboardLayoutContent({
                     </div>
                 </header>
                 <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
-                    <div className="flex-1 p-2">
+                    <div className="flex-1 p-4">
                         {children}
                     </div>
                 </main>

@@ -88,6 +88,26 @@ if (typeof window !== 'undefined') {
     }
 }
 
+export function updateUser(updatedUser: User): boolean {
+  if (typeof window !== 'undefined') {
+    // Update the full user list
+    const allUsers = JSON.parse(localStorage.getItem('users') || '[]') as User[];
+    const userIndex = allUsers.findIndex(u => u.id === updatedUser.id);
+    if (userIndex > -1) {
+      allUsers[userIndex] = updatedUser;
+      localStorage.setItem('users', JSON.stringify(allUsers));
+    }
+
+    // Update the loggedInUser if it's the same user
+    const currentLoggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}') as User;
+    if (currentLoggedInUser.id === updatedUser.id) {
+      localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
+    }
+    return true;
+  }
+  return false;
+}
+
 
 export const memos: MemoWithActivity[] = [
   {

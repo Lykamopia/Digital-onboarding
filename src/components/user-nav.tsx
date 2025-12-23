@@ -46,7 +46,7 @@ export function UserNav() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <Link href="/dashboard?tab=inbox" passHref>
+            <Link href="/dashboard/profile" passHref>
               <DropdownMenuItem>
                 <UserIcon className="mr-2 h-4 w-4" />
                 <span>Profile</span>
