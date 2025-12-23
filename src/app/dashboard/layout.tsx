@@ -39,12 +39,12 @@ function NavItems({ isMobile = false }: { isMobile?: boolean }) {
     const isArchiveActive = searchParams.get('tab') === 'archive';
     
     const navItems = useMemo(() => [
-        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: user.role.permissions.includes('view-dashboard' as Permission) },
-        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: user.role.permissions.includes('manage-memos' as Permission) },
-        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: user.role.permissions.includes('manage-memos' as Permission) },
-        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: user.role.permissions.includes('view-dashboard' as Permission) },
+        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
+        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
+        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
+        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
         { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-        { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view-admin' as Permission) },
+        { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
     ], [pathname, searchParams, user]);
 
     if (isMobile) {
@@ -155,7 +155,7 @@ function DashboardLayoutContent({
                         <div className="w-full flex-1">
                             {/* Optional: Add a search bar here */}
                         </div>
-                        {user.role.permissions.includes('manage-memos' as Permission) && (
+                        {user.role.permissions.includes('manage_memos' as Permission) && (
                             <Link href="/dashboard/new" onClick={handleNewMemoClick}>
                                 <Button>
                                 <FilePlus className="mr-2 h-4 w-4" />

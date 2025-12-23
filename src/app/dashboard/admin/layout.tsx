@@ -20,11 +20,11 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const user = use(getLoggedInUser());
 
   const navItems = useMemo(() => [
-    { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage-divisions" },
-    { value: "/dashboard/admin/departments", label: "Departments", permission: "manage-departments" },
-    { value: "/dashboard/admin/offices", label: "Offices", permission: "manage-offices" },
-    { value: "/dashboard/admin/users", label: "Users", permission: "manage-users" },
-    { value: "/dashboard/admin/roles", label: "Role Management", permission: "manage-roles" },
+    { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage_divisions" },
+    { value: "/dashboard/admin/departments", label: "Departments", permission: "manage_departments" },
+    { value: "/dashboard/admin/offices", label: "Offices", permission: "manage_offices" },
+    { value: "/dashboard/admin/users", label: "Users", permission: "manage_users" },
+    { value: "/dashboard/admin/roles", label: "Role Management", permission: "manage_roles" },
   ], []);
 
   const accessibleNavItems = useMemo(() => navItems.filter(item => user.role.permissions.includes(item.permission as Permission)), [navItems, user]);

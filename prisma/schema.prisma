@@ -1,43 +1,32 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-enum Permission {
-  view-dashboard
-  manage-memos
-  view-admin
-  manage-divisions
-  manage-departments
-  manage-offices
-  manage-users
-  manage-roles
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
-  id                    String     @id @default(cuid())
-  name                  String
-  email                 String     @unique
-  avatar                String?
-  officeId              String
-  roleId                String
-  office                Office     @relation(fields: [officeId], references: [id])
-  role                  Role       @relation(fields: [roleId], references: [id])
-  memosFrom             Memo[]     @relation("MemosFromUser")
-  memosTo               Memo[]     @relation("MemosToUser")
-  memosCc               Memo[]     @relation("MemosCcUser")
-  activity              Activity[]
-  acknowledgedMemos     Memo[]     @relation("AcknowledgedBy")
-  archivedMemos         Memo[]     @relation("ArchivedBy")
-  currentHolderOfMemos  Memo[]     @relation("CurrentHolder")
-  previousHolderOfMemos Memo[]     @relation("PreviousHolder")
+  id               String       @id @default(cuid())
+  name             String
+  email            String       @unique
+  avatar           String?
+  officeId         String
+  roleId           String
+  office           Office       @relation(fields: [officeId], references: [id])
+  role             Role         @relation(fields: [roleId], references: [id])
+  memosFrom        Memo[]       @relation("MemosFrom")
+  memosTo          Memo[]       @relation("MemosTo")
+  memosCc          Memo[]       @relation("MemosCc")
+  currentMemos     Memo[]       @relation("CurrentHolder")
+  previousMemos    Memo[]       @relation("PreviousHolders")
+  acknowledgedMemos Memo[]      @relation("AcknowledgedBy")
+  archivedMemos    Memo[]       @relation("ArchivedBy")
+  activities       Activity[]
+
+  @@index([officeId])
+  @@index([roleId])
 }
 
 model Role {
@@ -47,9 +36,20 @@ model Role {
   users       User[]
 }
 
+enum Permission {
+  view_dashboard
+  manage_memos
+  view_admin
+  manage_divisions
+  manage_departments
+  manage_offices
+  manage_users
+  manage_roles
+}
+
 model Division {
   id          String       @id @default(cuid())
-  name        String
+  name        String       @unique
   code        String       @unique
   departments Department[]
 }
@@ -57,10 +57,13 @@ model Division {
 model Department {
   id         String   @id @default(cuid())
   name       String
-  code       String   @unique
+  code       String
   divisionId String
   division   Division @relation(fields: [divisionId], references: [id])
   offices    Office[]
+
+  @@unique([name, divisionId])
+  @@index([divisionId])
 }
 
 model Office {
@@ -70,48 +73,63 @@ model Office {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
   users        User[]
+
+  @@unique([name, departmentId])
+  @@index([departmentId])
 }
 
 model Memo {
   id                    String       @id @default(cuid())
   memo_reference_number String       @unique
   subject               String
-  body                  String
-  status                String
+  body                  String       @db.Text
+  status                String       @default("draft") // e.g., draft, sent, read, acknowledged
   createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
   fromId                String
-  from                  User         @relation("MemosFromUser", fields: [fromId], references: [id])
-  to                    User[]       @relation("MemosToUser")
-  cc                    User[]       @relation("MemosCcUser")
+  from                  User         @relation("MemosFrom", fields: [fromId], references: [id])
+  to                    User[]       @relation("MemosTo")
+  cc                    User[]       @relation("MemosCc")
   attachments           Attachment[]
   activity              Activity[]
-  current_holderId      String?
-  current_holder        User?        @relation("CurrentHolder", fields: [current_holderId], references: [id])
-  previous_holders      User[]       @relation("PreviousHolder")
-  acknowledgedBy        User[]       @relation("AcknowledgedBy")
-  archivedBy            User[]       @relation("ArchivedBy")
+  
   replyToId             String?
   replyTo               Memo?        @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies               Memo[]       @relation("Replies")
+
+  current_holderId      String?
+  current_holder        User?        @relation("CurrentHolder", fields: [current_holderId], references: [id])
+  
+  previous_holders      User[]       @relation("PreviousHolders")
+  acknowledgedBy        User[]       @relation("AcknowledgedBy")
+  archivedBy            User[]       @relation("ArchivedBy")
+
+  @@index([fromId])
+  @@index([current_holderId])
 }
 
 model Activity {
   id        String   @id @default(cuid())
   memoId    String
-  memo      Memo     @relation(fields: [memoId], references: [id])
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
   actorId   String
   actor     User     @relation(fields: [actorId], references: [id])
-  action    String
-  details   String?
+  action    String // e.g., sent, viewed, acknowledged, forwarded, commented
+  details   String?  @db.Text
   timestamp DateTime @default(now())
+
+  @@index([memoId])
+  @@index([actorId])
 }
 
 model Attachment {
   id     String @id @default(cuid())
+  memoId String
+  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
   name   String
   type   String
   size   Int
-  url    String
-  memoId String
-  memo   Memo   @relation(fields: [memoId], references: [id])
+  url    String @db.Text
+
+  @@index([memoId])
 }

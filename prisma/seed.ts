@@ -30,17 +30,17 @@ const roles: { id: string; name: string; permissions: Permission[] }[] = [
     id: 'role-1',
     name: 'Admin',
     permissions: [
-      'view-dashboard',
-      'manage-memos',
-      'view-admin',
-      'manage-divisions',
-      'manage-departments',
-      'manage-offices',
-      'manage-users',
-      'manage-roles',
+      'view_dashboard',
+      'manage_memos',
+      'view_admin',
+      'manage_divisions',
+      'manage_departments',
+      'manage_offices',
+      'manage_users',
+      'manage_roles',
     ],
   },
-  { id: 'role-2', name: 'Member', permissions: ['view-dashboard', 'manage-memos'] },
+  { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'] },
 ];
 
 const users = [
