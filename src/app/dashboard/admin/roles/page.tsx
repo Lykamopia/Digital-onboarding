@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, use, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -34,31 +34,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { roles as initialRoles, permissions, users as allUsers } from "@/lib/data";
-import type { Role, Permission } from "@/lib/types";
+import { getRoles, saveRole, deleteRole, getUsers } from "@/app/actions/memo";
+import type { Role, Permission, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { permissions } from "@/lib/data";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function RoleManagementPage() {
-  const [roles, setRoles] = useState<Role[]>([]);
+
+function RoleManagementPageContent({ rolesPromise, usersPromise }: { rolesPromise: Promise<Role[]>, usersPromise: Promise<User[]> }) {
+  const initialRoles = use(rolesPromise);
+  const allUsers = use(usersPromise);
+  const { toast } = useToast();
+
+  const [roles, setRoles] = useState<Role[]>(initialRoles);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const storedRoles = localStorage.getItem("roles");
-    if (storedRoles) {
-      setRoles(JSON.parse(storedRoles));
-    } else {
-      setRoles(initialRoles);
-    }
-  }, []);
-
-  const saveRolesToLocalStorage = (updatedRoles: Role[]) => {
-    setRoles(updatedRoles);
-    localStorage.setItem("roles", JSON.stringify(updatedRoles));
-  };
 
   const handleAddNew = () => {
     setEditingRole(null);
@@ -74,26 +66,26 @@ export default function RoleManagementPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (roleId: string) => {
-    const isRoleInUse = allUsers.some(user => user.roleId === roleId);
-    if (isRoleInUse) {
-      toast({
-        variant: "destructive",
-        title: "Cannot delete role",
-        description: "This role is currently assigned to one or more users.",
-      });
-      return;
+  const handleDelete = async (roleId: string) => {
+    const result = await deleteRole(roleId);
+    if(result?.error) {
+        toast({
+            variant: "destructive",
+            title: "Cannot delete role",
+            description: result.error,
+        });
+        return;
     }
-
-    const updatedRoles = roles.filter((r) => r.id !== roleId);
-    saveRolesToLocalStorage(updatedRoles);
+    
+    const updatedRoles = await getRoles();
+    setRoles(updatedRoles);
     toast({
       title: "Role Deleted",
       description: "The role has been successfully deleted.",
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!roleName.trim()) {
       toast({
         variant: "destructive",
@@ -103,21 +95,18 @@ export default function RoleManagementPage() {
       return;
     }
 
-    if (editingRole) {
-      const updatedRoles = roles.map((r) =>
-        r.id === editingRole.id ? { ...r, name: roleName, permissions: selectedPermissions } : r
-      );
-      saveRolesToLocalStorage(updatedRoles);
-      toast({ title: "Role Updated", description: `The ${roleName} role has been updated.` });
-    } else {
-      const newRole: Role = {
-        id: `role-${Date.now()}`,
+    const roleData = {
+        id: editingRole?.id,
         name: roleName,
         permissions: selectedPermissions,
-      };
-      saveRolesToLocalStorage([...roles, newRole]);
-      toast({ title: "Role Created", description: `The ${roleName} role has been created.` });
     }
+
+    await saveRole(roleData);
+
+    const updatedRoles = await getRoles();
+    setRoles(updatedRoles);
+    
+    toast({ title: "Success", description: `Role ${editingRole ? 'updated' : 'created'}.` });
 
     setIsDialogOpen(false);
   };
@@ -239,4 +228,16 @@ export default function RoleManagementPage() {
       </CardContent>
     </Card>
   );
+}
+
+
+export default function RoleManagementPage() {
+    const rolesPromise = getRoles();
+    const usersPromise = getUsers();
+
+    return (
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <RoleManagementPageContent rolesPromise={rolesPromise} usersPromise={usersPromise} />
+        </Suspense>
+    )
 }

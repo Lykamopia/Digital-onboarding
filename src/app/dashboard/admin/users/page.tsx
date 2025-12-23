@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, use, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -22,54 +22,61 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { users as initialUsers, offices, departments, divisions, roles as initialRoles } from "@/lib/data";
-import type { User, Role } from "@/lib/types";
+import { getUsers, getOffices, getRoles, saveUser } from "@/app/actions/memo";
+import type { User, Role, Office } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [roles] = useState<Role[]>(initialRoles);
+
+type UserWithRelations = User & {
+    office: Office & {
+        department: {
+            name: string,
+            division: { name: string }
+        }
+    },
+    role: Role
+};
+
+function UsersPageContent({ usersPromise, officesPromise, rolesPromise }: { usersPromise: Promise<UserWithRelations[]>, officesPromise: Promise<Office[]>, rolesPromise: Promise<Role[]> }) {
+  const initialUsers = use(usersPromise);
+  const offices = use(officesPromise);
+  const roles = use(rolesPromise);
+  const { toast } = useToast();
+
+  const [users, setUsers] = useState(initialUsers);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(undefined);
 
-  const getOfficeInfo = (officeId: string) => {
-    const office = offices.find(o => o.id === officeId);
-    if (!office) return { office: 'N/A', department: 'N/A', division: 'N/A' };
-    const department = departments.find(d => d.id === office.departmentId);
-    if (!department) return { office: office.name, department: 'N/A', division: 'N/A' };
-    const division = divisions.find(d => d.id === department.divisionId);
-    return {
-        office: office.name,
-        department: department.name,
-        division: division?.name || 'N/A'
-    };
-  }
-
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const officeId = selectedOfficeId || '';
-    const officeInfo = getOfficeInfo(officeId);
     
-    const userData: User = {
-        id: editingUser ? editingUser.id : `user-${Date.now()}`,
-        name: formData.get('name') as string,
-        email: formData.get('email') as string,
-        avatar: editingUser?.avatar || '',
-        officeId: officeId,
-        division: officeInfo.division,
-        department: officeInfo.department,
-        office: officeInfo.office,
-        roleId: selectedRoleId || (roles.find(r => r.name === 'Member')?.id || ''),
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+
+    if (!name || !email || !selectedOfficeId || !selectedRoleId) {
+        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        return;
+    }
+    
+    const userData = {
+        id: editingUser?.id,
+        name,
+        email,
+        officeId: selectedOfficeId,
+        roleId: selectedRoleId,
     };
 
-    if (editingUser) {
-        setUsers(users.map(u => u.id === editingUser.id ? userData : u));
-    } else {
-        setUsers([...users, userData]);
-    }
+    await saveUser(userData);
+
+    const updatedUsers = await getUsers() as UserWithRelations[]; // Re-fetch might not include relations, adjust if needed
+    setUsers(updatedUsers);
+    
+    toast({ title: "Success", description: `User ${editingUser ? 'updated' : 'created'}.` });
     
     setIsDialogOpen(false);
     setEditingUser(null);
@@ -77,7 +84,7 @@ export default function UsersPage() {
     setSelectedRoleId(undefined);
   };
 
-  const handleEdit = (user: User) => {
+  const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
     setSelectedOfficeId(user.officeId);
     setSelectedRoleId(user.roleId);
@@ -102,14 +109,10 @@ export default function UsersPage() {
 
   const officeOptions = offices.map(o => ({ 
       value: o.id, 
-      label: `${o.name} (${getOfficeInfo(o.id).department})` 
+      label: o.name
   }));
 
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
-
-  const getRoleName = (roleId: string) => {
-      return roles.find(r => r.id === roleId)?.name || 'N/A';
-  }
 
   return (
     <Card>
@@ -130,9 +133,7 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => {
-              const officeInfo = getOfficeInfo(user.officeId);
-              return(
+            {users.map((user) => (
                 <TableRow key={user.id}>
                     <TableCell>
                         <div className="flex items-center gap-3">
@@ -146,18 +147,18 @@ export default function UsersPage() {
                             </div>
                         </div>
                     </TableCell>
-                    <TableCell>{getRoleName(user.roleId)}</TableCell>
-                    <TableCell>{officeInfo.office}</TableCell>
-                    <TableCell>{officeInfo.department}</TableCell>
-                    <TableCell>{officeInfo.division}</TableCell>
+                    <TableCell>{user.role.name}</TableCell>
+                    <TableCell>{user.office.name}</TableCell>
+                    <TableCell>{user.office.department.name}</TableCell>
+                    <TableCell>{user.office.department.division.name}</TableCell>
                     <TableCell className="text-right">
                     <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                         Edit
                     </Button>
                     </TableCell>
                 </TableRow>
-              );
-            })}
+              )
+            )}
           </TableBody>
         </Table>
 
@@ -208,4 +209,18 @@ export default function UsersPage() {
       </CardContent>
     </Card>
   );
+}
+
+export default function UsersPage() {
+    // This is not ideal, Prisma doesn't make it easy to type nested includes.
+    // A better approach in a real app would be to create a specific query for this page.
+    const usersPromise = getUsers() as Promise<UserWithRelations[]>;
+    const officesPromise = getOffices();
+    const rolesPromise = getRoles();
+
+    return (
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <UsersPageContent usersPromise={usersPromise} officesPromise={officesPromise} rolesPromise={rolesPromise} />
+        </Suspense>
+    )
 }

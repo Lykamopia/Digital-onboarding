@@ -1,42 +1,43 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, use, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { loggedInUser as initialLoggedInUser, updateUser } from '@/lib/data';
+import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function ProfilePage() {
-  const [user, setUser] = useState<User>(initialLoggedInUser);
+function ProfilePageContent({ userPromise }: { userPromise: Promise<User> }) {
+  const initialUser = use(userPromise);
+  const [user, setUser] = useState<User>(initialUser);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [avatar, setAvatar] = useState(user.avatar);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const handleSave = () => {
-    const updatedUser = {
-      ...user,
-      name,
-      email,
-      avatar,
-    };
-    
-    if (updateUser(updatedUser)) {
-      setUser(updatedUser); // Update local state
-       toast({
+  const handleSave = async () => {
+    const result = await updateUserProfile(user.id, { name, email, avatar });
+    if (result.success) {
+      toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-       // Force a reload to update user-nav and other components
-       window.location.reload();
+      // Re-fetch user to update state
+      const updatedUser = await getLoggedInUser();
+      setUser(updatedUser);
+      setName(updatedUser.name);
+      setEmail(updatedUser.email);
+      setAvatar(updatedUser.avatar);
+      // Force a reload to update user-nav and other components that might not be reactive to this change.
+      window.location.reload();
     } else {
         toast({
             variant: 'destructive',
@@ -60,6 +61,8 @@ export default function ProfilePage() {
   };
   
   const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
+
+  if (!user) return <Skeleton className="h-[400px] w-full" />
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -97,8 +100,7 @@ export default function ProfilePage() {
                         </div>
                         <h2 className="text-2xl font-bold text-center">{user.name}</h2>
                         <p className="text-muted-foreground text-center">{user.email}</p>
-                        <p className="text-sm font-medium text-primary mt-2 text-center">{initialLoggedInUser.role.name}</p>
-
+                        
                         <Separator className="my-6 md:hidden" />
                     </div>
 
@@ -117,7 +119,7 @@ export default function ProfilePage() {
                             </div>
                             
                             <div className="flex justify-end">
-                                <Button onClick={handleSave} disabled={!isChanged}>
+                                <Button type="button" onClick={handleSave} disabled={!isChanged}>
                                     Save Changes
                                 </Button>
                             </div>
@@ -132,21 +134,21 @@ export default function ProfilePage() {
                                     <Globe className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Division</p>
-                                        <p className="font-medium">{user.division}</p>
+                                        <p className="font-medium">{(user as any).office.department.division.name}</p>
                                     </div>
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <Building className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Department</p>
-                                        <p className="font-medium">{user.department}</p>
+                                        <p className="font-medium">{(user as any).office.department.name}</p>
                                     </div>
-                               - </li>
+                                </li>
                                 <li className="flex items-center gap-3">
                                     <Briefcase className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Office</p>
-                                        <p className="font-medium">{user.office}</p>
+                                        <p className="font-medium">{(user as any).office.name}</p>
                                     </div>
                                 </li>
                             </ul>
@@ -157,4 +159,13 @@ export default function ProfilePage() {
         </Card>
     </div>
   );
+}
+
+export default function ProfilePage() {
+    const userPromise = getLoggedInUser();
+    return (
+        <Suspense fallback={<Skeleton className="h-[500px] w-full max-w-4xl mx-auto" />}>
+            <ProfilePageContent userPromise={userPromise} />
+        </Suspense>
+    )
 }

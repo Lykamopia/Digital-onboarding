@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, use } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Card,
@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { loggedInUser } from "@/lib/data";
+import { getLoggedInUser } from "@/app/actions/memo";
+import type { Permission } from "@/lib/types";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const user = use(getLoggedInUser());
 
   const navItems = useMemo(() => [
     { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage-divisions" },
@@ -25,7 +27,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     { value: "/dashboard/admin/roles", label: "Role Management", permission: "manage-roles" },
   ], []);
 
-  const accessibleNavItems = useMemo(() => navItems.filter(item => loggedInUser.role.permissions.includes(item.permission as any)), [navItems]);
+  const accessibleNavItems = useMemo(() => navItems.filter(item => user.role.permissions.includes(item.permission as Permission)), [navItems, user]);
 
   useEffect(() => {
     if (pathname === '/dashboard/admin' && accessibleNavItems.length > 0) {
@@ -37,15 +39,14 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     }
   }, [pathname, router, accessibleNavItems]);
 
-  // Determine the active tab value.
   const activeTab = accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
 
   const handleTabChange = (value: string) => {
     router.push(value);
   };
 
-  if (accessibleNavItems.length === 0) {
-    return null; // Or a loading/unauthorized state
+  if (accessibleNavItems.length === 0 || !user) {
+    return null; 
   }
 
   return (

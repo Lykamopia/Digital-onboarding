@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -18,10 +19,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { users } from "@/lib/data"
 import type { User } from "@/lib/types"
 
 type RecipientSelectorProps = {
+  allUsers: User[];
   selected: User[];
   setSelected: (users: User[]) => void;
   placeholder?: string;
@@ -29,7 +30,7 @@ type RecipientSelectorProps = {
   popoverClassName?: string;
 };
 
-export function RecipientSelector({ selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
+export function RecipientSelector({ allUsers, selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleUnselect = (userToUnselect: User) => {
@@ -87,7 +88,7 @@ export function RecipientSelector({ selected, setSelected, placeholder = "Select
           <CommandList>
             <CommandEmpty>No users found.</CommandEmpty>
             <CommandGroup>
-              {users.map((user) => (
+              {allUsers.map((user) => (
                 <CommandItem
                   key={user.id}
                   onSelect={() => handleSelect(user)}

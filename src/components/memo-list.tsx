@@ -3,13 +3,14 @@
 
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import type { MemoWithActivity } from "@/lib/types"
+import type { MemoWithActivity, User } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { loggedInUser } from "@/lib/data"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
+import { useEffect, useState } from "react"
+import { getLoggedInUser } from "@/app/actions/memo"
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -18,7 +19,7 @@ interface MemoListProps {
   isExpanded: boolean
 }
 
-const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void }) => (
+const ExpandedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void, loggedInUser: User | null }) => (
     <div className="flex flex-col gap-0.5 p-1">
         {memos.map((memo) => (
         <button
@@ -33,8 +34,8 @@ const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWith
             <div className="flex w-full flex-col gap-0.5">
             <div className="flex items-center">
                 <div className="flex items-center gap-2 truncate">
-                <div className="font-semibold truncate">{memo.status === 'draft' ? 'Draft' : memo.from.name}</div>
-                {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
+                <div className="font-semibold truncate">{memo.from.name}</div>
+                 {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
                 </div>
                 <div
                 className={cn(
@@ -47,18 +48,21 @@ const ExpandedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWith
                 {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
                 </div>
             </div>
-            <div className="text-sm font-medium truncate break-words">{memo.subject || "No Subject"}</div>
+            <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
             </div>
-            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body.substring(0, 300) || "No content" }} />
+            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
         </button>
         ))}
     </div>
 )
 
-const CollapsedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void }) => {
+const CollapsedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void, loggedInUser: User | null }) => {
+    
+    if (!loggedInUser) return null;
+    
     const isUnread = (memo: MemoWithActivity) => {
         const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
-        return isRecipient && !memo.activity.some(act => act.action === 'viewed' && act.actor.id === loggedInUser.id);
+        return isRecipient && !memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser.id);
     }
     return (
         <TooltipProvider>
@@ -95,6 +99,11 @@ const CollapsedView = ({ memos, selectedMemoId, handleSelect }: { memos: MemoWit
 
 export function MemoList({ memos, selectedMemoId, onSelectMemo, isExpanded }: MemoListProps) {
   const router = useRouter();
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    getLoggedInUser().then(user => setLoggedInUser(user as User));
+  }, []);
 
   const handleSelect = (memo: MemoWithActivity) => {
     if (memo.status === 'draft') {
@@ -107,9 +116,9 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo, isExpanded }: Me
   return (
     <ScrollArea className="h-full">
       {isExpanded ? (
-        <ExpandedView memos={memos} selectedMemoId={selectedMemoId} handleSelect={handleSelect} />
+        <ExpandedView memos={memos} selectedMemoId={selectedMemoId} handleSelect={handleSelect} loggedInUser={loggedInUser}/>
       ) : (
-        <CollapsedView memos={memos} selectedMemoId={selectedMemoId} handleSelect={handleSelect} />
+        <CollapsedView memos={memos} selectedMemoId={selectedMemoId} handleSelect={handleSelect} loggedInUser={loggedInUser}/>
       )}
     </ScrollArea>
   )

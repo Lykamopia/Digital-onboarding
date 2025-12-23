@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, use, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -17,36 +17,51 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { departments as initialDepartments, divisions } from "@/lib/data";
-import type { Department } from "@/lib/types";
+import { getDepartments, getDivisions, saveDepartment } from "@/app/actions/memo";
+import type { Department, Division } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DepartmentsPage() {
+function DepartmentsPageContent({ departmentsPromise, divisionsPromise }: { departmentsPromise: Promise<Department[]>, divisionsPromise: Promise<Division[]> }) {
+  const initialDepartments = use(departmentsPromise);
+  const divisions = use(divisionsPromise);
+  const { toast } = useToast();
+
   const [departments, setDepartments] = useState<Department[]>(initialDepartments);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const departmentData: Department = {
-        id: editingDepartment ? editingDepartment.id : `dept-${Date.now()}`,
-        name: formData.get('name') as string,
-        code: formData.get('code') as string,
-        divisionId: selectedDivisionId || '',
+    const name = formData.get('name') as string;
+    const code = formData.get('code') as string;
+
+    if (!name || !code || !selectedDivisionId) {
+        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        return;
     }
 
-    if (editingDepartment) {
-        setDepartments(departments.map(d => d.id === editingDepartment.id ? departmentData : d));
-    } else {
-        setDepartments([...departments, departmentData]);
+    const departmentData = {
+        id: editingDepartment?.id,
+        name,
+        code,
+        divisionId: selectedDivisionId,
     }
+
+    await saveDepartment(departmentData);
+    
+    // Optimistically update or refetch
+    const updatedDepartments = await getDepartments();
+    setDepartments(updatedDepartments);
+    
+    toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
     
     setIsDialogOpen(false);
     setEditingDepartment(null);
@@ -147,4 +162,16 @@ export default function DepartmentsPage() {
       </CardContent>
     </Card>
   );
+}
+
+
+export default function DepartmentsPage() {
+    const departmentsPromise = getDepartments();
+    const divisionsPromise = getDivisions();
+
+    return (
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <DepartmentsPageContent departmentsPromise={departmentsPromise} divisionsPromise={divisionsPromise} />
+        </Suspense>
+    )
 }

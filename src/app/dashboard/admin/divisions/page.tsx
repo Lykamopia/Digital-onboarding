@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, use, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -17,33 +17,47 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { divisions as initialDivisions } from "@/lib/data";
+import { getDivisions, saveDivision } from "@/app/actions/memo";
 import type { Division } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DivisionsPage() {
+function DivisionsPageContent({ promise }: { promise: Promise<Division[]> }) {
+  const initialDivisions = use(promise);
+  const { toast } = useToast();
+
   const [divisions, setDivisions] = useState<Division[]>(initialDivisions);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const divisionData = {
-        id: editingDivision ? editingDivision.id : `div-${Date.now()}`,
-        name: formData.get('name') as string,
-        code: formData.get('code') as string,
+    const name = formData.get('name') as string;
+    const code = formData.get('code') as string;
+    
+    if (!name || !code) {
+        toast({ title: "Error", description: "Name and code are required.", variant: "destructive" });
+        return;
     }
 
-    if (editingDivision) {
-        setDivisions(divisions.map(d => d.id === editingDivision.id ? divisionData : d));
-    } else {
-        setDivisions([...divisions, divisionData]);
+    const divisionData = {
+        id: editingDivision?.id,
+        name,
+        code,
     }
+
+    await saveDivision(divisionData);
+    
+    // After saving, you might want to re-fetch the data to show the latest state.
+    const updatedDivisions = await getDivisions();
+    setDivisions(updatedDivisions);
+
+    toast({ title: "Success", description: `Division ${editingDivision ? 'updated' : 'created'} successfully.` });
     
     setIsDialogOpen(false);
     setEditingDivision(null);
@@ -114,4 +128,13 @@ export default function DivisionsPage() {
       </CardContent>
     </Card>
   );
+}
+
+export default function DivisionsPage() {
+    const promise = getDivisions();
+    return (
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <DivisionsPageContent promise={promise} />
+        </Suspense>
+    )
 }

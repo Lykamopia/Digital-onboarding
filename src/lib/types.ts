@@ -1,81 +1,42 @@
 
+import type { 
+    User as PrismaUser, 
+    Role as PrismaRole,
+    Division as PrismaDivision,
+    Department as PrismaDepartment,
+    Office as PrismaOffice,
+    Memo as PrismaMemo,
+    Attachment as PrismaAttachment,
+    Activity as PrismaActivity,
+    Permission as PrismaPermission
+} from '@prisma/client';
 
-export type Permission = 'view-dashboard' | 'manage-memos' | 'view-admin' | 'manage-divisions' | 'manage-departments' | 'manage-offices' | 'manage-users' | 'manage-roles';
+export type Permission = PrismaPermission;
 
-export type Role = {
-  id: string;
-  name: string;
-  permissions: Permission[];
+export type Role = PrismaRole;
+export type Division = PrismaDivision;
+export type Department = PrismaDepartment;
+export type Office = PrismaOffice;
+export type User = PrismaUser;
+export type Attachment = PrismaAttachment;
+
+// Base types from Prisma
+export type Memo = PrismaMemo & {
+    from: User;
+    to: User[];
+    cc: User[];
+    attachments: Attachment[];
+    current_holder?: User | null;
+    previous_holders?: User[];
+    acknowledgedBy?: User[];
+    archivedBy?: User[];
 };
 
-export type Division = {
-  id: string;
-  name: string;
-  code: string;
+export type Activity = PrismaActivity & {
+    actor: User;
 };
 
-export type Department = {
-  id: string;
-  name: string;
-  code: string;
-  divisionId: string;
-};
-
-export type Office = {
-  id: string;
-  name: string;
-  code: string;
-  departmentId: string;
-};
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  officeId: string;
-  division: string; // denormalized for convenience
-  department: string; // denormalized for convenience
-  office: string; // denormalized for convenience
-  roleId: string;
-};
-
-export type Attachment = {
-  id: string;
-  name: string;
-  size: number; // size in bytes
-  type: string; // mime type
-  url: string; // data URL for preview and storage
-};
-
-export type Memo = {
-  id:string;
-  memo_reference_number: string;
-  from: User;
-  to: User[];
-  cc: User[];
-  subject: string;
-  body: string;
-  attachments: Attachment[];
-  createdAt: string;
-  status: 'draft' | 'sent' | 'read' | 'acknowledged' | 'archived';
-  current_holder?: User;
-  previous_holders?: User[];
-  archivedBy?: string[]; // Array of user IDs who have archived this memo
-  acknowledgedBy?: string[]; // Array of user IDs who have acknowledged this memo
-  replyTo?: string; // ID of the memo this is a reply to
-};
-
-export type Activity = {
-  id: string;
-  actor: User;
-  action: 'created' | 'sent' | 'viewed' | 'acknowledged' | 'commented' | 'forwarded' | 'archived' | 'unarchived' | 'replied';
-  timestamp: string;
-  details?: string;
-};
-
+// Composite type for memos with all their relations
 export type MemoWithActivity = Memo & {
   activity: Activity[];
 };
-
-    

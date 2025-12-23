@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, use, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -22,30 +22,45 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { offices as initialOffices, departments, divisions } from "@/lib/data";
-import type { Office } from "@/lib/types";
+import { getOffices, getDepartments, saveOffice } from "@/app/actions/memo";
+import type { Office, Department } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function OfficesPage() {
-  const [offices, setOffices] = useState<Office[]>(initialOffices);
+function OfficesPageContent({ officesPromise, departmentsPromise }: { officesPromise: Promise<(Office & { department: { division: { name: string } } })[]>, departmentsPromise: Promise<Department[]> }) {
+  const initialOffices = use(officesPromise);
+  const departments = use(departmentsPromise);
+  const { toast } = useToast();
+
+  const [offices, setOffices] = useState(initialOffices);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const officeData: Office = {
-      id: editingOffice ? editingOffice.id : `off-${Date.now()}`,
-      name: formData.get("name") as string,
-      code: formData.get("code") as string,
-      departmentId: selectedDepartmentId || '',
+    const name = formData.get("name") as string;
+    const code = formData.get("code") as string;
+
+    if (!name || !code || !selectedDepartmentId) {
+        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        return;
+    }
+    
+    const officeData = {
+      id: editingOffice?.id,
+      name,
+      code,
+      departmentId: selectedDepartmentId,
     };
 
-    if (editingOffice) {
-      setOffices(offices.map((o) => (o.id === editingOffice.id ? officeData : o)));
-    } else {
-      setOffices([...offices, officeData]);
-    }
+    await saveOffice(officeData);
+
+    const updatedOffices = await getOffices();
+    setOffices(updatedOffices);
+    
+    toast({ title: "Success", description: `Office ${editingOffice ? 'updated' : 'created'} successfully.` });
 
     setIsDialogOpen(false);
     setEditingOffice(null);
@@ -72,13 +87,6 @@ export default function OfficesPage() {
     setIsDialogOpen(open);
   }
 
-  const getDepartmentInfo = (departmentId: string) => {
-    const dept = departments.find((d) => d.id === departmentId);
-    if (!dept) return { name: "N/A", division: "N/A" };
-    const div = divisions.find((d) => d.id === dept.divisionId);
-    return { name: dept.name, division: div?.name || "N/A" };
-  };
-
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
 
   return (
@@ -99,14 +107,12 @@ export default function OfficesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {offices.map((office) => {
-              const deptInfo = getDepartmentInfo(office.departmentId);
-              return (
+            {offices.map((office) => (
                 <TableRow key={office.id}>
                   <TableCell>{office.name}</TableCell>
                   <TableCell>{office.code}</TableCell>
-                  <TableCell>{deptInfo.name}</TableCell>
-                  <TableCell>{deptInfo.division}</TableCell>
+                  <TableCell>{office.department.name}</TableCell>
+                  <TableCell>{office.department.division.name}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
@@ -117,8 +123,8 @@ export default function OfficesPage() {
                     </Button>
                   </TableCell>
                 </TableRow>
-              );
-            })}
+              )
+            )}
           </TableBody>
         </Table>
 
@@ -158,4 +164,14 @@ export default function OfficesPage() {
       </CardContent>
     </Card>
   );
+}
+
+export default function OfficesPage() {
+    const officesPromise = getOffices();
+    const departmentsPromise = getDepartments();
+    return (
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <OfficesPageContent officesPromise={officesPromise} departmentsPromise={departmentsPromise} />
+        </Suspense>
+    )
 }

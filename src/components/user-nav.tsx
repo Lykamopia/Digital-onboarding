@@ -1,3 +1,6 @@
+
+"use client"
+
 import { LogOut, User as UserIcon } from "lucide-react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,34 +16,35 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { loggedInUser } from "@/lib/data"
+import type { User } from "@/lib/types";
 
-export function UserNav() {
+export function UserNav({ user }: { user: User }) {
   const router = useRouter();
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('loggedInUser');
-    }
+    // In a real app, this would call an auth server to sign out.
+    // For now, we just redirect.
     router.push('/');
   }
+  
+  if (!user) return null;
 
   return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={loggedInUser.avatar} alt={loggedInUser.name} data-ai-hint="person portrait"/>
-              <AvatarFallback>{loggedInUser.name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person portrait"/>
+              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{loggedInUser.name}</p>
+              <p className="text-sm font-medium leading-none">{user.name}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {loggedInUser.email}
+                {user.email}
               </p>
             </div>
           </DropdownMenuLabel>

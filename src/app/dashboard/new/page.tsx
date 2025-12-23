@@ -1,32 +1,21 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, X, File as FileIcon, Paperclip, Expand } from 'lucide-react';
+import { useForm, Controller } from 'react-hook-form';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Activity, MemoWithActivity, Attachment } from '@/lib/types';
+import type { User, Memo, Attachment, MemoWithActivity } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { loggedInUser, users, formatTimestamp } from '@/lib/data';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,28 +37,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { MemoDisplay } from '@/components/memo-display';
+import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft } from '@/app/actions/memo';
+import { formatTimestamp } from '@/lib/data';
+
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-const memoSchema = z.object({
-  id: z.string().optional(),
-  to: z.array(z.any()).min(1, 'Please select at least one recipient.'),
-  cc: z.array(z.any()).optional(),
-  subject: z.string().min(1, 'Subject is required.'),
-  body: z.string(),
-  replyBody: z.string().optional(),
-  attachments: z.array(z.any()).optional(),
-  replyTo: z.string().optional(),
-});
-
-type MemoFormData = z.infer<typeof memoSchema>;
-
-const DRAFT_KEY_PREFIX = 'memo-draft-';
-
-const MemoPreview = ({ memoData }: { memoData: MemoWithActivity | null }) => {
-  if (!memoData) return null;
-  return <MemoDisplay memo={memoData} onUpdate={() => {}} isPreview />;
-};
 
 export default function NewMemoPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -79,74 +51,87 @@ export default function NewMemoPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const draftId = searchParams.get('id');
-  const DRAFT_KEY = draftId ? `${DRAFT_KEY_PREFIX}${draftId}` : 'memo-draft';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<MemoFormData>({
-    resolver: zodResolver(memoSchema),
-    defaultValues: {
-      to: [],
-      cc: [],
-      subject: '',
-      body: '',
-      replyBody: '',
-      attachments: [],
-      replyTo: undefined,
-    },
-  });
-
-  const currentFormData = form.watch();
-
-  const getCombinedBody = () => {
-    if (currentFormData.replyTo && currentFormData.body) {
-      return `${currentFormData.replyBody || ''}<br><br><hr>${currentFormData.body}`;
-    }
-    return currentFormData.replyBody || currentFormData.body || '';
-  };
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [previewMemo, setPreviewMemo] = useState<MemoWithActivity | null>(null);
   
-  const finalBody = getCombinedBody();
+  const [to, setTo] = useState<User[]>([]);
+  const [cc, setCc] = useState<User[]>([]);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
 
-  const previewMemo: MemoWithActivity = {
-    id: 'preview',
-    memo_reference_number: 'MEMO-XXXX-XXX',
-    from: loggedInUser,
-    to: currentFormData.to?.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[] || [],
-    cc: currentFormData.cc?.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[] || [],
-    subject: currentFormData.subject || '',
-    body: finalBody,
-    attachments: currentFormData.attachments || [],
-    createdAt: new Date().toISOString(),
-    status: 'draft',
-    activity: [],
-    replyTo: currentFormData.replyTo,
-  };
+  const isReplying = !!replyTo;
 
-  const saveDraft = useCallback((data: MemoFormData) => {
-    if (typeof window === 'undefined') return;
-    setIsSaving(true);
+  useEffect(() => {
+    async function fetchData() {
+        const [user, allUsers] = await Promise.all([getLoggedInUser(), getUsers()]);
+        setLoggedInUser(user);
+        setUsers(allUsers);
+    }
+    fetchData();
+  }, []);
+  
+  const form = useForm();
+  
+  const updatePreview = useCallback(() => {
+      if (!loggedInUser) return;
+
+      const getCombinedBody = () => {
+        if (replyTo && body) {
+          return `${replyBody || ''}<br><br><hr>${body}`;
+        }
+        return replyBody || body || '';
+      };
+      const finalBody = getCombinedBody();
+      
+      const newPreview: MemoWithActivity = {
+        id: 'preview',
+        memo_reference_number: 'MEMO-XXXX-XXX',
+        from: loggedInUser,
+        to: to,
+        cc: cc,
+        subject: subject,
+        body: finalBody,
+        attachments: attachments,
+        createdAt: new Date().toISOString(),
+        status: 'draft',
+        activity: [],
+        replyTo: replyTo,
+      };
+      setPreviewMemo(newPreview);
+  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo]);
+  
+  useEffect(() => {
+    updatePreview();
+  }, [updatePreview]);
+
+  const saveDraftCallback = useCallback(async () => {
+    if (!loggedInUser) return;
     
-    let draftBody = data.replyTo ? (data.replyBody || '') : (data.body || '');
-    if (data.replyTo && data.body) {
-        draftBody = `${data.replyBody}<br><br><hr>${data.body}`;
+    let draftBody = replyTo ? (replyBody || '') : (body || '');
+    if (replyTo && body) {
+        draftBody = `${replyBody}<br><br><hr>${body}`;
     }
 
-    const draft: Memo = {
-      id: draftId || `draft-${Date.now()}`,
-      memo_reference_number: 'DRAFT',
-      from: loggedInUser,
-      to: data.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
-      cc: (data.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[],
-      subject: data.subject,
-      body: draftBody,
-      createdAt: new Date().toISOString(),
-      status: 'draft',
-      attachments: data.attachments || [],
-      replyTo: data.replyTo,
+    const draftData = {
+        to: to,
+        cc: cc,
+        subject: subject,
+        body: draftBody,
+        attachments: attachments,
+        replyTo: replyTo
     };
     
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    if (!draftId) {
-      router.replace(`/dashboard/new?id=${draft.id}`, { scroll: false });
+    setIsSaving(true);
+    const savedDraft = await saveDraft(draftData, draftId);
+    
+    if (savedDraft && !draftId) {
+      router.replace(`/dashboard/new?id=${savedDraft.id}`, { scroll: false });
     }
     
     setIsDraft(true);
@@ -155,201 +140,120 @@ export default function NewMemoPage() {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString());
     }, 500);
-  }, [DRAFT_KEY, draftId, router]);
+  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, draftId, replyTo, router]);
 
-  const debouncedSave = useDebouncedCallback(saveDraft, 1000);
-
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-        const formData = value as MemoFormData;
-        const hasContent = formData.subject || formData.body || formData.replyBody || formData.to?.length || formData.cc?.length || formData.attachments?.length;
-
-        if (hasContent) {
-            debouncedSave(formData);
-        }
-    });
-    return () => subscription.unsubscribe();
-  }, [form, debouncedSave]);
+  const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const hasContent = subject || body || replyBody || to.length || cc.length || attachments.length;
+    if (hasContent) {
+        debouncedSave();
+    }
+  }, [subject, body, replyBody, to, cc, attachments, debouncedSave]);
 
-    if (draftId) {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
-      if (savedDraft) {
-        const draft = JSON.parse(savedDraft);
+
+  useEffect(() => {
+    const initialize = async () => {
+      if (draftId) {
+        const draft = await getMemo(draftId);
         if (draft) {
           let body = draft.body || '';
           let replyBody = '';
-          if (draft.replyTo && draft.body.includes('<hr>')) {
+          if (draft.replyToId && draft.body.includes('<hr>')) {
               const parts = draft.body.split('<hr>');
               replyBody = parts[0].replace(/<br><br>$/, '');
               body = parts.slice(1).join('<hr>');
           }
-
-
-          form.reset({
-            to: draft.to || [],
-            cc: draft.cc || [],
-            subject: draft.subject || '',
-            body: draft.replyTo ? body : draft.body,
-            replyBody: draft.replyTo ? replyBody : '',
-            attachments: draft.attachments || [],
-            replyTo: draft.replyTo,
-          });
+          setTo(draft.to);
+          setCc(draft.cc);
+          setSubject(draft.subject);
+          setBody(draft.replyToId ? body : draft.body);
+          setReplyBody(draft.replyToId ? replyBody : '');
+          setAttachments(draft.attachments);
+          setReplyTo(draft.replyToId || undefined);
           setIsDraft(true);
         }
-      }
-    } else {
+      } else {
         const replyToId = searchParams.get('replyTo');
         if (replyToId) {
-            // Check memos from localStorage first
-            const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
-            let originalMemo = memos.find(m => m.id === replyToId);
-            
-            // If not in localStorage, check initial data
-            if (!originalMemo) {
-                const initialMemos: MemoWithActivity[] = require('@/lib/data').memos;
-                originalMemo = initialMemos.find(m => m.id === replyToId);
-            }
-            
+            const originalMemo = await getMemo(replyToId);
             if (originalMemo) {
-                const newReplyDraftId = `draft-${Date.now()}`;
                 const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
-                
-                const replyDraft: Memo = {
-                    id: newReplyDraftId,
-                    memo_reference_number: 'DRAFT',
-                    from: loggedInUser,
-                    to: [originalMemo.from],
-                    cc: [],
-                    subject: `Re: ${originalMemo.subject}`,
-                    body: `<br><br><hr>${originalContent}`,
-                    attachments: [],
-                    createdAt: new Date().toISOString(),
-                    status: 'draft',
-                    replyTo: replyToId,
-                };
-                localStorage.setItem(`${DRAFT_KEY_PREFIX}${newReplyDraftId}`, JSON.stringify(replyDraft));
-                router.replace(`/dashboard/new?id=${newReplyDraftId}`);
+                setBody(originalContent);
+                setSubject(`Re: ${originalMemo.subject}`);
+                setTo([originalMemo.from]);
+                setReplyTo(replyToId);
+                // Trigger a save for the new reply draft
+                debouncedSave.flush();
             }
         } else {
-            localStorage.removeItem('memo-draft');
-            form.reset({ to: [], cc: [], subject: '', body: '', replyBody: '', attachments: [], replyTo: undefined });
+            // Reset for a completely new memo
+            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined);
+            setIsDraft(false); setLastSaved(null);
         }
-        setIsDraft(false);
-        setLastSaved(null);
-    }
-  }, [form, draftId, DRAFT_KEY, searchParams, router]);
+      }
+    };
 
+    initialize();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, searchParams]); // Only run on draftId change
 
-  function deleteDraft() {
-      if (typeof window !== 'undefined') {
-          localStorage.removeItem(DRAFT_KEY);
+  async function handleDeleteDraft() {
+      if (draftId) {
+          await deleteDraft(draftId);
           toast({
               title: 'Draft Deleted',
               description: 'The draft has been permanently deleted.',
           });
-          form.reset({ to: [], cc: [], subject: '', body: '', attachments: []});
-          setIsDraft(false);
-          setLastSaved(null);
           router.push('/dashboard?tab=inbox');
       }
   }
 
-  function onSubmit(values: MemoFormData) {
-    if(!values.replyTo && !values.body) {
-        form.setError('body', { type: 'manual', message: 'Body is required.' });
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if(!replyTo && !body) {
+        toast({ title: 'Error', description: 'Body is required.', variant: 'destructive'});
         return;
     }
-    if(values.replyTo && !values.replyBody) {
-        form.setError('replyBody', { type: 'manual', message: 'Reply body is required.' });
+    if(replyTo && !replyBody) {
+        toast({ title: 'Error', description: 'Reply body is required.', variant: 'destructive'});
+        return;
+    }
+     if(to.length === 0) {
+        toast({ title: 'Error', description: 'Please select at least one recipient.', variant: 'destructive'});
         return;
     }
 
-
-    const sentMemos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
+    const formData = new FormData();
+    to.forEach(user => formData.append('to[]', user.id));
+    cc.forEach(user => formData.append('cc[]', user.id));
+    formData.append('subject', subject);
     
-    const toUsers = values.to.map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
-    const ccUsers = (values.cc || []).map(u => users.find(usr => usr.id === u.id)).filter(Boolean) as User[];
+    let finalBody = replyTo ? `${replyBody}<br><br><hr>${body}` : body;
+    formData.append('body', finalBody);
+    formData.append('attachments', JSON.stringify(attachments));
+    if (replyTo) formData.append('replyTo', replyTo);
+    if (draftId) formData.append('draftId', draftId);
     
-    const creationActivity: Activity = {
-        id: `act-${Date.now()}-create`,
-        actor: loggedInUser,
-        action: 'created',
-        timestamp: new Date().toISOString(),
-        details: 'Memo draft created.'
-    };
-    
-    const sentActivity: Activity = {
-        id: `act-${Date.now()}-send`,
-        actor: loggedInUser,
-        action: 'sent',
-        timestamp: new Date().toISOString(),
-        details: `Sent to ${toUsers.map(u => u.name).join(', ')}.` + (ccUsers.length > 0 ? ` CC: ${ccUsers.map(u => u.name).join(', ')}` : '')
-    };
+    const result = await sendMemo(formData);
 
-    const finalBody = getCombinedBody();
-
-    const newMemo: MemoWithActivity = {
-      id: `memo-${Date.now()}`,
-      memo_reference_number: `MEMO-${new Date().getFullYear()}-00${sentMemos.length + 5}`,
-      from: loggedInUser,
-      to: toUsers,
-      cc: ccUsers,
-      subject: values.subject,
-      body: finalBody,
-      createdAt: new Date().toISOString(),
-      status: 'sent' as const,
-      attachments: values.attachments || [],
-      activity: [
-          creationActivity,
-          sentActivity,
-      ],
-      current_holder: toUsers[0],
-      previous_holders: [],
-      replyTo: values.replyTo,
+    if (result.error) {
+        toast({ title: 'Error sending memo', description: result.error, variant: 'destructive' });
+    } else {
+        toast({
+          title: 'Memo Sent!',
+          description: 'Your memo has been successfully sent.',
+        });
+        router.push('/dashboard?tab=sent');
     }
-
-    if (values.replyTo) {
-      const originalMemoIndex = sentMemos.findIndex(m => m.id === values.replyTo);
-      if (originalMemoIndex > -1) {
-          const replyActivity: Activity = {
-              id: `act-${Date.now()}-reply`,
-              actor: loggedInUser,
-              action: 'replied',
-              timestamp: new Date().toISOString(),
-              details: `Replied to this memo. See memo ${newMemo.memo_reference_number}`
-          };
-          sentMemos[originalMemoIndex].activity.push(replyActivity);
-      }
-    }
-    
-    sentMemos.push(newMemo);
-    localStorage.setItem('memos', JSON.stringify(sentMemos));
-
-    // Dispatch event for notification
-    window.dispatchEvent(new CustomEvent('memoSent', { detail: { memo: newMemo } }));
-
-
-    if(isDraft) {
-        localStorage.removeItem(DRAFT_KEY);
-    }
-
-    toast({
-      title: 'Memo Sent!',
-      description: 'Your memo has been successfully sent.',
-    });
-    form.reset();
-    router.push('/dashboard?tab=sent');
   }
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    const currentAttachments = form.getValues('attachments') || [];
-    const newAttachments: Attachment[] = [...currentAttachments];
+    const newAttachments: Attachment[] = [...attachments];
 
     Array.from(files).forEach(file => {
       if (file.size > MAX_FILE_SIZE) {
@@ -371,16 +275,14 @@ export default function NewMemoPage() {
           url: e.target?.result as string,
         };
         newAttachments.push(newAttachment);
-        form.setValue('attachments', newAttachments, { shouldValidate: true, shouldDirty: true });
+        setAttachments(newAttachments);
       };
       reader.readAsDataURL(file);
     });
   };
 
   const removeAttachment = (id: string) => {
-    const currentAttachments = form.getValues('attachments') || [];
-    const newAttachments = currentAttachments.filter(att => att.id !== id);
-    form.setValue('attachments', newAttachments, { shouldValidate: true, shouldDirty: true });
+    setAttachments(attachments.filter(att => att.id !== id));
   };
   
   const formatFileSize = (bytes: number) => {
@@ -391,7 +293,10 @@ export default function NewMemoPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const isReplying = !!currentFormData.replyTo;
+
+  if (!loggedInUser) {
+      return <div className="flex justify-center items-center h-full"><p>Loading user data...</p></div>;
+  }
 
   return (
     <div className="w-full">
@@ -407,8 +312,7 @@ export default function NewMemoPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={onSubmit} className="space-y-4">
                     <div className="grid grid-cols-[120px_1fr] items-center border-b py-2">
                         <span className="font-semibold text-sm text-right pr-4">Date - ቀን</span>
                         <div>{formatTimestamp(new Date().toISOString(), false)}</div>
@@ -417,105 +321,55 @@ export default function NewMemoPage() {
                         <span className="font-semibold text-sm text-right pr-4">From - ከ</span>
                         <div>
                             <span>{loggedInUser.name}</span>
-                            <span className="text-muted-foreground text-xs block">{`${loggedInUser.division}, ${loggedInUser.department}, ${loggedInUser.office}`}</span>
                         </div>
                     </div>
-                    <FormField
-                    control={form.control}
-                    name="to"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                            <FormLabel className='text-right pr-4'>To - ለ</FormLabel>
-                            <FormControl>
-                                <RecipientSelector
-                                selected={field.value || []}
-                                setSelected={(users) => field.onChange(users)}
-                                placeholder="Select recipients..."
-                                />
-                            </FormControl>
-                            <FormMessage className="col-start-2" />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="cc"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                            <FormLabel className='text-right pr-4'>CC - ግልባጭ</FormLabel>
-                            <FormControl>
-                                <RecipientSelector
-                                selected={field.value || []}
-                                setSelected={(users) => field.onChange(users)}
-                                placeholder="Select CC recipients..."
-                                />
-                            </FormControl>
-                            <FormMessage className="col-start-2" />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="subject"
-                    render={({ field }) => (
-                        <FormItem className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                            <FormLabel className='text-right pr-4'>Subject - ጉዳዩ</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Enter memo subject" {...field} />
-                            </FormControl>
-                            <FormMessage className="col-start-2" />
-                        </FormItem>
-                    )}
-                    />
+                    
+                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                        <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
+                        <RecipientSelector
+                        allUsers={users}
+                        selected={to}
+                        setSelected={setTo}
+                        placeholder="Select recipients..."
+                        />
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                        <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
+                        <RecipientSelector
+                        allUsers={users}
+                        selected={cc}
+                        setSelected={setCc}
+                        placeholder="Select CC recipients..."
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                        <label className='text-right pr-4 font-semibold text-sm'>Subject - ጉዳዩ</label>
+                        <Input placeholder="Enter memo subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                    </div>
+                    
                     
                     {isReplying ? (
                          <>
-                         <FormField
-                             control={form.control}
-                             name="replyBody"
-                             render={({ field }) => (
-                                 <FormItem>
-                                     <FormLabel>Reply</FormLabel>
-                                     <FormControl>
-                                         <Editor value={field.value || ''} onChange={field.onChange} />
-                                     </FormControl>
-                                     <FormMessage />
-                                 </FormItem>
-                             )}
-                         />
-                         <FormField
-                             control={form.control}
-                             name="body"
-                             render={({ field }) => (
-                                 <FormItem>
-                                     <FormLabel>Original Message</FormLabel>
-                                     <FormControl>
-                                         <Editor value={field.value} onChange={field.onChange} readOnly />
-                                     </FormControl>
-                                     <FormMessage />
-                                 </FormItem>
-                             )}
-                         />
+                         <div>
+                            <label>Reply</label>
+                            <Editor value={replyBody} onChange={setReplyBody} />
+                         </div>
+                         <div>
+                            <label>Original Message</label>
+                            <Editor value={body} onChange={setBody} readOnly />
+                         </div>
                          </>
                     ) : (
-                        <FormField
-                            control={form.control}
-                            name="body"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Body</FormLabel>
-                                    <FormControl>
-                                        <Editor value={field.value} onChange={field.onChange} />
-                                    </FormControl>
-                                    <FormMessage />
-                                 </FormItem>
-                             )}
-                         />
+                        <div>
+                            <label>Body</label>
+                            <Editor value={body} onChange={setBody} />
+                        </div>
                     )}
 
 
                     <div className="grid grid-cols-[120px_1fr] items-start space-y-0">
-                        <FormLabel className='text-right pr-4 pt-2'>ENC - አባሪ</FormLabel>
+                        <label className='text-right pr-4 pt-2 font-semibold text-sm'>ENC - አባሪ</label>
                         <div className="col-start-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                               <Paperclip className="mr-2 h-4 w-4" />
@@ -529,7 +383,7 @@ export default function NewMemoPage() {
                             multiple
                           />
                           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {(currentFormData.attachments || []).map((att) => (
+                            {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
                                     <Image src={att.url} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
@@ -582,7 +436,7 @@ export default function NewMemoPage() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={deleteDraft}>Continue</AlertDialogAction>
+                                <AlertDialogAction onClick={handleDeleteDraft}>Continue</AlertDialogAction>
                             </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -590,11 +444,11 @@ export default function NewMemoPage() {
                     </div>
                     <div className="flex gap-2">
                         <Link href="/dashboard">
-                        <Button variant="outline">Cancel</Button>
+                        <Button variant="outline" type="button">Cancel</Button>
                         </Link>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="outline">
+                            <Button variant="outline" type="button">
                               <Eye className="mr-2 h-4 w-4" />
                               Preview
                             </Button>
@@ -604,22 +458,19 @@ export default function NewMemoPage() {
                               <DialogTitle>Live Preview</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 overflow-y-auto rounded-lg border bg-card text-card-foreground shadow-sm mt-4">
-                                <MemoPreview memoData={previewMemo} />
+                                <MemoDisplay memo={previewMemo} onUpdate={() => {}} isPreview />
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button type="submit" disabled={isSaving || !form.formState.isValid}>
-                        <Send className="mr-2 h-4 w-4" />
-                        Send Memo
+                        <Button type="submit" disabled={isSaving}>
+                          <Send className="mr-2 h-4 w-4" />
+                          Send Memo
                         </Button>
                     </div>
                     </div>
                 </form>
-                </Form>
             </CardContent>
         </Card>
     </div>
   );
 }
-
-    

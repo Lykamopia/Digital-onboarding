@@ -9,7 +9,6 @@ import {
   Reply,
   Share2,
   Edit,
-  Send,
   Printer,
   Expand,
   Undo2,
@@ -22,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatTimestamp, loggedInUser } from '@/lib/data';
+import { formatTimestamp, loggedInUser as staticUser } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -37,10 +36,10 @@ import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
 import { Badge } from './ui/badge';
-import { cn } from '@/lib/utils';
+import { acknowledgeMemo, archiveMemo, forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
-  sent: <Send className="h-4 w-4" />,
+  sent: <CheckCircle className="h-4 w-4 text-green-500" />,
   viewed: <CheckCircle className="h-4 w-4 text-blue-500" />,
   acknowledged: <CheckCircle className="h-4 w-4 text-green-500" />,
   commented: <Reply className="h-4 w-4" />,
@@ -50,29 +49,18 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   unarchived: <Undo2 className="h-4 w-4" />,
 };
 
-const UserDisplay = ({
-  user,
-  showDetails = true,
-}: {
-  user: User | undefined;
-  showDetails?: boolean;
-}) => {
-    if (!user) return null;
-    return (
-        <div>
-            <span>{user.name}</span>
-            {showDetails && <span className="text-muted-foreground text-xs block">{`${user.division}, ${user.department}, ${user.office}`}</span>}
-        </div>
-    )
-};
-
 function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
   const [selectedUser, setSelectedUser] = React.useState<User[]>([]);
   const [remark, setRemark] = React.useState('');
   const [open, setOpen] = React.useState(false);
+  const [allUsers, setAllUsers] = React.useState<User[]>([]);
   const { toast } = useToast();
 
-  const handleForward = () => {
+  React.useEffect(() => {
+    getUsers().then(setAllUsers);
+  }, []);
+
+  const handleForward = async () => {
     if (selectedUser.length === 0) {
       toast({
         variant: 'destructive',
@@ -83,39 +71,16 @@ function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: (
     }
     const forwardTo = selectedUser[0];
 
-    const newActivity = {
-      id: `act-${Date.now()}`,
-      actor: loggedInUser,
-      action: 'forwarded' as const,
-      timestamp: new Date().toISOString(),
-      details: `Forwarded from ${loggedInUser.name} to ${forwardTo.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
-    };
-    
-    const updatedMemo = {
-        ...memo,
-        current_holder: forwardTo,
-        previous_holders: [...(memo.previous_holders || []), memo.current_holder].filter(Boolean) as User[],
-        activity: [...memo.activity, newActivity],
-    };
+    await forwardMemo(memo.id, forwardTo.id, remark);
 
-    const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
-    const memoIndex = memos.findIndex(m => m.id === memo.id);
-    if(memoIndex > -1) {
-        memos[memoIndex] = updatedMemo;
-        localStorage.setItem('memos', JSON.stringify(memos));
-        
-        // Dispatch event for notification
-        window.dispatchEvent(new CustomEvent('memoForwarded', { detail: { memo: updatedMemo, recipientId: forwardTo.id } }));
-
-        toast({
-            title: "Memo Forwarded",
-            description: `Successfully forwarded to ${forwardTo.name}.`
-        });
-        onUpdate();
-        setOpen(false);
-        setSelectedUser([]);
-        setRemark('');
-    }
+    toast({
+        title: "Memo Forwarded",
+        description: `Successfully forwarded to ${forwardTo.name}.`
+    });
+    onUpdate();
+    setOpen(false);
+    setSelectedUser([]);
+    setRemark('');
   };
 
   return (
@@ -134,6 +99,7 @@ function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: (
           <div className="space-y-2">
             <p className="text-sm font-medium">Forward to</p>
             <RecipientSelector
+              allUsers={allUsers}
               selected={selectedUser}
               setSelected={(users) => setSelectedUser(users.slice(0, 1))}
               placeholder="Select a user..."
@@ -182,141 +148,41 @@ const formatFileSize = (bytes: number) => {
 export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const [loggedInUser, setLoggedInUser] = React.useState<User | null>(null);
 
   React.useEffect(() => {
-    if (memo && !isPreview) {
-      const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
-      const isSender = memo.from.id === loggedInUser.id;
-      const hasViewed = memo.activity.some(act => act.actor.id === loggedInUser.id && act.action === 'viewed');
-
-      if ((isRecipient || isSender) && !hasViewed) {
-         const newActivity = {
-            id: `act-${Date.now()}-view`,
-            actor: loggedInUser,
-            action: 'viewed' as const,
-            timestamp: new Date().toISOString(),
-            details: 'Viewed the memo.'
-          };
-
-          const updatedMemo = {
-            ...memo,
-            activity: [...memo.activity, newActivity],
-          };
-          updateMemoInStorage(updatedMemo, false);
-      }
-    }
-  }, [memo, isPreview]);
-
+    getLoggedInUser().then(user => setLoggedInUser(user as User));
+  }, []);
+  
   const handlePrint = () => {
     window.print();
   }
 
-  const updateMemoInStorage = (updatedMemo: MemoWithActivity, showToast = true) => {
-    const memos: MemoWithActivity[] = JSON.parse(localStorage.getItem('memos') || '[]');
-    let memoIndex = memos.findIndex(m => m.id === updatedMemo.id);
-
-    // If memo is not in localStorage memos, it might be an initial memo.
-    if (memoIndex === -1) {
-        const initialMemos: MemoWithActivity[] = require('@/lib/data').memos;
-        const initialMemoIndex = initialMemos.findIndex(m => m.id === updatedMemo.id);
-        
-        if (initialMemoIndex !== -1) {
-            // It's an initial memo, so we add it (and any others not in storage) to localStorage.
-            const initialMemosNotInStorage = initialMemos.filter(im => !memos.some(m => m.id === im.id));
-            const combinedMemos = [...memos, ...initialMemosNotInStorage];
-            memoIndex = combinedMemos.findIndex(m => m.id === updatedMemo.id);
-            if (memoIndex !== -1) {
-                combinedMemos[memoIndex] = updatedMemo;
-                localStorage.setItem('memos', JSON.stringify(combinedMemos));
-                onUpdate();
-                return true;
-            }
-        }
-        
-        console.error("Could not find memo to update");
-        return false;
-    }
-    
-    // Memo found in localStorage, so update it.
-    memos[memoIndex] = updatedMemo;
-    localStorage.setItem('memos', JSON.stringify(memos));
-    onUpdate();
-    return true;
+  const handleAcknowledge = async () => {
+    if (!memo) return;
+    await acknowledgeMemo(memo.id);
+    toast({
+        title: "Memo Acknowledged",
+        description: "You have acknowledged receipt of this memo."
+    });
   }
 
-  const handleAcknowledge = () => {
+  const handleArchive = async () => {
     if (!memo) return;
-
-    const newActivity = {
-      id: `act-${Date.now()}`,
-      actor: loggedInUser,
-      action: 'acknowledged' as const,
-      timestamp: new Date().toISOString(),
-      details: 'Acknowledged receipt of the memo.',
-    };
-
-    const newAcknowledgedBy = [...(memo.acknowledgedBy || []), loggedInUser.id];
-    
-    // Determine if all recipients have acknowledged
-    const allAcknowledged = memo.to.every(recipient => newAcknowledgedBy.includes(recipient.id));
-
-    const updatedMemo = {
-      ...memo,
-      acknowledgedBy: newAcknowledgedBy,
-      status: allAcknowledged ? 'acknowledged' as const : memo.status,
-      activity: [...memo.activity, newActivity],
-    };
-    
-    if (updateMemoInStorage(updatedMemo)) {
-        toast({
-            title: "Memo Acknowledged",
-            description: "You have acknowledged receipt of this memo."
-        });
-    }
+    await archiveMemo(memo.id, true);
+    toast({
+        title: "Memo Archived",
+        description: "The memo has been moved to your archive."
+    });
   }
 
-  const handleArchive = () => {
+  const handleUnarchive = async () => {
     if (!memo) return;
-    const newActivity = {
-        id: `act-${Date.now()}`,
-        actor: loggedInUser,
-        action: 'archived' as const,
-        timestamp: new Date().toISOString(),
-        details: 'Archived the memo.',
-    };
-    const updatedMemo = {
-        ...memo,
-        archivedBy: [...(memo.archivedBy || []), loggedInUser.id],
-        activity: [...memo.activity, newActivity],
-    };
-     if (updateMemoInStorage(updatedMemo)) {
-        toast({
-            title: "Memo Archived",
-            description: "The memo has been moved to your archive."
-        });
-    }
-  }
-
-  const handleUnarchive = () => {
-    if (!memo) return;
-     const newActivity = {
-        id: `act-${Date.now()}`,
-        actor: loggedInUser,
-        action: 'unarchived' as const,
-        timestamp: new Date().toISOString(),
-        details: 'Unarchived the memo.',
-    };
-    const updatedMemo = {
-        ...memo,
-        archivedBy: (memo.archivedBy || []).filter(id => id !== loggedInUser.id),
-        activity: [...memo.activity, newActivity],
-    };
-    if (updateMemoInStorage(updatedMemo)) {
-        toast({
-            title: "Memo Unarchived",
-            description: "The memo has been restored from your archive."
-        });
-    }
+    await archiveMemo(memo.id, false);
+    toast({
+        title: "Memo Unarchived",
+        description: "The memo has been restored from your archive."
+    });
   }
 
   const handleReply = () => {
@@ -324,7 +190,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     router.push(`/dashboard/new?replyTo=${memo.id}`);
   }
 
-  if (!memo) {
+  if (!memo || !loggedInUser) {
     return (
         <div className="h-full p-2">
           <EmptyState 
@@ -357,11 +223,10 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   
   const isCC = memo.cc.some(u => u.id === loggedInUser.id);
   const isRecipient = memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
-  const hasAcknowledged = memo.acknowledgedBy?.includes(loggedInUser.id);
+  const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
   const canForward = isRecipient && !isCC;
-  const isArchived = memo.archivedBy?.includes(loggedInUser.id);
-
+  const isArchived = memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
   const MemoContent = () => (
     <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card' : ''}`}>
@@ -380,15 +245,14 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     <MemoField label="From" amharic="ከ">
                         <div>
                             <div className='font-semibold'>{memo.from.name}</div>
-                            <div className="text-xs">{`${memo.from.office}, ${memo.from.department}`}</div>
                         </div>
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
                         <div className="flex flex-col gap-1 font-sans">
                             {memo.to.map((user) => (
                                 <div key={user.id} className="flex items-center gap-2">
-                                    <span>{user.name} - <span className='text-xs'>{user.department}</span></span>
-                                    {memo.acknowledgedBy?.includes(user.id) && (
+                                    <span>{user.name}</span>
+                                    {memo.acknowledgedBy?.some(u => u.id === user.id) && (
                                         <Badge variant="secondary" className="text-xs font-mono bg-green-100 text-green-800">Acknowledged</Badge>
                                     )}
                                 </div>
@@ -472,13 +336,13 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                             <li key={act.id} className="flex items-start gap-3">
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={act.actor.avatar} alt={act.actor.name} />
-                                    <AvatarFallback>{act.actor.name.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={(act.actor as User).avatar} alt={(act.actor as User).name} />
+                                    <AvatarFallback>{(act.actor as User).name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 </span>
                                 <div className="flex-1">
                                 <p className="text-sm">
-                                    <span className="font-medium">{act.actor.name}</span>
+                                    <span className="font-medium">{(act.actor as User).name}</span>
                                     <span className="text-muted-foreground">
                                     {' '}
                                     {act.action} this memo.
@@ -538,5 +402,3 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
-
-    
