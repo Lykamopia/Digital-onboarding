@@ -55,7 +55,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className={`grid w-full grid-cols-${accessibleNavItems.length}`}>
+          <TabsList>
              {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
