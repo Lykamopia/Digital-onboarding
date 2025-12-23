@@ -25,10 +25,11 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
 import { loggedInUser } from "@/lib/data"
+import { HoneycombLoader } from "@/components/honeycomb-loader"
 
 const MobileSidebar = () => {
     const pathname = usePathname();
-    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
+    const showAdminLink = true; // For dev purpose
     
     const navItems = [
         { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", visible: loggedInUser.role.permissions.includes('view-dashboard') },
@@ -79,7 +80,7 @@ const DesktopSidebar = () => {
     const isDraftsActive = searchParams.get('tab') === 'drafts';
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
-    const showAdminLink = loggedInUser.role.permissions.includes('view-admin');
+    const showAdminLink = true; // For dev purpose
 
 
     const navItems = [
@@ -139,7 +140,7 @@ function DashboardLayoutContent({
     }
 
     if (!isClient) {
-        return null; // or a loading skeleton
+        return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
     }
     
     return (
