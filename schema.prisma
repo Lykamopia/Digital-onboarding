@@ -1,0 +1,165 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Permission {
+  view_dashboard
+  manage_memos
+  view_admin
+  manage_divisions
+  manage_departments
+  manage_offices
+  manage_users
+  manage_roles
+}
+
+enum MemoStatus {
+  draft
+  sent
+  read
+  acknowledged
+  archived
+}
+
+enum ActivityAction {
+  created
+  sent
+  viewed
+  acknowledged
+  commented
+  forwarded
+  archived
+  unarchived
+  replied
+}
+
+model User {
+  id                String  @id @default(cuid())
+  name              String
+  email             String  @unique
+  avatar            String?
+  officeId          String
+  roleId            String
+  
+  office            Office  @relation(fields: [officeId], references: [id])
+  role              Role    @relation(fields: [roleId], references: [id])
+
+  memosSent         Memo[]   @relation("MemosSent")
+  memosReceivedAsTo Memo[]   @relation("MemosTo")
+  memosReceivedAsCc Memo[]   @relation("MemosCc")
+  currentMemos      Memo[]   @relation("CurrentHolder")
+  previousMemos     Memo[]   @relation("PreviousHolders")
+  activities        Activity[]
+
+  archivedMemos     Memo[]   @relation("ArchivedBy")
+  acknowledgedMemos Memo[]   @relation("AcknowledgedBy")
+  
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  permissions Permission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Division {
+  id          String       @id @default(cuid())
+  name        String
+  code        String
+  departments Department[]
+
+  @@map("divisions")
+}
+
+model Department {
+  id         String     @id @default(cuid())
+  name       String
+  code       String
+  divisionId String
+  division   Division   @relation(fields: [divisionId], references: [id])
+  offices    Office[]
+
+  @@map("departments")
+}
+
+model Office {
+  id           String     @id @default(cuid())
+  name         String
+  code         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  users        User[]
+
+  @@map("offices")
+}
+
+model Memo {
+  id                  String     @id @default(cuid())
+  memo_reference_number String     @unique
+  subject             String
+  body                String     @db.Text
+  createdAt           DateTime   @default(now())
+  status              MemoStatus
+
+  fromId              String
+  from                User       @relation("MemosSent", fields: [fromId], references: [id])
+
+  to                  User[]     @relation("MemosTo")
+  cc                  User[]     @relation("MemosCc")
+
+  current_holderId    String?
+  current_holder      User?      @relation("CurrentHolder", fields: [current_holderId], references: [id])
+
+  previous_holders    User[]     @relation("PreviousHolders")
+
+  archivedBy          User[]     @relation("ArchivedBy")
+  acknowledgedBy      User[]     @relation("AcknowledgedBy")
+  
+  attachments         Attachment[]
+  activity            Activity[]
+
+  replyToId           String?
+  replyTo             Memo?      @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies             Memo[]     @relation("Replies")
+
+  @@map("memos")
+}
+
+model Attachment {
+  id     String @id @default(cuid())
+  name   String
+  size   Int
+  type   String
+  url    String @db.Text
+  memoId String
+  memo   Memo   @relation(fields: [memoId], references: [id])
+
+  @@map("attachments")
+}
+
+model Activity {
+  id        String         @id @default(cuid())
+  action    ActivityAction
+  timestamp DateTime       @default(now())
+  details   String?        @db.Text
+
+  actorId   String
+  actor     User           @relation(fields: [actorId], references: [id])
+  
+  memoId    String
+  memo      Memo           @relation(fields: [memoId], references: [id])
+
+  @@map("activities")
+}
