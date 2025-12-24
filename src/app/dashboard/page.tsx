@@ -41,8 +41,9 @@ function DashboardContent() {
   const [status, setStatus] = useState(searchParams.get('status') || '');
 
   const handleSelectMemo = (id: string) => {
-    setSelectedMemoId(id);
-    router.push(`/dashboard?tab=${tab}&id=${id}`);
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set('id', id);
+    router.push(`/dashboard?${newParams.toString()}`);
   }
 
   const loadMemos = useCallback(async () => {
@@ -53,20 +54,21 @@ function DashboardContent() {
     };
     const data = await getDashboardData(tab, search, status, dateRangeParams);
     setMemos(data as MemoWithActivity[]);
-    
-    if (data.length > 0) {
-        if (!memoIdFromUrl || !data.some(m => m.id === memoIdFromUrl)) {
-          if (data[0].status !== 'draft') {
-            handleSelectMemo(data[0].id);
-          } else {
-             setSelectedMemoId(null);
-          }
-        }
-    } else {
-        setSelectedMemoId(null);
-    }
     setLoading(false);
-  }, [tab, search, status, dateRange, memoIdFromUrl]);
+    
+    // Select first memo if none is selected from URL, but only if the list is not empty
+    if (data.length > 0 && !data.some(m => m.id === memoIdFromUrl)) {
+      if (data[0].status !== 'draft') {
+         // Update URL without triggering a full navigation and re-fetch
+         handleSelectMemo(data[0].id)
+      } else {
+         setSelectedMemoId(null)
+      }
+    } else if (data.length === 0) {
+      setSelectedMemoId(null)
+    }
+
+  }, [tab, search, status, dateRange]);
 
   useEffect(() => {
     loadMemos();
@@ -76,8 +78,15 @@ function DashboardContent() {
     if (memoIdFromUrl) {
       setSelectedMemoId(memoIdFromUrl);
       const selectedMemo = memos.find(m => m.id === memoIdFromUrl);
-      if(selectedMemo && selectedMemo.status !== 'draft') {
-        markAsRead(memoIdFromUrl);
+      if(selectedMemo && selectedMemo.status !== 'draft' && !selectedMemo.activity.some(a => a.action === 'viewed' && a.actorId === 'user-1')) {
+        markAsRead(memoIdFromUrl).then(() => {
+            // Optimistically update the memo in state
+            setMemos(prevMemos => prevMemos.map(m => 
+                m.id === memoIdFromUrl 
+                ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: 'user-1', action: 'viewed' } as any] }
+                : m
+            ));
+        });
       }
     }
   }, [memoIdFromUrl, memos]);
