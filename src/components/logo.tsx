@@ -1,5 +1,5 @@
-import { Mailbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 export interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
   hideText?: boolean;
@@ -8,7 +8,7 @@ export interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
 export default function Logo({ hideText = false, className }: LogoProps) {
   return (
     <div className={cn("flex items-center gap-2 text-lg font-semibold text-primary", className)}>
-      <Mailbox className="h-6 w-6" />
+      <Image src="/Logo.png" alt="Nib Memo Logo" width={32} height={32} />
       {!hideText && <span className="font-headline">Nib Memo</span>}
     </div>
   );
