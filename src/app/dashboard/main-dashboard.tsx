@@ -16,6 +16,7 @@ import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardData, getLoggedInUser, markAsRead } from "../actions/memo"
 import { Skeleton } from "@/components/ui/skeleton"
+import { HoneycombLoader } from "@/components/honeycomb-loader"
 
 function DashboardContent({ tab }: { tab: string }) {
   const router = useRouter();
@@ -25,9 +26,10 @@ function DashboardContent({ tab }: { tab: string }) {
 
   const [user, setUser] = useState<User | null>(null);
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(memoIdFromUrl);
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [isListExpanded, setIsListExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadingMemo, setLoadingMemo] = useState(true);
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -45,15 +47,17 @@ function DashboardContent({ tab }: { tab: string }) {
     getLoggedInUser().then(setUser);
   }, []);
 
-
   const handleSelectMemo = (id: string) => {
+    if (id === selectedMemoId) return;
+
+    setLoadingMemo(true);
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
-    router.push(`${pathname}?${newParams.toString()}`);
+    router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
   }
 
   const loadMemos = useCallback(async () => {
-    if (!user) return; // Don't load if no user
+    if (!user) return; 
     setLoading(true);
     const dateRangeParams = {
         from: dateRange?.from?.toISOString(),
@@ -62,46 +66,47 @@ function DashboardContent({ tab }: { tab: string }) {
     try {
       const data = await getDashboardData(tab, search, status, dateRangeParams);
       setMemos(data as MemoWithActivity[]);
-      
-      // If the memo from the URL is not in the new list (e.g., due to filtering),
-      // clear the selection.
-      if (memoIdFromUrl && !data.some(m => m.id === memoIdFromUrl)) {
-          const newParams = new URLSearchParams(searchParams.toString());
-          newParams.delete('id');
-          router.push(`${pathname}?${newParams.toString()}`);
-      }
-
     } catch (error) {
       console.error("Failed to load memos:", error);
-      // Handle not authenticated error gracefully
       setMemos([]);
     } finally {
       setLoading(false);
     }
-  }, [tab, search, status, dateRange, user, router, memoIdFromUrl, pathname]);
+  }, [tab, search, status, dateRange, user]);
 
   useEffect(() => {
     loadMemos();
   }, [loadMemos]);
 
   useEffect(() => {
+    setLoadingMemo(true);
     if (memoIdFromUrl) {
-      setSelectedMemoId(memoIdFromUrl);
-      const selectedMemo = memos.find(m => m.id === memoIdFromUrl);
-      if(user && selectedMemo && selectedMemo.status !== 'draft' && !selectedMemo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
-        markAsRead(memoIdFromUrl).then(() => {
-            // Optimistically update the memo in state
-            setMemos(prevMemos => prevMemos.map(m => 
-                m.id === memoIdFromUrl 
-                ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed' } as any] }
-                : m
-            ));
-        });
+      const memoExists = memos.some(m => m.id === memoIdFromUrl);
+      if (memoExists) {
+        setSelectedMemoId(memoIdFromUrl);
+        const selectedMemo = memos.find(m => m.id === memoIdFromUrl);
+
+        if(user && selectedMemo && selectedMemo.status !== 'draft' && !selectedMemo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+          markAsRead(memoIdFromUrl).then(() => {
+              setMemos(prevMemos => prevMemos.map(m => 
+                  m.id === memoIdFromUrl 
+                  ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed' } as any] }
+                  : m
+              ));
+          });
+        }
+      } else if (!loading) { // If still loading memos, wait. Otherwise clear.
+        setSelectedMemoId(null);
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.delete('id');
+        router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
       }
     } else {
         setSelectedMemoId(null);
     }
-  }, [memoIdFromUrl, memos, user]);
+    // Simulate loading time for memo display for better UX
+    setTimeout(() => setLoadingMemo(false), 200);
+  }, [memoIdFromUrl, memos, user, loading, router, pathname, searchParams]);
 
   const selectedMemo = memos.find(memo => memo.id === selectedMemoId) || null;
 
@@ -131,9 +136,7 @@ function DashboardContent({ tab }: { tab: string }) {
   );
 
   if (!user && !loading) {
-    // This case can happen briefly when the user is being redirected by middleware.
-    // Show a loader to prevent flashes of empty content.
-     return <div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><Skeleton className="h-full w-full" /></div>;
+     return <div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><HoneycombLoader /></div>;
   }
 
   return (
@@ -160,6 +163,8 @@ function DashboardContent({ tab }: { tab: string }) {
                 <Skeleton className="h-20 w-full" />
                 <Skeleton className="h-20 w-full" />
                 <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
             </div>
         ) : memos.length > 0 ? (
           <MemoList 
@@ -175,10 +180,14 @@ function DashboardContent({ tab }: { tab: string }) {
         )}
       </Card>
       <div className="h-full overflow-y-auto rounded-lg no-print">
-        <MemoDisplay 
-            memo={selectedMemo} 
-            onUpdate={loadMemos} 
-        />
+        {loadingMemo ? (
+             <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
+        ) : (
+            <MemoDisplay 
+                memo={selectedMemo} 
+                onUpdate={loadMemos} 
+            />
+        )}
       </div>
       <div className="hidden print:block col-span-2">
          <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
@@ -187,10 +196,9 @@ function DashboardContent({ tab }: { tab: string }) {
   )
 }
 
-
 export default function MainDashboard({ tab }: { tab: string }) {
     return (
-        <Suspense fallback={<div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><Skeleton className="h-full w-full" /></div>}>
+        <Suspense fallback={<div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><HoneycombLoader /></div>}>
             <DashboardContent tab={tab} />
         </Suspense>
     )

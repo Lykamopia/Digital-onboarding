@@ -12,7 +12,6 @@ import {
   Printer,
   Expand,
   Undo2,
-  FileSearch,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -236,7 +235,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
         <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
             <CardHeader className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
-                    <Image src="/Logo.jpeg" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
+                    <Image src="/Logo.jpeg" alt="Nib International Bank" width={300} height={100} className="object-contain" />
                     <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                     </div>
@@ -405,5 +404,3 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
-
-    
