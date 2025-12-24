@@ -1,13 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 model Account {
@@ -46,54 +44,32 @@ model VerificationToken {
 }
 
 model User {
-  id              String       @id @default(cuid())
-  name            String?
-  email           String?      @unique
-  emailVerified   DateTime?
-  image           String?
-  hashedPassword  String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  avatar          String?
-  officeId        String?
-  roleId          String?
-  accounts        Account[]
-  sessions        Session[]
-  sentMemos       Memo[]       @relation("SentMemos")
-  receivedMemos   Memo[]       @relation("ReceivedMemos")
-  ccMemos         Memo[]       @relation("CcMemos")
-  currentMemo     Memo?        @relation("CurrentHolder")
-  previousMemos   Memo[]       @relation("PreviousHolders")
-  acknowledgedMemos Memo[]     @relation("AcknowledgedBy")
-  archivedMemos   Memo[]       @relation("ArchivedBy")
-  activities      Activity[]
-  office          Office?      @relation(fields: [officeId], references: [id])
-  role            Role?        @relation(fields: [roleId], references: [id])
-}
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  hashedPassword String?
+  avatar         String?
+  status         String    @default("active") // active, inactive
+  accounts       Account[]
+  sessions       Session[]
+  sentMemos      Memo[]    @relation("MemoFrom")
+  receivedMemos  Memo[]    @relation("MemoTo")
+  ccMemos        Memo[]    @relation("MemoCc")
+  currentMemo    Memo[]    @relation("CurrentHolder")
+  previousMemos  Memo[]    @relation("PreviousHolders")
+  acknowledged   Memo[]    @relation("AcknowledgedBy")
+  archivedMemos  Memo[]    @relation("ArchivedBy")
+  activities     Activity[]
 
-model Division {
-  id          String       @id @default(cuid())
-  name        String
-  code        String       @unique
-  departments Department[]
-}
+  roleId   String?
+  role     Role?   @relation(fields: [roleId], references: [id])
+  officeId String?
+  office   Office? @relation(fields: [officeId], references: [id])
 
-model Department {
-  id         String     @id @default(cuid())
-  name       String
-  code       String     @unique
-  division   Division   @relation(fields: [divisionId], references: [id])
-  divisionId String
-  offices    Office[]
-}
-
-model Office {
-  id           String     @id @default(cuid())
-  name         String
-  code         String     @unique
-  department   Department @relation(fields: [departmentId], references: [id])
-  departmentId String
-  users        User[]
+  @@index([officeId])
+  @@index([roleId])
 }
 
 model Role {
@@ -103,6 +79,37 @@ model Role {
   users       User[]
 }
 
+model Division {
+  id         String       @id @default(cuid())
+  name       String       @unique
+  code       String       @unique
+  departments Department[]
+}
+
+model Department {
+  id         String     @id @default(cuid())
+  name       String
+  code       String     @unique
+  divisionId String
+  division   Division   @relation(fields: [divisionId], references: [id])
+  offices    Office[]
+
+  @@unique([name, divisionId])
+  @@index([divisionId])
+}
+
+model Office {
+  id           String     @id @default(cuid())
+  name         String
+  code         String     @unique
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  users        User[]
+
+  @@unique([name, departmentId])
+  @@index([departmentId])
+}
+
 model Memo {
   id                    String       @id @default(cuid())
   memo_reference_number String       @unique
@@ -110,21 +117,24 @@ model Memo {
   body                  String       @db.Text
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
-  status                String       @default("draft") // draft, sent, read, acknowledged
-  from                  User         @relation("SentMemos", fields: [fromId], references: [id])
+  status                String // e.g., 'draft', 'sent', 'read', 'acknowledged'
   fromId                String
-  to                    User[]       @relation("ReceivedMemos")
-  cc                    User[]       @relation("CcMemos")
-  current_holder        User?        @relation("CurrentHolder", fields: [current_holderId], references: [id])
-  current_holderId      String?      @unique
-  previous_holders      User[]       @relation("PreviousHolders")
-  acknowledgedBy        User[]       @relation("AcknowledgedBy")
-  archivedBy            User[]       @relation("ArchivedBy")
+  from                  User         @relation("MemoFrom", fields: [fromId], references: [id])
+  to                    User[]       @relation("MemoTo")
+  cc                    User[]       @relation("MemoCc")
   attachments           Attachment[]
   activity              Activity[]
-  replyTo               Memo?        @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  current_holderId      String?
+  current_holder        User?        @relation("CurrentHolder", fields: [current_holderId], references: [id])
+  previous_holders      User[]       @relation("PreviousHolders")
+  acknowledgedBy        User[]       @relation("AcknowledgedBy")
   replyToId             String?
+  replyTo               Memo?        @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies               Memo[]       @relation("Replies")
+  archivedBy            User[]       @relation("ArchivedBy")
+
+  @@index([fromId])
+  @@index([current_holderId])
 }
 
 model Attachment {
@@ -132,20 +142,25 @@ model Attachment {
   name   String
   type   String
   size   Int
-  url    String
-  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  url    String @db.Text
   memoId String
+  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  @@index([memoId])
 }
 
 model Activity {
   id        String   @id @default(cuid())
-  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
   memoId    String
-  actor     User     @relation(fields: [actorId], references: [id])
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
   actorId   String
-  action    String
-  details   String?
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String // 'sent', 'viewed', 'commented', 'forwarded', 'acknowledged', 'created'
   timestamp DateTime @default(now())
+  details   String?
+
+  @@index([memoId])
+  @@index([actorId])
 }
 
 enum Permission {

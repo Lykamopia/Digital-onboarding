@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -18,16 +18,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveUser } from "@/app/actions/memo";
+import { saveUser, resetUserPassword } from "@/app/actions/memo";
 import type { User, Role, Office } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUsers, useOffices, useRoles } from "../hooks";
+import { Badge } from "@/components/ui/badge";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import Papa from "papaparse";
+import { cn } from "@/lib/utils";
 
 type UserWithRelations = User & {
     office: Office & {
@@ -58,6 +72,23 @@ function UsersLoadingSkeleton() {
     )
 }
 
+const generatePassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0, n = charset.length; i < length; ++i) {
+        password += charset.charAt(Math.floor(Math.random() * n));
+    }
+    // Ensure password has at least one of each character type
+    if (!/\d/.test(password)) password += '1';
+    if (!/[a-z]/.test(password)) password += 'a';
+    if (!/[A-Z]/.test(password)) password += 'A';
+    if (!/[!@#$%^&*()]/.test(password)) password += '!';
+    return password.slice(0, length);
+};
+
+const ITEMS_PER_PAGE = 10;
+
 export default function UsersPage() {
   const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
   const { data: offices, loading: loadingOffices } = useOffices();
@@ -66,27 +97,48 @@ export default function UsersPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
-  const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(undefined);
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
+  
+  const [formState, setFormState] = useState({ name: '', email: '', password: '', officeId: '', roleId: '' });
+
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return (users as UserWithRelations[]).slice(start, end);
+  }, [users, currentPage]);
+
+  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
     
-    const name = formData.get('name') as string;
-    const email = formData.get('email') as string;
-
-    if (!name || !email || !selectedOfficeId || !selectedRoleId) {
-        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+    if (!formState.name || !formState.email || !formState.officeId || !formState.roleId) {
+        toast({ title: "Error", description: "All fields except password are required.", variant: "destructive" });
         return;
     }
     
+    const isNewUser = !editingUser?.id;
+    let passwordToSend = formState.password;
+
+    if (isNewUser && !passwordToSend) {
+        passwordToSend = generatePassword();
+    }
+    if (isNewUser && !passwordToSend) {
+        toast({ title: "Error", description: "Password is required for a new user.", variant: "destructive" });
+        return;
+    }
+
     const userData = {
         id: editingUser?.id,
-        name,
-        email,
-        officeId: selectedOfficeId,
-        roleId: selectedRoleId,
+        name: formState.name,
+        email: formState.email,
+        officeId: formState.officeId,
+        roleId: formState.roleId,
+        password: passwordToSend || undefined,
+        status: editingUser?.status ?? 'active',
     };
 
     await saveUser(userData);
@@ -94,136 +146,280 @@ export default function UsersPage() {
     
     toast({ title: "Success", description: `User ${editingUser ? 'updated' : 'created'}.` });
     
+    if (isNewUser && passwordToSend) {
+        setPasswordDialog({ open: true, password: passwordToSend });
+    }
+    
     setIsDialogOpen(false);
   };
 
   const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
-    setSelectedOfficeId(user.officeId);
-    setSelectedRoleId(user.roleId);
+    setFormState({
+        name: user.name,
+        email: user.email,
+        officeId: user.officeId,
+        roleId: user.roleId,
+        password: '',
+    });
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser(null);
-    setSelectedOfficeId(undefined);
-    setSelectedRoleId(undefined);
+    setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
     setIsDialogOpen(true);
   }
 
   const handleDialogClose = (open: boolean) => {
     if (!open) {
         setEditingUser(null);
-        setSelectedOfficeId(undefined);
-        setSelectedRoleId(undefined);
     }
     setIsDialogOpen(open);
   }
+  
+  const handleResetPassword = async (userId: string) => {
+    const newPassword = generatePassword();
+    const result = await resetUserPassword(userId, newPassword);
+    if(result.success) {
+      setPasswordDialog({ open: true, password: newPassword });
+      toast({ title: "Success", description: "Password has been reset." });
+    } else {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    }
+  }
 
-  const officeOptions = offices.map(o => ({ 
-      value: o.id, 
-      label: o.name
-  }));
+  const handleStatusChange = async (user: UserWithRelations) => {
+      const newStatus = user.status === 'active' ? 'inactive' : 'active';
+      await saveUser({ ...user, status: newStatus });
+      await mutateUsers();
+      toast({ title: "Success", description: `User has been ${newStatus}.` });
+  }
 
+  const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
+      await Promise.all(selectedUsers.map(id => {
+          const user = users.find(u => u.id === id);
+          if (user) return saveUser({ ...user, status });
+      }));
+      await mutateUsers();
+      setSelectedUsers([]);
+      toast({ title: "Success", description: `Selected users have been ${status}.`});
+  }
+
+  const handleExport = () => {
+    const dataToExport = users.filter(u => selectedUsers.includes(u.id));
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'users.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setSelectedUsers([]);
+  }
+
+  const officeOptions = offices.map(o => ({ value: o.id, label: o.name }));
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
+
+  const handleFormChange = (field: keyof typeof formState, value: string) => {
+      setFormState(prev => ({ ...prev, [field]: value }));
+  }
 
   if (loadingUsers || loadingOffices || loadingRoles) {
     return <UsersLoadingSkeleton />;
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Users</CardTitle>
-        <Button onClick={handleAddNew}>Add User</Button>
+        <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={selectedUsers.length === 0}>
+                  Bulk Actions ({selectedUsers.length})
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={handleExport}><FileDown className="mr-2" /> Export Selected</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleBulkStatusChange('active')}><ShieldCheck className="mr-2" /> Activate Selected</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={handleAddNew}><UserPlus className="mr-2"/>Add User</Button>
+        </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Office</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Division</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(users as UserWithRelations[]).map((user) => (
-                <TableRow key={user.id}>
-                    <TableCell>
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={user.avatar} alt={user.name} />
-                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <div className="font-medium">{user.name}</div>
-                                <div className="text-sm text-muted-foreground">{user.email}</div>
-                            </div>
-                        </div>
-                    </TableCell>
-                    <TableCell>{user.role.name}</TableCell>
-                    <TableCell>{user.office.name}</TableCell>
-                    <TableCell>{user.office.department.name}</TableCell>
-                    <TableCell>{user.office.department.division.name}</TableCell>
-                    <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
-                        Edit
-                    </Button>
-                    </TableCell>
+        <div className="border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead className="w-12">
+                    <Checkbox
+                        checked={selectedUsers.length === paginatedUsers.length && paginatedUsers.length > 0}
+                        onCheckedChange={(checked) => {
+                            setSelectedUsers(checked ? paginatedUsers.map(u => u.id) : []);
+                        }}
+                    />
+                </TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Office</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Division</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right w-20">Actions</TableHead>
                 </TableRow>
-              )
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+                {paginatedUsers.map((user) => (
+                    <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''}>
+                        <TableCell>
+                            <Checkbox
+                                checked={selectedUsers.includes(user.id)}
+                                onCheckedChange={(checked) => {
+                                    setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
+                                }}
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={user.avatar} alt={user.name} />
+                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <div className="font-medium">{user.name}</div>
+                                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                                </div>
+                            </div>
+                        </TableCell>
+                        <TableCell>{user.role.name}</TableCell>
+                        <TableCell>{user.office.name}</TableCell>
+                        <TableCell>{user.office.department.name}</TableCell>
+                        <TableCell>{user.office.department.division.name}</TableCell>
+                        <TableCell>
+                            <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
+                                {user.status}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreHorizontal />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onSelect={() => handleEdit(user)}>Edit User</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleResetPassword(user.id)}>
+                                        <KeyRound className="mr-2"/>Reset Password
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => handleStatusChange(user)}>
+                                        {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
 
-         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" defaultValue={editingUser?.name} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input id="email" name="email" type="email" defaultValue={editingUser?.email} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="officeId" className="text-right">Office</Label>
-                   <Combobox
-                        options={officeOptions}
-                        value={selectedOfficeId}
-                        onChange={setSelectedOfficeId}
-                        placeholder="Select an office"
-                        searchPlaceholder="Search offices..."
-                        className="col-span-3"
-                    />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="roleId" className="text-right">Role</Label>
-                   <Combobox
-                        options={roleOptions}
-                        value={selectedRoleId}
-                        onChange={setSelectedRoleId}
-                        placeholder="Select a role"
-                        searchPlaceholder="Search roles..."
-                        className="col-span-3"
-                    />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
+            </div>
+        </div>
       </CardContent>
     </Card>
+
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent>
+        <DialogHeader>
+            <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave}>
+            <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">Email</Label>
+                <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} className="col-span-3" />
+            </div>
+            {editingUser && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="password" className="text-right">Password</Label>
+                    <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} className="col-span-3" />
+                </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="officeId" className="text-right">Office</Label>
+                <Combobox
+                    options={officeOptions}
+                    value={formState.officeId}
+                    onChange={v => handleFormChange('officeId', v)}
+                    placeholder="Select an office"
+                    searchPlaceholder="Search offices..."
+                    className="col-span-3"
+                />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="roleId" className="text-right">Role</Label>
+                <Combobox
+                    options={roleOptions}
+                    value={formState.roleId}
+                    onChange={v => handleFormChange('roleId', v)}
+                    placeholder="Select a role"
+                    searchPlaceholder="Search roles..."
+                    className="col-span-3"
+                />
+            </div>
+            </div>
+            <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+            <Button type="submit">Save</Button>
+            </DialogFooter>
+        </form>
+        </DialogContent>
+    </Dialog>
+    
+    <Dialog open={passwordDialog.open} onOpenChange={(open) => setPasswordDialog(prev => ({...prev, open}))}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Generated Password</DialogTitle>
+                <DialogDescription>
+                    A new password has been generated. Please copy and share it with the user securely.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center space-x-2">
+                <div className="grid flex-1 gap-2">
+                    <Label htmlFor="link" className="sr-only">Password</Label>
+                    <Input id="link" defaultValue={passwordDialog.password} readOnly />
+                </div>
+                <Button type="submit" size="sm" className="px-3" onClick={() => {
+                    navigator.clipboard.writeText(passwordDialog.password);
+                    toast({ title: 'Copied!', description: 'Password copied to clipboard.'});
+                }}>
+                    <span className="sr-only">Copy</span>
+                    <Copy className="h-4 w-4" />
+                </Button>
+            </div>
+            <DialogFooter>
+                <Button onClick={() => setPasswordDialog({ open: false, password: "" })}>Done</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }

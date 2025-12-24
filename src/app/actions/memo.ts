@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User } from '@/lib/types';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
@@ -388,6 +389,9 @@ export async function getUsers() {
                 },
             },
         },
+        orderBy: {
+            name: 'asc'
+        }
     });
 }
 
@@ -473,14 +477,42 @@ export async function saveOffice(data: { id?: string, name: string, code: string
     revalidatePath('/dashboard/admin/offices');
 }
 
-export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string }) {
+export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string, password?: string, status?: string }) {
+    const payload: any = {
+        name: data.name,
+        email: data.email,
+        officeId: data.officeId,
+        roleId: data.roleId,
+        status: data.status ?? 'active',
+    };
+
+    if (data.password) {
+        payload.hashedPassword = await bcrypt.hash(data.password, 10);
+    }
+    
     if (data.id) {
-        await prisma.user.update({ where: { id: data.id }, data: { name: data.name, email: data.email, officeId: data.officeId, roleId: data.roleId } });
+        await prisma.user.update({ where: { id: data.id }, data: payload });
     } else {
-        await prisma.user.create({ data });
+        await prisma.user.create({ data: payload });
     }
     revalidatePath('/dashboard/admin/users');
 }
+
+export async function resetUserPassword(userId: string, newPassword?: string) {
+    try {
+        const password = newPassword || (Math.random().toString(36).slice(-8) + 'A1!');
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { hashedPassword }
+        });
+        revalidatePath('/dashboard/admin/users');
+        return { success: true, newPassword: password };
+    } catch (error) {
+        return { success: false, error: 'Failed to reset password.' };
+    }
+}
+
 
 export async function saveRole(data: { id?: string, name: string, permissions: any }) {
      if (data.id) {

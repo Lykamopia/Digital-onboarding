@@ -45,3 +45,8 @@ export type Activity = PrismaActivity & {
 export type MemoWithActivity = Memo & {
   activity: Activity[];
 };
+
+// Add status to User type for better type safety
+export type UserWithStatus = User & {
+    status: 'active' | 'inactive';
+}

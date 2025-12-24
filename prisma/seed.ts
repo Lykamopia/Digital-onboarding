@@ -40,6 +40,7 @@ const roles: { id: string; name: string; permissions: Permission[] }[] = [
       'manage_offices',
       'manage_users',
       'manage_roles',
+      'manage_archive'
     ],
   },
   { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'] },
@@ -130,8 +131,8 @@ async function main() {
   console.log('Seeded admin user.');
 
 
-  // Seed other users without passwords
-  await prisma.user.createMany({ data: users });
+  // Seed other users without passwords (they can't log in until one is set)
+  await prisma.user.createMany({ data: users.map(u => ({...u, hashedPassword: ''})) });
   console.log(`Seeded ${users.length} users.`);
 
 
@@ -325,5 +326,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
