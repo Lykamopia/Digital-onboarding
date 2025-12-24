@@ -160,6 +160,45 @@ export async function markAsRead(memoId: string) {
     }
 }
 
+export async function toggleMemoReadStatus(memoId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const memo = await prisma.memo.findUnique({
+        where: { id: memoId },
+        include: { activity: { where: { actorId: user.id, action: 'viewed' } } }
+    });
+
+    if (!memo) throw new Error("Memo not found");
+
+    if (memo.activity.length > 0) {
+        // It's read, so mark as unread by deleting the 'viewed' activity
+        await prisma.activity.deleteMany({
+            where: {
+                memoId: memoId,
+                actorId: user.id,
+                action: 'viewed'
+            }
+        });
+    } else {
+        // It's unread, so mark as read by creating a 'viewed' activity
+        await prisma.memo.update({
+            where: { id: memoId },
+            data: {
+                activity: {
+                    create: {
+                        actorId: user.id,
+                        action: 'viewed',
+                    }
+                }
+            }
+        });
+    }
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard?id=${memoId}`);
+    return getDashboardData('inbox', '', '', {});
+}
+
 export async function sendMemo(formData: FormData) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");

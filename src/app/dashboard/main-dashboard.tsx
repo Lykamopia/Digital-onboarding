@@ -162,7 +162,8 @@ function DashboardContent({ tab }: { tab: string }) {
             <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
         ) : memos.length > 0 ? (
           <MemoList 
-            memos={memos} 
+            memos={memos}
+            setMemos={setMemos}
             selectedMemoId={selectedMemo?.id || null} 
             onSelectMemo={handleSelectMemo}
             isExpanded={isListExpanded}
