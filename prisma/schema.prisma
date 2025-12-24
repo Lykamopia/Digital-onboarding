@@ -1,32 +1,38 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id               String       @id @default(cuid())
-  name             String
-  email            String       @unique
-  avatar           String?
-  officeId         String
-  roleId           String
-  office           Office       @relation(fields: [officeId], references: [id])
-  role             Role         @relation(fields: [roleId], references: [id])
-  memosFrom        Memo[]       @relation("MemosFrom")
-  memosTo          Memo[]       @relation("MemosTo")
-  memosCc          Memo[]       @relation("MemosCc")
-  currentMemos     Memo[]       @relation("CurrentHolder")
-  previousMemos    Memo[]       @relation("PreviousHolders")
-  acknowledgedMemos Memo[]      @relation("AcknowledgedBy")
-  archivedMemos    Memo[]       @relation("ArchivedBy")
-  activities       Activity[]
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  @@index([officeId])
-  @@index([roleId])
+model Division {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  departments Department[]
+}
+
+model Department {
+  id         String     @id @default(cuid())
+  name       String
+  code       String     @unique
+  division   Division   @relation(fields: [divisionId], references: [id])
+  divisionId String
+  offices    Office[]
+}
+
+model Office {
+  id           String     @id @default(cuid())
+  name         String
+  code         String
+  department   Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+  users        User[]
 }
 
 model Role {
@@ -34,6 +40,70 @@ model Role {
   name        String       @unique
   permissions Permission[]
   users       User[]
+}
+
+model User {
+  id              String  @id @default(cuid())
+  name            String
+  email           String  @unique
+  avatar          String?
+  office          Office  @relation(fields: [officeId], references: [id])
+  officeId        String
+  role            Role    @relation(fields: [roleId], references: [id])
+  roleId          String
+  memosFrom       Memo[]  @relation("MemosFrom")
+  memosTo         Memo[]  @relation("MemosTo")
+  memosCC         Memo[]  @relation("MemosCC")
+  currentMemos    Memo[]  @relation("CurrentHolder")
+  previousMemos   Memo[]  @relation("PreviousHolders")
+  acknowledged    Memo[]  @relation("AcknowledgedBy")
+  archivedMemos   Memo[]  @relation("ArchivedBy")
+  activities      Activity[]
+}
+
+model Memo {
+  id                    String      @id @default(cuid())
+  memo_reference_number String      @unique
+  subject               String
+  body                  String
+  status                String
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  from                  User        @relation("MemosFrom", fields: [fromId], references: [id])
+  fromId                String
+  to                    User[]      @relation("MemosTo")
+  cc                    User[]      @relation("MemosCC")
+  current_holder        User?       @relation("CurrentHolder", fields: [current_holderId], references: [id])
+  current_holderId      String?
+  previous_holders      User[]      @relation("PreviousHolders")
+  acknowledgedBy        User[]      @relation("AcknowledgedBy")
+  archivedBy            User[]      @relation("ArchivedBy")
+  replyTo               Memo?       @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replyToId             String?
+  replies               Memo[]      @relation("Replies")
+  attachments           Attachment[]
+  activity              Activity[]
+}
+
+model Attachment {
+  id     String @id @default(cuid())
+  name   String
+  type   String
+  size   Int
+  url    String
+  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  memoId String
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  memoId    String
+  actor     User     @relation(fields: [actorId], references: [id])
+  actorId   String
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
 }
 
 enum Permission {
@@ -45,91 +115,5 @@ enum Permission {
   manage_offices
   manage_users
   manage_roles
-}
-
-model Division {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  code        String       @unique
-  departments Department[]
-}
-
-model Department {
-  id         String   @id @default(cuid())
-  name       String
-  code       String
-  divisionId String
-  division   Division @relation(fields: [divisionId], references: [id])
-  offices    Office[]
-
-  @@unique([name, divisionId])
-  @@index([divisionId])
-}
-
-model Office {
-  id           String     @id @default(cuid())
-  name         String
-  code         String
-  departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
-  users        User[]
-
-  @@unique([name, departmentId])
-  @@index([departmentId])
-}
-
-model Memo {
-  id                    String       @id @default(cuid())
-  memo_reference_number String       @unique
-  subject               String
-  body                  String       @db.Text
-  status                String       @default("draft") // e.g., draft, sent, read, acknowledged
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  fromId                String
-  from                  User         @relation("MemosFrom", fields: [fromId], references: [id])
-  to                    User[]       @relation("MemosTo")
-  cc                    User[]       @relation("MemosCc")
-  attachments           Attachment[]
-  activity              Activity[]
-  
-  replyToId             String?
-  replyTo               Memo?        @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies               Memo[]       @relation("Replies")
-
-  current_holderId      String?
-  current_holder        User?        @relation("CurrentHolder", fields: [current_holderId], references: [id])
-  
-  previous_holders      User[]       @relation("PreviousHolders")
-  acknowledgedBy        User[]       @relation("AcknowledgedBy")
-  archivedBy            User[]       @relation("ArchivedBy")
-
-  @@index([fromId])
-  @@index([current_holderId])
-}
-
-model Activity {
-  id        String   @id @default(cuid())
-  memoId    String
-  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
-  actorId   String
-  actor     User     @relation(fields: [actorId], references: [id])
-  action    String // e.g., sent, viewed, acknowledged, forwarded, commented
-  details   String?  @db.Text
-  timestamp DateTime @default(now())
-
-  @@index([memoId])
-  @@index([actorId])
-}
-
-model Attachment {
-  id     String @id @default(cuid())
-  memoId String
-  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
-  name   String
-  type   String
-  size   Int
-  url    String @db.Text
-
-  @@index([memoId])
+  manage_archive
 }
