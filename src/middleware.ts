@@ -13,8 +13,8 @@ export default withAuth(
 )
 
 export const config = {
-  // Matcher protecting all routes except login, api, and static files
+  // Matcher protecting all routes except api, _next/static, _next/image, and files with extensions (e.g. .ico, .jpeg)
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|login|public).*)",
+    "/((?!api|_next/static|_next/image|.*\\..*|login).*)",
   ],
 }
