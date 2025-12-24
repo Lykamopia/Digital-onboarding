@@ -74,7 +74,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="w-full h-auto flex-wrap justify-start">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
