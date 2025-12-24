@@ -63,7 +63,8 @@ export default function RoleManagementPage() {
   const { data: users, loading: loadingUsers } = useUsers();
   const { toast } = useToast();
 
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [editingRole, setEditingRole] = useState<Partial<Role> | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
@@ -79,11 +80,13 @@ export default function RoleManagementPage() {
 
 
   const handleAddNew = () => {
-    setEditingRole({} as Role);
+    setEditingRole({});
+    setIsDialogOpen(true);
   };
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (roleId: string) => {
@@ -126,6 +129,7 @@ export default function RoleManagementPage() {
     
     toast({ title: "Success", description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
 
+    setIsDialogOpen(false);
     setEditingRole(null);
   };
 
@@ -134,6 +138,13 @@ export default function RoleManagementPage() {
       checked ? [...prev, permission] : prev.filter((p) => p !== permission)
     );
   };
+  
+  const handleDialogChange = (open: boolean) => {
+      if (!open) {
+          setEditingRole(null);
+      }
+      setIsDialogOpen(open);
+  }
 
   const usersInRole = (roleId: string) => {
     return users.filter(user => user.roleId === roleId).length;
@@ -194,7 +205,7 @@ export default function RoleManagementPage() {
           </TableBody>
         </Table>
 
-        <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>

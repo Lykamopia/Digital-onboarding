@@ -54,7 +54,8 @@ export default function OfficesPage() {
   const { data: departments, loading: loadingDepts } = useDepartments();
   const { toast } = useToast();
 
-  const [editingOffice, setEditingOffice] = useState<Office | null>(null);
+  const [editingOffice, setEditingOffice] = useState<Partial<Office> | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -86,18 +87,28 @@ export default function OfficesPage() {
     await saveOffice(officeData);
     await mutateOffices();
     
-    toast({ title: "Success", description: `Office ${editingOffice ? 'updated' : 'created'} successfully.` });
+    toast({ title: "Success", description: `Office ${editingOffice?.id ? 'updated' : 'created'} successfully.` });
 
+    setIsDialogOpen(false);
     setEditingOffice(null);
   };
 
   const handleEdit = (office: Office) => {
     setEditingOffice(office);
+    setIsDialogOpen(true);
   };
 
   const handleAddNew = () => {
-    setEditingOffice({} as Office);
+    setEditingOffice({});
+    setIsDialogOpen(true);
   };
+  
+  const handleDialogChange = (open: boolean) => {
+      if (!open) {
+          setEditingOffice(null);
+      }
+      setIsDialogOpen(open);
+  }
 
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
 
@@ -144,7 +155,7 @@ export default function OfficesPage() {
           </TableBody>
         </Table>
 
-        <Dialog open={!!editingOffice} onOpenChange={(open) => !open && setEditingOffice(null)}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingOffice?.id ? "Edit Office" : "Add New Office"}</DialogTitle>

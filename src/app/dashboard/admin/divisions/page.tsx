@@ -50,7 +50,8 @@ export default function DivisionsPage() {
   const { data: divisions, loading, mutate } = useDivisions();
   const { toast } = useToast();
   
-  const [editingDivision, setEditingDivision] = useState<Division | null>(null);
+  const [editingDivision, setEditingDivision] = useState<Partial<Division> | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -72,16 +73,38 @@ export default function DivisionsPage() {
     await saveDivision(divisionData);
     await mutate();
 
-    toast({ title: "Success", description: `Division ${editingDivision ? 'updated' : 'created'} successfully.` });
+    toast({ title: "Success", description: `Division ${editingDivision?.id ? 'updated' : 'created'} successfully.` });
     
+    setIsDialogOpen(false);
     setEditingDivision(null);
   };
+  
+  const handleEdit = (division: Division) => {
+    setEditingDivision(division);
+    setIsDialogOpen(true);
+  }
+
+  const handleAddNew = () => {
+    setEditingDivision({});
+    setIsDialogOpen(true);
+  }
+
+  const handleDialogChange = (open: boolean) => {
+      if (!open) {
+          setEditingDivision(null);
+      }
+      setIsDialogOpen(open);
+  }
+
+  if (loading) {
+    return <DivisionsLoadingSkeleton />;
+  }
 
   return (
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Divisions</CardTitle>
-        <Button onClick={() => setEditingDivision({} as Division)}>Add Division</Button>
+        <Button onClick={handleAddNew}>Add Division</Button>
       </CardHeader>
       <CardContent>
         <Table>
@@ -98,7 +121,7 @@ export default function DivisionsPage() {
                 <TableCell>{division.name}</TableCell>
                 <TableCell>{division.code}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => setEditingDivision(division)}>
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(division)}>
                     Edit
                   </Button>
                 </TableCell>
@@ -107,7 +130,7 @@ export default function DivisionsPage() {
           </TableBody>
         </Table>
 
-         <Dialog open={!!editingDivision} onOpenChange={(open) => !open && setEditingDivision(null)}>
+         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingDivision?.id ? "Edit Division" : "Add New Division"}</DialogTitle>

@@ -107,6 +107,7 @@ export default function UsersPage() {
   const { toast } = useToast();
 
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
   const [formState, setFormState] = useState({ name: '', email: '', password: '', officeId: '', roleId: '' });
@@ -168,15 +169,25 @@ export default function UsersPage() {
         setPasswordDialog({ open: true, password: passwordToSend });
     }
     
+    setIsDialogOpen(false);
     setEditingUser(null);
   };
 
   const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
+    setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser({} as UserWithRelations);
+    setIsDialogOpen(true);
+  }
+  
+  const handleDialogChange = (open: boolean) => {
+      if (!open) {
+          setEditingUser(null);
+      }
+      setIsDialogOpen(open);
   }
   
   const handleResetPassword = async (userId: string) => {
@@ -360,7 +371,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent>
         <DialogHeader>
             <DialogTitle>{editingUser?.id ? "Edit User" : "Add New User"}</DialogTitle>
