@@ -20,10 +20,6 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
 
-  useEffect(() => {
-    getLoggedInUser().then(setUser);
-  }, []);
-
   const navItems = useMemo(() => [
     { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage_divisions" },
     { value: "/dashboard/admin/departments", label: "Departments", permission: "manage_departments" },
@@ -38,31 +34,61 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   }, [navItems, user]);
   
   const activeTab = useMemo(() => {
-    return accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
+    // Find the best-matching tab for the current path
+    return accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || '';
   }, [accessibleNavItems, pathname]);
 
   useEffect(() => {
-    if (!user) return;
-    const currentTabExists = accessibleNavItems.some(item => pathname.startsWith(item.value));
+    getLoggedInUser().then(setUser);
+  }, []);
 
-    if (accessibleNavItems.length > 0 && !currentTabExists) {
-      router.replace(accessibleNavItems[0].value);
-    } else if (accessibleNavItems.length === 0 && pathname.startsWith('/dashboard/admin')) {
-      router.replace('/dashboard');
+  useEffect(() => {
+    // This effect handles redirection logic once the user and navigation items are determined.
+    if (!user || accessibleNavItems.length === 0) {
+      return; // Do nothing if we don't have a user or they have no accessible items.
     }
-  }, [pathname, router, accessibleNavItems, user]);
+    
+    const currentTabIsValid = accessibleNavItems.some(item => pathname.startsWith(item.value));
+
+    // If the current URL doesn't match any accessible tab, redirect to the first accessible one.
+    if (!currentTabIsValid) {
+      router.replace(accessibleNavItems[0].value);
+    }
+  }, [user, pathname, accessibleNavItems, router]);
+
 
   const handleTabChange = (value: string) => {
     router.push(value);
   };
   
   if (!user) {
-    return <Card><CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader><CardContent><Skeleton className="h-[200px] w-full" /></CardContent></Card>;
+    return (
+        <Card>
+            <CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader>
+            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+        </Card>
+    );
   }
 
+  // If the user has no permissions for any admin pages, we can redirect them.
+  // This check happens after all hooks have been called.
   if (accessibleNavItems.length === 0) {
+    if (pathname.startsWith('/dashboard/admin')) {
+      router.replace('/dashboard');
+    }
     return null; 
   }
+  
+  // If we are on an invalid tab, we might show a loader while redirecting.
+  if (!activeTab) {
+     return (
+        <Card>
+            <CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader>
+            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+        </Card>
+    );
+  }
+
 
   return (
     <Card>
