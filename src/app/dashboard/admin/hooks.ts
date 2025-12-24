@@ -18,9 +18,15 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
 
     const fetchData = useCallback(async () => {
       setLoading(true);
-      const result = await fetcher();
-      setData(result);
-      setLoading(false);
+      try {
+        const result = await fetcher();
+        setData(result);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
     }, []);
 
     useEffect(() => {
@@ -31,57 +37,8 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
   };
 }
 
-// Renaming the exports to avoid naming collisions
 export const useDivisions = createDataHook(getDivisions);
-
-export const useDepartments = () => {
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [loading, setLoading] = useState(true);
-     const fetchData = useCallback(async () => {
-        setLoading(true);
-        const depts = await getDepartments();
-        setDepartments(depts);
-        setLoading(false);
-    }, []);
-    useEffect(() => {
-      fetchData();
-    }, [fetchData]);
-    return { departments, loading, mutate: fetchData };
-}
-
-
-export const useOffices = () => {
-    const [offices, setOffices] = useState<(Office & { department: { division: { name: string; }; }; })[]>([]);
-    const [loading, setLoading] = useState(true);
-     const fetchData = useCallback(async () => {
-        setLoading(true);
-        const offs = await getOffices();
-        setOffices(offs);
-        setLoading(false);
-    }, []);
-     useEffect(() => {
-      fetchData();
-    }, [fetchData]);
-    return { offices, loading, mutate: fetchData };
-}
-
+export const useDepartments = createDataHook(getDepartments);
+export const useOffices = createDataHook(getOffices as () => Promise<(Office & { department: { division: { name: string; }; }; })[]>);
 export const useRoles = createDataHook(getRoles);
-
-
-export const useUsers = () => {
-    const [users, setUsers] = useState<(User & { office: Office & { department: { name: string; division: { name: string; }; }; }; role: Role; })[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        const usersData = await getUsers() as any;
-        setUsers(usersData);
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-      fetchData();
-    }, [fetchData]);
-
-    return { users, loading, mutate: fetchData };
-};
+export const useUsers = createDataHook(getUsers as () => Promise<(User & { office: Office & { department: { name: string; division: { name: string; }; }; }; role: Role; })[]>);

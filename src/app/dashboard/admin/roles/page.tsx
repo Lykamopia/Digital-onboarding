@@ -60,7 +60,7 @@ function RolesLoadingSkeleton() {
 
 export default function RoleManagementPage() {
   const { data: roles, loading: loadingRoles, mutate: mutateRoles } = useRoles();
-  const { users, loading: loadingUsers } = useUsers();
+  const { data: users, loading: loadingUsers } = useUsers();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);

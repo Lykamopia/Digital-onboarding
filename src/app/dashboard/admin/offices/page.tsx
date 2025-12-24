@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveOffice } from "@/app/actions/memo";
-import type { Office, Department } from "@/lib/types";
+import type { Office } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices, useDepartments } from "../hooks";
@@ -50,8 +50,8 @@ function OfficesLoadingSkeleton() {
 }
 
 export default function OfficesPage() {
-  const { offices, loading: loadingOffices, mutate: mutateOffices } = useOffices();
-  const { departments, loading: loadingDepts } = useDepartments();
+  const { data: offices, loading: loadingOffices, mutate: mutateOffices } = useOffices();
+  const { data: departments, loading: loadingDepts } = useDepartments();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);

@@ -59,7 +59,7 @@ function UsersLoadingSkeleton() {
 }
 
 export default function UsersPage() {
-  const { users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
+  const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
   const { data: offices, loading: loadingOffices } = useOffices();
   const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
@@ -227,4 +227,3 @@ export default function UsersPage() {
     </Card>
   );
 }
-

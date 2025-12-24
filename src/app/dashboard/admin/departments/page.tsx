@@ -48,7 +48,7 @@ function DepartmentsLoadingSkeleton() {
 }
 
 export default function DepartmentsPage() {
-  const { departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
+  const { data: departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
   const { data: divisions, loading: loadingDivs } = useDivisions();
   const { toast } = useToast();
 
@@ -181,4 +181,3 @@ export default function DepartmentsPage() {
     </Card>
   );
 }
-
