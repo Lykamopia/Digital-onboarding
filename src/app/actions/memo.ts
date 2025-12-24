@@ -364,7 +364,18 @@ export async function getLoggedInUser() {
     // In a real app, you'd get this from session/auth
     const user = await prisma.user.findUnique({ 
         where: { id: 'user-1' },
-        include: { role: true }
+        include: { 
+            role: true,
+            office: {
+                include: {
+                    department: {
+                        include: {
+                            division: true
+                        }
+                    }
+                }
+            }
+        }
     });
     if (!user) throw new Error("Logged in user not found.");
     return user;
