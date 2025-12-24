@@ -195,7 +195,8 @@ async function main() {
       createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       status: 'acknowledged',
       fromId: 'user-4',
-      current_holderId: 'user-1',
+      // use a different current holder to avoid unique constraint conflicts
+      current_holderId: 'user-4',
       to: { connect: [{ id: 'user-1' }] },
       acknowledgedBy: { connect: [{ id: 'user-1' }] },
       attachments: {
