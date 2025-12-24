@@ -330,6 +330,7 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
 export async function deleteDraft(draftId: string) {
     await prisma.memo.delete({ where: { id: draftId }});
     revalidatePath('/dashboard');
+    revalidatePath('/dashboard/drafts');
     return { success: true };
 }
 

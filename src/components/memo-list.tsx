@@ -10,10 +10,10 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface MemoListProps {
@@ -22,9 +22,10 @@ interface MemoListProps {
   selectedMemoId: string | null
   onSelectMemo: (id: string) => void
   isExpanded: boolean
+  tab: string
 }
 
-const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
+const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
     
     const { toast } = useToast();
     const router = useRouter();
@@ -53,12 +54,17 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
         e.stopPropagation();
         callback();
     }
-
-    const handleArchive = async (memoId: string) => {
-        // Optimistic update
+    
+    const handleArchive = async (memoId: string, archive: boolean) => {
         setMemos(prev => prev.filter(m => m.id !== memoId));
-        toast({ title: "Memo Archived" });
-        await archiveMemo(memoId, true);
+        toast({ title: archive ? "Memo Archived" : "Memo Restored" });
+        await archiveMemo(memoId, archive);
+    }
+    
+    const handleDeleteDraft = async (memoId: string) => {
+        setMemos(prev => prev.filter(m => m.id !== memoId));
+        toast({ title: "Draft Deleted" });
+        await deleteDraft(memoId);
     }
 
     const handleReply = (memoId: string) => {
@@ -88,31 +94,57 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
     }
 
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-full border bg-card/70 backdrop-blur-sm p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleActionClick(e, () => handleToggleRead(memo))}>
-                        {isMemoUnread(memo) ? <MailOpen /> : <Mail />}
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isMemoUnread(memo) ? 'Mark as Read' : 'Mark as Unread'}</TooltipContent>
-            </Tooltip>
-             <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
-                        <Reply />
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>Reply</TooltipContent>
-            </Tooltip>
-             <Tooltip>
-                <TooltipTrigger asChild>
-                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id))}>
-                        <Archive />
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>Archive</TooltipContent>
-            </Tooltip>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {tab === 'inbox' && (
+                <>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleToggleRead(memo))}>
+                            {isMemoUnread(memo) ? <MailOpen /> : <Mail />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isMemoUnread(memo) ? 'Mark as Read' : 'Mark as Unread'}</TooltipContent>
+                </Tooltip>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
+                            <Reply />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                </Tooltip>
+                </>
+            )}
+             {tab === 'sent' && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
+                            <Archive />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Archive</TooltipContent>
+                </Tooltip>
+            )}
+            {tab === 'drafts' && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
+                            <Trash2 />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+            )}
+            {tab === 'archive' && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
+                            <Undo2 />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Unarchive</TooltipContent>
+                </Tooltip>
+            )}
         </div>
     )
 
@@ -132,7 +164,7 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
                     <div className="flex items-center">
                         <div className="flex items-center gap-2 truncate">
                             <div className="font-semibold truncate">{memo.from.name}</div>
-                            <StatusBadge status={getMemoStatus(memo)} />
+                            {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
                         </div>
                         <div
                         className={cn(
@@ -197,7 +229,7 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     )
 }
 
-export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded }: MemoListProps) {
+export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab }: MemoListProps) {
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   
@@ -217,7 +249,7 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     <ScrollArea className="h-full">
         <TooltipProvider>
             {isExpanded ? (
-                <ExpandedView memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
+                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
             ) : (
                 <CollapsedView memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
             )}

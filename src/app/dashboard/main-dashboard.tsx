@@ -195,6 +195,7 @@ function DashboardContent({ tab }: { tab: string }) {
             selectedMemoId={selectedMemo?.id || null} 
             onSelectMemo={handleSelectMemo}
             isExpanded={isListExpanded}
+            tab={tab}
             />
         ) : (
           <div className="h-full p-2">
