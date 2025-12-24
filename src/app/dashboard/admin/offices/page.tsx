@@ -22,33 +22,41 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { getOffices, getDepartments, saveOffice } from "@/app/actions/memo";
-import type { Office, Department } from "@/lib/types";
+import { saveOffice } from "@/app/actions/memo";
+import type { Office } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOffices, useDepartments } from "../hooks";
 
 type OfficeWithRelations = Office & { department: { division: { name: string } } };
 
+function OfficesLoadingSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle>Offices</CardTitle>
+                <Skeleton className="h-10 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function OfficesPage() {
-  const [offices, setOffices] = useState<OfficeWithRelations[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { offices, loading: loadingOffices, mutate: mutateOffices } = useOffices();
+  const { departments, loading: loadingDepts } = useDepartments();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [officesData, departmentsData] = await Promise.all([getOffices(), getDepartments()]);
-      setOffices(officesData);
-      setDepartments(departmentsData);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,9 +77,7 @@ export default function OfficesPage() {
     };
 
     await saveOffice(officeData);
-
-    const updatedOffices = await getOffices();
-    setOffices(updatedOffices);
+    await mutateOffices();
     
     toast({ title: "Success", description: `Office ${editingOffice ? 'updated' : 'created'} successfully.` });
 
@@ -102,8 +108,8 @@ export default function OfficesPage() {
 
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
 
-  if (loading) {
-    return <Skeleton className="h-[400px] w-full" />;
+  if (loadingOffices || loadingDepts) {
+    return <OfficesLoadingSkeleton />;
   }
 
   return (
@@ -124,7 +130,7 @@ export default function OfficesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {offices.map((office) => (
+            {(offices as OfficeWithRelations[]).map((office) => (
                 <TableRow key={office.id}>
                   <TableCell>{office.name}</TableCell>
                   <TableCell>{office.code}</TableCell>

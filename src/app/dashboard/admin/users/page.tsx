@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -22,12 +22,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { getUsers, getOffices, getRoles, saveUser } from "@/app/actions/memo";
+import { saveUser } from "@/app/actions/memo";
 import type { User, Role, Office } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { useUsers, useOffices, useRoles } from "../hooks";
 
 type UserWithRelations = User & {
     office: Office & {
@@ -39,33 +39,35 @@ type UserWithRelations = User & {
     role: Role
 };
 
+function UsersLoadingSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle>Users</CardTitle>
+                <Skeleton className="h-10 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="space-y-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserWithRelations[]>([]);
-  const [offices, setOffices] = useState<Office[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
+  const { offices, loading: loadingOffices } = useOffices();
+  const { roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [usersData, officesData, rolesData] = await Promise.all([
-        getUsers() as Promise<UserWithRelations[]>, 
-        getOffices(), 
-        getRoles()
-      ]);
-      setUsers(usersData);
-      setOffices(officesData);
-      setRoles(rolesData);
-      setLoading(false);
-    }
-    fetchData();
-  }, [])
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -88,16 +90,11 @@ export default function UsersPage() {
     };
 
     await saveUser(userData);
-
-    const updatedUsers = await getUsers() as UserWithRelations[]; // Re-fetch might not include relations, adjust if needed
-    setUsers(updatedUsers);
+    await mutateUsers();
     
     toast({ title: "Success", description: `User ${editingUser ? 'updated' : 'created'}.` });
     
     setIsDialogOpen(false);
-    setEditingUser(null);
-    setSelectedOfficeId(undefined);
-    setSelectedRoleId(undefined);
   };
 
   const handleEdit = (user: UserWithRelations) => {
@@ -130,8 +127,8 @@ export default function UsersPage() {
 
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
 
-  if (loading) {
-    return <Skeleton className="h-[400px] w-full" />;
+  if (loadingUsers || loadingOffices || loadingRoles) {
+    return <UsersLoadingSkeleton />;
   }
 
   return (
@@ -153,7 +150,7 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
+            {(users as UserWithRelations[]).map((user) => (
                 <TableRow key={user.id}>
                     <TableCell>
                         <div className="flex items-center gap-3">
@@ -230,3 +227,4 @@ export default function UsersPage() {
     </Card>
   );
 }
+

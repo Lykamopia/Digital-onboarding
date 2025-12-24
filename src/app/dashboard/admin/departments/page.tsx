@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -22,31 +22,39 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { getDepartments, getDivisions, saveDepartment } from "@/app/actions/memo";
-import type { Department, Division } from "@/lib/types";
+import { saveDepartment } from "@/app/actions/memo";
+import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDepartments, useDivisions } from "../hooks";
+
+function DepartmentsLoadingSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle>Departments</CardTitle>
+                <Skeleton className="h-10 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [divisions, setDivisions] = useState<Division[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
+  const { divisions, loading: loadingDivs } = useDivisions();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [depts, divs] = await Promise.all([getDepartments(), getDivisions()]);
-      setDepartments(depts);
-      setDivisions(divs);
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -67,15 +75,11 @@ export default function DepartmentsPage() {
     }
 
     await saveDepartment(departmentData);
-    
-    const updatedDepartments = await getDepartments();
-    setDepartments(updatedDepartments);
+    await mutateDepts();
     
     toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
     
     setIsDialogOpen(false);
-    setEditingDepartment(null);
-    setSelectedDivisionId(undefined);
   };
 
   const handleEdit = (department: Department) => {
@@ -104,8 +108,8 @@ export default function DepartmentsPage() {
 
   const divisionOptions = divisions.map(d => ({ value: d.id, label: d.name }));
 
-  if (loading) {
-    return <Skeleton className="h-[400px] w-full" />;
+  if (loadingDepts || loadingDivs) {
+    return <DepartmentsLoadingSkeleton />;
   }
 
   return (
@@ -177,3 +181,4 @@ export default function DepartmentsPage() {
     </Card>
   );
 }
+

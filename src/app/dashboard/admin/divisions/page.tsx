@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -21,28 +21,37 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getDivisions, saveDivision } from "@/app/actions/memo";
+import { saveDivision } from "@/app/actions/memo";
 import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDivisions } from "../hooks";
+
+function DivisionsLoadingSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle>Divisions</CardTitle>
+                <Skeleton className="h-10 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 export default function DivisionsPage() {
-  const [divisions, setDivisions] = useState<Division[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { divisions, loading, mutate } = useDivisions();
   const { toast } = useToast();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
-
-  useEffect(() => {
-    const fetchDivisions = async () => {
-      setLoading(true);
-      const data = await getDivisions();
-      setDivisions(data);
-      setLoading(false);
-    }
-    fetchDivisions();
-  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,9 +71,7 @@ export default function DivisionsPage() {
     }
 
     await saveDivision(divisionData);
-    
-    const updatedDivisions = await getDivisions();
-    setDivisions(updatedDivisions);
+    await mutate();
 
     toast({ title: "Success", description: `Division ${editingDivision ? 'updated' : 'created'} successfully.` });
     
@@ -83,7 +90,7 @@ export default function DivisionsPage() {
   }
 
   if (loading) {
-    return <Skeleton className="h-[400px] w-full" />;
+    return <DivisionsLoadingSkeleton />;
   }
 
   return (

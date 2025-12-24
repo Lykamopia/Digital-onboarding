@@ -34,17 +34,33 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { getRoles, saveRole, deleteRole, getUsers } from "@/app/actions/memo";
-import type { Role, Permission, User } from "@/lib/types";
+import { deleteRole, saveRole } from "@/app/actions/memo";
+import type { Role, Permission } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRoles, useUsers } from "../hooks";
 
+function RolesLoadingSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle>Role Management</CardTitle>
+                <Skeleton className="h-10 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 export default function RoleManagementPage() {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { roles, loading: loadingRoles, mutate: mutateRoles } = useRoles();
+  const { users, loading: loadingUsers } = useUsers();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,27 +69,23 @@ export default function RoleManagementPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [rolesData, usersData] = await Promise.all([getRoles(), getUsers()]);
-      setRoles(rolesData);
-      setAllUsers(usersData);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
+    if (editingRole) {
+      setRoleName(editingRole.name);
+      setSelectedPermissions(editingRole.permissions);
+    } else {
+      setRoleName("");
+      setSelectedPermissions([]);
+    }
+  }, [editingRole]);
+
 
   const handleAddNew = () => {
     setEditingRole(null);
-    setRoleName("");
-    setSelectedPermissions([]);
     setIsDialogOpen(true);
   };
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
-    setRoleName(role.name);
-    setSelectedPermissions(role.permissions);
     setIsDialogOpen(true);
   };
 
@@ -88,8 +100,7 @@ export default function RoleManagementPage() {
         return;
     }
     
-    const updatedRoles = await getRoles();
-    setRoles(updatedRoles);
+    await mutateRoles();
     toast({
       title: "Role Deleted",
       description: "The role has been successfully deleted.",
@@ -113,9 +124,7 @@ export default function RoleManagementPage() {
     }
 
     await saveRole(roleData);
-
-    const updatedRoles = await getRoles();
-    setRoles(updatedRoles);
+    await mutateRoles();
     
     toast({ title: "Success", description: `Role ${editingRole ? 'updated' : 'created'}.` });
 
@@ -129,11 +138,11 @@ export default function RoleManagementPage() {
   };
 
   const usersInRole = (roleId: string) => {
-    return allUsers.filter(user => user.roleId === roleId).length;
+    return users.filter(user => user.roleId === roleId).length;
   }
 
-  if (loading) {
-    return <Skeleton className="h-[400px] w-full" />;
+  if (loadingRoles || loadingUsers) {
+    return <RolesLoadingSkeleton />;
   }
 
   return (
@@ -244,3 +253,4 @@ export default function RoleManagementPage() {
     </Card>
   );
 }
+

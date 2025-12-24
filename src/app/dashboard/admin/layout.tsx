@@ -1,67 +1,75 @@
 
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import { getLoggedInUser } from "@/app/actions/memo";
-import type { Permission, User } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { getLoggedInUser } from '@/app/actions/memo';
+import type { Permission, User } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+const navItemsConfig = [
+  { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions' },
+  { value: '/dashboard/admin/departments', label: 'Departments', permission: 'manage_departments' },
+  { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices' },
+  { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
+  { value: '/dashboard/admin/roles', label: 'Role Management', permission: 'manage_roles' },
+];
+
+function useAdminNavigation(user: (User & { role: { permissions: Permission[] } }) | null) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
-
-  const navItems = useMemo(() => [
-    { value: "/dashboard/admin/divisions", label: "Divisions", permission: "manage_divisions" },
-    { value: "/dashboard/admin/departments", label: "Departments", permission: "manage_departments" },
-    { value: "/dashboard/admin/offices", label: "Offices", permission: "manage_offices" },
-    { value: "/dashboard/admin/users", label: "Users", permission: "manage_users" },
-    { value: "/dashboard/admin/roles", label: "Role Management", permission: "manage_roles" },
-  ], []);
 
   const accessibleNavItems = useMemo(() => {
     if (!user) return [];
-    return navItems.filter(item => user.role.permissions.includes(item.permission as Permission))
-  }, [navItems, user]);
-  
+    return navItemsConfig.filter(item => user.role.permissions.includes(item.permission as Permission));
+  }, [user]);
+
   const activeTab = useMemo(() => {
     // Find the best-matching tab for the current path
-    return accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || '';
+    return accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || null;
   }, [accessibleNavItems, pathname]);
 
   useEffect(() => {
-    getLoggedInUser().then(setUser);
-  }, []);
-
-  useEffect(() => {
-    // This effect handles redirection logic once the user and navigation items are determined.
-    if (!user || accessibleNavItems.length === 0) {
-      return; // Do nothing if we don't have a user or they have no accessible items.
-    }
-    
-    const currentTabIsValid = accessibleNavItems.some(item => pathname.startsWith(item.value));
-
-    // If the current URL doesn't match any accessible tab, redirect to the first accessible one.
-    if (!currentTabIsValid) {
-      router.replace(accessibleNavItems[0].value);
+    if (user && accessibleNavItems.length > 0) {
+      const currentTabIsValid = accessibleNavItems.some(item => pathname.startsWith(item.value));
+      // If the current URL doesn't match any accessible tab, redirect to the first accessible one.
+      if (!currentTabIsValid) {
+        router.replace(accessibleNavItems[0].value);
+      }
+    } else if (user && accessibleNavItems.length === 0) {
+      // If user has no admin permissions, redirect away from admin area
+      if (pathname.startsWith('/dashboard/admin')) {
+          router.replace('/dashboard');
+      }
     }
   }, [user, pathname, accessibleNavItems, router]);
 
+  return { activeTab, accessibleNavItems };
+}
+
+
+const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+  const router = useRouter();
+  const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLoggedInUser().then(userData => {
+      setUser(userData);
+      setLoading(false);
+    });
+  }, []);
+  
+  const { activeTab, accessibleNavItems } = useAdminNavigation(user);
 
   const handleTabChange = (value: string) => {
     router.push(value);
   };
   
-  if (!user) {
+  if (loading || !user) {
     return (
         <Card>
             <CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader>
@@ -70,16 +78,12 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If the user has no permissions for any admin pages, we can redirect them.
-  // This check happens after all hooks have been called.
   if (accessibleNavItems.length === 0) {
-    if (pathname.startsWith('/dashboard/admin')) {
-      router.replace('/dashboard');
-    }
+    // This state is handled by the redirect in the hook, but as a fallback, show nothing.
     return null; 
   }
   
-  // If we are on an invalid tab, we might show a loader while redirecting.
+  // While redirecting from an invalid tab, show a loader.
   if (!activeTab) {
      return (
         <Card>
@@ -88,7 +92,6 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         </Card>
     );
   }
-
 
   return (
     <Card>
@@ -110,9 +113,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                 </TabsTrigger>
              ))}
           </TabsList>
-          <TabsContent value={activeTab} className="mt-4">
+          <div className="mt-4">
               {children}
-          </TabsContent>
+          </div>
         </Tabs>
       </CardContent>
     </Card>
