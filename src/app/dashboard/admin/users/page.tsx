@@ -60,8 +60,8 @@ function UsersLoadingSkeleton() {
 
 export default function UsersPage() {
   const { users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
-  const { offices, loading: loadingOffices } = useOffices();
-  const { roles, loading: loadingRoles } = useRoles();
+  const { data: offices, loading: loadingOffices } = useOffices();
+  const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);

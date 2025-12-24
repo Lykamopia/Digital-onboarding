@@ -59,7 +59,7 @@ function RolesLoadingSkeleton() {
 }
 
 export default function RoleManagementPage() {
-  const { roles, loading: loadingRoles, mutate: mutateRoles } = useRoles();
+  const { data: roles, loading: loadingRoles, mutate: mutateRoles } = useRoles();
   const { users, loading: loadingUsers } = useUsers();
   const { toast } = useToast();
 
@@ -253,4 +253,3 @@ export default function RoleManagementPage() {
     </Card>
   );
 }
-

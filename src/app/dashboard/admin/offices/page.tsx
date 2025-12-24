@@ -23,12 +23,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveOffice } from "@/app/actions/memo";
-import type { Office } from "@/lib/types";
+import type { Office, Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices, useDepartments } from "../hooks";
 
-type OfficeWithRelations = Office & { department: { division: { name: string } } };
+type OfficeWithRelations = Office & { department: { name: string, division: { name: string } } };
 
 function OfficesLoadingSkeleton() {
     return (
