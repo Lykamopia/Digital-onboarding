@@ -257,7 +257,7 @@ export default function UsersPage() {
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={handleExport}><FileDown className="mr-2" /> Export Selected</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => handleBulkStatusChange('active')}><ShieldCheck className="mr-2" /> Activate Selected</DropdownMenuItem>
-                <DropdownMenuItem onSelect={()={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={handleAddNew}><UserPlus className="mr-2"/>Add User</Button>
@@ -381,7 +381,7 @@ export default function UsersPage() {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSave}>
-          <div className="grid gap-4 py-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
@@ -454,5 +454,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
