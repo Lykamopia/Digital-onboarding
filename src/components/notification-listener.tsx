@@ -12,7 +12,9 @@ export function NotificationListener() {
   useEffect(() => {
     let loggedInUserId: string | null = null;
     getLoggedInUser().then(user => {
-      loggedInUserId = user.id;
+      if (user) {
+        loggedInUserId = user.id;
+      }
     });
 
     const handleMemoEvent = (event: Event) => {

@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Suspense, useState, useEffect, useCallback, use } from "react"
+import { Suspense, useState, useEffect, useCallback } from "react"
 import { useSearchParams } from 'next/navigation'
 import { useRouter } from "next/navigation"
 import type { MemoWithActivity, User } from "@/lib/types"
@@ -14,7 +14,7 @@ import { MemoFilters } from "@/components/memo-filters"
 import { DateRange } from "react-day-picker"
 import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getDashboardData, markAsRead } from "../actions/memo"
+import { getDashboardData, getLoggedInUser, markAsRead } from "../actions/memo"
 import { Skeleton } from "@/components/ui/skeleton"
 
 function DashboardContent() {
@@ -23,6 +23,7 @@ function DashboardContent() {
   const tab = searchParams.get("tab") || "inbox";
   const memoIdFromUrl = searchParams.get('id');
 
+  const [user, setUser] = useState<User | null>(null);
   const [memos, setMemos] = useState<MemoWithActivity[]>([]);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(memoIdFromUrl);
   const [isListExpanded, setIsListExpanded] = useState(true);
@@ -40,6 +41,11 @@ function DashboardContent() {
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
 
+  useEffect(() => {
+    getLoggedInUser().then(setUser);
+  }, []);
+
+
   const handleSelectMemo = (id: string) => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
@@ -47,28 +53,37 @@ function DashboardContent() {
   }
 
   const loadMemos = useCallback(async () => {
+    if (!user) return; // Don't load if no user
     setLoading(true);
     const dateRangeParams = {
         from: dateRange?.from?.toISOString(),
         to: dateRange?.to?.toISOString(),
     };
-    const data = await getDashboardData(tab, search, status, dateRangeParams);
-    setMemos(data as MemoWithActivity[]);
-    setLoading(false);
-    
-    // Select first memo if none is selected from URL, but only if the list is not empty
-    if (data.length > 0 && !data.some(m => m.id === memoIdFromUrl)) {
-      if (data[0].status !== 'draft') {
-         // Update URL without triggering a full navigation and re-fetch
-         handleSelectMemo(data[0].id)
-      } else {
-         setSelectedMemoId(null)
+    try {
+      const data = await getDashboardData(tab, search, status, dateRangeParams);
+      setMemos(data as MemoWithActivity[]);
+      
+      // Select first memo if none is selected from URL, but only if the list is not empty
+      if (data.length > 0 && !data.some(m => m.id === memoIdFromUrl)) {
+        if (data[0].status !== 'draft') {
+          const newParams = new URLSearchParams(searchParams.toString());
+          newParams.set('id', data[0].id);
+          router.push(`/dashboard?${newParams.toString()}`);
+        } else {
+          setSelectedMemoId(null)
+        }
+      } else if (data.length === 0) {
+        setSelectedMemoId(null)
       }
-    } else if (data.length === 0) {
-      setSelectedMemoId(null)
-    }
 
-  }, [tab, search, status, dateRange]);
+    } catch (error) {
+      console.error("Failed to load memos:", error);
+      // Handle not authenticated error gracefully
+      setMemos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, search, status, dateRange, user, router, memoIdFromUrl]);
 
   useEffect(() => {
     loadMemos();
@@ -78,18 +93,18 @@ function DashboardContent() {
     if (memoIdFromUrl) {
       setSelectedMemoId(memoIdFromUrl);
       const selectedMemo = memos.find(m => m.id === memoIdFromUrl);
-      if(selectedMemo && selectedMemo.status !== 'draft' && !selectedMemo.activity.some(a => a.action === 'viewed' && a.actorId === 'user-1')) {
+      if(user && selectedMemo && selectedMemo.status !== 'draft' && !selectedMemo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
         markAsRead(memoIdFromUrl).then(() => {
             // Optimistically update the memo in state
             setMemos(prevMemos => prevMemos.map(m => 
                 m.id === memoIdFromUrl 
-                ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: 'user-1', action: 'viewed' } as any] }
+                ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed' } as any] }
                 : m
             ));
         });
       }
     }
-  }, [memoIdFromUrl, memos]);
+  }, [memoIdFromUrl, memos, user]);
 
   const selectedMemo = memos.find(memo => memo.id === selectedMemoId) || null;
 
@@ -117,6 +132,12 @@ function DashboardContent() {
         {isListExpanded ? <PanelLeft /> : <PanelRight />}
     </Button>
   );
+
+  if (!user && !loading) {
+    // This case can happen briefly when the user is being redirected by middleware.
+    // Show a loader to prevent flashes of empty content.
+     return <div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><Skeleton className="h-full w-full" /></div>;
+  }
 
   return (
     <div 
