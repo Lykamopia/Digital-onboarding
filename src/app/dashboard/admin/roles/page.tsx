@@ -63,15 +63,14 @@ export default function RoleManagementPage() {
   const { data: users, loading: loadingUsers } = useUsers();
   const { toast } = useToast();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
   useEffect(() => {
     if (editingRole) {
-      setRoleName(editingRole.name);
-      setSelectedPermissions(editingRole.permissions);
+      setRoleName(editingRole.name || "");
+      setSelectedPermissions(editingRole.permissions || []);
     } else {
       setRoleName("");
       setSelectedPermissions([]);
@@ -80,16 +79,15 @@ export default function RoleManagementPage() {
 
 
   const handleAddNew = () => {
-    setEditingRole(null);
-    setIsDialogOpen(true);
+    setEditingRole({} as Role);
   };
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
-    setIsDialogOpen(true);
   };
 
   const handleDelete = async (roleId: string) => {
+    if (!roleId) return;
     const result = await deleteRole(roleId);
     if(result?.error) {
         toast({
@@ -126,9 +124,9 @@ export default function RoleManagementPage() {
     await saveRole(roleData);
     await mutateRoles();
     
-    toast({ title: "Success", description: `Role ${editingRole ? 'updated' : 'created'}.` });
+    toast({ title: "Success", description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
 
-    setIsDialogOpen(false);
+    setEditingRole(null);
   };
 
   const onPermissionChange = (permission: Permission, checked: boolean) => {
@@ -171,7 +169,7 @@ export default function RoleManagementPage() {
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={role.name === 'Admin'}>
+                      <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0}>
                         Delete
                       </Button>
                     </AlertDialogTrigger>
@@ -196,10 +194,10 @@ export default function RoleManagementPage() {
           </TableBody>
         </Table>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingRole ? "Edit Role" : "Add New Role"}</DialogTitle>
+              <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-4 items-center gap-4">

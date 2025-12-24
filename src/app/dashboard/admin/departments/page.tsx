@@ -52,10 +52,10 @@ export default function DepartmentsPage() {
   const { data: divisions, loading: loadingDivs } = useDivisions();
   const { toast } = useToast();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
-
+  
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -80,6 +80,7 @@ export default function DepartmentsPage() {
     toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
     
     setIsDialogOpen(false);
+    setEditingDepartment(null);
   };
 
   const handleEdit = (department: Department) => {
@@ -97,7 +98,6 @@ export default function DepartmentsPage() {
   const handleDialogClose = (open: boolean) => {
     if (!open) {
         setEditingDepartment(null);
-        setSelectedDivisionId(undefined);
     }
     setIsDialogOpen(open);
   }

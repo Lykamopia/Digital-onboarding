@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -54,9 +54,16 @@ export default function OfficesPage() {
   const { data: departments, loading: loadingDepts } = useDepartments();
   const { toast } = useToast();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (editingOffice) {
+      setSelectedDepartmentId(editingOffice.departmentId);
+    } else {
+      setSelectedDepartmentId(undefined);
+    }
+  }, [editingOffice]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -81,30 +88,16 @@ export default function OfficesPage() {
     
     toast({ title: "Success", description: `Office ${editingOffice ? 'updated' : 'created'} successfully.` });
 
-    setIsDialogOpen(false);
     setEditingOffice(null);
-    setSelectedDepartmentId(undefined);
   };
 
   const handleEdit = (office: Office) => {
     setEditingOffice(office);
-    setSelectedDepartmentId(office.departmentId);
-    setIsDialogOpen(true);
   };
 
   const handleAddNew = () => {
-    setEditingOffice(null);
-    setSelectedDepartmentId(undefined);
-    setIsDialogOpen(true);
+    setEditingOffice({} as Office);
   };
-
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-        setEditingOffice(null);
-        setSelectedDepartmentId(undefined);
-    }
-    setIsDialogOpen(open);
-  }
 
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
 
@@ -151,10 +144,10 @@ export default function OfficesPage() {
           </TableBody>
         </Table>
 
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <Dialog open={!!editingOffice} onOpenChange={(open) => !open && setEditingOffice(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingOffice ? "Edit Office" : "Add New Office"}</DialogTitle>
+              <DialogTitle>{editingOffice?.id ? "Edit Office" : "Add New Office"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave}>
               <div className="grid gap-4 py-4">

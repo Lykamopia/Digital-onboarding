@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/componentsui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,7 +50,6 @@ export default function DivisionsPage() {
   const { data: divisions, loading, mutate } = useDivisions();
   const { toast } = useToast();
   
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -75,29 +74,14 @@ export default function DivisionsPage() {
 
     toast({ title: "Success", description: `Division ${editingDivision ? 'updated' : 'created'} successfully.` });
     
-    setIsDialogOpen(false);
     setEditingDivision(null);
   };
-
-  const handleEdit = (division: Division) => {
-    setEditingDivision(division);
-    setIsDialogOpen(true);
-  }
-
-  const handleAddNew = () => {
-    setEditingDivision(null);
-    setIsDialogOpen(true);
-  }
-
-  if (loading) {
-    return <DivisionsLoadingSkeleton />;
-  }
 
   return (
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Divisions</CardTitle>
-        <Button onClick={handleAddNew}>Add Division</Button>
+        <Button onClick={() => setEditingDivision({} as Division)}>Add Division</Button>
       </CardHeader>
       <CardContent>
         <Table>
@@ -114,7 +98,7 @@ export default function DivisionsPage() {
                 <TableCell>{division.name}</TableCell>
                 <TableCell>{division.code}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(division)}>
+                  <Button variant="outline" size="sm" onClick={() => setEditingDivision(division)}>
                     Edit
                   </Button>
                 </TableCell>
@@ -123,10 +107,10 @@ export default function DivisionsPage() {
           </TableBody>
         </Table>
 
-         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+         <Dialog open={!!editingDivision} onOpenChange={(open) => !open && setEditingDivision(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingDivision ? "Edit Division" : "Add New Division"}</DialogTitle>
+              <DialogTitle>{editingDivision?.id ? "Edit Division" : "Add New Division"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave}>
               <div className="grid gap-4 py-4">

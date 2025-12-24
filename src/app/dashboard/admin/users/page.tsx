@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -38,7 +38,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Trash2 } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
@@ -95,7 +95,6 @@ export default function UsersPage() {
   const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
@@ -103,6 +102,18 @@ export default function UsersPage() {
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    if (editingUser) {
+        setFormState({
+            name: editingUser.name || '',
+            email: editingUser.email || '',
+            officeId: editingUser.officeId || '',
+            roleId: editingUser.roleId || '',
+            password: '',
+        });
+    }
+  }, [editingUser]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -126,10 +137,6 @@ export default function UsersPage() {
     if (isNewUser && !passwordToSend) {
         passwordToSend = generatePassword();
     }
-    if (isNewUser && !passwordToSend) {
-        toast({ title: "Error", description: "Password is required for a new user.", variant: "destructive" });
-        return;
-    }
 
     const userData = {
         id: editingUser?.id,
@@ -144,45 +151,27 @@ export default function UsersPage() {
     await saveUser(userData);
     await mutateUsers();
     
-    toast({ title: "Success", description: `User ${editingUser ? 'updated' : 'created'}.` });
+    toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
     
     if (isNewUser && passwordToSend) {
         setPasswordDialog({ open: true, password: passwordToSend });
     }
     
-    setIsDialogOpen(false);
+    setEditingUser(null);
   };
 
   const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
-    setFormState({
-        name: user.name,
-        email: user.email,
-        officeId: user.officeId,
-        roleId: user.roleId,
-        password: '',
-    });
-    setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
-    setEditingUser(null);
-    setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
-    setIsDialogOpen(true);
-  }
-
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-        setEditingUser(null);
-    }
-    setIsDialogOpen(open);
+    setEditingUser({} as UserWithRelations);
   }
   
   const handleResetPassword = async (userId: string) => {
-    const newPassword = generatePassword();
-    const result = await resetUserPassword(userId, newPassword);
-    if(result.success) {
-      setPasswordDialog({ open: true, password: newPassword });
+    const result = await resetUserPassword(userId);
+    if(result.success && result.newPassword) {
+      setPasswordDialog({ open: true, password: result.newPassword });
       toast({ title: "Success", description: "Password has been reset." });
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -342,10 +331,10 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+    <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
         <DialogContent>
         <DialogHeader>
-            <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+            <DialogTitle>{editingUser?.id ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSave}>
             <div className="grid gap-4 py-4">
@@ -357,7 +346,7 @@ export default function UsersPage() {
                 <Label htmlFor="email" className="text-right">Email</Label>
                 <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} className="col-span-3" />
             </div>
-            {editingUser && (
+            {editingUser?.id && (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="password" className="text-right">Password</Label>
                     <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} className="col-span-3" />
