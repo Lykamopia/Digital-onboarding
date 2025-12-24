@@ -27,7 +27,7 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
       } finally {
         setLoading(false);
       }
-    }, []);
+    }, [fetcher]);
 
     useEffect(() => {
       fetchData();
@@ -41,4 +41,4 @@ export const useDivisions = createDataHook(getDivisions);
 export const useDepartments = createDataHook(getDepartments);
 export const useOffices = createDataHook(getOffices as () => Promise<(Office & { department: { division: { name: string; }; }; })[]>);
 export const useRoles = createDataHook(getRoles);
-export const useUsers = createDataHook(getUsers as () => Promise<(User & { office: Office & { department: { name: string; division: { name: string; }; }; }; role: Role; })[]>);
+export const useUsers = createDataHook(getUsers);

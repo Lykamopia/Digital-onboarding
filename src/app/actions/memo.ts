@@ -344,7 +344,20 @@ export async function archiveMemo(memoId: string, archive: boolean) {
 
 
 export async function getUsers() {
-    return await prisma.user.findMany();
+    return await prisma.user.findMany({
+        include: {
+            role: true,
+            office: {
+                include: {
+                    department: {
+                        include: {
+                            division: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
 }
 
 export async function getDivisions() {
