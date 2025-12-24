@@ -69,18 +69,18 @@ export default function RoleManagementPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
   useEffect(() => {
-    if (editingRole) {
+    if (isDialogOpen && editingRole) {
       setRoleName(editingRole.name || "");
       setSelectedPermissions(editingRole.permissions || []);
     } else {
       setRoleName("");
       setSelectedPermissions([]);
     }
-  }, [editingRole]);
+  }, [isDialogOpen, editingRole]);
 
 
   const handleAddNew = () => {
-    setEditingRole({});
+    setEditingRole(null);
     setIsDialogOpen(true);
   };
 

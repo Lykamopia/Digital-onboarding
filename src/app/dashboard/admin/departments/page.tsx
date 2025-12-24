@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -55,6 +55,14 @@ export default function DepartmentsPage() {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (isDialogOpen && editingDepartment) {
+      setSelectedDivisionId(editingDepartment.divisionId);
+    } else if (isDialogOpen && !editingDepartment) {
+      setSelectedDivisionId(undefined);
+    }
+  }, [isDialogOpen, editingDepartment]);
   
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -85,13 +93,11 @@ export default function DepartmentsPage() {
 
   const handleEdit = (department: Department) => {
     setEditingDepartment(department);
-    setSelectedDivisionId(department.divisionId)
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingDepartment(null);
-    setSelectedDivisionId(undefined);
     setIsDialogOpen(true);
   }
   

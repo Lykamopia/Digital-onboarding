@@ -59,12 +59,12 @@ export default function OfficesPage() {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (editingOffice) {
+    if (isDialogOpen && editingOffice?.departmentId) {
       setSelectedDepartmentId(editingOffice.departmentId);
     } else {
       setSelectedDepartmentId(undefined);
     }
-  }, [editingOffice]);
+  }, [isDialogOpen, editingOffice]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -99,7 +99,7 @@ export default function OfficesPage() {
   };
 
   const handleAddNew = () => {
-    setEditingOffice({});
+    setEditingOffice(null);
     setIsDialogOpen(true);
   };
   

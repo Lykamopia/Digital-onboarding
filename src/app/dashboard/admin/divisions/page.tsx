@@ -85,7 +85,7 @@ export default function DivisionsPage() {
   }
 
   const handleAddNew = () => {
-    setEditingDivision({});
+    setEditingDivision(null);
     setIsDialogOpen(true);
   }
 

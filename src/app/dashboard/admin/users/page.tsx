@@ -124,6 +124,8 @@ export default function UsersPage() {
             roleId: editingUser.roleId || '',
             password: '',
         });
+    } else {
+        setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
     }
   }, [editingUser]);
 
@@ -179,7 +181,7 @@ export default function UsersPage() {
   }
 
   const handleAddNew = () => {
-    setEditingUser({} as UserWithRelations);
+    setEditingUser(null);
     setIsDialogOpen(true);
   }
   
