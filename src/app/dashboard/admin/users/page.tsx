@@ -21,6 +21,17 @@ import {
   DialogClose,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
@@ -295,6 +306,7 @@ export default function UsersPage() {
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
+                          <AlertDialog>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon">
@@ -303,15 +315,32 @@ export default function UsersPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <DropdownMenuItem onSelect={() => handleEdit(user)}>Edit User</DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => handleResetPassword(user.id)}>
-                                        <KeyRound className="mr-2"/>Reset Password
-                                    </DropdownMenuItem>
+                                     <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <KeyRound className="mr-2"/>Reset Password
+                                        </DropdownMenuItem>
+                                     </AlertDialogTrigger>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onSelect={() => handleStatusChange(user)}>
                                         {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                             <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                    This will reset the password for {user.name}. A new temporary password will be generated. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleResetPassword(user.id)}>
+                                    Reset Password
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                           </AlertDialog>
                         </TableCell>
                     </TableRow>
                 ))}
