@@ -12,6 +12,7 @@ import {
   Printer,
   Expand,
   Undo2,
+  FileSearch,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -191,10 +192,11 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     router.push(`/dashboard/new?replyTo=${memo.id}`);
   }
 
-  if (!memo || !loggedInUser) {
+  if (!memo) {
     return (
         <div className="h-full p-2">
           <EmptyState 
+            icon={<FileSearch className="h-16 w-16 text-muted-foreground/50" />}
             title="Select a memo"
             description="Select a memo from the list to read its content."
           />
@@ -222,12 +224,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     );
   }
   
-  const isCC = memo.cc.some(u => u.id === loggedInUser.id);
-  const isRecipient = memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
-  const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
+  const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
+  const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+  const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
   const canForward = isRecipient && !isCC;
-  const isArchived = memo.archivedBy?.some(u => u.id === loggedInUser.id);
+  const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
   const MemoContent = () => (
     <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card' : ''}`}>

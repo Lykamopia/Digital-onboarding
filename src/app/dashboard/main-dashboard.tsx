@@ -63,17 +63,12 @@ function DashboardContent({ tab }: { tab: string }) {
       const data = await getDashboardData(tab, search, status, dateRangeParams);
       setMemos(data as MemoWithActivity[]);
       
-      // Select first memo if none is selected from URL, but only if the list is not empty
-      if (data.length > 0 && !data.some(m => m.id === memoIdFromUrl)) {
-        if (data[0].status !== 'draft') {
+      // If the memo from the URL is not in the new list (e.g., due to filtering),
+      // clear the selection.
+      if (memoIdFromUrl && !data.some(m => m.id === memoIdFromUrl)) {
           const newParams = new URLSearchParams(searchParams.toString());
-          newParams.set('id', data[0].id);
+          newParams.delete('id');
           router.push(`${pathname}?${newParams.toString()}`);
-        } else {
-          setSelectedMemoId(null)
-        }
-      } else if (data.length === 0) {
-        setSelectedMemoId(null)
       }
 
     } catch (error) {
@@ -103,6 +98,8 @@ function DashboardContent({ tab }: { tab: string }) {
             ));
         });
       }
+    } else {
+        setSelectedMemoId(null);
     }
   }, [memoIdFromUrl, memos, user]);
 
