@@ -1,7 +1,8 @@
+
 'use client';
 
-import { FileSearch } from 'lucide-react';
 import React from 'react';
+import { MemoEmptyIllustration } from './memo-empty-illustration';
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -11,7 +12,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon = <FileSearch className="h-16 w-16 text-muted-foreground/50" />,
+  icon = <MemoEmptyIllustration />,
   title,
   description,
   action,
