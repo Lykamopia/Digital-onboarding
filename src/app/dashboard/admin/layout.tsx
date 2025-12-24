@@ -36,6 +36,10 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     if (!user) return [];
     return navItems.filter(item => user.role.permissions.includes(item.permission as Permission))
   }, [navItems, user]);
+  
+  const activeTab = useMemo(() => {
+    return accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
+  }, [accessibleNavItems, pathname]);
 
   useEffect(() => {
     if (!user) return;
@@ -47,9 +51,6 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       router.replace('/dashboard');
     }
   }, [pathname, router, accessibleNavItems, user]);
-
-
-  const activeTab = accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
 
   const handleTabChange = (value: string) => {
     router.push(value);
