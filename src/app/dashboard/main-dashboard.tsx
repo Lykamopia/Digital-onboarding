@@ -61,24 +61,26 @@ function DashboardContent({ tab }: { tab: string }) {
     if (memo) {
       // Optimistic UI update for 'read' status
       if (user && memo.status !== 'draft' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+          // Fire-and-forget the server action, but update the local state optimistically
+          markAsRead(id);
           const updatedMemos = memos.map(m => 
               m.id === id 
               ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed', actor: user, details: '', timestamp: new Date().toISOString() }] }
               : m
           );
           setMemos(updatedMemos);
-          // Fire-and-forget the server action
-          markAsRead(id);
+           setSelectedMemo({ ...memo, activity: [...memo.activity, { id: 'temp-view', actorId: user.id, action: 'viewed', actor: user, details: '', timestamp: new Date().toISOString() }] });
+      } else {
+        setSelectedMemo(memo);
       }
-      setSelectedMemo(memo);
     }
     
     // Simulate loading time for memo display for better UX
-    setTimeout(() => setLoadingMemo(false), 200);
+    setTimeout(() => setLoadingMemo(false), 50);
   }, [memos, user, selectedMemo?.id, router, pathname, searchParams]);
 
-  const loadMemos = useCallback(async () => {
-    if (!user) return; 
+  const loadMemos = useCallback(async (forceReload = false) => {
+    if (!user && !forceReload) return;
     setLoading(true);
     const dateRangeParams = {
         from: dateRange?.from?.toISOString(),
@@ -87,13 +89,12 @@ function DashboardContent({ tab }: { tab: string }) {
     try {
       const data = await getDashboardData(tab, search, status, dateRangeParams);
       setMemos(data as MemoWithActivity[]);
-      
-      // After loading memos, if there's an ID in the URL, select it.
+
       if (memoIdFromUrl) {
           const memoToSelect = data.find(m => m.id === memoIdFromUrl);
            if (memoToSelect) {
               setSelectedMemo(memoToSelect);
-              if (memoToSelect && user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+              if (user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
                   markAsRead(memoToSelect.id);
               }
           } else {
@@ -103,7 +104,8 @@ function DashboardContent({ tab }: { tab: string }) {
               newParams.delete('id');
               router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
           }
-      } else if (!selectedMemo) { // only deselect if nothing is selected
+      } else {
+          // If no memoId in URL, ensure nothing is selected
           setSelectedMemo(null);
       }
 
@@ -113,23 +115,27 @@ function DashboardContent({ tab }: { tab: string }) {
     } finally {
       setLoading(false);
     }
-  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedMemo]);
+  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams]);
 
   useEffect(() => {
     if (user) {
       loadMemos();
     }
-  }, [user, tab, search, status, dateRange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, tab, search, status, dateRange]); // This effect ONLY runs when filters change
 
   useEffect(() => {
+      // This effect syncs the selected memo with the URL id, but does NOT reload the list.
       if (memoIdFromUrl) {
           const memo = memos.find(m => m.id === memoIdFromUrl);
-          if (memo) {
+          if (memo && memo.id !== selectedMemo?.id) {
               setSelectedMemo(memo);
           }
-      } else {
+      } else if (selectedMemo) {
+          // if there is a selected memo but no id in url, deselect it.
           setSelectedMemo(null);
       }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memoIdFromUrl, memos]);
   
   const getEmptyState = () => {
@@ -202,12 +208,12 @@ function DashboardContent({ tab }: { tab: string }) {
         ) : (
             <MemoDisplay 
                 memo={selectedMemo} 
-                onUpdate={loadMemos} 
+                onUpdate={() => loadMemos(true)}
             />
         )}
       </div>
       <div className="hidden print:block col-span-2">
-         <MemoDisplay memo={selectedMemo} onUpdate={loadMemos} />
+         <MemoDisplay memo={selectedMemo} onUpdate={() => loadMemos(true)} />
       </div>
     </div>
   )

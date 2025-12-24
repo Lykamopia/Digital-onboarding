@@ -168,6 +168,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
         title: "Memo Acknowledged",
         description: "You have acknowledged receipt of this memo."
     });
+    onUpdate();
   }
 
   const handleArchive = async () => {
@@ -177,6 +178,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
         title: "Memo Archived",
         description: "The memo has been moved to your archive."
     });
+    onUpdate();
   }
 
   const handleUnarchive = async () => {
@@ -186,6 +188,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
         title: "Memo Unarchived",
         description: "The memo has been restored from your archive."
     });
+    onUpdate();
   }
 
   const handleReply = () => {
