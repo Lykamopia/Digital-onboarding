@@ -16,10 +16,14 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // The fetcher function is passed from the outside, but it can be unstable
+    // if it's re-created on every render. To fix this, we memoize it.
+    const memoizedFetcher = useCallback(fetcher, []);
+
     const fetchData = useCallback(async () => {
       setLoading(true);
       try {
-        const result = await fetcher();
+        const result = await memoizedFetcher();
         setData(result);
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -27,7 +31,7 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
       } finally {
         setLoading(false);
       }
-    }, [fetcher]);
+    }, [memoizedFetcher]);
 
     useEffect(() => {
       fetchData();
