@@ -72,11 +72,9 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         return <Skeleton className="h-[200px] w-full" />;
     }
 
-    const gridColsClass = `grid-cols-${accessibleNavItems.length > 0 ? accessibleNavItems.length : 1}`;
-
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className={cn("grid w-full", gridColsClass)}>
+            <TabsList className="w-full h-auto flex-wrap justify-start">
                 {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
