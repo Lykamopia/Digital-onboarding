@@ -16,6 +16,7 @@ const navItemsConfig = [
   { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices' },
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
   { value: '/dashboard/admin/roles', label: 'Role Management', permission: 'manage_roles' },
+  { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
 ];
 
 function useAdminNavigation(user: (User & { role: { permissions: Permission[] } }) | null) {
@@ -71,7 +72,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         return <Skeleton className="h-[200px] w-full" />;
     }
 
-    const gridColsClass = `grid-cols-${accessibleNavItems.length}`;
+    const gridColsClass = `grid-cols-${accessibleNavItems.length > 0 ? accessibleNavItems.length : 1}`;
 
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">

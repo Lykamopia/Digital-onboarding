@@ -57,14 +57,24 @@ export async function getDashboardData(tab: string, query: string, status: strin
     }
 
     if (tab === 'inbox' && status && status !== 'all') {
-        if (status === 'read') {
-            where.AND.push({ activity: { some: { action: 'viewed', actorId: user.id } } });
-        } else if (status === 'unread') {
-            where.AND.push({ NOT: { activity: { some: { action: 'viewed', actorId: user.id } } } });
-        } else if (status === 'acknowledged') {
-            where.AND.push({ acknowledgedBy: { some: { id: user.id } } });
-        }
+      const userHasAcknowledged = { acknowledgedBy: { some: { id: user.id } } };
+      const userHasViewed = { activity: { some: { action: 'viewed', actorId: user.id } } };
+      
+      if (status === 'read') {
+          where.AND.push({
+              OR: [userHasViewed, userHasAcknowledged]
+          });
+      } else if (status === 'unread') {
+          where.AND.push({
+              NOT: {
+                  OR: [userHasViewed, userHasAcknowledged]
+              }
+          });
+      } else if (status === 'acknowledged') {
+          where.AND.push(userHasAcknowledged);
+      }
     }
+
 
     if (dateRange?.from) {
         where.AND.push({ createdAt: { gte: new Date(dateRange.from) } });
@@ -227,39 +237,54 @@ export async function sendMemo(formData: FormData) {
 }
 
 export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }, draftId?: string | null) {
-  const user = await getLoggedInUser();
+    const user = await getLoggedInUser();
 
-  const payload = {
-    fromId: user.id,
-    subject: data.subject || '',
-    body: data.body || '',
-    to: { connect: data.to.map(u => ({ id: u.id })) },
-    cc: { connect: data.cc.map(u => ({ id: u.id })) },
-    attachments: {
-        deleteMany: {},
+    const attachmentsData = {
         create: (data.attachments || []).map((att: any) => ({
             name: att.name,
             type: att.type,
             size: att.size,
             url: att.url,
         })),
-    },
-    status: 'draft' as const,
-    memo_reference_number: 'DRAFT',
-    replyToId: data.replyTo,
-  };
+    };
 
-  if (draftId) {
-    const updatedDraft = await prisma.memo.update({
-      where: { id: draftId },
-      data: payload,
-    });
-    return updatedDraft;
-  } else {
-    const newDraft = await prisma.memo.create({ data: payload });
-    return newDraft;
-  }
+    if (draftId) {
+        const payload = {
+            fromId: user.id,
+            subject: data.subject || '',
+            body: data.body || '',
+            to: { set: data.to.map(u => ({ id: u.id })) },
+            cc: { set: data.cc.map(u => ({ id: u.id })) },
+            attachments: {
+                deleteMany: {}, // Clear existing attachments
+                ...attachmentsData
+            },
+            status: 'draft' as const,
+            memo_reference_number: 'DRAFT',
+            replyToId: data.replyTo,
+        };
+        const updatedDraft = await prisma.memo.update({
+            where: { id: draftId },
+            data: payload,
+        });
+        return updatedDraft;
+    } else {
+        const payload = {
+            fromId: user.id,
+            subject: data.subject || '',
+            body: data.body || '',
+            to: { connect: data.to.map(u => ({ id: u.id })) },
+            cc: { connect: data.cc.map(u => ({ id: u.id })) },
+            attachments: attachmentsData,
+            status: 'draft' as const,
+            memo_reference_number: 'DRAFT',
+            replyToId: data.replyTo,
+        };
+        const newDraft = await prisma.memo.create({ data: payload });
+        return newDraft;
+    }
 }
+
 
 export async function deleteDraft(draftId: string) {
     await prisma.memo.delete({ where: { id: draftId }});
@@ -360,6 +385,21 @@ export async function getUsers() {
     });
 }
 
+export async function getAllMemosForAdmin() {
+    return await prisma.memo.findMany({
+        include: {
+            from: true,
+            to: true,
+            cc: true,
+            archivedBy: true,
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+}
+
+
 export async function getDivisions() {
     return await prisma.division.findMany();
 }
@@ -459,3 +499,46 @@ export async function updateUserProfile(userId: string, data: { name: string, em
     revalidatePath('/dashboard/profile');
     return { success: true };
 }
+
+// SIMULATED SETTINGS - in a real app, this would be a separate `Settings` table
+let archiveSettings = { autoArchiveDays: 90 };
+export async function getArchiveSettings() {
+    // Simulate fetching from DB
+    return archiveSettings;
+}
+export async function saveArchiveSettings(days: number) {
+    // Simulate saving to DB
+    archiveSettings.autoArchiveDays = days;
+    // Here you might trigger a background job to enforce the new rule
+    console.log(`Auto-archive period set to ${days} days.`);
+    revalidatePath('/dashboard/admin/archive');
+    return { success: true };
+}
+// END SIMULATED SETTINGS
+
+export async function performBulkArchiveActions(action: 'archive' | 'restore' | 'delete', memoIds: string[]) {
+    if (memoIds.length === 0) return { error: 'No memos selected.' };
+
+    if (action === 'delete') {
+        await prisma.memo.deleteMany({
+            where: { id: { in: memoIds } },
+        });
+    } else {
+        const user = await getLoggedInUser();
+        const connectOrDisconnect = action === 'archive' ? 'connect' : 'disconnect';
+        
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                archivedMemos: {
+                    [connectOrDisconnect]: memoIds.map(id => ({ id })),
+                }
+            }
+        });
+    }
+    
+    revalidatePath('/dashboard/admin/archive');
+    revalidatePath('/dashboard');
+    return { success: true };
+}
+

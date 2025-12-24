@@ -11,6 +11,7 @@ export const permissions: { id: Permission, label: string, description: string }
     { id: 'manage_offices', label: 'Manage Offices', description: 'Can create, edit, and delete offices' },
     { id: 'manage_users', label: 'Manage Users', description: 'Can create, edit, and delete users' },
     { id: 'manage_roles', label: 'Manage Roles', description: 'Can create, edit, and manage roles and permissions' },
+    { id: 'manage_archive', label: 'Manage Archive', description: 'Can manage archive settings and permanently delete memos' },
 ];
 
 export const formatTimestamp = (timestamp: string, relative: boolean = true) => {
