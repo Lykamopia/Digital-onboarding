@@ -49,7 +49,7 @@ function DepartmentsLoadingSkeleton() {
 
 export default function DepartmentsPage() {
   const { departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
-  const { divisions, loading: loadingDivs } = useDivisions();
+  const { data: divisions, loading: loadingDivs } = useDivisions();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
