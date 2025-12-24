@@ -71,82 +71,83 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         router.push(`/dashboard/new?replyTo=${memoId}`);
     }
 
-    const handleToggleRead = async (memo: MemoWithActivity) => {
+    const handleMarkAsRead = async (memo: MemoWithActivity) => {
         const wasUnread = isMemoUnread(memo);
+        if (!wasUnread) return;
         
         // Optimistic update
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
-                if (wasUnread) {
-                    // It was unread, now read - add 'viewed' activity
-                    const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed' as const, timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
-                    return { ...m, activity: [...m.activity, newActivity]};
-                } else {
-                    // It was read, now unread - remove 'viewed' activity
-                    return { ...m, activity: m.activity.filter(a => !(a.actorId === loggedInUser.id && a.action === 'viewed')) };
-                }
+                const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed' as const, timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
+                return { ...m, activity: [...m.activity, newActivity]};
             }
             return m;
         }));
 
-        toast({ title: wasUnread ? "Marked as Read" : "Marked as Unread" });
+        toast({ title: "Marked as Read" });
         await toggleMemoReadStatus(memo.id);
     }
 
-    const MemoActions = ({ memo }: { memo: MemoWithActivity }) => (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            {tab === 'inbox' && (
-                <>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleToggleRead(memo))}>
-                            {isMemoUnread(memo) ? <MailOpen /> : <Mail />}
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{isMemoUnread(memo) ? 'Mark as Read' : 'Mark as Unread'}</TooltipContent>
-                </Tooltip>
-                 <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
-                            <Reply />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Reply</TooltipContent>
-                </Tooltip>
-                </>
-            )}
-             {tab === 'sent' && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
-                            <Archive />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Archive</TooltipContent>
-                </Tooltip>
-            )}
-            {tab === 'drafts' && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
-                            <Trash2 />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
-                </Tooltip>
-            )}
-            {tab === 'archive' && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
-                            <Undo2 />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Unarchive</TooltipContent>
-                </Tooltip>
-            )}
-        </div>
-    )
+    const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
+        const memoStatus = getMemoStatus(memo);
+
+        return (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                {tab === 'inbox' && (
+                    <>
+                    {memoStatus === 'unread' && (
+                         <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
+                                    <MailOpen />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Mark as Read</TooltipContent>
+                        </Tooltip>
+                    )}
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
+                                <Reply />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Reply</TooltipContent>
+                    </Tooltip>
+                    </>
+                )}
+                 {tab === 'sent' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
+                                <Archive />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Archive</TooltipContent>
+                    </Tooltip>
+                )}
+                {tab === 'drafts' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
+                                <Trash2 />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                )}
+                {tab === 'archive' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
+                                <Undo2 />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Unarchive</TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        )
+    }
 
     return (
         <div className="flex flex-col gap-0.5 p-1">

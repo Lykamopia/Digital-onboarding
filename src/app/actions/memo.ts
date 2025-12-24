@@ -171,17 +171,8 @@ export async function toggleMemoReadStatus(memoId: string) {
 
     if (!memo) throw new Error("Memo not found");
 
-    if (memo.activity.length > 0) {
-        // It's read, so mark as unread by deleting the 'viewed' activity
-        await prisma.activity.deleteMany({
-            where: {
-                memoId: memoId,
-                actorId: user.id,
-                action: 'viewed'
-            }
-        });
-    } else {
-        // It's unread, so mark as read by creating a 'viewed' activity
+    // Only mark as read, never as unread.
+    if (memo.activity.length === 0) {
         await prisma.memo.update({
             where: { id: memoId },
             data: {

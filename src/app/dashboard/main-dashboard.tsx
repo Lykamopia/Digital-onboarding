@@ -49,35 +49,37 @@ function DashboardContent({ tab }: { tab: string }) {
   }, []);
 
   const handleSelectMemo = useCallback((id: string) => {
-    if (id === selectedMemo?.id) return;
+    const memo = memos.find(m => m.id === id);
+    if (!memo || !user) return;
 
-    setLoadingMemo(true);
+    // Optimistic UI update for 'read' status
+    if (memo.status !== 'draft' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+      // Fire-and-forget the server action, but update the local state optimistically
+      markAsRead(id);
+      
+      const newActivity = {
+        id: `temp-view-${Date.now()}`,
+        actorId: user.id,
+        action: 'viewed' as const,
+        actor: user,
+        details: '',
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedMemo = { ...memo, activity: [...memo.activity, newActivity] };
+      
+      const updatedMemos = memos.map(m => m.id === id ? updatedMemo : m);
+      
+      setMemos(updatedMemos);
+      setSelectedMemo(updatedMemo);
+    } else {
+      setSelectedMemo(memo);
+    }
 
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
     router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
-    
-    const memo = memos.find(m => m.id === id);
-    if (memo) {
-      // Optimistic UI update for 'read' status
-      if (user && memo.status !== 'draft' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
-          // Fire-and-forget the server action, but update the local state optimistically
-          markAsRead(id);
-          const updatedMemos = memos.map(m => 
-              m.id === id 
-              ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed', actor: user, details: '', timestamp: new Date().toISOString() }] }
-              : m
-          );
-          setMemos(updatedMemos);
-           setSelectedMemo({ ...memo, activity: [...memo.activity, { id: 'temp-view', actorId: user.id, action: 'viewed', actor: user, details: '', timestamp: new Date().toISOString() }] });
-      } else {
-        setSelectedMemo(memo);
-      }
-    }
-    
-    // Simulate loading time for memo display for better UX
-    setTimeout(() => setLoadingMemo(false), 50);
-  }, [memos, user, selectedMemo?.id, router, pathname, searchParams]);
+  }, [memos, user, router, pathname, searchParams]);
 
   const loadMemos = useCallback(async (forceReload = false) => {
     if (!user && !forceReload) return;
