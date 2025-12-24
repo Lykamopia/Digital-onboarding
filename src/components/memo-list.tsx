@@ -66,29 +66,29 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
     }
 
     const handleToggleRead = async (memo: MemoWithActivity) => {
-        const isNowUnread = !isMemoUnread(memo);
+        const wasUnread = isMemoUnread(memo);
         
         // Optimistic update
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
-                if (isNowUnread) {
+                if (wasUnread) {
+                    // It was unread, now read - add 'viewed' activity
+                    const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed' as const, timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
+                    return { ...m, activity: [...m.activity, newActivity]};
+                } else {
                     // It was read, now unread - remove 'viewed' activity
                     return { ...m, activity: m.activity.filter(a => !(a.actorId === loggedInUser.id && a.action === 'viewed')) };
-                } else {
-                    // It was unread, now read - add 'viewed' activity
-                    const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed', timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
-                    return { ...m, activity: [...m.activity, newActivity]};
                 }
             }
             return m;
         }));
 
-        toast({ title: isNowUnread ? "Marked as Unread" : "Marked as Read" });
+        toast({ title: wasUnread ? "Marked as Read" : "Marked as Unread" });
         await toggleMemoReadStatus(memo.id);
     }
 
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-full border bg-card p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-full border bg-card/70 backdrop-blur-sm p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleActionClick(e, () => handleToggleRead(memo))}>
