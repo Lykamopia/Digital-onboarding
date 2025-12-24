@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, use, Suspense } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,16 +14,27 @@ import { Camera, Briefcase, Building, Globe } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function ProfilePageContent({ userPromise }: { userPromise: Promise<User> }) {
-  const initialUser = use(userPromise);
-  const [user, setUser] = useState<User>(initialUser);
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
-  const [avatar, setAvatar] = useState(user.avatar);
+export default function ProfilePage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [avatar, setAvatar] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    async function loadUser() {
+        const initialUser = await getLoggedInUser();
+        setUser(initialUser);
+        setName(initialUser.name);
+        setEmail(initialUser.email);
+        setAvatar(initialUser.avatar);
+    }
+    loadUser();
+  }, []);
+
   const handleSave = async () => {
+    if (!user) return;
     const result = await updateUserProfile(user.id, { name, email, avatar });
     if (result.success) {
       toast({
@@ -60,9 +71,19 @@ function ProfilePageContent({ userPromise }: { userPromise: Promise<User> }) {
     }
   };
   
+  if (!user) {
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold">Account Settings</h1>
+                <p className="text-muted-foreground">Manage your profile and account settings.</p>
+            </div>
+            <Skeleton className="h-[500px] w-full" />
+        </div>
+    );
+  }
+  
   const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
-
-  if (!user) return <Skeleton className="h-[400px] w-full" />
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -159,13 +180,4 @@ function ProfilePageContent({ userPromise }: { userPromise: Promise<User> }) {
         </Card>
     </div>
   );
-}
-
-export default function ProfilePage() {
-    const userPromise = getLoggedInUser();
-    return (
-        <Suspense fallback={<Skeleton className="h-[500px] w-full max-w-4xl mx-auto" />}>
-            <ProfilePageContent userPromise={userPromise} />
-        </Suspense>
-    )
 }
