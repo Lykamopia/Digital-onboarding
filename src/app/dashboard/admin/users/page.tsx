@@ -148,7 +148,7 @@ export default function UsersPage() {
     const isNewUser = !editingUser?.id;
     let passwordToSend = formState.password;
 
-    if (isNewUser && !passwordToSend) {
+    if (isNewUser) {
         passwordToSend = generatePassword();
     }
 
@@ -185,10 +185,10 @@ export default function UsersPage() {
   }
 
   const handleDialogChange = (open: boolean) => {
-    setIsDialogOpen(open);
     if (!open) {
-        setEditingUser(null);
+      setEditingUser(null);
     }
+    setIsDialogOpen(open);
   }
   
   const handleResetPassword = async (userId: string) => {
@@ -257,7 +257,7 @@ export default function UsersPage() {
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={handleExport}><FileDown className="mr-2" /> Export Selected</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => handleBulkStatusChange('active')}><ShieldCheck className="mr-2" /> Activate Selected</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
+                <DropdownMenuItem onSelect={()={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={handleAddNew}><UserPlus className="mr-2"/>Add User</Button>
@@ -373,55 +373,56 @@ export default function UsersPage() {
     </Card>
 
     <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent>
+      <DialogContent>
         <DialogHeader>
-            <DialogTitle>{editingUser?.id ? "Edit User" : "Add New User"}</DialogTitle>
+          <DialogTitle>{editingUser?.id ? "Edit User" : "Add New User"}</DialogTitle>
+          <DialogDescription>
+            {editingUser?.id ? "Update the details for this user." : "A secure password will be generated automatically."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSave}>
-            <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} className="col-span-3" />
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
-                <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
             </div>
-            {editingUser?.id ? (
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="password" className="text-right">Password</Label>
-                    <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} className="col-span-3" />
-                </div>
-            ) : null}
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="officeId" className="text-right">Office</Label>
-                <Combobox
-                    options={officeOptions}
-                    value={formState.officeId}
-                    onChange={v => handleFormChange('officeId', v)}
-                    placeholder="Select an office"
-                    searchPlaceholder="Search offices..."
-                    className="col-span-3"
-                />
+            {editingUser?.id && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="officeId">Office</Label>
+              <Combobox
+                options={officeOptions}
+                value={formState.officeId}
+                onChange={v => handleFormChange('officeId', v)}
+                placeholder="Select an office"
+                searchPlaceholder="Search offices..."
+              />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="roleId" className="text-right">Role</Label>
-                <Combobox
-                    options={roleOptions}
-                    value={formState.roleId}
-                    onChange={v => handleFormChange('roleId', v)}
-                    placeholder="Select a role"
-                    searchPlaceholder="Search roles..."
-                    className="col-span-3"
-                />
+            <div className="space-y-2">
+              <Label htmlFor="roleId">Role</Label>
+              <Combobox
+                options={roleOptions}
+                value={formState.roleId}
+                onChange={v => handleFormChange('roleId', v)}
+                placeholder="Select a role"
+                searchPlaceholder="Search roles..."
+              />
             </div>
-            </div>
-            <DialogFooter>
+          </div>
+          <DialogFooter>
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
             <Button type="submit">Save</Button>
-            </DialogFooter>
+          </DialogFooter>
         </form>
-        </DialogContent>
+      </DialogContent>
     </Dialog>
     
     <Dialog open={passwordDialog.open} onOpenChange={(open) => setPasswordDialog(prev => ({...prev, open}))}>
@@ -453,3 +454,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+    
