@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, Suspense } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -27,15 +27,28 @@ import type { Office, Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function OfficesPageContent({ officesPromise, departmentsPromise }: { officesPromise: Promise<(Office & { department: { division: { name: string } } })[]>, departmentsPromise: Promise<Department[]> }) {
-  const initialOffices = use(officesPromise);
-  const departments = use(departmentsPromise);
+type OfficeWithRelations = Office & { department: { division: { name: string } } };
+
+export default function OfficesPage() {
+  const [offices, setOffices] = useState<OfficeWithRelations[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [offices, setOffices] = useState(initialOffices);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [officesData, departmentsData] = await Promise.all([getOffices(), getDepartments()]);
+      setOffices(officesData);
+      setDepartments(departmentsData);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -88,6 +101,10 @@ function OfficesPageContent({ officesPromise, departmentsPromise }: { officesPro
   }
 
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
+
+  if (loading) {
+    return <Skeleton className="h-[400px] w-full" />;
+  }
 
   return (
     <Card>
@@ -164,14 +181,4 @@ function OfficesPageContent({ officesPromise, departmentsPromise }: { officesPro
       </CardContent>
     </Card>
   );
-}
-
-export default function OfficesPage() {
-    const officesPromise = getOffices();
-    const departmentsPromise = getDepartments();
-    return (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
-            <OfficesPageContent officesPromise={officesPromise} departmentsPromise={departmentsPromise} />
-        </Suspense>
-    )
 }

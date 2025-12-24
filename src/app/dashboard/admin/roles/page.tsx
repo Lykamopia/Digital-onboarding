@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, Suspense } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -41,16 +41,27 @@ import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
-function RoleManagementPageContent({ rolesPromise, usersPromise }: { rolesPromise: Promise<Role[]>, usersPromise: Promise<User[]> }) {
-  const initialRoles = use(rolesPromise);
-  const allUsers = use(usersPromise);
+export default function RoleManagementPage() {
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [roles, setRoles] = useState<Role[]>(initialRoles);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [rolesData, usersData] = await Promise.all([getRoles(), getUsers()]);
+      setRoles(rolesData);
+      setAllUsers(usersData);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
   const handleAddNew = () => {
     setEditingRole(null);
@@ -119,6 +130,10 @@ function RoleManagementPageContent({ rolesPromise, usersPromise }: { rolesPromis
 
   const usersInRole = (roleId: string) => {
     return allUsers.filter(user => user.roleId === roleId).length;
+  }
+
+  if (loading) {
+    return <Skeleton className="h-[400px] w-full" />;
   }
 
   return (
@@ -228,16 +243,4 @@ function RoleManagementPageContent({ rolesPromise, usersPromise }: { rolesPromis
       </CardContent>
     </Card>
   );
-}
-
-
-export default function RoleManagementPage() {
-    const rolesPromise = getRoles();
-    const usersPromise = getUsers();
-
-    return (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
-            <RoleManagementPageContent rolesPromise={rolesPromise} usersPromise={usersPromise} />
-        </Suspense>
-    )
 }

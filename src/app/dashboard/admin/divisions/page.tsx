@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, Suspense } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -26,13 +26,23 @@ import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function DivisionsPageContent({ promise }: { promise: Promise<Division[]> }) {
-  const initialDivisions = use(promise);
+export default function DivisionsPage() {
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  const [divisions, setDivisions] = useState<Division[]>(initialDivisions);
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
+
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      setLoading(true);
+      const data = await getDivisions();
+      setDivisions(data);
+      setLoading(false);
+    }
+    fetchDivisions();
+  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,7 +63,6 @@ function DivisionsPageContent({ promise }: { promise: Promise<Division[]> }) {
 
     await saveDivision(divisionData);
     
-    // After saving, you might want to re-fetch the data to show the latest state.
     const updatedDivisions = await getDivisions();
     setDivisions(updatedDivisions);
 
@@ -71,6 +80,10 @@ function DivisionsPageContent({ promise }: { promise: Promise<Division[]> }) {
   const handleAddNew = () => {
     setEditingDivision(null);
     setIsDialogOpen(true);
+  }
+
+  if (loading) {
+    return <Skeleton className="h-[400px] w-full" />;
   }
 
   return (
@@ -128,13 +141,4 @@ function DivisionsPageContent({ promise }: { promise: Promise<Division[]> }) {
       </CardContent>
     </Card>
   );
-}
-
-export default function DivisionsPage() {
-    const promise = getDivisions();
-    return (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
-            <DivisionsPageContent promise={promise} />
-        </Suspense>
-    )
 }

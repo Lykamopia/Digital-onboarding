@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Card,
@@ -39,14 +39,15 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!user) return;
-    if (pathname === '/dashboard/admin' && accessibleNavItems.length > 0) {
+    const currentTabExists = accessibleNavItems.some(item => pathname.startsWith(item.value));
+
+    if (accessibleNavItems.length > 0 && !currentTabExists) {
       router.replace(accessibleNavItems[0].value);
-    } else if (accessibleNavItems.length > 0 && !accessibleNavItems.some(item => pathname.startsWith(item.value))) {
-       router.replace(accessibleNavItems[0].value);
-    } else if (accessibleNavItems.length === 0) {
-        router.replace('/dashboard');
+    } else if (accessibleNavItems.length === 0 && pathname.startsWith('/dashboard/admin')) {
+      router.replace('/dashboard');
     }
   }, [pathname, router, accessibleNavItems, user]);
+
 
   const activeTab = accessibleNavItems.find(item => pathname.startsWith(item.value))?.value || (accessibleNavItems.length > 0 ? accessibleNavItems[0].value : "");
 
@@ -82,10 +83,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                 </TabsTrigger>
              ))}
           </TabsList>
-          <TabsContent value={pathname} className="mt-4">
-            <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+          <TabsContent value={activeTab} className="mt-4">
               {children}
-            </Suspense>
           </TabsContent>
         </Tabs>
       </CardContent>

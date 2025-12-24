@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, Suspense } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -39,17 +39,33 @@ type UserWithRelations = User & {
     role: Role
 };
 
-function UsersPageContent({ usersPromise, officesPromise, rolesPromise }: { usersPromise: Promise<UserWithRelations[]>, officesPromise: Promise<Office[]>, rolesPromise: Promise<Role[]> }) {
-  const initialUsers = use(usersPromise);
-  const offices = use(officesPromise);
-  const roles = use(rolesPromise);
+export default function UsersPage() {
+  const [users, setUsers] = useState<UserWithRelations[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [users, setUsers] = useState(initialUsers);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [usersData, officesData, rolesData] = await Promise.all([
+        getUsers() as Promise<UserWithRelations[]>, 
+        getOffices(), 
+        getRoles()
+      ]);
+      setUsers(usersData);
+      setOffices(officesData);
+      setRoles(rolesData);
+      setLoading(false);
+    }
+    fetchData();
+  }, [])
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -113,6 +129,10 @@ function UsersPageContent({ usersPromise, officesPromise, rolesPromise }: { user
   }));
 
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
+
+  if (loading) {
+    return <Skeleton className="h-[400px] w-full" />;
+  }
 
   return (
     <Card>
@@ -209,18 +229,4 @@ function UsersPageContent({ usersPromise, officesPromise, rolesPromise }: { user
       </CardContent>
     </Card>
   );
-}
-
-export default function UsersPage() {
-    // This is not ideal, Prisma doesn't make it easy to type nested includes.
-    // A better approach in a real app would be to create a specific query for this page.
-    const usersPromise = getUsers() as Promise<UserWithRelations[]>;
-    const officesPromise = getOffices();
-    const rolesPromise = getRoles();
-
-    return (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
-            <UsersPageContent usersPromise={usersPromise} officesPromise={officesPromise} rolesPromise={rolesPromise} />
-        </Suspense>
-    )
 }

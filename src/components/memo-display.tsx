@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatTimestamp, loggedInUser as staticUser } from '@/lib/data';
+import { formatTimestamp } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -148,10 +148,10 @@ const formatFileSize = (bytes: number) => {
 export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [loggedInUser, setLoggedInUser] = React.useState<User | null>(null);
+  const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
 
   React.useEffect(() => {
-    getLoggedInUser().then(user => setLoggedInUser(user as User));
+    getLoggedInUser().then(user => setLoggedInUser(user as any));
   }, []);
   
   const handlePrint = () => {

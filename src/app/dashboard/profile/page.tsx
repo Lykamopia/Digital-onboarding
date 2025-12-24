@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<(User & { office: { name: string, department: { name: string, division: { name: string } } } }) | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -25,7 +25,7 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadUser() {
         const initialUser = await getLoggedInUser();
-        setUser(initialUser);
+        setUser(initialUser as any);
         setName(initialUser.name);
         setEmail(initialUser.email);
         setAvatar(initialUser.avatar);
@@ -43,7 +43,7 @@ export default function ProfilePage() {
       });
       // Re-fetch user to update state
       const updatedUser = await getLoggedInUser();
-      setUser(updatedUser);
+      setUser(updatedUser as any);
       setName(updatedUser.name);
       setEmail(updatedUser.email);
       setAvatar(updatedUser.avatar);
@@ -155,21 +155,21 @@ export default function ProfilePage() {
                                     <Globe className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Division</p>
-                                        <p className="font-medium">{(user as any).office.department.division.name}</p>
+                                        <p className="font-medium">{user.office.department.division.name}</p>
                                     </div>
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <Building className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Department</p>
-                                        <p className="font-medium">{(user as any).office.department.name}</p>
+                                        <p className="font-medium">{user.office.department.name}</p>
                                     </div>
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <Briefcase className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-muted-foreground">Office</p>
-                                        <p className="font-medium">{(user as any).office.name}</p>
+                                        <p className="font-medium">{user.office.name}</p>
                                     </div>
                                 </li>
                             </ul>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, Suspense } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -27,15 +27,26 @@ import type { Department, Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function DepartmentsPageContent({ departmentsPromise, divisionsPromise }: { departmentsPromise: Promise<Department[]>, divisionsPromise: Promise<Division[]> }) {
-  const initialDepartments = use(departmentsPromise);
-  const divisions = use(divisionsPromise);
+export default function DepartmentsPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [depts, divs] = await Promise.all([getDepartments(), getDivisions()]);
+      setDepartments(depts);
+      setDivisions(divs);
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,7 +68,6 @@ function DepartmentsPageContent({ departmentsPromise, divisionsPromise }: { depa
 
     await saveDepartment(departmentData);
     
-    // Optimistically update or refetch
     const updatedDepartments = await getDepartments();
     setDepartments(updatedDepartments);
     
@@ -93,6 +103,10 @@ function DepartmentsPageContent({ departmentsPromise, divisionsPromise }: { depa
   }
 
   const divisionOptions = divisions.map(d => ({ value: d.id, label: d.name }));
+
+  if (loading) {
+    return <Skeleton className="h-[400px] w-full" />;
+  }
 
   return (
     <Card>
@@ -162,16 +176,4 @@ function DepartmentsPageContent({ departmentsPromise, divisionsPromise }: { depa
       </CardContent>
     </Card>
   );
-}
-
-
-export default function DepartmentsPage() {
-    const departmentsPromise = getDepartments();
-    const divisionsPromise = getDivisions();
-
-    return (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
-            <DepartmentsPageContent departmentsPromise={departmentsPromise} divisionsPromise={divisionsPromise} />
-        </Suspense>
-    )
 }

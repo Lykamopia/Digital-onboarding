@@ -4,7 +4,7 @@
 import Link from "next/link"
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon } from "lucide-react"
-import { Suspense, use, useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 
 import {
   SidebarProvider,
@@ -26,10 +26,9 @@ import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { getLoggedInUser } from "../actions/memo"
-import type { Permission } from "@/lib/types"
+import type { Permission, User } from "@/lib/types"
 
-function NavItems({ isMobile = false }: { isMobile?: boolean }) {
-    const user = use(getLoggedInUser());
+function NavItems({ isMobile = false, user }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     
@@ -38,14 +37,27 @@ function NavItems({ isMobile = false }: { isMobile?: boolean }) {
     const isSentActive = searchParams.get('tab') === 'sent';
     const isArchiveActive = searchParams.get('tab') === 'archive';
     
-    const navItems = useMemo(() => [
-        { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
-        { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
-        { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
-        { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
-        { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-        { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
-    ], [pathname, searchParams, user]);
+    const navItems = useMemo(() => {
+        if (!user) return [];
+        return [
+            { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
+            { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
+            { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
+            { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
+            { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
+            { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
+        ]
+    }, [pathname, searchParams, user]);
+
+    if (!user) {
+        return (
+             <div className="flex-1 px-3 space-y-2">
+                <div className="h-10" />
+                <div className="h-10" />
+                <div className="h-10" />
+            </div>
+        )
+    }
 
     if (isMobile) {
          return (
@@ -86,7 +98,7 @@ function NavItems({ isMobile = false }: { isMobile?: boolean }) {
 }
 
 
-const MobileSidebar = () => (
+const MobileSidebar = ({ user }: { user: User & { role: { permissions: Permission[] } } | null }) => (
     <Sheet>
         <SheetTrigger asChild>
             <Button size="icon" variant="outline" className="sm:hidden">
@@ -95,14 +107,12 @@ const MobileSidebar = () => (
             </Button>
         </SheetTrigger>
         <SheetContent side="left" className="sm:max-w-xs">
-            <Suspense fallback={<div className="text-lg font-medium">Loading...</div>}>
-                 <NavItems isMobile={true} />
-            </Suspense>
+             <NavItems isMobile={true} user={user} />
         </SheetContent>
     </Sheet>
 )
 
-const DesktopSidebar = () => (
+const DesktopSidebar = ({ user }: { user: User & { role: { permissions: Permission[] } } | null }) => (
     <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
             <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
@@ -111,15 +121,7 @@ const DesktopSidebar = () => (
                     <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                 </div>
             </SidebarHeader>
-            <Suspense fallback={
-                <div className="flex-1 px-3 space-y-2">
-                    <div className="h-10" />
-                    <div className="h-10" />
-                    <div className="h-10" />
-                </div>
-            }>
-                <NavItems />
-            </Suspense>
+            <NavItems user={user} />
         </SidebarContent>
     </Sidebar>
 )
@@ -129,33 +131,36 @@ function DashboardLayoutContent({
   }: {
     children: React.ReactNode
   }) {
-    const [isClient, setIsClient] = useState(false);
-    const user = use(getLoggedInUser());
+    const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
+    const [loading, setLoading] = useState(true);
     
     useEffect(() => {
-        setIsClient(true);
+        getLoggedInUser().then(userData => {
+            setUser(userData);
+            setLoading(false);
+        });
     }, []);
 
     const handleNewMemoClick = () => {
         // This functionality will be handled on the new memo page now
     }
 
-    if (!isClient || !user) {
+    if (loading) {
         return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
     }
     
     return (
         <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]`}>
-            <DesktopSidebar />
+            <DesktopSidebar user={user} />
             <div className="flex flex-col h-screen">
                 <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
                     <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
-                        <MobileSidebar />
+                        <MobileSidebar user={user} />
                         <SidebarTrigger className="hidden md:flex" />
                         <div className="w-full flex-1">
                             {/* Optional: Add a search bar here */}
                         </div>
-                        {user.role.permissions.includes('manage_memos' as Permission) && (
+                        {user?.role.permissions.includes('manage_memos' as Permission) && (
                             <Link href="/dashboard/new" onClick={handleNewMemoClick}>
                                 <Button>
                                 <FilePlus className="mr-2 h-4 w-4" />
@@ -164,7 +169,7 @@ function DashboardLayoutContent({
                             </Link>
                         )}
                          <NotificationBell />
-                        <UserNav user={user} />
+                         { user && <UserNav user={user} /> }
                     </div>
                 </header>
                 <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
