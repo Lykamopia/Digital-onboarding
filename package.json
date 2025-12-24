@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options '{\\\"module\\\":\\\"CommonJS\\\"}' prisma/seed.ts"
+    "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
