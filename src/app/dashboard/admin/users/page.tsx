@@ -127,7 +127,7 @@ export default function UsersPage() {
     } else {
         setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
     }
-  }, [editingUser]);
+  }, [editingUser, isDialogOpen]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -387,12 +387,12 @@ export default function UsersPage() {
                 <Label htmlFor="email" className="text-right">Email</Label>
                 <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} className="col-span-3" />
             </div>
-            {editingUser?.id && (
+            {editingUser?.id ? (
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="password" className="text-right">Password</Label>
                     <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} className="col-span-3" />
                 </div>
-            )}
+            ) : null}
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="officeId" className="text-right">Office</Label>
                 <Combobox
@@ -453,5 +453,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
