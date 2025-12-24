@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -194,12 +195,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   if (!memo) {
     return (
-        <div className="h-full p-2">
-          <EmptyState 
+      <div className="h-full p-2">
+        <EmptyState 
             title="Select a memo"
             description="Select a memo from the list to read its content."
           />
-        </div>
+      </div>
     );
   }
 

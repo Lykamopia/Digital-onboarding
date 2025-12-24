@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
@@ -16,6 +17,7 @@ import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardData, getLoggedInUser, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
+import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 
 function DashboardContent({ tab }: { tab: string }) {
   const router = useRouter();
@@ -46,35 +48,34 @@ function DashboardContent({ tab }: { tab: string }) {
     getLoggedInUser().then(setUser);
   }, []);
 
-  const handleSelectMemo = (id: string) => {
+  const handleSelectMemo = useCallback((id: string) => {
     if (id === selectedMemo?.id) return;
 
     setLoadingMemo(true);
-    
+
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
     router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
     
     const memo = memos.find(m => m.id === id);
     if (memo) {
-      setSelectedMemo(memo);
-
       // Optimistic UI update for 'read' status
       if (user && memo.status !== 'draft' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
-          // Update local state immediately
-          setMemos(prevMemos => prevMemos.map(m => 
+          const updatedMemos = memos.map(m => 
               m.id === id 
               ? { ...m, activity: [...m.activity, { id: 'temp-view', actorId: user.id, action: 'viewed', actor: user, details: '', timestamp: new Date().toISOString() }] }
               : m
-          ));
+          );
+          setMemos(updatedMemos);
           // Fire-and-forget the server action
           markAsRead(id);
       }
+      setSelectedMemo(memo);
     }
     
     // Simulate loading time for memo display for better UX
     setTimeout(() => setLoadingMemo(false), 200);
-  }
+  }, [memos, user, selectedMemo?.id, router, pathname, searchParams]);
 
   const loadMemos = useCallback(async () => {
     if (!user) return; 
@@ -90,25 +91,46 @@ function DashboardContent({ tab }: { tab: string }) {
       // After loading memos, if there's an ID in the URL, select it.
       if (memoIdFromUrl) {
           const memoToSelect = data.find(m => m.id === memoIdFromUrl);
-          if (memoToSelect) {
+           if (memoToSelect) {
               setSelectedMemo(memoToSelect);
+              if (memoToSelect && user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+                  markAsRead(memoToSelect.id);
+              }
           } else {
               setSelectedMemo(null);
+              // Clear the ID from URL if memo not found in the current list
+              const newParams = new URLSearchParams(searchParams.toString());
+              newParams.delete('id');
+              router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
           }
-      } else {
+      } else if (!selectedMemo) { // only deselect if nothing is selected
           setSelectedMemo(null);
       }
+
     } catch (error) {
       console.error("Failed to load memos:", error);
       setMemos([]);
     } finally {
       setLoading(false);
     }
-  }, [tab, search, status, dateRange, user, memoIdFromUrl]);
+  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedMemo]);
 
   useEffect(() => {
-    loadMemos();
-  }, [loadMemos]);
+    if (user) {
+      loadMemos();
+    }
+  }, [user, tab, search, status, dateRange]);
+
+  useEffect(() => {
+      if (memoIdFromUrl) {
+          const memo = memos.find(m => m.id === memoIdFromUrl);
+          if (memo) {
+              setSelectedMemo(memo);
+          }
+      } else {
+          setSelectedMemo(null);
+      }
+  }, [memoIdFromUrl, memos]);
   
   const getEmptyState = () => {
       if (search || status || dateRange) {

@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -54,9 +55,10 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
     }
 
     const handleArchive = async (memoId: string) => {
-        await archiveMemo(memoId, true);
+        // Optimistic update
         setMemos(prev => prev.filter(m => m.id !== memoId));
         toast({ title: "Memo Archived" });
+        await archiveMemo(memoId, true);
     }
 
     const handleReply = (memoId: string) => {
@@ -81,8 +83,8 @@ const ExpandedView = ({ memos, setMemos, selectedMemoId, onSelectMemo, loggedInU
             return m;
         }));
 
-        await toggleMemoReadStatus(memo.id);
         toast({ title: isNowUnread ? "Marked as Unread" : "Marked as Read" });
+        await toggleMemoReadStatus(memo.id);
     }
 
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => (
@@ -223,5 +225,3 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
-
-    
