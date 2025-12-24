@@ -39,6 +39,7 @@ import { EmptyState } from './empty-state';
 import { Badge } from './ui/badge';
 import { acknowledgeMemo, archiveMemo, forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
+import { MemoEmptyIllustration } from './memo-empty-illustration';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -196,7 +197,6 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
     return (
         <div className="h-full p-2">
           <EmptyState 
-            icon={<FileSearch className="h-16 w-16 text-muted-foreground/50" />}
             title="Select a memo"
             description="Select a memo from the list to read its content."
           />
@@ -236,7 +236,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
         <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
             <CardHeader className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
-                    <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
+                    <Image src="/Logo.jpeg" alt="Nib International Bank" width={300} height={100} className="object-contain" data-ai-hint="logo" />
                     <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                     </div>
@@ -405,3 +405,5 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
+
+    
