@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/logo';
-import { Loader2, LogIn, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -33,6 +33,10 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: 'admin@example.com',
+      password: 'Admin@123',
+    }
   });
 
   const onSubmit = async (data: LoginFormData) => {
@@ -89,7 +93,7 @@ export default function LoginPage() {
             <path d="m22 2-7 20-4-9-9-4Z" />
         </svg>
 
-      <Card className="w-full max-w-sm z-10 backdrop-blur-sm bg-card/60">
+      <Card className="w-full max-w-md z-10 backdrop-blur-sm bg-card/60">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
             <Logo />
