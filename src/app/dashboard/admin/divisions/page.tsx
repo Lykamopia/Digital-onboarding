@@ -47,7 +47,7 @@ function DivisionsLoadingSkeleton() {
 }
 
 export default function DivisionsPage() {
-  const { divisions, loading, mutate } = useDivisions();
+  const { data: divisions, loading, mutate } = useDivisions();
   const { toast } = useToast();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
