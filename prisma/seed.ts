@@ -1,3 +1,4 @@
+
 import { PrismaClient, Permission } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -21,8 +22,8 @@ const departments = [
 const offices = [
   { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1' },
   { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-2' },
-  { id: 'off-3', name: 'Headquarters', code: 'HQ', departmentId: 'dept-3' },
-  { id: 'off-4', name: 'Headquarters', code: 'HQ', departmentId: 'dept-4' },
+  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3' },
+  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4' },
   { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
 ];
 
@@ -324,3 +325,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
