@@ -50,58 +50,33 @@ function useAdminNavigation(user: (User & { role: { permissions: Permission[] } 
   return { activeTab, accessibleNavItems };
 }
 
+function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange, children }: {
+    user: (User & { role: { permissions: Permission[] } }) | null;
+    activeTab: string | null;
+    accessibleNavItems: { value: string; label: string; permission: string; }[];
+    handleTabChange: (value: string) => void;
+    children: React.ReactNode;
+}) {
+    if (!user) {
+        return <Skeleton className="h-[200px] w-full" />;
+    }
 
-const AdminLayout = ({ children }: { children: React.ReactNode }) => {
-  const router = useRouter();
-  const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
-  const [loading, setLoading] = useState(true);
+    if (accessibleNavItems.length === 0) {
+        // This state is handled by the redirect in the hook, but as a fallback, show nothing.
+        return null;
+    }
+    
+    // While redirecting from an invalid tab, show a loader.
+    if (!activeTab) {
+        return <Skeleton className="h-[200px] w-full" />;
+    }
 
-  useEffect(() => {
-    getLoggedInUser().then(userData => {
-      setUser(userData);
-      setLoading(false);
-    });
-  }, []);
-  
-  const { activeTab, accessibleNavItems } = useAdminNavigation(user);
+    const gridColsClass = `grid-cols-${accessibleNavItems.length}`;
 
-  const handleTabChange = (value: string) => {
-    router.push(value);
-  };
-  
-  if (loading || !user) {
     return (
-        <Card>
-            <CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader>
-            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
-        </Card>
-    );
-  }
-
-  if (accessibleNavItems.length === 0) {
-    // This state is handled by the redirect in the hook, but as a fallback, show nothing.
-    return null; 
-  }
-  
-  // While redirecting from an invalid tab, show a loader.
-  if (!activeTab) {
-     return (
-        <Card>
-            <CardHeader><CardTitle>Admin Settings</CardTitle></CardHeader>
-            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
-        </Card>
-    );
-  }
-
-  return (
-    <Card>
-       <CardHeader>
-        <CardTitle>Admin Settings</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-             {accessibleNavItems.map((item) => (
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className={cn("grid w-full", gridColsClass)}>
+                {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
                     value={item.value}
@@ -111,12 +86,52 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                 >
                     {item.label}
                 </TabsTrigger>
-             ))}
-          </TabsList>
-          <div className="mt-4">
-              {children}
-          </div>
+                ))}
+            </TabsList>
+            <div className="mt-4">
+                {children}
+            </div>
         </Tabs>
+    );
+}
+
+
+const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+  const router = useRouter();
+  const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const { activeTab, accessibleNavItems } = useAdminNavigation(user);
+
+  useEffect(() => {
+    getLoggedInUser().then(userData => {
+      setUser(userData);
+      setLoading(false);
+    });
+  }, []);
+  
+  const handleTabChange = (value: string) => {
+    router.push(value);
+  };
+  
+  return (
+    <Card>
+       <CardHeader>
+        <CardTitle>Admin Settings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+            <Skeleton className="h-[200px] w-full" />
+        ) : (
+            <AdminPageContent
+                user={user}
+                activeTab={activeTab}
+                accessibleNavItems={accessibleNavItems}
+                handleTabChange={handleTabChange}
+            >
+                {children}
+            </AdminPageContent>
+        )}
       </CardContent>
     </Card>
   );

@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
 import { Badge } from './ui/badge';
 import { acknowledgeMemo, archiveMemo, forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
+import { StatusBadge } from './status-badge';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -253,7 +254,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                                 <div key={user.id} className="flex items-center gap-2">
                                     <span>{user.name}</span>
                                     {memo.acknowledgedBy?.some(u => u.id === user.id) && (
-                                        <Badge variant="secondary" className="text-xs font-mono bg-green-100 text-green-800">Acknowledged</Badge>
+                                        <StatusBadge status="acknowledged" />
                                     )}
                                 </div>
                             ))}

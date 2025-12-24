@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState } from "react"
 import { getLoggedInUser } from "@/app/actions/memo"
+import { StatusBadge } from "./status-badge"
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -19,42 +20,61 @@ interface MemoListProps {
   isExpanded: boolean
 }
 
-const ExpandedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void, loggedInUser: User | null }) => (
-    <div className="flex flex-col gap-0.5 p-1">
-        {memos.map((memo) => (
-        <button
-            key={memo.id}
-            className={cn(
-            "flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-colors",
-            "hover:bg-primary/5",
-            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50 border-transparent" : "border-transparent"
-            )}
-            onClick={() => handleSelect(memo)}
-        >
-            <div className="flex w-full flex-col gap-0.5">
-            <div className="flex items-center">
-                <div className="flex items-center gap-2 truncate">
-                <div className="font-semibold truncate">{memo.from.name}</div>
-                 {memo.status === 'draft' && <Badge variant="secondary">Draft</Badge>}
-                </div>
-                <div
+const ExpandedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void, loggedInUser: User | null }) => {
+    
+    if (!loggedInUser) return null;
+
+    const getMemoStatus = (memo: MemoWithActivity) => {
+        if (memo.status === 'draft') return 'draft';
+        const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser!.id;
+        if (!isRecipient) return memo.status;
+
+        const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser!.id);
+        if (hasAcknowledged) return 'acknowledged';
+        
+        const hasViewed = memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser!.id);
+        if (hasViewed) return 'read';
+        
+        return 'unread';
+    }
+
+    return (
+        <div className="flex flex-col gap-0.5 p-1">
+            {memos.map((memo) => (
+            <button
+                key={memo.id}
                 className={cn(
-                    "ml-auto text-xs shrink-0",
-                    selectedMemoId === memo.id
-                    ? "text-foreground"
-                    : "text-muted-foreground"
+                "flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-colors",
+                "hover:bg-primary/5",
+                selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50 border-transparent" : "border-transparent"
                 )}
-                >
-                {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                onClick={() => handleSelect(memo)}
+            >
+                <div className="flex w-full flex-col gap-0.5">
+                <div className="flex items-center">
+                    <div className="flex items-center gap-2 truncate">
+                    <div className="font-semibold truncate">{memo.from.name}</div>
+                    <StatusBadge status={getMemoStatus(memo)} />
+                    </div>
+                    <div
+                    className={cn(
+                        "ml-auto text-xs shrink-0",
+                        selectedMemoId === memo.id
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                    >
+                    {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                    </div>
                 </div>
-            </div>
-            <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
-            </div>
-            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
-        </button>
-        ))}
-    </div>
-)
+                <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
+                </div>
+                <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+            </button>
+            ))}
+        </div>
+    )
+}
 
 const CollapsedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, handleSelect: (memo: MemoWithActivity) => void, loggedInUser: User | null }) => {
     
