@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { MemoWithActivity, User } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -120,6 +120,8 @@ const CollapsedView = ({ memos, selectedMemoId, handleSelect, loggedInUser }: { 
 export function MemoList({ memos, selectedMemoId, onSelectMemo, isExpanded }: MemoListProps) {
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as User));
@@ -129,7 +131,9 @@ export function MemoList({ memos, selectedMemoId, onSelectMemo, isExpanded }: Me
     if (memo.status === 'draft') {
       router.push(`/dashboard/new?id=${memo.id}`);
     } else {
-      onSelectMemo(memo.id);
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.set('id', memo.id);
+      router.push(`${pathname}?${newParams.toString()}`);
     }
   }
 

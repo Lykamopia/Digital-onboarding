@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -101,7 +101,7 @@ export default function NewMemoPage() {
         createdAt: new Date().toISOString(),
         status: 'draft',
         activity: [],
-        replyTo: replyTo,
+        replyToId: replyTo,
       };
       setPreviewMemo(newPreview);
   }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo]);
@@ -205,7 +205,7 @@ export default function NewMemoPage() {
               title: 'Draft Deleted',
               description: 'The draft has been permanently deleted.',
           });
-          router.push('/dashboard?tab=inbox');
+          router.push('/dashboard/inbox');
       }
   }
 
@@ -245,7 +245,7 @@ export default function NewMemoPage() {
           title: 'Memo Sent!',
           description: 'Your memo has been successfully sent.',
         });
-        router.push('/dashboard?tab=sent');
+        router.push('/dashboard/sent');
     }
   }
   
@@ -443,7 +443,7 @@ export default function NewMemoPage() {
                         )}
                     </div>
                     <div className="flex gap-2">
-                        <Link href="/dashboard">
+                        <Link href="/dashboard/inbox">
                         <Button variant="outline" type="button">Cancel</Button>
                         </Link>
                         <Dialog>

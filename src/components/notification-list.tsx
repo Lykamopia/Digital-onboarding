@@ -14,7 +14,7 @@ export function NotificationList() {
     const handleClick = (notification: typeof notifications[0]) => {
         markAsRead(notification.id);
         if (notification.memoId) {
-            router.push(`/dashboard?tab=inbox&id=${notification.memoId}`);
+            router.push(`/dashboard/inbox?id=${notification.memoId}`);
         }
     }
 

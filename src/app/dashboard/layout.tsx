@@ -2,13 +2,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon } from "lucide-react"
 import { Suspense, useEffect, useMemo, useState } from "react"
 
 import {
   SidebarProvider,
-  useSidebar,
   Sidebar,
   SidebarTrigger,
   SidebarContent,
@@ -16,7 +15,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import Logo from "@/components/logo"
@@ -30,24 +28,18 @@ import type { Permission, User } from "@/lib/types"
 
 function NavItems({ isMobile = false, user }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null }) {
     const pathname = usePathname();
-    const searchParams = useSearchParams();
-    
-    const isInboxActive = pathname === '/dashboard' && (searchParams.get('tab') === 'inbox' || !searchParams.get('tab'));
-    const isDraftsActive = searchParams.get('tab') === 'drafts';
-    const isSentActive = searchParams.get('tab') === 'sent';
-    const isArchiveActive = searchParams.get('tab') === 'archive';
     
     const navItems = useMemo(() => {
         if (!user) return [];
         return [
-            { href: "/dashboard?tab=inbox", icon: <Inbox />, label: "Inbox", active: isInboxActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
-            { href: "/dashboard?tab=drafts", icon: <Edit />, label: "Drafts", active: isDraftsActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
-            { href: "/dashboard?tab=sent", icon: <Send />, label: "Sent", active: isSentActive, visible: user.role.permissions.includes('manage_memos' as Permission) },
-            { href: "/dashboard?tab=archive", icon: <Archive />, label: "Archive", active: isArchiveActive, visible: user.role.permissions.includes('view_dashboard' as Permission) },
+            { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+            { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
+            { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
+            { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
             { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
             { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
         ]
-    }, [pathname, searchParams, user]);
+    }, [pathname, user]);
 
     if (!user) {
         return (
