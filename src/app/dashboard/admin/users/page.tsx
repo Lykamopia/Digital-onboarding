@@ -172,7 +172,6 @@ export default function UsersPage() {
     }
     
     setIsDialogOpen(false);
-    setEditingUser(null);
   };
 
   const handleEdit = (user: UserWithRelations) => {
@@ -184,12 +183,12 @@ export default function UsersPage() {
     setEditingUser(null);
     setIsDialogOpen(true);
   }
-  
+
   const handleDialogChange = (open: boolean) => {
-      if (!open) {
-          setEditingUser(null);
-      }
-      setIsDialogOpen(open);
+    setIsDialogOpen(open);
+    if (!open) {
+        setEditingUser(null);
+    }
   }
   
   const handleResetPassword = async (userId: string) => {
@@ -454,3 +453,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+    
