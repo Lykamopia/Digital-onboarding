@@ -1,4 +1,5 @@
 import { PrismaClient, Permission } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -50,7 +51,7 @@ const users = [
     email: 'alice.j@bank.com',
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-1',
-    roleId: 'role-1',
+    roleId: 'role-2',
   },
   {
     id: 'user-2',
@@ -112,8 +113,26 @@ async function main() {
   await prisma.role.createMany({ data: roles });
   console.log(`Seeded ${roles.length} roles.`);
 
+  // Seed Admin User
+  const adminPassword = 'Admin@123';
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+  const adminUser = await prisma.user.create({
+      data: {
+          id: 'user-admin',
+          name: 'Admin User',
+          email: 'admin@example.com',
+          hashedPassword: hashedPassword,
+          roleId: 'role-1',
+          officeId: 'off-1', // Assign to a default office
+      }
+  });
+  console.log('Seeded admin user.');
+
+
+  // Seed other users without passwords
   await prisma.user.createMany({ data: users });
   console.log(`Seeded ${users.length} users.`);
+
 
   // Seed Memos (more complex due to relations)
   const memo1 = await prisma.memo.create({
@@ -222,7 +241,7 @@ async function main() {
       body: '<p>Hi Ethan, please find the proposed IT maintenance schedule for November. Let me know if your team foresees any conflicts.</p>',
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       status: 'sent',
-      fromId: 'user-1',
+      fromId: adminUser.id,
       current_holderId: 'user-5',
       to: { connect: [{ id: 'user-5' }] },
       cc: { connect: [{ id: 'user-2' }] },
@@ -230,7 +249,7 @@ async function main() {
         create: [
           {
             id: 'act-3-1',
-            actorId: 'user-1',
+            actorId: adminUser.id,
             action: 'sent',
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
             details: 'Sent to Ethan Hunt. CC: Bob Williams',
@@ -252,13 +271,13 @@ async function main() {
       current_holderId: 'user-2',
       to: {
         connect: [
-          { id: 'user-1' },
+          { id: adminUser.id },
           { id: 'user-2' },
           { id: 'user-4' },
           { id: 'user-5' },
         ],
       },
-      previous_holders: { connect: [{ id: 'user-1' }] },
+      previous_holders: { connect: [{ id: adminUser.id }] },
       activity: {
         create: [
           {
@@ -270,15 +289,15 @@ async function main() {
           },
           {
             id: 'act-4-2',
-            actorId: 'user-1',
+            actorId: adminUser.id,
             action: 'viewed',
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           },
           {
             id: 'act-4-3',
-            actorId: 'user-1',
+            actorId: adminUser.id,
             action: 'forwarded',
-            details: 'Forwarded from Alice Johnson to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?',
+            details: `Forwarded from ${adminUser.name} to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?`,
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString(),
           },
           {

@@ -17,7 +17,12 @@ export type Role = PrismaRole;
 export type Division = PrismaDivision;
 export type Department = PrismaDepartment;
 export type Office = PrismaOffice;
-export type User = PrismaUser;
+
+// Extend PrismaUser to include next-auth properties if needed
+export type User = PrismaUser & {
+    // any custom properties if needed
+};
+
 export type Attachment = PrismaAttachment;
 
 // Base types from Prisma

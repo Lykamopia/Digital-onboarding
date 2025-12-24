@@ -3,7 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { loggedInUser } from '@/lib/data';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import type { Memo, User } from '@/lib/types';
 import { z } from 'zod';
 
@@ -18,6 +19,7 @@ const memoSchema = z.object({
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
     const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
 
     const where: any = {
         AND: []
@@ -59,19 +61,23 @@ export async function getDashboardData(tab: string, query: string, status: strin
     if (tab === 'inbox' && status && status !== 'all') {
       const userHasAcknowledged = { acknowledgedBy: { some: { id: user.id } } };
       const userHasViewed = { activity: { some: { action: 'viewed', actorId: user.id } } };
-      
-      if (status === 'read') {
+
+      switch (status) {
+        case 'read':
           where.AND.push({
+            OR: [userHasViewed, userHasAcknowledged]
+          });
+          break;
+        case 'unread':
+          where.AND.push({
+            NOT: {
               OR: [userHasViewed, userHasAcknowledged]
+            }
           });
-      } else if (status === 'unread') {
-          where.AND.push({
-              NOT: {
-                  OR: [userHasViewed, userHasAcknowledged]
-              }
-          });
-      } else if (status === 'acknowledged') {
+          break;
+        case 'acknowledged':
           where.AND.push(userHasAcknowledged);
+          break;
       }
     }
 
@@ -130,6 +136,8 @@ export async function getMemo(id: string) {
 
 export async function markAsRead(memoId: string) {
     const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
         include: { activity: true }
@@ -153,6 +161,8 @@ export async function markAsRead(memoId: string) {
 
 export async function sendMemo(formData: FormData) {
     const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
 
@@ -217,16 +227,6 @@ export async function sendMemo(formData: FormData) {
         });
     }
 
-    // This is a placeholder for sending notifications
-    // In a real app, this would trigger emails or push notifications
-    newMemo.to.forEach(async (recipientId) => {
-        // Create a notification record in the database, for example
-        console.log(`Notification event for new memo ${newMemo.id} to user ${recipientId}`);
-    });
-     newMemo.cc.forEach(async (recipientId) => {
-        console.log(`Notification event for new memo ${newMemo.id} to user ${recipientId} (CC)`);
-    });
-
     const draftId = formData.get('draftId') as string;
     if (draftId) {
         await prisma.memo.delete({ where: { id: draftId } });
@@ -238,6 +238,7 @@ export async function sendMemo(formData: FormData) {
 
 export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }, draftId?: string | null) {
     const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
 
     const attachmentsData = {
         create: (data.attachments || []).map((att: any) => ({
@@ -294,6 +295,8 @@ export async function deleteDraft(draftId: string) {
 
 export async function acknowledgeMemo(memoId: string) {
   const user = await getLoggedInUser();
+  if (!user) throw new Error("Not authenticated");
+
   const memo = await getMemo(memoId);
   if (!memo) return;
 
@@ -317,6 +320,8 @@ export async function acknowledgeMemo(memoId: string) {
 
 export async function forwardMemo(memoId: string, forwardToId: string, remark: string) {
   const user = await getLoggedInUser();
+  if (!user) throw new Error("Not authenticated");
+
   const memo = await getMemo(memoId);
   const forwardToUser = await prisma.user.findUnique({ where: { id: forwardToId }});
   
@@ -344,6 +349,7 @@ export async function forwardMemo(memoId: string, forwardToId: string, remark: s
 
 export async function archiveMemo(memoId: string, archive: boolean) {
   const user = await getLoggedInUser();
+  if (!user) throw new Error("Not authenticated");
 
   const data = archive ? 
     { archivedBy: { connect: { id: user.id } } } :
@@ -414,9 +420,13 @@ export async function getRoles() {
 }
 
 export async function getLoggedInUser() {
-    // In a real app, you'd get this from session/auth
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+        return null;
+    }
+
     const user = await prisma.user.findUnique({ 
-        where: { id: 'user-1' },
+        where: { email: session.user.email },
         include: { 
             role: true,
             office: {
@@ -430,7 +440,7 @@ export async function getLoggedInUser() {
             }
         }
     });
-    if (!user) throw new Error("Logged in user not found.");
+    if (!user) return null;
     return user;
 }
 
@@ -519,12 +529,14 @@ export async function saveArchiveSettings(days: number) {
 export async function performBulkArchiveActions(action: 'archive' | 'restore' | 'delete', memoIds: string[]) {
     if (memoIds.length === 0) return { error: 'No memos selected.' };
 
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
     if (action === 'delete') {
         await prisma.memo.deleteMany({
             where: { id: { in: memoIds } },
         });
     } else {
-        const user = await getLoggedInUser();
         const connectOrDisconnect = action === 'archive' ? 'connect' : 'disconnect';
         
         await prisma.user.update({
@@ -541,4 +553,3 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard');
     return { success: true };
 }
-

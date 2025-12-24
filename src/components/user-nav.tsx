@@ -3,7 +3,7 @@
 
 import { LogOut, User as UserIcon } from "lucide-react"
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -19,13 +19,6 @@ import {
 import type { User } from "@/lib/types";
 
 export function UserNav({ user }: { user: User }) {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    // In a real app, this would call an auth server to sign out.
-    // For now, we just redirect.
-    router.push('/');
-  }
   
   if (!user) return null;
 
@@ -34,8 +27,8 @@ export function UserNav({ user }: { user: User }) {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person portrait"/>
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={user.avatar || user.image || ''} alt={user.name || ''} data-ai-hint="person portrait"/>
+              <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
@@ -58,7 +51,7 @@ export function UserNav({ user }: { user: User }) {
             </Link>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
+          <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
           </DropdownMenuItem>
