@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import Link from "next/link"
@@ -23,8 +24,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
-import { getLoggedInUser } from "../actions/memo"
-import type { Permission, User } from "@/lib/types"
+import { getDashboardData, getLoggedInUser } from "../actions/memo"
+import type { Permission, User, Memo } from "@/lib/types"
+import { useNotification } from "@/components/notification-provider"
 
 function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null, pathname: string }) {
     
@@ -115,6 +117,7 @@ function DashboardLayoutContent({
     const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
     const [loading, setLoading] = useState(true);
     const pathname = usePathname();
+    const { showNotification } = useNotification();
     
     useEffect(() => {
         getLoggedInUser().then(userData => {
@@ -122,6 +125,59 @@ function DashboardLayoutContent({
             setLoading(false);
         });
     }, []);
+
+    useEffect(() => {
+      if (!user) return;
+
+      const checkNewMemos = async () => {
+        const inboxMemos = await getDashboardData('inbox', '', '', {});
+        
+        let seenMemos: string[] = [];
+        try {
+          const stored = localStorage.getItem('seenMemos');
+          seenMemos = stored ? JSON.parse(stored) : [];
+        } catch (e) {
+          console.error("Could not parse seenMemos from localStorage", e);
+        }
+
+        const newMemos = inboxMemos.filter(memo => !seenMemos.includes(memo.id));
+
+        if (newMemos.length > 0) {
+          newMemos.forEach(memo => {
+             // Check if it was delegated or a new memo
+            const lastActivity = memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
+
+            if (isForward) {
+              showNotification({
+                title: 'Memo Delegated to You',
+                description: `From: ${lastActivity.actor.name} - ${memo.subject}`,
+                memoId: memo.id,
+              });
+            } else {
+              showNotification({
+                title: 'New Memo Received',
+                description: `From: ${memo.from.name} - ${memo.subject}`,
+                memoId: memo.id,
+              });
+            }
+          });
+
+          const allSeenMemos = [...seenMemos, ...newMemos.map(m => m.id)];
+          localStorage.setItem('seenMemos', JSON.stringify(allSeenMemos));
+        }
+      };
+
+      // Initial check
+      checkNewMemos();
+
+      // Poll every 15 seconds
+      const intervalId = setInterval(checkNewMemos, 15000);
+
+      return () => clearInterval(intervalId);
+
+    }, [user, showNotification]);
+
 
     const handleNewMemoClick = () => {
         // This functionality will be handled on the new memo page now
