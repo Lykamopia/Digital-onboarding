@@ -35,6 +35,7 @@ import { EmptyState } from './empty-state';
 import { acknowledgeMemo, archiveMemo, getLoggedInUser } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { ForwardDialog } from './forward-dialog';
+import { MemoEmptyIllustration } from './memo-empty-illustration';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -117,11 +118,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   if (!memo) {
     return (
-      <div className="h-full p-2">
-        <EmptyState 
-            title="Select a memo"
-            description="Select a memo from the list to read its content."
-          />
+      <div className="h-full">
+        <EmptyState
+          icon={<MemoEmptyIllustration />}
+          title="Select a memo to read"
+          description="Your selected memo's content will appear here."
+        />
       </div>
     );
   }

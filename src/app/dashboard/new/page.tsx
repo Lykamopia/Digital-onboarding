@@ -66,6 +66,7 @@ export default function NewMemoPage() {
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
 
   const isReplying = !!replyTo;
+  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !body.trim()) || (isReplying && !replyBody.trim());
 
   useEffect(() => {
     async function fetchData() {
@@ -81,6 +82,16 @@ export default function NewMemoPage() {
     return users.filter(user => user.id !== loggedInUser.id);
   }, [users, loggedInUser]);
   
+  const availableForTo = useMemo(() => {
+    const ccIds = new Set(cc.map(u => u.id));
+    return availableUsers.filter(u => !ccIds.has(u.id));
+  }, [availableUsers, cc]);
+
+  const availableForCc = useMemo(() => {
+    const toIds = new Set(to.map(u => u.id));
+    return availableUsers.filter(u => !toIds.has(u.id));
+  }, [availableUsers, to]);
+
   const form = useForm();
   
   const updatePreview = useCallback(() => {
@@ -217,16 +228,19 @@ export default function NewMemoPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if(!replyTo && !body) {
-        toast({ title: 'Error', description: 'Body is required.', variant: 'destructive'});
-        return;
-    }
-    if(replyTo && !replyBody) {
-        toast({ title: 'Error', description: 'Reply body is required.', variant: 'destructive'});
-        return;
-    }
-     if(to.length === 0) {
-        toast({ title: 'Error', description: 'Please select at least one recipient.', variant: 'destructive'});
+    if (isSendDisabled) {
+        let errorDescription = 'Please fill all required fields: To, Subject, and Body.';
+        if (to.length === 0) {
+          errorDescription = "Please select at least one recipient in the 'To' field.";
+        } else if (!subject.trim()) {
+          errorDescription = "Subject is required.";
+        } else if (!isReplying && !body.trim()) {
+          errorDescription = "Body is required.";
+        } else if (isReplying && !replyBody.trim()) {
+          errorDescription = "Your reply message is required.";
+        }
+        
+        toast({ title: 'Cannot Send Memo', description: errorDescription, variant: 'destructive'});
         return;
     }
 
@@ -332,7 +346,7 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
                         <RecipientSelector
-                        allUsers={availableUsers}
+                        allUsers={availableForTo}
                         selected={to}
                         setSelected={setTo}
                         placeholder="Select recipients..."
@@ -341,7 +355,7 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
                         <RecipientSelector
-                        allUsers={availableUsers}
+                        allUsers={availableForCc}
                         selected={cc}
                         setSelected={setCc}
                         placeholder="Select CC recipients..."
@@ -467,7 +481,7 @@ export default function NewMemoPage() {
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button type="submit" disabled={isSaving}>
+                        <Button type="submit" disabled={isSaving || isSendDisabled}>
                           <Send className="mr-2 h-4 w-4" />
                           Send Memo
                         </Button>
