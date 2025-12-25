@@ -54,6 +54,7 @@ const users = [
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-1',
     roleId: 'role-2',
+    mustChangePassword: true,
   },
   {
     id: 'user-2',
@@ -62,6 +63,7 @@ const users = [
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-3',
     roleId: 'role-2',
+    mustChangePassword: true,
   },
   {
     id: 'user-3',
@@ -70,6 +72,7 @@ const users = [
     avatar: 'https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-4',
     roleId: 'role-2',
+    mustChangePassword: true,
   },
   {
     id: 'user-4',
@@ -78,6 +81,7 @@ const users = [
     avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-2',
     roleId: 'role-2',
+    mustChangePassword: true,
   },
   {
     id: 'user-5',
@@ -86,6 +90,7 @@ const users = [
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-5',
     roleId: 'role-2',
+    mustChangePassword: true,
   },
 ];
 
@@ -126,6 +131,7 @@ async function main() {
           hashedPassword: hashedPassword,
           roleId: 'role-1',
           officeId: 'off-1', // Assign to a default office
+          mustChangePassword: false,
       }
   });
   console.log('Seeded admin user.');

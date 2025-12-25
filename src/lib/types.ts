@@ -8,10 +8,10 @@ import type {
     Memo as PrismaMemo,
     Attachment as PrismaAttachment,
     Activity as PrismaActivity,
-    Permission as PrismaPermission
 } from '@prisma/client';
 
-export type Permission = PrismaPermission;
+export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive';
+
 
 export type Role = PrismaRole;
 export type Division = PrismaDivision;
@@ -21,6 +21,7 @@ export type Office = PrismaOffice;
 // Extend PrismaUser to include next-auth properties if needed
 export type User = PrismaUser & {
     // any custom properties if needed
+    mustChangePassword?: boolean;
 };
 
 export type Attachment = PrismaAttachment;

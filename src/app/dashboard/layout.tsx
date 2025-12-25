@@ -4,7 +4,7 @@
 
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock } from "lucide-react"
 import { Suspense, useEffect, useMemo, useState } from "react"
 
 import {
@@ -32,6 +32,13 @@ function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, us
     
     const navItems = useMemo(() => {
         if (!user) return [];
+
+        if (user.mustChangePassword) {
+            return [
+                 { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
+            ]
+        }
+
         return [
             { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
             { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
@@ -114,7 +121,7 @@ function DashboardLayoutContent({
   }: {
     children: React.ReactNode
   }) {
-    const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
+    const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
     const [loading, setLoading] = useState(true);
     const pathname = usePathname();
     const { showNotification } = useNotification();
@@ -127,7 +134,7 @@ function DashboardLayoutContent({
     }, []);
 
     useEffect(() => {
-      if (!user) return;
+      if (!user || user.mustChangePassword) return;
 
       const checkNewMemos = async () => {
         const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
@@ -200,7 +207,7 @@ function DashboardLayoutContent({
                         <div className="w-full flex-1">
                             {/* Optional: Add a search bar here */}
                         </div>
-                        {user?.role.permissions.includes('manage_memos' as Permission) && (
+                        {user?.role.permissions.includes('manage_memos' as Permission) && !user.mustChangePassword && (
                             <Link href="/dashboard/new" onClick={handleNewMemoClick}>
                                 <Button>
                                 <FilePlus className="mr-2 h-4 w-4" />

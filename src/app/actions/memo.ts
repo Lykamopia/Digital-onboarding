@@ -21,6 +21,7 @@ const memoSchema = z.object({
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
+    if (user.mustChangePassword) return [];
 
     const where: any = {
         AND: []
@@ -524,6 +525,7 @@ export async function saveUser(data: { id?: string, name: string, email: string,
     if (data.id) {
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else {
+        payload.mustChangePassword = true;
         await prisma.user.create({ data: payload });
     }
     revalidatePath('/dashboard/admin/users');
@@ -535,12 +537,35 @@ export async function resetUserPassword(userId: string, newPassword?: string) {
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({
             where: { id: userId },
-            data: { hashedPassword }
+            data: { 
+                hashedPassword,
+                mustChangePassword: true,
+            }
         });
         revalidatePath('/dashboard/admin/users');
         return { success: true, newPassword: password };
     } catch (error) {
         return { success: false, error: 'Failed to reset password.' };
+    }
+}
+
+export async function changeUserPassword(password: string) {
+    try {
+        const user = await getLoggedInUser();
+        if (!user) return { success: false, error: 'Not authenticated.' };
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                hashedPassword,
+                mustChangePassword: false
+            }
+        });
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: 'Failed to change password.' };
     }
 }
 
