@@ -65,10 +65,9 @@ export function Combobox({
       <PopoverPortal>
         <PopoverContent 
             className="w-[--radix-popover-trigger-width] p-0"
-            // Prevent clicks from closing the dialog
             onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <Command key={value}>
+          <Command>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
               <CommandEmpty>{emptyPlaceholder}</CommandEmpty>

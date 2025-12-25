@@ -91,12 +91,11 @@ export default function UsersPage() {
   const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
-  // State to manage which user is pending password reset confirmation
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
   const [formState, setFormState] = useState(initialFormState);
 
@@ -151,12 +150,19 @@ export default function UsersPage() {
     
     toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
     
-    setIsDialogOpen(false);
+    setIsFormDialogOpen(false);
     
     if (isNewUser && passwordToSend) {
         setPasswordDialog({ open: true, password: passwordToSend });
     }
   };
+  
+  useEffect(() => {
+    if (!isFormDialogOpen) {
+      setEditingUser(null);
+    }
+  }, [isFormDialogOpen]);
+
 
   const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
@@ -167,20 +173,13 @@ export default function UsersPage() {
         roleId: user.roleId || '',
         password: '',
     });
-    setIsDialogOpen(true);
+    setIsFormDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser(null);
     setFormState(initialFormState);
-    setIsDialogOpen(true);
-  }
-
-  const handleDialogChange = (open: boolean) => {
-    setIsDialogOpen(open);
-    if (!open) {
-      setEditingUser(null);
-    }
+    setIsFormDialogOpen(true);
   }
   
   const handleResetPassword = async () => {
@@ -348,7 +347,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+    <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
