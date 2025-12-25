@@ -349,7 +349,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange} modal={false}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
