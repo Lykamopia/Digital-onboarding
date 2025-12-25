@@ -101,7 +101,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    if (editingUser && isDialogOpen) {
+    if (editingUser) {
         setFormState({
             name: editingUser.name || '',
             email: editingUser.email || '',
@@ -109,7 +109,7 @@ export default function UsersPage() {
             roleId: editingUser.roleId || '',
             password: '',
         });
-    } else if (!editingUser && isDialogOpen) {
+    } else {
         setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
     }
   }, [editingUser, isDialogOpen]);
@@ -372,7 +372,7 @@ export default function UsersPage() {
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
                 <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated automatically.'}
+                    {editingUser ? 'Update the details for this user.' : 'Fill in the details for the new user.'}
                 </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave}>
@@ -405,7 +405,7 @@ export default function UsersPage() {
                             searchPlaceholder="Search roles..."
                         />
                     </div>
-                    {editingUser?.id && (
+                    {editingUser && (
                         <div className="space-y-2 md:col-span-2">
                             <Label htmlFor="password">New Password</Label>
                             <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
@@ -449,5 +449,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
