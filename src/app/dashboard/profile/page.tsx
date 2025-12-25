@@ -98,8 +98,8 @@ export default function ProfilePage() {
         
         <Tabs defaultValue="profile" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="profile">My Profile</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Profile</TabsTrigger>
+                <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
                 <Card>
