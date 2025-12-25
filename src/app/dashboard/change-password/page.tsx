@@ -3,8 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { KeyRound } from 'lucide-react';
 import { ChangePasswordForm } from '@/components/change-password-form';
+import { useRouter } from 'next/navigation';
 
 export default function ChangePasswordPage() {
+  const router = useRouter();
+
   return (
     <div className="flex items-center justify-center h-full">
       <Card className="w-full max-w-md">
@@ -17,7 +20,9 @@ export default function ChangePasswordPage() {
         </CardHeader>
         <CardContent>
           <ChangePasswordForm onPasswordChanged={() => {
-            // The router refresh will be handled by the form itself
+            // The router refresh is handled by the form itself,
+            // but we can also explicitly push to the dashboard as a fallback.
+            router.push('/dashboard');
           }} />
         </CardContent>
       </Card>
