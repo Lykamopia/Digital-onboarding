@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { getLoggedInUser } from '@/app/actions/memo';
 import type { Permission, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnimatePresence } from 'framer-motion';
+import { AnimatedContent } from '@/components/animated-content';
 
 const navItemsConfig = [
   { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions' },
@@ -88,7 +90,11 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                 ))}
             </TabsList>
             <div className="mt-4">
-                {children}
+                <AnimatePresence mode="wait">
+                    <AnimatedContent key={activeTab}>
+                        {children}
+                    </AnimatedContent>
+                </AnimatePresence>
             </div>
         </Tabs>
     );
