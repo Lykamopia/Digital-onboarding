@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -385,6 +386,7 @@ export default function UsersPage() {
                         }}
                     />
                 </TableHead>
+                <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Office</TableHead>
@@ -395,7 +397,7 @@ export default function UsersPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {paginatedUsers.map((user) => (
+                {paginatedUsers.map((user, index) => (
                     <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''}>
                         <TableCell>
                             <Checkbox
@@ -405,6 +407,7 @@ export default function UsersPage() {
                                 }}
                             />
                         </TableCell>
+                        <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                         <TableCell>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">

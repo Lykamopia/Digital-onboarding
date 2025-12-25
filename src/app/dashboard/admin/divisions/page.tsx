@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -26,6 +26,9 @@ import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDivisions } from "../hooks";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 10;
 
 function DivisionsLoadingSkeleton() {
     return (
@@ -52,6 +55,15 @@ export default function DivisionsPage() {
   
   const [editingDivision, setEditingDivision] = useState<Partial<Division> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const paginatedDivisions = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return divisions.slice(start, end);
+  }, [divisions, currentPage]);
+
+  const totalPages = Math.ceil(divisions.length / ITEMS_PER_PAGE);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -107,28 +119,42 @@ export default function DivisionsPage() {
         <Button onClick={handleAddNew}>Add Division</Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {divisions.map((division) => (
-              <TableRow key={division.id}>
-                <TableCell>{division.name}</TableCell>
-                <TableCell>{division.code}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(division)}>
-                    Edit
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {paginatedDivisions.map((division, index) => (
+                <TableRow key={division.id}>
+                    <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
+                    <TableCell>{division.name}</TableCell>
+                    <TableCell>{division.code}</TableCell>
+                    <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(division)}>
+                        Edit
+                    </Button>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
+
+        <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
+            </div>
+        </div>
 
          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent>

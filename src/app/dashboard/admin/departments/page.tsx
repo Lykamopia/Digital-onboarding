@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -27,6 +27,9 @@ import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDepartments, useDivisions } from "../hooks";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 10;
 
 function DepartmentsLoadingSkeleton() {
     return (
@@ -55,6 +58,15 @@ export default function DepartmentsPage() {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const paginatedDepartments = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return departments.slice(start, end);
+  }, [departments, currentPage]);
+
+  const totalPages = Math.ceil(departments.length / ITEMS_PER_PAGE);
 
   useEffect(() => {
     if (isDialogOpen && editingDepartment) {
@@ -127,30 +139,44 @@ export default function DepartmentsPage() {
         <Button onClick={handleAddNew}>Add Department</Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Division</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {departments.map((department) => (
-              <TableRow key={department.id}>
-                <TableCell>{department.name}</TableCell>
-                <TableCell>{department.code}</TableCell>
-                <TableCell>{getDivisionName(department.divisionId)}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(department)}>
-                    Edit
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead>Division</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {paginatedDepartments.map((department, index) => (
+                <TableRow key={department.id}>
+                    <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
+                    <TableCell>{department.name}</TableCell>
+                    <TableCell>{department.code}</TableCell>
+                    <TableCell>{getDivisionName(department.divisionId)}</TableCell>
+                    <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(department)}>
+                        Edit
+                    </Button>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
+
+        <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
+            </div>
+        </div>
 
          <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent>

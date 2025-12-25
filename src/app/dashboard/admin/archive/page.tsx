@@ -36,10 +36,12 @@ import type { Memo } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
-import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2 } from "lucide-react";
+import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type MemoWithRelations = Memo & { from: { name: string }, to: { name: string }[], archivedBy: { id: string }[] };
+
+const ITEMS_PER_PAGE = 10;
 
 function ArchiveLoadingSkeleton() {
     return (
@@ -58,7 +60,20 @@ export default function ArchiveSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+
+  const filteredMemos = useMemo(() => {
+      return memos.filter(memo => memo.archivedBy.length > 0)
+  }, [memos]);
+
+  const paginatedMemos = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return filteredMemos.slice(start, end);
+  }, [filteredMemos, currentPage]);
+
+  const totalPages = Math.ceil(filteredMemos.length / ITEMS_PER_PAGE);
 
   const fetchMemosAndSettings = async () => {
     setLoading(true);
@@ -122,10 +137,6 @@ export default function ArchiveSettingsPage() {
       }
       setIsPerformingAction(false);
   }
-
-  const filteredMemos = useMemo(() => {
-      return memos.filter(memo => memo.archivedBy.length > 0)
-  }, [memos]);
 
   if (loading) {
     return <ArchiveLoadingSkeleton />;
@@ -196,13 +207,14 @@ export default function ArchiveSettingsPage() {
                 <TableRow>
                   <TableHead padding="checkbox" className="w-12">
                     <Checkbox
-                      checked={selectedMemos.length > 0 && selectedMemos.length === filteredMemos.length}
+                      checked={selectedMemos.length > 0 && selectedMemos.length === paginatedMemos.length && paginatedMemos.length > 0}
                       onCheckedChange={(checked) => {
-                        setSelectedMemos(checked ? filteredMemos.map((m) => m.id) : []);
+                        setSelectedMemos(checked ? paginatedMemos.map((m) => m.id) : []);
                       }}
                       aria-label="Select all"
                     />
                   </TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>From</TableHead>
                   <TableHead>Archived On</TableHead>
@@ -210,8 +222,8 @@ export default function ArchiveSettingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMemos.length > 0 ? (
-                  filteredMemos.map((memo) => (
+                {paginatedMemos.length > 0 ? (
+                  paginatedMemos.map((memo, index) => (
                     <TableRow key={memo.id} data-state={selectedMemos.includes(memo.id) && "selected"}>
                       <TableCell padding="checkbox">
                         <Checkbox
@@ -224,6 +236,7 @@ export default function ArchiveSettingsPage() {
                           aria-label={`Select memo ${memo.subject}`}
                         />
                       </TableCell>
+                       <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                       <TableCell className="font-medium">{memo.subject}</TableCell>
                       <TableCell>{memo.from.name}</TableCell>
                       <TableCell>{formatTimestamp(memo.updatedAt, false)}</TableCell>
@@ -234,13 +247,22 @@ export default function ArchiveSettingsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       No archived memos found.
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+          </div>
+           <div className="flex justify-between items-center mt-4">
+              <div className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
+              </div>
           </div>
         </CardContent>
       </Card>

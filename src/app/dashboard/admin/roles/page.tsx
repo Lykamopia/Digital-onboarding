@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -40,6 +40,9 @@ import { useToast } from "@/hooks/use-toast";
 import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles, useUsers } from "../hooks";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 5;
 
 function RolesLoadingSkeleton() {
     return (
@@ -67,6 +70,15 @@ export default function RoleManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const paginatedRoles = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return roles.slice(start, end);
+  }, [roles, currentPage]);
+
+  const totalPages = Math.ceil(roles.length / ITEMS_PER_PAGE);
 
   useEffect(() => {
     if (isDialogOpen && editingRole) {
@@ -161,49 +173,63 @@ export default function RoleManagementPage() {
         <Button onClick={handleAddNew}>Add New Role</Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Role Name</TableHead>
-              <TableHead>Users</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {roles.map((role) => (
-              <TableRow key={role.id}>
-                <TableCell className="font-medium">{role.name}</TableCell>
-                <TableCell>{usersInRole(role.id)}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0}>
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the role.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(role.id)}>
-                          Continue
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Role Name</TableHead>
+                <TableHead>Users</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {paginatedRoles.map((role, index) => (
+                <TableRow key={role.id}>
+                    <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
+                    <TableCell className="font-medium">{role.name}</TableCell>
+                    <TableCell>{usersInRole(role.id)}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
+                        Edit
+                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0}>
+                            Delete
+                        </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the role.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(role.id)}>
+                            Continue
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
+        
+        <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
+            </div>
+        </div>
 
         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent className="sm:max-w-2xl">
