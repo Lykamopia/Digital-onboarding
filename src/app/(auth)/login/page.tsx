@@ -1,8 +1,8 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,9 +23,23 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'SessionExpired') {
+        toast({
+            variant: 'destructive',
+            title: 'Session Expired',
+            description: 'You have been logged out due to inactivity. Please log in again.',
+        });
+        // Remove the error from the URL without reloading the page
+        router.replace('/login', {scroll: false});
+    }
+  }, [searchParams, toast, router]);
 
   const {
     register,
