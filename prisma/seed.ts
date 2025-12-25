@@ -1,5 +1,5 @@
 
-import { PrismaClient, Permission } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -27,7 +27,7 @@ const offices = [
   { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
 ];
 
-const roles: { id: string; name: string; permissions: Permission[] }[] = [
+const roles = [
   {
     id: 'role-1',
     name: 'Admin',
@@ -41,9 +41,9 @@ const roles: { id: string; name: string; permissions: Permission[] }[] = [
       'manage_users',
       'manage_roles',
       'manage_archive'
-    ],
+    ].join(','),
   },
-  { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'] },
+  { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'].join(',') },
 ];
 
 const users = [
@@ -327,5 +327,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
