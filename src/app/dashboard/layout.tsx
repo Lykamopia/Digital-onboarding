@@ -26,8 +26,7 @@ import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { getLoggedInUser } from "../actions/memo"
 import type { Permission, User } from "@/lib/types"
 
-function NavItems({ isMobile = false, user }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null }) {
-    const pathname = usePathname();
+function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null, pathname: string }) {
     
     const navItems = useMemo(() => {
         if (!user) return [];
@@ -40,16 +39,6 @@ function NavItems({ isMobile = false, user }: { isMobile?: boolean, user: User &
             { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
         ]
     }, [pathname, user]);
-
-    if (!user) {
-        return (
-             <div className="flex-1 px-3 space-y-2">
-                <div className="h-10" />
-                <div className="h-10" />
-                <div className="h-10" />
-            </div>
-        )
-    }
 
     if (isMobile) {
          return (
@@ -90,7 +79,7 @@ function NavItems({ isMobile = false, user }: { isMobile?: boolean, user: User &
 }
 
 
-const MobileSidebar = ({ user }: { user: User & { role: { permissions: Permission[] } } | null }) => (
+const MobileSidebar = ({ user, pathname }: { user: User & { role: { permissions: Permission[] } } | null, pathname: string }) => (
     <Sheet>
         <SheetTrigger asChild>
             <Button size="icon" variant="outline" className="sm:hidden">
@@ -99,12 +88,12 @@ const MobileSidebar = ({ user }: { user: User & { role: { permissions: Permissio
             </Button>
         </SheetTrigger>
         <SheetContent side="left" className="sm:max-w-xs">
-             <NavItems isMobile={true} user={user} />
+             <NavItems isMobile={true} user={user} pathname={pathname} />
         </SheetContent>
     </Sheet>
 )
 
-const DesktopSidebar = ({ user }: { user: User & { role: { permissions: Permission[] } } | null }) => (
+const DesktopSidebar = ({ user, pathname }: { user: User & { role: { permissions: Permission[] } } | null, pathname: string }) => (
     <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
             <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
@@ -113,7 +102,7 @@ const DesktopSidebar = ({ user }: { user: User & { role: { permissions: Permissi
                     <Logo className="hidden group-data-[collapsible=icon]:flex" hideText />
                 </div>
             </SidebarHeader>
-            <NavItems user={user} />
+            <NavItems user={user} pathname={pathname} />
         </SidebarContent>
     </Sidebar>
 )
@@ -125,6 +114,7 @@ function DashboardLayoutContent({
   }) {
     const [user, setUser] = useState<User & { role: { permissions: Permission[] } } | null>(null);
     const [loading, setLoading] = useState(true);
+    const pathname = usePathname();
     
     useEffect(() => {
         getLoggedInUser().then(userData => {
@@ -143,11 +133,11 @@ function DashboardLayoutContent({
     
     return (
         <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]`}>
-            <DesktopSidebar user={user} />
+            <DesktopSidebar user={user} pathname={pathname} />
             <div className="flex flex-col h-screen">
                 <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
                     <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
-                        <MobileSidebar user={user} />
+                        <MobileSidebar user={user} pathname={pathname} />
                         <SidebarTrigger className="hidden md:flex" />
                         <div className="w-full flex-1">
                             {/* Optional: Add a search bar here */}
