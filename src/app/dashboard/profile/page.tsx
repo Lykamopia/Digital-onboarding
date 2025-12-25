@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe } from 'lucide-react';
+import { Camera, Briefcase, Building, Globe, KeyRound } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChangePasswordForm } from '@/components/change-password-form';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<(User & { office: { name: string, department: { name: string, division: { name: string } } } }) | null>(null);
@@ -86,7 +87,7 @@ export default function ProfilePage() {
   const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-6">
         <div className="mb-6">
             <h1 className="text-3xl font-bold">Account Settings</h1>
             <p className="text-muted-foreground">Manage your profile and account settings.</p>
@@ -176,6 +177,18 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </div>
+            </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>Change your password here. It's a good practice to use a strong password that you're not using elsewhere.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ChangePasswordForm onPasswordChanged={() => {
+                     // Optionally, you can add a toast message here, but the form already does.
+                }} />
             </CardContent>
         </Card>
     </div>
