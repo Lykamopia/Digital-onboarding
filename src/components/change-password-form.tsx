@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { changeUserPassword } from '@/app/actions/memo';
 
 const changePasswordSchema = z.object({
@@ -30,6 +30,8 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
     const router = useRouter();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const {
         register,
@@ -71,20 +73,44 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-sm">
             <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                    id="newPassword"
-                    type="password"
-                    {...register('newPassword')}
-                />
+                <div className="relative">
+                    <Input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        {...register('newPassword')}
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{showNewPassword ? 'Hide password' : 'Show password'}</span>
+                    </Button>
+                </div>
                 {errors.newPassword && <p className="text-sm text-destructive">{errors.newPassword.message}</p>}
             </div>
             <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                    id="confirmPassword"
-                    type="password"
-                    {...register('confirmPassword')}
-                />
+                <div className="relative">
+                    <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        {...register('confirmPassword')}
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{showConfirmPassword ? 'Hide password' : 'Show password'}</span>
+                    </Button>
+                </div>
                 {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
             <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
