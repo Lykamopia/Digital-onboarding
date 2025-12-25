@@ -82,7 +82,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           memoId: memoId,
         }, 
         ...prev
-      ]);
+      ].filter((n, index, self) => index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId)); // Prevent duplicates
       if (settings.soundEnabled && audio) {
         audio.play().catch(error => console.error("Audio playback failed:", error));
       }
@@ -90,11 +90,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [settings, toast, audio]);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    // Remove notification when read
+    setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications([]);
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;

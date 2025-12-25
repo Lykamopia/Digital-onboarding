@@ -13,8 +13,13 @@ export function NotificationList() {
 
     const handleClick = (notification: typeof notifications[0]) => {
         markAsRead(notification.id);
+        
         if (notification.memoId) {
             router.push(`/dashboard/inbox?id=${notification.memoId}`);
+            // Dispatch event to notify memo list
+            window.dispatchEvent(new CustomEvent('mark-memo-as-read', {
+                detail: { memoId: notification.memoId }
+            }));
         }
     }
 

@@ -26,6 +26,11 @@ export function NotificationBell() {
   const { unreadCount, markAllAsRead } = useNotification();
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
+    window.dispatchEvent(new CustomEvent('mark-all-memos-as-read'));
+  }
+
   const handleSettingsDialogClose = (open: boolean) => {
     setIsSettingsDialogOpen(open);
     if (!open) {
@@ -71,7 +76,7 @@ export function NotificationBell() {
               <DropdownMenuLabel className="font-semibold p-0">Notifications</DropdownMenuLabel>
               <div className='flex items-center gap-2'>
                 {unreadCount > 0 && (
-                    <Button variant="link" size="sm" className="h-auto p-0" onClick={markAllAsRead}>Mark all as read</Button>
+                    <Button variant="link" size="sm" className="h-auto p-0" onClick={handleMarkAllAsRead}>Mark all as read</Button>
                 )}
                 <DialogTrigger asChild>
                     <Button 

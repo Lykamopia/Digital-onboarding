@@ -17,7 +17,6 @@ import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardData, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
-import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
@@ -43,6 +42,28 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
 
+  const markMemoAsReadInState = useCallback((memoId: string) => {
+    if (!user) return;
+    setMemos(prevMemos => prevMemos.map(m => {
+        if (m.id === memoId && !m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+            const newActivity = {
+                id: `temp-view-${Date.now()}`,
+                actorId: user.id,
+                action: 'viewed' as const,
+                actor: user,
+                details: '',
+                timestamp: new Date().toISOString()
+            };
+            const updatedMemo = { ...m, activity: [...m.activity, newActivity] };
+            if (selectedMemo?.id === memoId) {
+                setSelectedMemo(updatedMemo);
+            }
+            return updatedMemo;
+        }
+        return m;
+    }));
+  }, [user, selectedMemo?.id]);
+
 
   // Real-time inbox update listener
   useEffect(() => {
@@ -61,12 +82,42 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         }
     };
 
+    const handleMarkAsRead = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const { memoId } = customEvent.detail;
+        if(memoId) {
+            markMemoAsReadInState(memoId);
+        }
+    };
+    
+    const handleMarkAllAsRead = () => {
+        if (!user) return;
+        setMemos(prevMemos => prevMemos.map(m => {
+            if (!m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+                 const newActivity = {
+                    id: `temp-view-${Date.now()}`,
+                    actorId: user.id,
+                    action: 'viewed' as const,
+                    actor: user,
+                    details: '',
+                    timestamp: new Date().toISOString()
+                };
+                return { ...m, activity: [...m.activity, newActivity] };
+            }
+            return m;
+        }));
+    };
+
     window.addEventListener('new-memo-event', handleNewMemo);
+    window.addEventListener('mark-memo-as-read', handleMarkAsRead);
+    window.addEventListener('mark-all-memos-as-read', handleMarkAllAsRead);
 
     return () => {
         window.removeEventListener('new-memo-event', handleNewMemo);
+        window.removeEventListener('mark-memo-as-read', handleMarkAsRead);
+        window.removeEventListener('mark-all-memos-as-read', handleMarkAllAsRead);
     };
-  }, [tab]);
+  }, [tab, markMemoAsReadInState, user]);
 
 
   const handleSelectMemo = useCallback((id: string) => {
@@ -77,22 +128,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     if (tab === 'inbox' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
       // Fire-and-forget the server action, but update the local state optimistically
       markAsRead(id);
-      
-      const newActivity = {
-        id: `temp-view-${Date.now()}`,
-        actorId: user.id,
-        action: 'viewed' as const,
-        actor: user,
-        details: '',
-        timestamp: new Date().toISOString()
-      };
-      
-      const updatedMemo = { ...memo, activity: [...memo.activity, newActivity] };
-      
-      const updatedMemos = memos.map(m => m.id === id ? updatedMemo : m);
-      
-      setMemos(updatedMemos);
-      setSelectedMemo(updatedMemo);
+      markMemoAsReadInState(id);
     } else {
       setSelectedMemo(memo);
     }
@@ -100,7 +136,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
     router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
-  }, [memos, user, router, pathname, searchParams, tab]);
+  }, [memos, user, router, pathname, searchParams, tab, markMemoAsReadInState]);
 
   const loadMemos = useCallback(async (forceReload = false) => {
     if (!user && !forceReload) return;
