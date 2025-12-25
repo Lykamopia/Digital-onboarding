@@ -30,7 +30,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,6 +95,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
+  const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   
   const [formState, setFormState] = useState(initialFormState);
 
@@ -182,14 +182,16 @@ export default function UsersPage() {
     }
   }
   
-  const handleResetPassword = async (userId: string) => {
-    const result = await resetUserPassword(userId);
+  const handleResetPassword = async () => {
+    if (!resetUser) return;
+    const result = await resetUserPassword(resetUser.id);
     if(result.success && result.newPassword) {
       setPasswordDialog({ open: true, password: result.newPassword });
       toast({ title: "Success", description: "Password has been reset." });
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
     }
+    setResetUser(null);
   }
 
   const handleStatusChange = async (user: UserWithRelations) => {
@@ -309,7 +311,6 @@ export default function UsersPage() {
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <AlertDialog>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon">
@@ -318,32 +319,15 @@ export default function UsersPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <DropdownMenuItem onSelect={() => handleEdit(user)}>Edit User</DropdownMenuItem>
-                                     <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                            <KeyRound className="mr-2"/>Reset Password
-                                        </DropdownMenuItem>
-                                     </AlertDialogTrigger>
+                                    <DropdownMenuItem onSelect={() => setResetUser(user)}>
+                                        <KeyRound className="mr-2"/>Reset Password
+                                    </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onSelect={() => handleStatusChange(user)}>
                                         {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                             <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                    This will reset the password for {user.name}. A new temporary password will be generated. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleResetPassword(user.id)}>
-                                    Reset Password
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                           </AlertDialog>
                         </TableCell>
                     </TableRow>
                 ))}
@@ -363,7 +347,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+    <Dialog modal={false} open={isDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
@@ -416,6 +400,23 @@ export default function UsersPage() {
         </DialogContent>
     </Dialog>
     
+    <AlertDialog open={!!resetUser} onOpenChange={(open) => !open && setResetUser(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                This will reset the password for {resetUser?.name}. A new temporary password will be generated. This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setResetUser(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResetPassword}>
+                Reset Password
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
     <Dialog open={passwordDialog.open} onOpenChange={(open) => setPasswordDialog(prev => ({...prev, open}))}>
         <DialogContent>
             <DialogHeader>
@@ -446,4 +447,4 @@ export default function UsersPage() {
   );
 }
 
-  
+    
