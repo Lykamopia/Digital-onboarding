@@ -572,6 +572,27 @@ export async function saveUser(data: { id?: string, name: string, email: string,
     revalidatePath('/dashboard/admin/users');
 }
 
+export async function deleteUser(userId: string) {
+    // Safety check: prevent deleting a user who has authored memos.
+    // In a real-world scenario, you might want to reassign memos or soft-delete the user.
+    const memoCount = await prisma.memo.count({ where: { fromId: userId } });
+    if (memoCount > 0) {
+        return { error: `Cannot delete user. They are the author of ${memoCount} memo(s). Please reassign them first.` };
+    }
+    // Add more checks for other relations if necessary.
+    
+    // Perform deletion
+    try {
+        await prisma.user.delete({ where: { id: userId }});
+        revalidatePath('/dashboard/admin/users');
+        return { success: true };
+    } catch (error) {
+        console.error(error);
+        return { error: 'An unexpected error occurred while deleting the user.' };
+    }
+}
+
+
 export async function resetUserPassword(userId: string, newPassword?: string) {
     try {
         const password = newPassword || (Math.random().toString(36).slice(-8) + 'A1!');
@@ -718,5 +739,3 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard');
     return { success: true };
 }
-
-    

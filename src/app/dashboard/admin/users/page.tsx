@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveUser, resetUserPassword } from "@/app/actions/memo";
+import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
 import type { User, Role, Office } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -47,7 +47,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
@@ -95,6 +95,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
+  const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
   const [formState, setFormState] = useState(initialFormState);
@@ -210,9 +211,10 @@ export default function UsersPage() {
     }
   };
 
-  const handleResetDialogClose = (open: boolean) => {
+  const handleAlertClose = (open: boolean) => {
     if (!open) {
       setResetUser(null);
+      setDeleteUserAlert(null);
     }
     // Force cleanup of any remaining overlay elements (both dialog and alert-dialog)
     // Use requestAnimationFrame to ensure state update happens first
@@ -271,6 +273,18 @@ export default function UsersPage() {
     }
   }
 
+    const handleDelete = async () => {
+        if (!deleteUserAlert) return;
+        const result = await deleteUser(deleteUserAlert.id);
+        setDeleteUserAlert(null);
+        if (result.success) {
+            await mutateUsers();
+            toast({ title: "Success", description: "User has been deleted." });
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    }
+
   const handleStatusChange = async (user: UserWithRelations) => {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
       await saveUser({ 
@@ -326,7 +340,7 @@ export default function UsersPage() {
 
   // Cleanup body styles and overlays when all dialogs are closed
   useEffect(() => {
-    const allDialogsClosed = !isFormDialogOpen && !passwordDialog.open && !resetUser;
+    const allDialogsClosed = !isFormDialogOpen && !passwordDialog.open && !resetUser && !deleteUserAlert;
     
     if (allDialogsClosed) {
       // Use requestAnimationFrame to ensure DOM has updated
@@ -346,7 +360,7 @@ export default function UsersPage() {
         document.body.style.paddingRight = '';
       });
     }
-  }, [isFormDialogOpen, passwordDialog.open, resetUser]);
+  }, [isFormDialogOpen, passwordDialog.open, resetUser, deleteUserAlert]);
 
   if (loadingUsers || loadingOffices || loadingRoles) {
     return <UsersLoadingSkeleton />;
@@ -448,6 +462,10 @@ export default function UsersPage() {
                                     <DropdownMenuItem onSelect={() => handleStatusChange(user)}>
                                         {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDeleteUserAlert(user)} className="text-destructive">
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete User
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -522,7 +540,7 @@ export default function UsersPage() {
         </DialogContent>
     </Dialog>
     
-    <AlertDialog open={!!resetUser} onOpenChange={handleResetDialogClose}>
+    <AlertDialog open={!!resetUser} onOpenChange={(open) => !open && handleAlertClose(false)}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -534,7 +552,7 @@ export default function UsersPage() {
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
-                    handleResetDialogClose(false);
+                    handleAlertClose(false);
                   }}
                 >
                   Cancel
@@ -542,6 +560,21 @@ export default function UsersPage() {
                 <AlertDialogAction onClick={handleResetPassword}>
                 Reset Password
                 </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    
+    <AlertDialog open={!!deleteUserAlert} onOpenChange={(open) => !open && handleAlertClose(false)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the user account for {deleteUserAlert?.name}.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => handleAlertClose(false)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete User</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
