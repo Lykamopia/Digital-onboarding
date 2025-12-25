@@ -63,9 +63,10 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverPortal>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0"
-        // Prevent clicks from closing the dialog
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        <PopoverContent 
+            className="w-[--radix-popover-trigger-width] p-0"
+            // Prevent clicks from closing the dialog
+            onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command key={value}>
             <CommandInput placeholder={searchPlaceholder} />
@@ -98,5 +99,3 @@ export function Combobox({
     </Popover>
   )
 }
-
-    

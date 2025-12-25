@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -349,8 +348,8 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange} modal={false}>
-        <DialogContent className="sm:max-w-md">
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+        <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
                 <DialogDescription>
@@ -358,13 +357,13 @@ export default function UsersPage() {
                 </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave}>
-                <div className="grid grid-cols-1 gap-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name">Name</Label>
+                        <Label htmlFor="name">Full Name</Label>
                         <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Email Address</Label>
                         <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
                     </div>
                      <div className="space-y-2">
@@ -388,7 +387,7 @@ export default function UsersPage() {
                         />
                     </div>
                     {editingUser && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 md:col-span-2">
                             <Label htmlFor="password">New Password</Label>
                             <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
                         </div>
@@ -396,7 +395,7 @@ export default function UsersPage() {
                 </div>
                 <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                    <Button type="submit">Save</Button>
+                    <Button type="submit">Save User</Button>
                 </DialogFooter>
             </form>
         </DialogContent>
@@ -448,5 +447,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
