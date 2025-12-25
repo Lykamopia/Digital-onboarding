@@ -10,15 +10,13 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, forwardMemo, getUsers } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
 import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from "./ui/dialog"
-import { RecipientSelector } from "./recipient-selector"
-import { Textarea } from "./ui/textarea"
+import { ForwardDialog } from "./forward-dialog"
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -27,81 +25,6 @@ interface MemoListProps {
   onSelectMemo: (id: string) => void
   isExpanded: boolean
   tab: string
-}
-
-function ForwardDialog({ memo, onUpdate, children }: { memo: MemoWithActivity, onUpdate: () => void, children: React.ReactNode }) {
-  const [selectedUser, setSelectedUser] = useState<User[]>([]);
-  const [remark, setRemark] = useState('');
-  const [open, setOpen] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (open) {
-      getUsers().then(setAllUsers);
-    }
-  }, [open]);
-
-  const handleForward = async () => {
-    if (selectedUser.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No user selected',
-        description: 'Please select a user to forward the memo to.',
-      });
-      return;
-    }
-    const forwardTo = selectedUser[0];
-
-    await forwardMemo(memo.id, forwardTo.id, remark);
-
-    toast({
-        title: "Memo Forwarded",
-        description: `Successfully forwarded to ${forwardTo.name}.`
-    });
-    onUpdate();
-    setOpen(false);
-    setSelectedUser([]);
-    setRemark('');
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {children}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Forward Memo</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Forward to</p>
-            <RecipientSelector
-              allUsers={allUsers}
-              selected={selectedUser}
-              setSelected={(users) => setSelectedUser(users.slice(0, 1))}
-              placeholder="Select a user..."
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Remark (Optional)</p>
-            <Textarea
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Add a remark..."
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" onClick={(e) => e.stopPropagation()}>Cancel</Button>
-          </DialogClose>
-          <Button onClick={handleForward}>Forward</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
@@ -268,10 +191,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </ForwardDialog>
                 )}
                  {tab === 'sent' && (
-                    <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        <span>Archive</span>
-                    </ContextMenuItem>
+                     <>
+                        <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            <span>Archive</span>
+                        </ContextMenuItem>
+                     </>
                 )}
                 {tab === 'drafts' && (
                     <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>

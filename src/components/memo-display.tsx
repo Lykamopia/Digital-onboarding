@@ -29,17 +29,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
-import { RecipientSelector } from './recipient-selector';
-import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
-import { Badge } from './ui/badge';
-import { acknowledgeMemo, archiveMemo, forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
-import { MemoEmptyIllustration } from './memo-empty-illustration';
+import { ForwardDialog } from './forward-dialog';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -51,82 +46,6 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   archived: <Archive className="h-4 w-4" />,
   unarchived: <Undo2 className="h-4 w-4" />,
 };
-
-function ForwardDialog({ memo, onUpdate }: { memo: MemoWithActivity, onUpdate: () => void }) {
-  const [selectedUser, setSelectedUser] = React.useState<User[]>([]);
-  const [remark, setRemark] = React.useState('');
-  const [open, setOpen] = React.useState(false);
-  const [allUsers, setAllUsers] = React.useState<User[]>([]);
-  const { toast } = useToast();
-
-  React.useEffect(() => {
-    getUsers().then(setAllUsers);
-  }, []);
-
-  const handleForward = async () => {
-    if (selectedUser.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No user selected',
-        description: 'Please select a user to forward the memo to.',
-      });
-      return;
-    }
-    const forwardTo = selectedUser[0];
-
-    await forwardMemo(memo.id, forwardTo.id, remark);
-
-    toast({
-        title: "Memo Forwarded",
-        description: `Successfully forwarded to ${forwardTo.name}.`
-    });
-    onUpdate();
-    setOpen(false);
-    setSelectedUser([]);
-    setRemark('');
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className='no-print'>
-          <Share2 className="mr-2 h-4 w-4" />
-          Forward
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Forward Memo</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Forward to</p>
-            <RecipientSelector
-              allUsers={allUsers}
-              selected={selectedUser}
-              setSelected={(users) => setSelectedUser(users.slice(0, 1))}
-              placeholder="Select a user..."
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Remark (Optional)</p>
-            <Textarea
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Add a remark..."
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button onClick={handleForward}>Forward</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
@@ -317,7 +236,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                             Reply
                         </Button>
                         {canForward && (
-                            <ForwardDialog memo={memo} onUpdate={onUpdate} />
+                            <ForwardDialog memo={memo} onUpdate={onUpdate}>
+                                <Button variant="outline" className='no-print'>
+                                    <Share2 className="mr-2 h-4 w-4" />
+                                    Forward
+                                </Button>
+                            </ForwardDialog>
                         )}
                         <div className="flex-grow" />
                         <Button variant="ghost" size="icon" onClick={handlePrint}>
