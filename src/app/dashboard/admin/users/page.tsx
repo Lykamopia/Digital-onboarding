@@ -47,6 +47,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -81,21 +82,6 @@ function UsersLoadingSkeleton() {
         </Card>
     )
 }
-
-const generatePassword = () => {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
-    let password = "";
-    for (let i = 0, n = charset.length; i < length; ++i) {
-        password += charset.charAt(Math.floor(Math.random() * n));
-    }
-    // Ensure password has at least one of each character type
-    if (!/\d/.test(password)) password += '1';
-    if (!/[a-z]/.test(password)) password += 'a';
-    if (!/[A-Z]/.test(password)) password += 'A';
-    if (!/[!@#$%^&*()]/.test(password)) password += '!';
-    return password.slice(0, length);
-};
 
 const ITEMS_PER_PAGE = 10;
 
@@ -148,7 +134,17 @@ export default function UsersPage() {
     let passwordToSend = formState.password;
 
     if (isNewUser) {
-        passwordToSend = generatePassword();
+        const length = 12;
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+        let password = "";
+        for (let i = 0, n = charset.length; i < length; ++i) {
+            password += charset.charAt(Math.floor(Math.random() * n));
+        }
+        if (!/\d/.test(password)) password += '1';
+        if (!/[a-z]/.test(password)) password += 'a';
+        if (!/[A-Z]/.test(password)) password += 'A';
+        if (!/[!@#$%^&*()]/.test(password)) password += '!';
+        passwordToSend = password.slice(0, length);
     }
 
     const userData = {
@@ -454,3 +450,4 @@ export default function UsersPage() {
   );
 }
 
+    
