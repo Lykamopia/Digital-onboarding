@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -85,6 +85,8 @@ function UsersLoadingSkeleton() {
 
 const ITEMS_PER_PAGE = 10;
 
+const initialFormState = { name: '', email: '', password: '', officeId: '', roleId: '' };
+
 export default function UsersPage() {
   const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
   const { data: offices, loading: loadingOffices } = useOffices();
@@ -95,24 +97,10 @@ export default function UsersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
-  const [formState, setFormState] = useState({ name: '', email: '', password: '', officeId: '', roleId: '' });
+  const [formState, setFormState] = useState(initialFormState);
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    if (editingUser) {
-        setFormState({
-            name: editingUser.name || '',
-            email: editingUser.email || '',
-            officeId: editingUser.officeId || '',
-            roleId: editingUser.roleId || '',
-            password: '',
-        });
-    } else {
-        setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
-    }
-  }, [editingUser, isDialogOpen]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -162,28 +150,36 @@ export default function UsersPage() {
     
     toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
     
+    setIsDialogOpen(false);
+    
     if (isNewUser && passwordToSend) {
         setPasswordDialog({ open: true, password: passwordToSend });
     }
-    
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (user: UserWithRelations) => {
     setEditingUser(user);
+    setFormState({
+        name: user.name || '',
+        email: user.email || '',
+        officeId: user.officeId || '',
+        roleId: user.roleId || '',
+        password: '',
+    });
     setIsDialogOpen(true);
   }
 
   const handleAddNew = () => {
     setEditingUser(null);
+    setFormState(initialFormState);
     setIsDialogOpen(true);
   }
 
   const handleDialogChange = (open: boolean) => {
+    setIsDialogOpen(open);
     if (!open) {
       setEditingUser(null);
     }
-    setIsDialogOpen(open);
   }
   
   const handleResetPassword = async (userId: string) => {
@@ -368,15 +364,15 @@ export default function UsersPage() {
     </Card>
 
     <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
                 <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'Fill in the details for the new user.'}
+                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated for the new user.'}
                 </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                <div className="grid grid-cols-1 gap-6 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Name</Label>
                         <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
@@ -406,7 +402,7 @@ export default function UsersPage() {
                         />
                     </div>
                     {editingUser && (
-                        <div className="space-y-2 md:col-span-2">
+                        <div className="space-y-2">
                             <Label htmlFor="password">New Password</Label>
                             <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
                         </div>
@@ -449,3 +445,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+  
