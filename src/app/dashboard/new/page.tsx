@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -75,6 +75,11 @@ export default function NewMemoPage() {
     }
     fetchData();
   }, []);
+
+  const availableUsers = useMemo(() => {
+    if (!loggedInUser) return users;
+    return users.filter(user => user.id !== loggedInUser.id);
+  }, [users, loggedInUser]);
   
   const form = useForm();
   
@@ -327,7 +332,7 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
                         <RecipientSelector
-                        allUsers={users}
+                        allUsers={availableUsers}
                         selected={to}
                         setSelected={setTo}
                         placeholder="Select recipients..."
@@ -336,7 +341,7 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
                         <RecipientSelector
-                        allUsers={users}
+                        allUsers={availableUsers}
                         selected={cc}
                         setSelected={setCc}
                         placeholder="Select CC recipients..."

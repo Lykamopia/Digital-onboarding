@@ -1,12 +1,11 @@
 
-
 'use client';
 
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon, Search, X } from 'lucide-react';
+import { CalendarIcon, Search, X, RefreshCw, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
@@ -25,9 +24,11 @@ interface MemoFiltersProps {
   setStatus: (status: string) => void;
   toggle: React.ReactNode;
   isExpanded: boolean;
+  onRefresh: () => void;
+  loading: boolean;
 }
 
-export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, toggle, isExpanded }: MemoFiltersProps) {
+export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, toggle, isExpanded, onRefresh, loading }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
@@ -76,6 +77,9 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
                     />
                 </div>
             )}
+             <Button variant="outline" size="icon" onClick={onRefresh} disabled={loading} className="shrink-0">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
         </div>
       {isExpanded && (
         <div className="flex min-w-0 items-center flex-wrap gap-2 mt-2">

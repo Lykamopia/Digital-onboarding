@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles, useUsers } from "../hooks";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, PlusCircle, Trash2, Edit } from "lucide-react";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -170,7 +170,10 @@ export default function RoleManagementPage() {
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Role Management</CardTitle>
-        <Button onClick={handleAddNew}>Add New Role</Button>
+        <Button onClick={handleAddNew}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Role
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
@@ -191,11 +194,13 @@ export default function RoleManagementPage() {
                     <TableCell>{usersInRole(role.id)}</TableCell>
                     <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
+                        <Edit className="mr-2 h-4 w-4" />
                         Edit
                     </Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0}>
+                            <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                         </Button>
                         </AlertDialogTrigger>

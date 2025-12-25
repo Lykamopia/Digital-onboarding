@@ -36,7 +36,7 @@ import type { Memo } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
-import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type MemoWithRelations = Memo & { from: { name: string }, to: { name: string }[], archivedBy: { id: string }[] };
@@ -168,7 +168,7 @@ export default function ArchiveSettingsPage() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleSaveSettings} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save Settings
           </Button>
         </CardFooter>
@@ -186,7 +186,7 @@ export default function ArchiveSettingsPage() {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" disabled={selectedMemos.length === 0 || isPerformingAction}>
-                        Bulk Actions <ChevronDown className="ml-2 h-4 w-4" />
+                        <Archive className="mr-2 h-4 w-4" /> Bulk Actions <ChevronDown className="ml-2 h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>

@@ -37,7 +37,7 @@ import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDepartments, useDivisions } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 const ITEMS_PER_PAGE = 10;
@@ -219,7 +219,10 @@ export default function DepartmentsPage() {
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Departments</CardTitle>
-        <Button onClick={handleAddNew}>Add Department</Button>
+        <Button onClick={handleAddNew}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Department
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
@@ -330,5 +333,3 @@ export default function DepartmentsPage() {
     </>
   );
 }
-
-    

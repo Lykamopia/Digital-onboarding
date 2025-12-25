@@ -37,7 +37,7 @@ import type { Office } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices, useDepartments } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Edit, Trash2, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 type OfficeWithRelations = Office & { department: { name: string, division: { name: string } } };
@@ -215,7 +215,10 @@ export default function OfficesPage() {
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Offices</CardTitle>
-        <Button onClick={handleAddNew}>Add Office</Button>
+        <Button onClick={handleAddNew}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Office
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
@@ -327,5 +330,3 @@ export default function OfficesPage() {
     </>
   );
 }
-
-    

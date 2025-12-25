@@ -241,6 +241,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             setStatus={setStatus}
             isExpanded={isListExpanded}
             toggle={memoListToggle}
+            onRefresh={() => loadMemos(true)}
+            loading={loading}
         />
         {loading ? (
             <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
