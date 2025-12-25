@@ -25,6 +25,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { UserNav } from '@/components/user-nav';
 import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
+import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 
 interface DashboardContentWrapperProps {
   user: (User & { role: { permissions: Permission[] } }) | null;
@@ -107,6 +108,8 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   ];
 
   return (
+    <>
+    {!user.mustChangePassword && <SessionTimeoutManager />}
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
@@ -181,5 +184,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         </div>
       </div>
     </div>
+    </>
   );
 }
