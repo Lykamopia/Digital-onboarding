@@ -25,7 +25,7 @@ import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { getDashboardData, getLoggedInUser } from "../actions/memo"
-import type { Permission, User, Memo } from "@/lib/types"
+import type { Permission, User, Memo, MemoWithActivity } from "@/lib/types"
 import { useNotification } from "@/components/notification-provider"
 
 function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null, pathname: string }) {
@@ -130,7 +130,7 @@ function DashboardLayoutContent({
       if (!user) return;
 
       const checkNewMemos = async () => {
-        const inboxMemos = await getDashboardData('inbox', '', '', {});
+        const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
         
         let seenMemos: string[] = [];
         try {
@@ -144,7 +144,6 @@ function DashboardLayoutContent({
 
         if (newMemos.length > 0) {
           newMemos.forEach(memo => {
-             // Check if it was delegated or a new memo
             const lastActivity = memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
             const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
 
@@ -161,6 +160,9 @@ function DashboardLayoutContent({
                 memoId: memo.id,
               });
             }
+            
+            // Dispatch custom event for real-time update
+            window.dispatchEvent(new CustomEvent('new-memo-event', { detail: { memo } }));
           });
 
           const allSeenMemos = [...seenMemos, ...newMemos.map(m => m.id)];

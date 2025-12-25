@@ -48,12 +48,37 @@ function DashboardContent({ tab }: { tab: string }) {
     getLoggedInUser().then(setUser);
   }, []);
 
+  // Real-time inbox update listener
+  useEffect(() => {
+    const handleNewMemo = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const { memo: newMemo } = customEvent.detail;
+
+        if (tab === 'inbox') {
+            setMemos(prevMemos => {
+                // Avoid adding duplicates
+                if (prevMemos.some(m => m.id === newMemo.id)) {
+                    return prevMemos;
+                }
+                return [newMemo, ...prevMemos];
+            });
+        }
+    };
+
+    window.addEventListener('new-memo-event', handleNewMemo);
+
+    return () => {
+        window.removeEventListener('new-memo-event', handleNewMemo);
+    };
+  }, [tab]);
+
+
   const handleSelectMemo = useCallback((id: string) => {
     const memo = memos.find(m => m.id === id);
     if (!memo || !user) return;
 
     // Optimistic UI update for 'read' status
-    if (memo.status !== 'draft' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+    if (tab === 'inbox' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
       // Fire-and-forget the server action, but update the local state optimistically
       markAsRead(id);
       
@@ -79,7 +104,7 @@ function DashboardContent({ tab }: { tab: string }) {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
     router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
-  }, [memos, user, router, pathname, searchParams]);
+  }, [memos, user, router, pathname, searchParams, tab]);
 
   const loadMemos = useCallback(async (forceReload = false) => {
     if (!user && !forceReload) return;
