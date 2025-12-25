@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
 
 datasource db {
   provider     = "postgresql"
@@ -11,36 +5,8 @@ datasource db {
   relationMode = "prisma"
 }
 
-model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String?   @unique
-  emailVerified      DateTime?
-  hashedPassword     String?
-  avatar             String?
-  image              String? // from next-auth
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  mustChangePassword Boolean   @default(false)
-  status             String    @default("active") // active, inactive
-
-  accounts Account[]
-  sessions Session[]
-
-  sentMemos           Memo[]          @relation("SentMemos")
-  receivedMemosTo     Memo[]          @relation("ReceivedMemosTo")
-  receivedMemosCc     Memo[]          @relation("ReceivedMemosCc")
-  memosHeld           Memo[]          @relation("CurrentHolder")
-  previousMemosHeld   Memo[]          @relation("PreviousHolder")
-  acknowledgedMemos   Memo[]          @relation("AcknowledgedBy")
-  archivedMemos       Memo[]          @relation("ArchivedBy")
-  activities          Activity[]
-
-  officeId String?
-  office   Office? @relation(fields: [officeId], references: [id])
-
-  roleId String?
-  role   Role?   @relation(fields: [roleId], references: [id])
+generator client {
+  provider = "prisma-client-js"
 }
 
 model Account {
@@ -49,12 +15,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?
-  access_token      String?
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?
+  id_token          String? @db.Text
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -70,6 +36,48 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model User {
+  id                      String    @id @default(cuid())
+  name                    String?
+  email                   String?   @unique
+  emailVerified           DateTime?
+  image                   String?
+  hashedPassword          String?
+  avatar                  String?
+  status                  String    @default("active")
+  mustChangePassword      Boolean   @default(false)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  
+  sentMemos             Memo[]          @relation("SentMemos")
+  receivedMemos         Memo[]          @relation("ReceivedMemos")
+  ccMemos               Memo[]          @relation("CCMemos")
+  
+  currentMemos          Memo[]          @relation("CurrentHolder")
+  previouslyHeldMemos   Memo[]          @relation("PreviousHolder")
+  
+  acknowledgedMemos     Memo[]          @relation("AcknowledgedMemos")
+  archivedMemos         Memo[]          @relation("ArchivedMemos")
+
+  activities            Activity[]
+
+  officeId              String
+  office                Office         @relation(fields: [officeId], references: [id])
+  
+  roleId                String
+  role                  Role           @relation(fields: [roleId], references: [id])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String   // Comma-separated list of permissions
+  users       User[]
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -78,80 +86,62 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ORGANIZATIONAL STRUCTURE
-
 model Division {
-  id           String       @id @default(cuid())
-  name         String       @unique
-  code         String       @unique
-  departments  Department[]
+    id            String       @id @default(cuid())
+    name          String       @unique
+    code          String       @unique
+    departments   Department[]
 }
 
 model Department {
-  id         String     @id @default(cuid())
-  name       String
-  code       String
-  divisionId String
-  division   Division   @relation(fields: [divisionId], references: [id])
-  offices    Office[]
-
-  @@unique([name, divisionId])
-  @@unique([code, divisionId])
+    id          String    @id @default(cuid())
+    name        String
+    code        String
+    divisionId  String
+    division    Division  @relation(fields: [divisionId], references: [id])
+    offices     Office[]
 }
 
 model Office {
-  id           String     @id @default(cuid())
-  name         String
-  code         String
-  departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
-  users        User[]
-
-  @@unique([name, departmentId])
-  @@unique([code, departmentId])
+    id            String     @id @default(cuid())
+    name          String
+    code          String
+    departmentId  String
+    department    Department @relation(fields: [departmentId], references: [id])
+    users         User[]
 }
-
-model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  permissions String // Comma-separated list of permissions
-  users       User[]
-}
-
-// MEMO SYSTEM
 
 model Memo {
-  id                    String        @id @default(cuid())
-  memo_reference_number String        @unique
+  id                    String      @id @default(cuid())
+  memo_reference_number String      @unique
   subject               String
-  body                  String
-  status                String // e.g., "draft", "sent", "read", "acknowledged"
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  body                  String      @db.Text
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  status                String      // e.g., 'draft', 'sent', 'read', 'acknowledged'
 
   fromId                String
-  from                  User          @relation("SentMemos", fields: [fromId], references: [id])
+  from                  User        @relation("SentMemos", fields: [fromId], references: [id])
   
-  to                    User[]        @relation("ReceivedMemosTo")
-  cc                    User[]        @relation("ReceivedMemosCc")
+  to                    User[]      @relation("ReceivedMemos")
+  cc                    User[]      @relation("CCMemos")
   
   current_holderId      String?
-  current_holder        User?         @relation("CurrentHolder", fields: [current_holderId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  current_holder        User?       @relation("CurrentHolder", fields: [current_holderId], references: [id])
 
-  previous_holders      User[]        @relation("PreviousHolder")
-  acknowledgedBy        User[]        @relation("AcknowledgedBy")
-  archivedBy            User[]        @relation("ArchivedBy")
+  previous_holders      User[]      @relation("PreviousHolder")
+  
+  acknowledgedBy        User[]      @relation("AcknowledgedMemos")
+  archivedBy            User[]      @relation("ArchivedMemos")
+  archivedById          String[]
+
+  // Self-referencing relation for replies
+  replyToId             String?
+  replyTo               Memo?         @relation("Replies", fields: [replyToId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  replies               Memo[]        @relation("Replies")
 
   attachments           Attachment[]
   activity              Activity[]
-  
-  // For threaded replies
-  replies               Memo[]        @relation("Replies")
-  replyToId             String?
-  replyTo               Memo?         @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  // This helps Prisma understand the many-to-many relationship
-  archivedById          String[]
 }
 
 model Attachment {
@@ -159,7 +149,7 @@ model Attachment {
   name    String
   type    String
   size    Int
-  url     String
+  url     String @db.Text
   memoId  String
   memo    Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
 }
@@ -170,7 +160,7 @@ model Activity {
   memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
   actorId   String
   actor     User     @relation(fields: [actorId], references: [id])
-  action    String // e.g., "sent", "viewed", "commented", "forwarded", "acknowledged"
+  action    String   // e.g., 'sent', 'viewed', 'acknowledged', 'commented', 'forwarded'
   details   String?
   timestamp DateTime @default(now())
 }
