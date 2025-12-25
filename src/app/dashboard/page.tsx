@@ -1,11 +1,12 @@
 
-import { getLoggedInUser } from '@/app/actions/memo';
-import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
 
 export default async function DashboardPage() {
-    const user = await getLoggedInUser();
+    const session = await getServerSession(authOptions);
 
-    if (user?.mustChangePassword) {
+    if ((session?.user as any)?.mustChangePassword) {
         redirect('/dashboard/change-password');
     }
 
