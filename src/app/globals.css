@@ -141,36 +141,33 @@
     }
 
     .telegram-loader {
-      width: 80px;
-      height: 80px;
+      width: 50px;
+      height: 50px;
       position: relative;
     }
 
     .telegram-loader__plane {
       fill: hsl(var(--primary));
-      width: 30px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       position: absolute;
       animation: plane-fly 2.5s ease-in-out infinite;
     }
 
     @keyframes plane-fly {
       0% {
-        transform: translate(0, 0) rotate(0deg);
+        transform: translate(0, 0) rotate(45deg);
+      }
+      20% {
+        transform: translate(0, 0) rotate(45deg);
+      }
+      80% {
+        transform: translate(50px, -50px) rotate(45deg);
         opacity: 1;
-      }
-      25% {
-        transform: translate(50px, 0) rotate(90deg);
-      }
-      50% {
-        transform: translate(50px, 50px) rotate(180deg);
-      }
-      75% {
-        transform: translate(0, 50px) rotate(270deg);
       }
       100% {
-        transform: translate(0, 0) rotate(360deg);
-        opacity: 1;
+        transform: translate(50px, -50px) rotate(45deg);
+        opacity: 0;
       }
     }
   }
