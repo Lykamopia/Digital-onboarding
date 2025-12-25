@@ -1,11 +1,9 @@
 
 
-"use client"
-
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
 import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock } from "lucide-react"
-import { Suspense, useEffect, useMemo, useState } from "react"
+import { Suspense, useMemo } from "react"
 
 import {
   SidebarProvider,
@@ -23,10 +21,9 @@ import { UserNav } from "@/components/user-nav"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationListener } from "@/components/notification-listener"
 import { NotificationBell } from "@/components/notification-bell"
-import { HoneycombLoader } from "@/components/honeycomb-loader"
-import { getDashboardData, getLoggedInUser } from "../actions/memo"
-import type { Permission, User, Memo, MemoWithActivity } from "@/lib/types"
-import { useNotification } from "@/components/notification-provider"
+import { getLoggedInUser } from "../actions/memo"
+import type { Permission, User } from "@/lib/types"
+import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 
 function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, user: User & { role: { permissions: Permission[] } } | null, pathname: string }) {
     
@@ -87,7 +84,6 @@ function NavItems({ isMobile = false, user, pathname }: { isMobile?: boolean, us
     );
 }
 
-
 const MobileSidebar = ({ user, pathname }: { user: User & { role: { permissions: Permission[] } } | null, pathname: string }) => (
     <Sheet>
         <SheetTrigger asChild>
@@ -116,132 +112,21 @@ const DesktopSidebar = ({ user, pathname }: { user: User & { role: { permissions
     </Sidebar>
 )
 
-function DashboardLayoutContent({
-    children,
-  }: {
-    children: React.ReactNode
-  }) {
-    const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
-    const [loading, setLoading] = useState(true);
-    const pathname = usePathname();
-    const { showNotification } = useNotification();
-    
-    useEffect(() => {
-        getLoggedInUser().then(userData => {
-            setUser(userData);
-            setLoading(false);
-        });
-    }, []);
 
-    useEffect(() => {
-      if (!user || user.mustChangePassword) return;
-
-      const checkNewMemos = async () => {
-        const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
-        
-        let seenMemos: string[] = [];
-        try {
-          const stored = localStorage.getItem('seenMemos');
-          seenMemos = stored ? JSON.parse(stored) : [];
-        } catch (e) {
-          console.error("Could not parse seenMemos from localStorage", e);
-        }
-
-        const newMemos = inboxMemos.filter(memo => !seenMemos.includes(memo.id));
-
-        if (newMemos.length > 0) {
-          newMemos.forEach(memo => {
-            const lastActivity = memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
-
-            if (isForward) {
-              showNotification({
-                title: 'Memo Delegated to You',
-                description: `From: ${lastActivity.actor.name} - ${memo.subject}`,
-                memoId: memo.id,
-              });
-            } else {
-              showNotification({
-                title: 'New Memo Received',
-                description: `From: ${memo.from.name} - ${memo.subject}`,
-                memoId: memo.id,
-              });
-            }
-            
-            // Dispatch custom event for real-time update
-            window.dispatchEvent(new CustomEvent('new-memo-event', { detail: { memo } }));
-          });
-
-          const allSeenMemos = [...seenMemos, ...newMemos.map(m => m.id)];
-          localStorage.setItem('seenMemos', JSON.stringify(allSeenMemos));
-        }
-      };
-
-      // Initial check
-      checkNewMemos();
-
-      // Poll every 15 seconds
-      const intervalId = setInterval(checkNewMemos, 15000);
-
-      return () => clearInterval(intervalId);
-
-    }, [user, showNotification]);
-
-
-    const handleNewMemoClick = () => {
-        // This functionality will be handled on the new memo page now
-    }
-
-    if (loading) {
-        return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
-    }
-    
-    return (
-        <div className={`grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]`}>
-            <DesktopSidebar user={user} pathname={pathname} />
-            <div className="flex flex-col h-screen">
-                <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
-                    <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
-                        <MobileSidebar user={user} pathname={pathname} />
-                        <SidebarTrigger className="hidden md:flex" />
-                        <div className="w-full flex-1">
-                            {/* Optional: Add a search bar here */}
-                        </div>
-                        {user?.role.permissions.includes('manage_memos' as Permission) && !user.mustChangePassword && (
-                            <Link href="/dashboard/new" onClick={handleNewMemoClick}>
-                                <Button>
-                                <FilePlus className="mr-2 h-4 w-4" />
-                                New Memo
-                                </Button>
-                            </Link>
-                        )}
-                         <NotificationBell />
-                         { user && <UserNav user={user} /> }
-                    </div>
-                </header>
-                <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
-                    <div className="flex-1 p-4">
-                        {children}
-                    </div>
-                </main>
-                <div className="hidden print:block">
-                     {children}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const user = await getLoggedInUser();
+
   return (
     <SidebarProvider>
-        <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>}>
+        <Suspense fallback={<div>Loading...</div>}>
             <NotificationListener />
-            <DashboardLayoutContent>{children}</DashboardLayoutContent>
+            <DashboardContentWrapper user={user as (User & { role: { permissions: Permission[]; }; }) | null}>
+                {children}
+            </DashboardContentWrapper>
         </Suspense>
     </SidebarProvider>
   )

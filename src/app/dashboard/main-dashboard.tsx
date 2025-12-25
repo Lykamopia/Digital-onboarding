@@ -15,21 +15,20 @@ import { MemoFilters } from "@/components/memo-filters"
 import { DateRange } from "react-day-picker"
 import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getDashboardData, getLoggedInUser, markAsRead } from "../actions/memo"
+import { getDashboardData, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 
-function DashboardContent({ tab }: { tab: string }) {
+function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const memoIdFromUrl = searchParams.get('id');
 
-  const [user, setUser] = useState<User | null>(null);
-  const [memos, setMemos] = useState<MemoWithActivity[]>([]);
+  const [memos, setMemos] = useState<MemoWithActivity[]>(initialMemos);
   const [selectedMemo, setSelectedMemo] = useState<MemoWithActivity | null>(null);
   const [isListExpanded, setIsListExpanded] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
 
   // Filter states
@@ -44,9 +43,6 @@ function DashboardContent({ tab }: { tab: string }) {
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
 
-  useEffect(() => {
-    getLoggedInUser().then(setUser);
-  }, []);
 
   // Real-time inbox update listener
   useEffect(() => {
@@ -145,11 +141,8 @@ function DashboardContent({ tab }: { tab: string }) {
   }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams]);
 
   useEffect(() => {
-    if (user) {
-      loadMemos();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tab, search, status, dateRange]); // This effect ONLY runs when filters change
+    loadMemos();
+  }, [search, status, dateRange]); // This effect ONLY runs when filters change
 
   useEffect(() => {
       // This effect syncs the selected memo with the URL id, but does NOT reload the list.
@@ -247,10 +240,10 @@ function DashboardContent({ tab }: { tab: string }) {
   )
 }
 
-export default function MainDashboard({ tab }: { tab: string }) {
+export default function MainDashboard({ tab, initialMemos, user }: { tab: string, initialMemos: MemoWithActivity[], user: User | null }) {
     return (
         <Suspense fallback={<div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><HoneycombLoader /></div>}>
-            <DashboardContent tab={tab} />
+            <DashboardContent tab={tab} initialMemos={initialMemos} user={user} />
         </Suspense>
     )
 }
