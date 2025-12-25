@@ -15,6 +15,7 @@ import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
 import { Archive, Reply, Mail, MailOpen, Trash2, Undo2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -149,41 +150,86 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         )
     }
 
+    const MemoContextMenu = ({ memo }: { memo: MemoWithActivity }) => {
+        const memoStatus = getMemoStatus(memo);
+
+        return (
+            <ContextMenuContent>
+                 {tab === 'inbox' && (
+                    <>
+                        {memoStatus === 'unread' && (
+                            <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
+                                <MailOpen className="mr-2 h-4 w-4" />
+                                <span>Mark as Read</span>
+                            </ContextMenuItem>
+                        )}
+                        <ContextMenuItem onSelect={() => handleReply(memo.id)}>
+                            <Reply className="mr-2 h-4 w-4" />
+                            <span>Reply</span>
+                        </ContextMenuItem>
+                    </>
+                )}
+                 {tab === 'sent' && (
+                    <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        <span>Archive</span>
+                    </ContextMenuItem>
+                )}
+                {tab === 'drafts' && (
+                    <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete Draft</span>
+                    </ContextMenuItem>
+                )}
+                {tab === 'archive' && (
+                     <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
+                        <Undo2 className="mr-2 h-4 w-4" />
+                        <span>Unarchive</span>
+                    </ContextMenuItem>
+                )}
+            </ContextMenuContent>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-0.5 p-1">
             {memos.map((memo) => (
-            <div
-                key={memo.id}
-                className={cn(
-                "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
-                "hover:bg-primary/5",
-                selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : ""
-                )}
-                onClick={() => onSelectMemo(memo.id)}
-            >
-                <div className="flex w-full flex-col gap-0.5">
-                    <div className="flex items-center">
-                        <div className="flex items-center gap-2 truncate">
-                            <div className="font-semibold truncate">{memo.from.name}</div>
-                            {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
-                        </div>
-                        <div
+            <ContextMenu key={memo.id}>
+                <ContextMenuTrigger>
+                    <div
                         className={cn(
-                            "ml-auto text-xs shrink-0 transition-opacity duration-300",
-                            "group-hover:opacity-0",
-                            selectedMemoId === memo.id
-                            ? "text-foreground"
-                            : "text-muted-foreground"
+                        "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
+                        "hover:bg-primary/5",
+                        selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : ""
                         )}
-                        >
-                        {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                        onClick={() => onSelectMemo(memo.id)}
+                    >
+                        <div className="flex w-full flex-col gap-0.5">
+                            <div className="flex items-center">
+                                <div className="flex items-center gap-2 truncate">
+                                    <div className="font-semibold truncate">{memo.from.name}</div>
+                                    {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
+                                </div>
+                                <div
+                                className={cn(
+                                    "ml-auto text-xs shrink-0 transition-opacity duration-300",
+                                    "group-hover:opacity-0",
+                                    selectedMemoId === memo.id
+                                    ? "text-foreground"
+                                    : "text-muted-foreground"
+                                )}
+                                >
+                                {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                                </div>
+                            </div>
+                            <div className="text-sm font-medium truncate pr-24">{memo.subject || "No Subject"}</div>
                         </div>
+                        <div className="line-clamp-1 text-xs text-muted-foreground break-words pr-24" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                        <MemoActions memo={memo} />
                     </div>
-                    <div className="text-sm font-medium truncate pr-24">{memo.subject || "No Subject"}</div>
-                </div>
-                <div className="line-clamp-1 text-xs text-muted-foreground break-words pr-24" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
-                <MemoActions memo={memo} />
-            </div>
+                </ContextMenuTrigger>
+                <MemoContextMenu memo={memo} />
+            </ContextMenu>
             ))}
         </div>
     )
