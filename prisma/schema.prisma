@@ -1,34 +1,32 @@
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
-
+// datasource db defines the database connection details.
 datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"
 }
 
+// generator client defines the Prisma Client generator.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- ORGANIZATIONAL STRUCTURE ---
+
 model Division {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  code        String       @unique
+  id           String       @id @default(cuid())
+  name         String       @unique
+  code         String       @unique
   departments Department[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
 }
 
 model Department {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   name       String
   code       String
-  division   Division  @relation(fields: [divisionId], references: [id])
+  division   Division @relation(fields: [divisionId], references: [id])
   divisionId String
   offices    Office[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+
+  @@unique([name, divisionId])
 }
 
 model Office {
@@ -38,101 +36,59 @@ model Office {
   department   Department @relation(fields: [departmentId], references: [id])
   departmentId String
   users        User[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+
+  @@unique([name, departmentId])
 }
+
+// --- USER & ROLES ---
 
 model Role {
   id          String @id @default(cuid())
   name        String @unique
-  permissions String // Stored as comma-separated values
+  permissions String // Comma-separated list of permissions
   users       User[]
 }
 
 model User {
-  id             String       @id @default(cuid())
-  name           String?
-  email          String?      @unique
-  emailVerified  DateTime?
-  image          String?
-  hashedPassword String?
-  avatar         String?
-  status         String       @default("active") // active, inactive
-  role           Role         @relation(fields: [roleId], references: [id])
-  roleId         String
-  office         Office       @relation(fields: [officeId], references: [id])
-  officeId       String
-  sentMemos      Memo[]       @relation("SentMemos")
-  memosTo        Memo[]       @relation("MemosTo")
-  memosCc        Memo[]       @relation("MemosCc")
-  heldMemos      Memo[]       @relation("HeldMemos")
-  previouslyHeldMemos Memo[]  @relation("PreviouslyHeldMemos")
-  acknowledgedMemos Memo[]    @relation("AcknowledgedMemos")
-  archivedMemos  Memo[]       @relation("ArchivedMemos")
-  activities     Activity[]
-  accounts       Account[]
-  sessions       Session[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id              String       @id @default(cuid())
+  name            String?
+  email           String?      @unique
+  emailVerified   DateTime?
+  image           String?
+  avatar          String?
+  hashedPassword  String?
+  status          String       @default("active")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  role            Role         @relation(fields: [roleId], references: [id])
+  roleId          String
+  office          Office?      @relation(fields: [officeId], references: [id])
+  officeId        String?
+  sentMemos       Memo[]       @relation("MemoFrom")
+  receivedMemos   Memo[]       @relation("MemoTo")
+  ccMemos         Memo[]       @relation("MemoCc")
+  heldMemos       Memo[]       @relation("MemoCurrentHolder")
+  previouslyHeldMemos Memo[]   @relation("MemoPreviousHolders")
+  acknowledgedMemos Memo[]     @relation("MemoAcknowledgedBy")
+  archivedMemos   Memo[]       @relation("MemoArchivedBy")
+  activities      Activity[]
+  accounts        Account[]
+  sessions        Session[]
 }
 
-model Memo {
-  id                    String   @id @default(cuid())
-  memo_reference_number String   @unique
-  subject               String
-  body                  String
-  status                String   @default("draft") // draft, sent, read, acknowledged
-  from                  User     @relation("SentMemos", fields: [fromId], references: [id])
-  fromId                String
-  to                    User[]   @relation("MemosTo")
-  cc                    User[]   @relation("MemosCc")
-  current_holder        User?    @relation("HeldMemos", fields: [current_holderId], references: [id])
-  current_holderId      String?
-  previous_holders      User[]   @relation("PreviouslyHeldMemos")
-  acknowledgedBy        User[]   @relation("AcknowledgedMemos")
-  archivedBy            User[]   @relation("ArchivedMemos")
-  attachments           Attachment[]
-  activity              Activity[]
-  replyTo               Memo?    @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replyToId             String?
-  replies               Memo[]   @relation("Replies")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedat
-}
-
-model Attachment {
-  id     String @id @default(cuid())
-  name   String
-  type   String
-  size   Int
-  url    String
-  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
-  memoId String
-}
-
-model Activity {
-  id        String   @id @default(cuid())
-  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
-  memoId    String
-  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  actorId   String
-  action    String // sent, viewed, acknowledged, forwarded, commented, etc.
-  details   String?
-  timestamp DateTime @default(now())
-}
-
+// Required for NextAuth.js
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -155,5 +111,50 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Define Permission as a string type since enums are not supported
-type Permission String
+
+// --- MEMO & RELATED MODELS ---
+
+model Memo {
+  id                    String       @id @default(cuid())
+  memo_reference_number String
+  subject               String
+  body                  String
+  status                String       @default("draft")
+  from                  User         @relation("MemoFrom", fields: [fromId], references: [id])
+  fromId                String
+  to                    User[]       @relation("MemoTo")
+  cc                    User[]       @relation("MemoCc")
+  current_holder        User?        @relation("MemoCurrentHolder", fields: [current_holderId], references: [id])
+  current_holderId      String?
+  previous_holders      User[]       @relation("MemoPreviousHolders")
+  acknowledgedBy        User[]       @relation("MemoAcknowledgedBy")
+  archivedBy            User[]       @relation("MemoArchivedBy")
+  replyTo               Memo?        @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replyToId             String?
+  replies               Memo[]       @relation("Replies")
+  attachments           Attachment[]
+  activity              Activity[]
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model Attachment {
+  id     String @id @default(cuid())
+  name   String
+  type   String
+  size   Int
+  url    String
+  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  memoId String
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  memoId    String
+  actor     User     @relation(fields: [actorId], references: [id])
+  actorId   String
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
+}
