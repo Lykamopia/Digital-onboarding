@@ -3,22 +3,21 @@
 
 export function HoneycombLoader() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-       <div className="telegram-loader">
+    <div className="flex items-center justify-center">
+       <div className="paper-plane-loader">
         <svg
-            className="telegram-loader__plane"
+            className="paper-plane-loader__plane"
             viewBox="0 0 24 24"
-            width="24px"
-            height="24px"
+            width="48px"
+            height="48px"
             xmlns="http://www.w3.org/2000/svg"
         >
             <path
-            fill="currentColor"
             d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"
             ></path>
         </svg>
        </div>
-      <div className="text-sm font-semibold text-primary/80 tracking-widest uppercase">Sending...</div>
     </div>
   );
 }
+

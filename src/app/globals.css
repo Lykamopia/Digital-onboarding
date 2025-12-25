@@ -140,34 +140,33 @@
       }
     }
 
-    .telegram-loader {
+    .paper-plane-loader {
       width: 50px;
       height: 50px;
       position: relative;
     }
 
-    .telegram-loader__plane {
+    .paper-plane-loader__plane {
       fill: hsl(var(--primary));
-      width: 24px;
-      height: 24px;
+      width: 48px;
+      height: 48px;
       position: absolute;
-      animation: plane-fly 2.5s ease-in-out infinite;
+      animation: paper-plane-fly 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
 
-    @keyframes plane-fly {
+    @keyframes paper-plane-fly {
       0% {
-        transform: translate(0, 0) rotate(45deg);
+        transform: translate(0, 0) rotate(-20deg) scale(0.5);
+        opacity: 1;
       }
-      20% {
-        transform: translate(0, 0) rotate(45deg);
-      }
-      80% {
-        transform: translate(50px, -50px) rotate(45deg);
+      50% {
+        transform: translate(60px, -60px) rotate(20deg) scale(1);
         opacity: 1;
       }
       100% {
-        transform: translate(50px, -50px) rotate(45deg);
+        transform: translate(120px, -120px) rotate(60deg) scale(0);
         opacity: 0;
       }
     }
   }
+
