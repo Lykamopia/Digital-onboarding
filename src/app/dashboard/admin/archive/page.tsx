@@ -101,7 +101,7 @@ export default function ArchiveSettingsPage() {
     setIsSaving(false);
   };
   
-  const handleBulkAction = async (action: 'archive' | 'restore' | 'delete') => {
+  const handleBulkAction = async (action: 'restore' | 'delete') => {
       if (selectedMemos.length === 0) {
           toast({ title: "No Memos Selected", description: "Please select memos to perform this action.", variant: "destructive" });
           return;
@@ -115,7 +115,7 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(true);
       const result = await performBulkArchiveActions(action, selectedMemos);
       if (result.success) {
-          toast({ title: "Action Successful", description: `Selected memos have been ${action === 'archive' ? 'archived' : 'restored'}.`});
+          toast({ title: "Action Successful", description: `Selected memos have been restored.`});
           setSelectedMemos([]);
           await fetchMemosAndSettings();
       } else {
@@ -205,7 +205,7 @@ export default function ArchiveSettingsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead padding="checkbox" className="w-12">
+                  <TableHead className="w-12">
                     <Checkbox
                       checked={selectedMemos.length > 0 && selectedMemos.length === paginatedMemos.length && paginatedMemos.length > 0}
                       onCheckedChange={(checked) => {
@@ -224,8 +224,8 @@ export default function ArchiveSettingsPage() {
               <TableBody>
                 {paginatedMemos.length > 0 ? (
                   paginatedMemos.map((memo, index) => (
-                    <TableRow key={memo.id} data-state={selectedMemos.includes(memo.id) && "selected"}>
-                      <TableCell padding="checkbox">
+                    <TableRow key={memo.id} data-state={selectedMemos.includes(memo.id) ? "selected" : undefined}>
+                      <TableCell>
                         <Checkbox
                           checked={selectedMemos.includes(memo.id)}
                           onCheckedChange={(checked) => {

@@ -625,16 +625,15 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
             where: { id: { in: memoIds } },
         });
     } else {
-        const connectOrDisconnect = action === 'archive' ? 'connect' : 'disconnect';
-        
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                archivedMemos: {
-                    [connectOrDisconnect]: memoIds.map(id => ({ id })),
+        // For restore, we need to disconnect for all users who archived it.
+        if (action === 'restore') {
+            await prisma.memo.updateMany({
+                where: { id: { in: memoIds } },
+                data: {
+                    archivedById: { set: [] }
                 }
-            }
-        });
+            })
+        }
     }
     
     revalidatePath('/dashboard/admin/archive');

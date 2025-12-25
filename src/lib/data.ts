@@ -14,10 +14,10 @@ export const permissions: { id: Permission, label: string, description: string }
     { id: 'manage_archive', label: 'Manage Archive', description: 'Can manage archive settings and permanently delete memos' },
 ];
 
-export const formatTimestamp = (timestamp: string, relative: boolean = true) => {
+export const formatTimestamp = (timestamp: string | Date, relative: boolean = true) => {
   if (!timestamp) return '';
   try {
-    const date = new Date(timestamp);
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     if (isNaN(date.getTime())) {
       return '';
     }
