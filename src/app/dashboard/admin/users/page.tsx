@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
@@ -47,7 +46,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
@@ -151,17 +150,91 @@ export default function UsersPage() {
     toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
     
     setIsFormDialogOpen(false);
+    setEditingUser(null);
+    setFormState(initialFormState);
     
     if (isNewUser && passwordToSend) {
         setPasswordDialog({ open: true, password: passwordToSend });
     }
   };
   
-  useEffect(() => {
-    if (!isFormDialogOpen) {
+  const handleDialogClose = (open: boolean) => {
+    setIsFormDialogOpen(open);
+    if (!open) {
       setEditingUser(null);
+      setFormState(initialFormState);
     }
-  }, [isFormDialogOpen]);
+    // Force cleanup of any remaining overlay elements
+    // Use requestAnimationFrame to ensure state update happens first
+    if (!open) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Remove any remaining Radix UI dialog overlays
+          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
+          overlays.forEach(overlay => {
+            const state = overlay.getAttribute('data-state');
+            if (!state || state === 'closed') {
+              (overlay as HTMLElement).style.display = 'none';
+              overlay.remove();
+            }
+          });
+          // Ensure body styles are reset
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.style.paddingRight = '';
+        }, 200);
+      });
+    }
+  };
+
+  const handlePasswordDialogClose = (open: boolean) => {
+    if (!open) {
+      setPasswordDialog({ open: false, password: "" });
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
+        overlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
+    } else {
+      setPasswordDialog(prev => ({ ...prev, open: true }));
+    }
+  };
+
+  const handleResetDialogClose = (open: boolean) => {
+    if (!open) {
+      setResetUser(null);
+    }
+    // Force cleanup of any remaining overlay elements (both dialog and alert-dialog)
+    // Use requestAnimationFrame to ensure state update happens first
+    if (!open) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Clean up all possible overlay elements using Radix UI data attributes
+          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+          allOverlays.forEach(overlay => {
+            const state = overlay.getAttribute('data-state');
+            if (!state || state === 'closed') {
+              (overlay as HTMLElement).style.display = 'none';
+              overlay.remove();
+            }
+          });
+          // Ensure body styles are reset
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.style.paddingRight = '';
+        }, 200);
+      });
+    }
+  };
 
 
   const handleEdit = (user: UserWithRelations) => {
@@ -185,26 +258,45 @@ export default function UsersPage() {
   const handleResetPassword = async () => {
     if (!resetUser) return;
     const result = await resetUserPassword(resetUser.id);
+    setResetUser(null); // Close the alert dialog first
     if(result.success && result.newPassword) {
-      setPasswordDialog({ open: true, password: result.newPassword });
-      toast({ title: "Success", description: "Password has been reset." });
+      // Small delay to ensure alert dialog is fully closed before opening password dialog
+      setTimeout(() => {
+        setPasswordDialog({ open: true, password: result.newPassword });
+        toast({ title: "Success", description: "Password has been reset." });
+      }, 100);
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
     }
-    setResetUser(null); // Close the dialog
   }
 
   const handleStatusChange = async (user: UserWithRelations) => {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
-      await saveUser({ ...user, status: newStatus });
+      await saveUser({ 
+        id: user.id,
+        name: user.name || '',
+        email: user.email || '',
+        officeId: user.officeId || '',
+        roleId: user.roleId || '',
+        status: newStatus 
+      });
       await mutateUsers();
       toast({ title: "Success", description: `User has been ${newStatus}.` });
   }
 
   const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
       await Promise.all(selectedUsers.map(id => {
-          const user = users.find(u => u.id === id);
-          if (user) return saveUser({ ...user, status });
+          const user = users.find(u => u.id === id) as UserWithRelations | undefined;
+          if (user) {
+            return saveUser({ 
+              id: user.id,
+              name: user.name || '',
+              email: user.email || '',
+              officeId: user.officeId || '',
+              roleId: user.roleId || '',
+              status 
+            });
+          }
       }));
       await mutateUsers();
       setSelectedUsers([]);
@@ -230,6 +322,30 @@ export default function UsersPage() {
   const handleFormChange = (field: keyof typeof formState, value: string) => {
       setFormState(prev => ({ ...prev, [field]: value }));
   }
+
+  // Cleanup body styles and overlays when all dialogs are closed
+  useEffect(() => {
+    const allDialogsClosed = !isFormDialogOpen && !passwordDialog.open && !resetUser;
+    
+    if (allDialogsClosed) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        // Remove any lingering overlay elements (both Dialog and AlertDialog)
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      });
+    }
+  }, [isFormDialogOpen, passwordDialog.open, resetUser]);
 
   if (loadingUsers || loadingOffices || loadingRoles) {
     return <UsersLoadingSkeleton />;
@@ -318,7 +434,10 @@ export default function UsersPage() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <DropdownMenuItem onSelect={() => handleEdit(user)}>Edit User</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleEdit(user)}>
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Edit User
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setResetUser(user)}>
                                         <KeyRound className="mr-2"/>Reset Password
                                     </DropdownMenuItem>
@@ -347,7 +466,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
@@ -393,14 +512,14 @@ export default function UsersPage() {
                     )}
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
                     <Button type="submit">Save User</Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
     
-    <AlertDialog open={!!resetUser} onOpenChange={(open) => !open && setResetUser(null)}>
+    <AlertDialog open={!!resetUser} onOpenChange={handleResetDialogClose}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -409,7 +528,14 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setResetUser(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleResetDialogClose(false);
+                  }}
+                >
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction onClick={handleResetPassword}>
                 Reset Password
                 </AlertDialogAction>
@@ -417,7 +543,7 @@ export default function UsersPage() {
         </AlertDialogContent>
     </AlertDialog>
 
-    <Dialog open={passwordDialog.open} onOpenChange={(open) => setPasswordDialog(prev => ({...prev, open}))}>
+    <Dialog open={passwordDialog.open} onOpenChange={handlePasswordDialogClose}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Generated Password</DialogTitle>
@@ -439,7 +565,7 @@ export default function UsersPage() {
                 </Button>
             </div>
             <DialogFooter>
-                <Button onClick={() => setPasswordDialog({ open: false, password: "" })}>Done</Button>
+                <Button onClick={() => handlePasswordDialogClose(false)}>Done</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

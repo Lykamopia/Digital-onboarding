@@ -24,6 +24,18 @@ const DialogOverlay = React.forwardRef<
       "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
+    onAnimationEnd={(e) => {
+      // Remove overlay element from DOM when animation completes and dialog is closed
+      if (e.currentTarget.getAttribute('data-state') === 'closed') {
+        setTimeout(() => {
+          const overlay = e.currentTarget;
+          if (overlay && overlay.getAttribute('data-state') === 'closed') {
+            overlay.remove();
+          }
+        }, 100);
+      }
+      props.onAnimationEnd?.(e);
+    }}
     {...props}
   />
 ))
@@ -42,6 +54,18 @@ const DialogContent = React.forwardRef<
         "w-[calc(100%-2rem)] sm:w-full",
         className
       )}
+      onInteractOutside={(e) => {
+        // Allow popover clicks to work - prevent closing dialog when clicking on popover
+        const target = e.target as HTMLElement;
+        const isPopover = target.closest('[data-radix-popper-content-wrapper]') || 
+                         target.closest('[data-radix-popover-content]') ||
+                         target.closest('[role="listbox"]') ||
+                         target.closest('[cmdk-list]') ||
+                         target.closest('[cmdk-input]');
+        if (isPopover) {
+          e.preventDefault();
+        }
+      }}
       {...props}
     >
       {children}

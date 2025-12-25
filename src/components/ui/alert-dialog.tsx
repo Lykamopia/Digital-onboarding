@@ -21,6 +21,21 @@ const AlertDialogOverlay = React.forwardRef<
       "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
+    onAnimationEnd={(e) => {
+      // Remove overlay element from DOM when animation completes and dialog is closed
+      const overlay = e.currentTarget;
+      const state = overlay.getAttribute('data-state');
+      if (state === 'closed') {
+        // Use requestAnimationFrame to ensure animation is fully complete
+        requestAnimationFrame(() => {
+          if (overlay.getAttribute('data-state') === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            setTimeout(() => overlay.remove(), 50);
+          }
+        });
+      }
+      props.onAnimationEnd?.(e);
+    }}
     {...props}
     ref={ref}
   />

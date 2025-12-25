@@ -89,6 +89,7 @@ export default function DepartmentsPage() {
     
     setIsDialogOpen(false);
     setEditingDepartment(null);
+    setSelectedDivisionId(undefined);
   };
 
   const handleEdit = (department: Department) => {
@@ -104,6 +105,7 @@ export default function DepartmentsPage() {
   const handleDialogClose = (open: boolean) => {
     if (!open) {
         setEditingDepartment(null);
+        setSelectedDivisionId(undefined);
     }
     setIsDialogOpen(open);
   }

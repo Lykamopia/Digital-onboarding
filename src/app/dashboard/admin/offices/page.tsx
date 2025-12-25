@@ -91,6 +91,7 @@ export default function OfficesPage() {
 
     setIsDialogOpen(false);
     setEditingOffice(null);
+    setSelectedDepartmentId(undefined);
   };
 
   const handleEdit = (office: Office) => {
@@ -106,6 +107,7 @@ export default function OfficesPage() {
   const handleDialogChange = (open: boolean) => {
       if (!open) {
           setEditingOffice(null);
+          setSelectedDepartmentId(undefined);
       }
       setIsDialogOpen(open);
   }

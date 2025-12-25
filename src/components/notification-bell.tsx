@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import { Bell, Settings } from 'lucide-react';
 import { useNotification } from '@/components/notification-provider';
 import { Button } from '@/components/ui/button';
@@ -23,9 +24,32 @@ import { NotificationSettings } from './notification-settings';
 
 export function NotificationBell() {
   const { unreadCount, markAllAsRead } = useNotification();
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+
+  const handleSettingsDialogClose = (open: boolean) => {
+    setIsSettingsDialogOpen(open);
+    if (!open) {
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        // Clean up all possible overlay elements using Radix UI data attributes
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
+    }
+  };
 
   return (
-    <Dialog>
+    <Dialog open={isSettingsDialogOpen} onOpenChange={handleSettingsDialogClose}>
       <DropdownMenu>
           <DropdownMenuTrigger asChild>
               <Button
@@ -50,7 +74,12 @@ export function NotificationBell() {
                     <Button variant="link" size="sm" className="h-auto p-0" onClick={markAllAsRead}>Mark all as read</Button>
                 )}
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6"
+                      onClick={() => setIsSettingsDialogOpen(true)}
+                    >
                         <Settings className="h-4 w-4" />
                     </Button>
                 </DialogTrigger>
