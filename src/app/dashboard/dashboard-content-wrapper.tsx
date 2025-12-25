@@ -2,7 +2,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock } from 'lucide-react';
 
@@ -35,9 +35,14 @@ interface DashboardContentWrapperProps {
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
   const { showNotification } = useNotification();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (!user || user.mustChangePassword) return;
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.mustChangePassword || !isMounted) return;
 
     const checkNewMemos = async () => {
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
@@ -88,9 +93,9 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     return () => clearInterval(intervalId);
 
-  }, [user, showNotification]);
+  }, [user, showNotification, isMounted]);
 
-  if (!user) {
+  if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
 
