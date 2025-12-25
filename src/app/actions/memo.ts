@@ -9,6 +9,7 @@ import type { Memo, User } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
+import { sendEmail } from '@/lib/email';
 
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
@@ -249,6 +250,10 @@ export async function sendMemo(formData: FormData) {
                 ]
             },
             replyToId: validatedData.replyTo,
+        },
+        include: {
+            to: true,
+            cc: true,
         }
     });
 
@@ -271,6 +276,24 @@ export async function sendMemo(formData: FormData) {
     if (draftId) {
         await prisma.memo.delete({ where: { id: draftId } });
     }
+
+    // Send email notifications
+    const allRecipients = [...newMemo.to, ...newMemo.cc];
+    for (const recipient of allRecipients) {
+        const isDirectRecipient = newMemo.to.some(u => u.id === recipient.id);
+        try {
+            await sendEmail({
+                to: recipient.email,
+                subject: `New Memo: ${newMemo.subject}`,
+                memo: newMemo,
+                sender: user,
+                type: isDirectRecipient ? 'direct' : 'cc'
+            });
+        } catch (error) {
+            console.error(`Failed to send email to ${recipient.email}:`, error);
+        }
+    }
+
 
     revalidatePath('/dashboard');
     return { success: true, memo: newMemo };
