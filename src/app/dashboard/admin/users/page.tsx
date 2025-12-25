@@ -46,7 +46,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown } from "lucide-react";
@@ -116,7 +115,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    if (editingUser) {
+    if (editingUser && isDialogOpen) {
         setFormState({
             name: editingUser.name || '',
             email: editingUser.email || '',
@@ -124,7 +123,7 @@ export default function UsersPage() {
             roleId: editingUser.roleId || '',
             password: '',
         });
-    } else {
+    } else if (!editingUser && isDialogOpen) {
         setFormState({ name: '', email: '', password: '', officeId: '', roleId: '' });
     }
   }, [editingUser, isDialogOpen]);
@@ -299,8 +298,8 @@ export default function UsersPage() {
                         <TableCell>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={user.avatar} alt={user.name} />
-                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={user.avatar ?? undefined} alt={user.name ?? ''} />
+                                    <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <div className="font-medium">{user.name}</div>
@@ -373,56 +372,56 @@ export default function UsersPage() {
     </Card>
 
     <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{editingUser?.id ? "Edit User" : "Add New User"}</DialogTitle>
-          <DialogDescription>
-            {editingUser?.id ? "Update the details for this user." : "A secure password will be generated automatically."}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSave}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
-            </div>
-            {editingUser?.id && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" name="password" type="password" placeholder="Leave blank to keep unchanged" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="officeId">Office</Label>
-              <Combobox
-                options={officeOptions}
-                value={formState.officeId}
-                onChange={v => handleFormChange('officeId', v)}
-                placeholder="Select an office"
-                searchPlaceholder="Search offices..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="roleId">Role</Label>
-              <Combobox
-                options={roleOptions}
-                value={formState.roleId}
-                onChange={v => handleFormChange('roleId', v)}
-                placeholder="Select a role"
-                searchPlaceholder="Search roles..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit">Save</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+        <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+                <DialogDescription>
+                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated automatically.'}
+                </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSave}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="officeId">Office</Label>
+                        <Combobox
+                            options={officeOptions}
+                            value={formState.officeId}
+                            onChange={v => handleFormChange('officeId', v)}
+                            placeholder="Select an office"
+                            searchPlaceholder="Search offices..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="roleId">Role</Label>
+                        <Combobox
+                            options={roleOptions}
+                            value={formState.roleId}
+                            onChange={v => handleFormChange('roleId', v)}
+                            placeholder="Select a role"
+                            searchPlaceholder="Search roles..."
+                        />
+                    </div>
+                    {editingUser?.id && (
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="password">New Password</Label>
+                            <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button type="submit">Save</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
     </Dialog>
     
     <Dialog open={passwordDialog.open} onOpenChange={(open) => setPasswordDialog(prev => ({...prev, open}))}>
@@ -430,13 +429,13 @@ export default function UsersPage() {
             <DialogHeader>
                 <DialogTitle>Generated Password</DialogTitle>
                 <DialogDescription>
-                    A new password has been generated. Please copy and share it with the user securely.
+                    A new password has been generated for the user. Please copy and share it securely.
                 </DialogDescription>
             </DialogHeader>
             <div className="flex items-center space-x-2">
                 <div className="grid flex-1 gap-2">
                     <Label htmlFor="link" className="sr-only">Password</Label>
-                    <Input id="link" defaultValue={passwordDialog.password} readOnly />
+                    <Input id="link" value={passwordDialog.password} readOnly />
                 </div>
                 <Button type="submit" size="sm" className="px-3" onClick={() => {
                     navigator.clipboard.writeText(passwordDialog.password);
@@ -454,3 +453,4 @@ export default function UsersPage() {
     </>
   );
 }
+
