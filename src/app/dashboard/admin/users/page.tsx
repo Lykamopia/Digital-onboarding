@@ -95,6 +95,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
+  
+  // State to manage which user is pending password reset confirmation
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   
   const [formState, setFormState] = useState(initialFormState);
@@ -191,7 +193,7 @@ export default function UsersPage() {
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
     }
-    setResetUser(null);
+    setResetUser(null); // Close the dialog
   }
 
   const handleStatusChange = async (user: UserWithRelations) => {
@@ -347,7 +349,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog modal={false} open={isDialogOpen} onOpenChange={handleDialogChange}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
