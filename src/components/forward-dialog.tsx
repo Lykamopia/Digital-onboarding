@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Share2 } from 'lucide-react';
 import {
   Dialog,
@@ -10,16 +10,15 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RecipientSelector } from './recipient-selector';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { forwardMemo, getUsers } from '@/app/actions/memo';
+import { forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
 import type { MemoWithActivity, User } from '@/lib/types';
 import Logo from './logo';
+import { Label } from './ui/label';
 
 interface ForwardDialogProps {
   memo: MemoWithActivity;
@@ -55,13 +54,32 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
   const [remark, setRemark] = useState('');
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
-      getUsers().then(setAllUsers);
+      Promise.all([getUsers(), getLoggedInUser()]).then(([users, loggedInUser]) => {
+        setAllUsers(users);
+        setCurrentUser(loggedInUser);
+      });
     }
   }, [open]);
+
+  const availableUsers = useMemo(() => {
+    if (!currentUser) return [];
+    
+    const existingRecipientIds = new Set([
+        memo.fromId,
+        memo.current_holderId,
+        ...memo.to.map(u => u.id),
+        ...memo.cc.map(u => u.id),
+        ...memo.previous_holders?.map(u => u.id) || [],
+        currentUser.id, // Exclude self
+    ]);
+
+    return allUsers.filter(u => !existingRecipientIds.has(u.id));
+  }, [allUsers, currentUser, memo]);
 
   const handleForward = async () => {
     if (selectedUser.length === 0) {
@@ -98,7 +116,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
       <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className='relative pr-24'>
             <div className="mb-4">
@@ -113,29 +131,30 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
             <ForwardMemoIllustration />
           </div>
         </DialogHeader>
-        <div className="grid md:grid-cols-2 gap-6 py-4">
+        <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <p className="text-sm font-medium">Forward to</p>
+            <Label htmlFor="forward-to">Forward to</Label>
             <RecipientSelector
-              allUsers={allUsers}
+              id="forward-to"
+              allUsers={availableUsers}
               selected={selectedUser}
               setSelected={(users) => setSelectedUser(users.slice(0, 1))}
               placeholder="Select a user..."
             />
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-medium">Remark (Optional)</p>
+            <Label htmlFor="remark">Remark (Optional)</Label>
             <Textarea
+              id="remark"
               value={remark}
               onChange={(e) => setRemark(e.target.value)}
               placeholder="Add a remark... e.g., 'FYI' or 'Please handle this.'"
-              className="h-full"
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={handleForward}>
+          <Button onClick={handleForward} disabled={selectedUser.length === 0}>
             <Share2 className="mr-2" />
             Confirm Forward
           </Button>

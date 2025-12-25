@@ -22,6 +22,7 @@ import {
 import type { User } from "@/lib/types"
 
 type RecipientSelectorProps = {
+  id?: string;
   allUsers: User[];
   selected: User[];
   setSelected: (users: User[]) => void;
@@ -30,7 +31,7 @@ type RecipientSelectorProps = {
   popoverClassName?: string;
 };
 
-export function RecipientSelector({ allUsers, selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
+export function RecipientSelector({ id, allUsers, selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleUnselect = (userToUnselect: User) => {
@@ -56,7 +57,7 @@ export function RecipientSelector({ allUsers, selected, setSelected, placeholder
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className={cn("flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm", className)}>
+        <div id={id} className={cn("flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm", className)}>
           {selected.map((user) => (
             <Badge
               key={user.id}
