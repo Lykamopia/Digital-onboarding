@@ -74,7 +74,7 @@ export default function LoginClientPage() {
         title: 'Login Successful',
         description: 'Welcome back!',
       });
-      router.push('/dashboard');
+      router.push('/dashboard/inbox');
     }
   };
 

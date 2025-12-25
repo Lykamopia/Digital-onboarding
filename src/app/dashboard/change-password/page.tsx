@@ -22,7 +22,7 @@ export default function ChangePasswordPage() {
           <ChangePasswordForm onPasswordChanged={() => {
             // The router refresh is handled by the form itself,
             // but we can also explicitly push to the dashboard as a fallback.
-            router.push('/dashboard');
+            router.push('/dashboard/inbox');
           }} />
         </CardContent>
       </Card>
