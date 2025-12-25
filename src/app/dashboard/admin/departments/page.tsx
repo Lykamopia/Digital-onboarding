@@ -10,6 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,12 +32,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveDepartment } from "@/app/actions/memo";
+import { saveDepartment, deleteDepartment } from "@/app/actions/memo";
 import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDepartments, useDivisions } from "../hooks";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -56,7 +67,9 @@ export default function DepartmentsPage() {
   const { toast } = useToast();
 
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -113,7 +126,28 @@ export default function DepartmentsPage() {
     setEditingDepartment(null);
     setIsDialogOpen(true);
   }
+
+  const handleDelete = (department: Department) => {
+    setDeletingDepartment(department);
+    setIsAlertOpen(true);
+  };
   
+  const handleConfirmDelete = async () => {
+    if (!deletingDepartment) return;
+
+    const result = await deleteDepartment(deletingDepartment.id);
+
+    if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+        toast({ title: "Success", description: "Department deleted successfully." });
+        await mutateDepts();
+    }
+    
+    setIsAlertOpen(false);
+    setDeletingDepartment(null);
+  };
+
   const handleDialogClose = (open: boolean) => {
     if (!open) {
         setEditingDepartment(null);
@@ -121,6 +155,14 @@ export default function DepartmentsPage() {
     }
     setIsDialogOpen(open);
   }
+  
+  const handleAlertClose = (open: boolean) => {
+    if (!open) {
+        setDeletingDepartment(null);
+    }
+    setIsAlertOpen(open);
+  }
+
 
   const getDivisionName = (divisionId: string) => {
       return divisions.find(d => d.id === divisionId)?.name || 'N/A';
@@ -133,6 +175,7 @@ export default function DepartmentsPage() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Departments</CardTitle>
@@ -158,9 +201,15 @@ export default function DepartmentsPage() {
                     <TableCell>{department.code}</TableCell>
                     <TableCell>{getDivisionName(department.divisionId)}</TableCell>
                     <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(department)}>
-                        Edit
-                    </Button>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => handleEdit(department)}><Edit className="mr-2"/>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleDelete(department)} className="text-destructive"><Trash2 className="mr-2"/>Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 ))}
@@ -178,40 +227,60 @@ export default function DepartmentsPage() {
             </div>
         </div>
 
-         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDepartment ? "Edit Department" : "Add New Department"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" defaultValue={editingDepartment?.name} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="code" className="text-right">Code</Label>
-                  <Input id="code" name="code" defaultValue={editingDepartment?.code} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="divisionId" className="text-right">Division</Label>
-                   <Combobox
-                        options={divisionOptions}
-                        value={selectedDivisionId}
-                        onChange={setSelectedDivisionId}
-                        placeholder="Select a division"
-                        searchPlaceholder="Search divisions..."
-                        className="col-span-3"
-                    />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        
       </CardContent>
     </Card>
+    
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent>
+        <DialogHeader>
+            <DialogTitle>{editingDepartment ? "Edit Department" : "Add New Department"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave}>
+            <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" name="name" defaultValue={editingDepartment?.name} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="code" className="text-right">Code</Label>
+                <Input id="code" name="code" defaultValue={editingDepartment?.code} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="divisionId" className="text-right">Division</Label>
+                <Combobox
+                    options={divisionOptions}
+                    value={selectedDivisionId}
+                    onChange={setSelectedDivisionId}
+                    placeholder="Select a division"
+                    searchPlaceholder="Search divisions..."
+                    className="col-span-3"
+                />
+            </div>
+            </div>
+            <DialogFooter>
+            <Button type="submit">Save</Button>
+            </DialogFooter>
+        </form>
+        </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertClose}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the department '{deletingDepartment?.name}'.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
+
+    

@@ -21,7 +21,12 @@ const memoSchema = z.object({
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
-    if (user.mustChangePassword) return [];
+
+    if (user.mustChangePassword) {
+      // If user must change password, they should only see the change password page.
+      // Returning an empty array for dashboard data prevents any other data from loading.
+      return [];
+    }
 
     const where: any = {
         AND: []
@@ -130,6 +135,8 @@ export async function getMemo(id: string) {
       previous_holders: true,
       acknowledgedBy: true,
       archivedBy: true,
+      replies: true,
+      replyTo: true
     },
   });
   return memo;
@@ -491,6 +498,17 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
     revalidatePath('/dashboard/admin/divisions');
 }
 
+export async function deleteDivision(id: string) {
+    const departments = await prisma.department.count({ where: { divisionId: id } });
+    if (departments > 0) {
+        return { error: 'Cannot delete division. It has associated departments. Please delete them first.' };
+    }
+    await prisma.division.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/divisions');
+    return { success: true };
+}
+
+
 export async function saveDepartment(data: { id?: string, name: string, code: string, divisionId: string }) {
     if (data.id) {
         await prisma.department.update({ where: { id: data.id }, data });
@@ -498,6 +516,16 @@ export async function saveDepartment(data: { id?: string, name: string, code: st
         await prisma.department.create({ data });
     }
     revalidatePath('/dashboard/admin/departments');
+}
+
+export async function deleteDepartment(id: string) {
+    const offices = await prisma.office.count({ where: { departmentId: id } });
+    if (offices > 0) {
+        return { error: 'Cannot delete department. It has associated offices. Please delete them first.' };
+    }
+    await prisma.department.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/departments');
+    return { success: true };
 }
 
 export async function saveOffice(data: { id?: string, name: string, code: string, departmentId: string }) {
@@ -508,6 +536,17 @@ export async function saveOffice(data: { id?: string, name: string, code: string
     }
     revalidatePath('/dashboard/admin/offices');
 }
+
+export async function deleteOffice(id: string) {
+    const users = await prisma.user.count({ where: { officeId: id } });
+    if (users > 0) {
+        return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
+    }
+    await prisma.office.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/offices');
+    return { success: true };
+}
+
 
 export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string, password?: string, status?: string }) {
     const payload: any = {
@@ -520,6 +559,7 @@ export async function saveUser(data: { id?: string, name: string, email: string,
 
     if (data.password) {
         payload.hashedPassword = await bcrypt.hash(data.password, 10);
+        payload.mustChangePassword = true;
     }
     
     if (data.id) {
@@ -621,18 +661,39 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     if (!user) throw new Error("Not authenticated");
 
     if (action === 'delete') {
+        // This is a hard delete. Ensure compliance with data retention policies.
+        // In a real app, you might want to soft-delete or log this action extensively.
+        await prisma.attachment.deleteMany({ where: { memoId: { in: memoIds } } });
+        await prisma.activity.deleteMany({ where: { memoId: { in: memoIds } } });
+
+        // Need to handle replies carefully. Find memos that reply to the ones being deleted.
+        await prisma.memo.updateMany({
+            where: { replyToId: { in: memoIds } },
+            data: { replyToId: null },
+        });
+
         await prisma.memo.deleteMany({
             where: { id: { in: memoIds } },
         });
-    } else {
+
+    } else if (action === 'restore') {
         // For restore, we need to disconnect for all users who archived it.
-        if (action === 'restore') {
-            await prisma.memo.updateMany({
-                where: { id: { in: memoIds } },
+        // This is a bit tricky with the current schema. A better approach might be a separate Archive model.
+        // For now, we find all users who archived any of the selected memos and disconnect them.
+        const memosToRestore = await prisma.memo.findMany({
+            where: { id: { in: memoIds } },
+            select: { id: true, archivedBy: { select: { id: true } } }
+        });
+        
+        for (const memo of memosToRestore) {
+            await prisma.memo.update({
+                where: { id: memo.id },
                 data: {
-                    archivedById: { set: [] }
+                    archivedBy: {
+                        disconnect: memo.archivedBy.map(u => ({ id: u.id }))
+                    }
                 }
-            })
+            });
         }
     }
     
@@ -640,3 +701,5 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard');
     return { success: true };
 }
+
+    

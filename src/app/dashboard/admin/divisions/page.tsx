@@ -19,14 +19,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveDivision } from "@/app/actions/memo";
+import { saveDivision, deleteDivision } from "@/app/actions/memo";
 import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDivisions } from "../hooks";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+
 
 const ITEMS_PER_PAGE = 10;
 
@@ -54,7 +66,9 @@ export default function DivisionsPage() {
   const { toast } = useToast();
   
   const [editingDivision, setEditingDivision] = useState<Partial<Division> | null>(null);
+  const [deletingDivision, setDeletingDivision] = useState<Division | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const paginatedDivisions = useMemo(() => {
@@ -101,11 +115,38 @@ export default function DivisionsPage() {
     setIsDialogOpen(true);
   }
 
+  const handleDelete = (division: Division) => {
+    setDeletingDivision(division);
+    setIsAlertOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingDivision) return;
+
+    const result = await deleteDivision(deletingDivision.id);
+    if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+        toast({ title: "Success", description: "Division deleted successfully." });
+        await mutate();
+    }
+    
+    setIsAlertOpen(false);
+    setDeletingDivision(null);
+  };
+
   const handleDialogChange = (open: boolean) => {
       if (!open) {
           setEditingDivision(null);
       }
       setIsDialogOpen(open);
+  }
+  
+  const handleAlertChange = (open: boolean) => {
+      if (!open) {
+          setDeletingDivision(null);
+      }
+      setIsAlertOpen(open);
   }
 
   if (loading) {
@@ -113,6 +154,7 @@ export default function DivisionsPage() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Divisions</CardTitle>
@@ -136,9 +178,15 @@ export default function DivisionsPage() {
                     <TableCell>{division.name}</TableCell>
                     <TableCell>{division.code}</TableCell>
                     <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(division)}>
-                        Edit
-                    </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => handleEdit(division)}><Edit className="mr-2"/>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleDelete(division)} className="text-destructive"><Trash2 className="mr-2"/>Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 ))}
@@ -156,29 +204,50 @@ export default function DivisionsPage() {
             </div>
         </div>
 
-         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDivision?.id ? "Edit Division" : "Add New Division"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" defaultValue={editingDivision?.name} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="code" className="text-right">Code</Label>
-                  <Input id="code" name="code" defaultValue={editingDivision?.code} className="col-span-3" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        
       </CardContent>
     </Card>
+
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+        <DialogContent>
+        <DialogHeader>
+            <DialogTitle>{editingDivision?.id ? "Edit Division" : "Add New Division"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave}>
+            <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" name="name" defaultValue={editingDivision?.name} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="code" className="text-right">Code</Label>
+                <Input id="code" name="code" defaultValue={editingDivision?.code} className="col-span-3" />
+            </div>
+            </div>
+            <DialogFooter>
+            <Button type="submit">Save</Button>
+            </DialogFooter>
+        </form>
+        </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the division '{deletingDivision?.name}'.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
+    </>
   );
 }
+
+    

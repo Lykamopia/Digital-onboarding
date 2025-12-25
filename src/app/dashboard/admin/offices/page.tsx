@@ -19,15 +19,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveOffice } from "@/app/actions/memo";
+import { saveOffice, deleteOffice } from "@/app/actions/memo";
 import type { Office } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices, useDepartments } from "../hooks";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 type OfficeWithRelations = Office & { department: { name: string, division: { name: string } } };
 
@@ -58,7 +69,9 @@ export default function OfficesPage() {
   const { toast } = useToast();
 
   const [editingOffice, setEditingOffice] = useState<Partial<Office> | null>(null);
+  const [deletingOffice, setDeletingOffice] = useState<Office | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -115,6 +128,26 @@ export default function OfficesPage() {
     setEditingOffice(null);
     setIsDialogOpen(true);
   };
+
+  const handleDelete = (office: Office) => {
+    setDeletingOffice(office);
+    setIsAlertOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingOffice) return;
+
+    const result = await deleteOffice(deletingOffice.id);
+    if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+        toast({ title: "Success", description: "Office deleted successfully." });
+        await mutateOffices();
+    }
+    
+    setIsAlertOpen(false);
+    setDeletingOffice(null);
+  };
   
   const handleDialogChange = (open: boolean) => {
       if (!open) {
@@ -122,6 +155,13 @@ export default function OfficesPage() {
           setSelectedDepartmentId(undefined);
       }
       setIsDialogOpen(open);
+  }
+  
+  const handleAlertChange = (open: boolean) => {
+    if (!open) {
+        setDeletingOffice(null);
+    }
+    setIsAlertOpen(open);
   }
 
   const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
@@ -131,6 +171,7 @@ export default function OfficesPage() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Offices</CardTitle>
@@ -158,13 +199,15 @@ export default function OfficesPage() {
                     <TableCell>{office.department.name}</TableCell>
                     <TableCell>{office.department.division.name}</TableCell>
                     <TableCell className="text-right">
-                        <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(office)}
-                        >
-                        Edit
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => handleEdit(office)}><Edit className="mr-2"/>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleDelete(office)} className="text-destructive"><Trash2 className="mr-2"/>Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                     </TableRow>
                 )
@@ -182,41 +225,59 @@ export default function OfficesPage() {
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
             </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingOffice?.id ? "Edit Office" : "Add New Office"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" defaultValue={editingOffice?.name} className="col-span-3"/>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="code" className="text-right">Code</Label>
-                  <Input id="code" name="code" defaultValue={editingOffice?.code} className="col-span-3"/>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="departmentId" className="text-right">Department</Label>
-                  <Combobox
-                        options={departmentOptions}
-                        value={selectedDepartmentId}
-                        onChange={setSelectedDepartmentId}
-                        placeholder="Select a department"
-                        searchPlaceholder="Search departments..."
-                        className="col-span-3"
-                    />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
       </CardContent>
     </Card>
+    
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+        <DialogContent>
+        <DialogHeader>
+            <DialogTitle>{editingOffice?.id ? "Edit Office" : "Add New Office"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave}>
+            <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" name="name" defaultValue={editingOffice?.name} className="col-span-3"/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="code" className="text-right">Code</Label>
+                <Input id="code" name="code" defaultValue={editingOffice?.code} className="col-span-3"/>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="departmentId" className="text-right">Department</Label>
+                <Combobox
+                    options={departmentOptions}
+                    value={selectedDepartmentId}
+                    onChange={setSelectedDepartmentId}
+                    placeholder="Select a department"
+                    searchPlaceholder="Search departments..."
+                    className="col-span-3"
+                />
+            </div>
+            </div>
+            <DialogFooter>
+            <Button type="submit">Save</Button>
+            </DialogFooter>
+        </form>
+        </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the office '{deletingOffice?.name}'.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
+
+    
