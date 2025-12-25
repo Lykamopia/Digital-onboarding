@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth';
 import type { Memo, User } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
+import { cookies } from 'next/headers';
 
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
@@ -602,9 +603,25 @@ export async function changeUserPassword(password: string) {
                 mustChangePassword: false
             }
         });
+        
+        // This is the key change: update the session token in the database
+        // so the middleware can pick up the change immediately.
+        // We find the session associated with the user and update its content.
+        const sessions = await prisma.session.findMany({ where: { userId: user.id } });
+        for (const session of sessions) {
+             const sessionData = JSON.parse(session.sessionToken); // Assuming sessionToken is a JSON string
+             sessionData.mustChangePassword = false;
+
+             await prisma.session.update({
+                 where: { id: session.id },
+                 data: { sessionToken: JSON.stringify(sessionData) }
+             });
+        }
+        
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
+        console.error("Password change error:", error);
         return { success: false, error: 'Failed to change password.' };
     }
 }

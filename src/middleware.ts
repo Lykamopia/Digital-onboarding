@@ -16,7 +16,7 @@ export default async function middleware(req: NextRequest) {
     
     // If token exists, check for mandatory password change
     if (token) {
-        const mustChangePassword = token.mustChangePassword as boolean;
+        const mustChangePassword = !!token.mustChangePassword;
 
         if (mustChangePassword && pathname !== '/dashboard/change-password') {
             const changePasswordUrl = new URL('/dashboard/change-password', req.url);

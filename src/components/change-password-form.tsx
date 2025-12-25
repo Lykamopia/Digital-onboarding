@@ -53,13 +53,14 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
                 description: 'Your password has been successfully updated.',
             });
             
+            // This refresh is crucial. It re-triggers the middleware, which will now
+            // see that mustChangePassword is false and allow the redirect to the inbox.
+            router.refresh();
+            
             if (onPasswordChanged) {
                 onPasswordChanged();
             }
             
-            // This refresh is crucial. It re-triggers the middleware, which will now
-            // see that mustChangePassword is false and allow the redirect to the inbox.
-            router.refresh();
             reset();
         } else {
             toast({

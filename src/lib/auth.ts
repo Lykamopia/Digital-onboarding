@@ -1,3 +1,4 @@
+
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -48,10 +49,14 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+        if (trigger === "update" && session?.mustChangePassword === false) {
+          token.mustChangePassword = false;
+        }
         if (user) {
+            const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
             token.id = user.id;
-            token.mustChangePassword = (user as User).mustChangePassword;
+            token.mustChangePassword = dbUser?.mustChangePassword;
         }
         return token;
     },
