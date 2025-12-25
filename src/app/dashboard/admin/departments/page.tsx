@@ -149,18 +149,58 @@ export default function DepartmentsPage() {
   };
 
   const handleDialogClose = (open: boolean) => {
-    if (!open) {
-        setEditingDepartment(null);
-        setSelectedDivisionId(undefined);
-    }
     setIsDialogOpen(open);
+    if (!open) {
+      setEditingDepartment(null);
+      setSelectedDivisionId(undefined);
+    }
+    // Force cleanup of any remaining overlay elements
+    if (!open) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Remove any remaining Radix UI dialog overlays
+          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
+          overlays.forEach(overlay => {
+            const state = overlay.getAttribute('data-state');
+            if (!state || state === 'closed') {
+              (overlay as HTMLElement).style.display = 'none';
+              overlay.remove();
+            }
+          });
+          // Ensure body styles are reset
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.style.paddingRight = '';
+        }, 200);
+      });
+    }
   }
   
   const handleAlertClose = (open: boolean) => {
     if (!open) {
-        setDeletingDepartment(null);
+      setDeletingDepartment(null);
     }
     setIsAlertOpen(open);
+    // Force cleanup of any remaining overlay elements
+    if (!open) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Clean up all possible overlay elements using Radix UI data attributes
+          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+          allOverlays.forEach(overlay => {
+            const state = overlay.getAttribute('data-state');
+            if (!state || state === 'closed') {
+              (overlay as HTMLElement).style.display = 'none';
+              overlay.remove();
+            }
+          });
+          // Ensure body styles are reset
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.style.paddingRight = '';
+        }, 200);
+      });
+    }
   }
 
 
@@ -259,6 +299,7 @@ export default function DepartmentsPage() {
             </div>
             </div>
             <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
             <Button type="submit">Save</Button>
             </DialogFooter>
         </form>
@@ -274,7 +315,14 @@ export default function DepartmentsPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleAlertClose(false);
+                  }}
+                >
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
