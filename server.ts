@@ -1,6 +1,9 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 
+// In a real production app, you'd want to compile this to JS and run with node.
+// For simplicity in this dev environment, we'll use ts-node.
+
 console.log('Starting WebSocket server...');
 
 const wss = new WebSocketServer({ port: 8080 });
@@ -15,7 +18,7 @@ wss.on('connection', function connection(ws) {
     
     // Broadcast the message to all connected clients
     wss.clients.forEach(function each(client) {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
+      if (client.readyState === WebSocket.OPEN) {
         client.send(data.toString());
       }
     });
