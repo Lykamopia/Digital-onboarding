@@ -1,9 +1,7 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import type { Toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 type Notification = {
   id: string;
@@ -14,7 +12,11 @@ type Notification = {
   memoId?: string;
 };
 
-type ShowNotificationProps = Omit<Toast, 'id'> & { memoId?: string };
+type ShowNotificationProps = {
+    title: string;
+    description: string;
+    variant: 'success' | 'error' | 'info' | 'warning';
+} & { memoId?: string };
 
 type NotificationContextType = {
   settings: NotificationSettings;
@@ -34,7 +36,6 @@ type NotificationSettings = {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast();
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -69,7 +70,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const showNotification = useCallback(({ memoId, ...props }: ShowNotificationProps) => {
+  const showNotification = useCallback(({ memoId, title, description, variant }: ShowNotificationProps) => {
     // Play sound if it's enabled, regardless of visual notifications
     if (settings.soundEnabled && audio) {
       audio.play().catch(error => console.error("Audio playback failed:", error));
@@ -77,12 +78,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     
     // Show visual toast and add to list only if notifications are enabled
     if (settings.notificationsEnabled) {
-      toast(props);
+      switch(variant) {
+        case 'success':
+            toast.success(title, { description });
+            break;
+        case 'error':
+            toast.error(title, { description });
+            break;
+        case 'warning':
+            toast.warning(title, { description });
+            break;
+        case 'info':
+            toast.info(title, { description });
+            break;
+        default:
+            toast(title, { description });
+            break;
+      }
+      
       setNotifications(prev => [
         { 
           id: `notif-${Date.now()}`,
-          title: props.title || '',
-          description: props.description,
+          title,
+          description,
           createdAt: new Date(),
           read: false,
           memoId: memoId,
@@ -90,7 +108,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         ...prev
       ].filter((n, index, self) => index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId)); // Prevent duplicates
     }
-  }, [settings, toast, audio]);
+  }, [settings, audio]);
 
   const markAsRead = useCallback((id: string) => {
     // Remove notification when read

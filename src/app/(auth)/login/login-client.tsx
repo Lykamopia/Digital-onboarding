@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 import Logo from '@/components/logo';
 import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
@@ -24,22 +24,26 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginClientPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
   useEffect(() => {
     const error = searchParams.get('error');
     if (error === 'SessionExpired') {
-        toast({
-            variant: 'destructive',
-            title: 'Session Expired',
+        toast.warning('Session Expired', {
             description: 'You have been logged out due to inactivity. Please log in again.',
         });
         // Remove the error from the URL without reloading the page
         router.replace('/login', {scroll: false});
+    } else if (error) {
+        toast.error('Login Failed', {
+            description: 'Invalid credentials or another authentication error occurred.',
+        });
+        router.replace('/login', {scroll: false});
     }
-  }, [searchParams, toast, router]);
+  }, [searchParams, router]);
 
   const {
     register,
@@ -59,22 +63,20 @@ export default function LoginClientPage() {
       redirect: false,
       email: data.email,
       password: data.password,
+      callbackUrl,
     });
 
     setLoading(false);
 
     if (result?.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
+      toast.error('Login Failed', {
+          description: 'Invalid email or password. Please try again.',
       });
     } else if (result?.ok) {
-      toast({
-        title: 'Login Successful',
+      toast.success('Login Successful', {
         description: 'Welcome back!',
       });
-      router.push('/dashboard/inbox');
+      router.push(result.url || callbackUrl);
     }
   };
 
