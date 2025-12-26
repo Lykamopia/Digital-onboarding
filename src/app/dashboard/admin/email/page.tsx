@@ -99,7 +99,7 @@ export default function EmailSettingsPage() {
                 disabled={!settings.notificationsEnabled}
             />
              <p className="text-xs text-muted-foreground">
-              Use placeholders like `{{'{'}}{{'{'}}notificationType{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}senderName{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}subject{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}reference{{'}'}}{{'}'}}`, and `{{'{'}}{{'{'}}memoUrl{{'}'}}{{'}'}}`.
+              Use placeholders like `{"{{notificationType}}"}`, `{"{{senderName}}"}`, `{"{{subject}}"}`, `{"{{reference}}"}`, and `{"{{memoUrl}}"}`.
             </p>
         </div>
 
