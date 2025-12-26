@@ -10,6 +10,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
 import { sendEmail } from '@/lib/email';
+import WebSocket from 'ws';
 
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
@@ -19,6 +20,21 @@ const memoSchema = z.object({
   attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
 });
+
+// Function to send data to WebSocket server
+function sendToWebSocket(data: any) {
+    const ws = new WebSocket('ws://localhost:8080');
+
+    ws.on('open', () => {
+        console.log('Connected to WebSocket server to send data.');
+        ws.send(JSON.stringify(data));
+        ws.close();
+    });
+
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error.message);
+    });
+}
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
     const user = await getLoggedInUser();
@@ -311,6 +327,14 @@ export async function sendMemo(formData: FormData) {
             to: { include: { role: true } },
             cc: { include: { role: true } },
             from: true,
+            attachments: true,
+            activity: {
+                include: { actor: true }
+            },
+            current_holder: true,
+            previous_holders: true,
+            acknowledgedBy: true,
+            archivedBy: true,
         }
     });
 
@@ -332,6 +356,16 @@ export async function sendMemo(formData: FormData) {
     const draftId = formData.get('draftId') as string;
     if (draftId) {
         await prisma.memo.delete({ where: { id: draftId } });
+    }
+
+    // Send to WebSocket server
+    try {
+        sendToWebSocket({
+            type: 'new-memo',
+            payload: newMemo,
+        });
+    } catch (error) {
+        console.error('Failed to send memo to WebSocket:', error);
     }
 
     // Send email notifications
@@ -533,6 +567,7 @@ export async function archiveMemo(memoId: string, archive: boolean) {
 
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard?id=${memoId}`);
+  onUpdate();
 }
 
 

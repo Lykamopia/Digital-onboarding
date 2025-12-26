@@ -34,9 +34,9 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { addNotificationToList } = useNotification();
+  const { addNotificationToList, showNotification } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
-  const isInitialCheck = useRef(true);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     setIsMounted(true);
@@ -47,7 +47,8 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     // This function runs only once on initial load to populate the notification list
     const checkInitialMemos = async () => {
-      if (!isInitialCheck.current) return;
+      if (!isInitialLoad.current) return;
+      isInitialLoad.current = false;
 
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
       
@@ -72,8 +73,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         });
       }
       
-      // After the first check, all subsequent checks are not initial.
-      isInitialCheck.current = false;
     };
 
     // Initial check

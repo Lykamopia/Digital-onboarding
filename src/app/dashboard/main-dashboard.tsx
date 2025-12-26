@@ -45,10 +45,10 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   // WebSocket connection for real-time memo updates
   useEffect(() => {
-    if (tab !== 'inbox' || !user) return;
+    if (!user) return;
     
     // In a real application, the WebSocket URL would come from environment variables.
-    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://echo.websocket.org';
+    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080';
     const socket = new WebSocket(WS_URL);
 
     socket.onopen = () => {
@@ -57,15 +57,17 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
     socket.onmessage = (event) => {
         try {
-            const data = JSON.parse(event.data);
+            const eventData = JSON.parse(event.data);
             
             // Assuming server sends messages with a 'type' and 'payload'
-            if (data.type === 'new-memo' && data.payload) {
-                const newMemo: MemoWithActivity = data.payload;
+            if (eventData.type === 'new-memo' && eventData.payload) {
+                const newMemo: MemoWithActivity = eventData.payload;
 
-                // Check if the memo is for the current user
+                // Check if the memo is relevant to the current user
                 const isRecipient = newMemo.to.some(u => u.id === user.id) || newMemo.cc.some(u => u.id === user.id);
-                if (isRecipient) {
+                const isSender = newMemo.fromId === user.id;
+
+                if ((tab === 'inbox' && isRecipient) || (tab === 'sent' && isSender)) {
                      setMemos(prevMemos => {
                         // Prevent duplicate entries
                         if (prevMemos.some(m => m.id === newMemo.id)) {
@@ -73,7 +75,9 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                         }
                         return [newMemo, ...prevMemos];
                     });
-                    
+                }
+                
+                if (isRecipient) {
                     // Trigger a toast notification
                     showNotification({
                         title: 'New Memo Received',
