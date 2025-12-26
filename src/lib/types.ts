@@ -15,8 +15,12 @@ export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'man
 
 export type Role = PrismaRole;
 export type Division = PrismaDivision;
-export type Department = PrismaDepartment;
-export type Office = PrismaOffice;
+export type Department = PrismaDepartment & {
+    division: PrismaDivision;
+};
+export type Office = PrismaOffice & {
+    department: Department;
+};
 
 // Extend PrismaUser to include next-auth properties if needed
 export type User = PrismaUser & {

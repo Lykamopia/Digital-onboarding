@@ -435,9 +435,9 @@ export default function UsersPage() {
                             </div>
                         </TableCell>
                         <TableCell>{user.role.name}</TableCell>
-                        <TableCell>{user.office.name}</TableCell>
-                        <TableCell>{user.office.department.name}</TableCell>
-                        <TableCell>{user.office.department.division.name}</TableCell>
+                        <TableCell>{user.office?.name}</TableCell>
+                        <TableCell>{user.office?.department.name}</TableCell>
+                        <TableCell>{user.office?.department.division.name}</TableCell>
                         <TableCell>
                             <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
                                 {user.status}
