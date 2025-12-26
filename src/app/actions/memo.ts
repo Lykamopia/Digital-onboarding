@@ -252,8 +252,9 @@ export async function sendMemo(formData: FormData) {
             replyToId: validatedData.replyTo,
         },
         include: {
-            to: true,
-            cc: true,
+            to: { include: { role: true } },
+            cc: { include: { role: true } },
+            from: true,
         }
     });
 
@@ -754,6 +755,17 @@ export async function saveArchiveSettings(days: number) {
     revalidatePath('/dashboard/admin/archive');
     return { success: true };
 }
+
+let emailSettings = { notificationsEnabled: true, headerText: 'New Memo Notification', footerText: 'This is an automated message. Please do not reply.' };
+export async function getEmailSettings() {
+    return emailSettings;
+}
+export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, footerText: string }) {
+    emailSettings = settings;
+    revalidatePath('/dashboard/admin/email');
+    return { success: true };
+}
+
 // END SIMULATED SETTINGS
 
 export async function performBulkArchiveActions(action: 'archive' | 'restore' | 'delete', memoIds: string[]) {

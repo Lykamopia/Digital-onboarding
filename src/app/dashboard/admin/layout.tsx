@@ -19,6 +19,7 @@ const navItemsConfig = [
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
   { value: '/dashboard/admin/roles', label: 'Role Management', permission: 'manage_roles' },
   { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
+  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_archive' }, // Assuming same permission as archive
 ];
 
 function useAdminNavigation(user: (User & { role: { permissions: Permission[] } }) | null) {
@@ -76,7 +77,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-7">
                 {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
