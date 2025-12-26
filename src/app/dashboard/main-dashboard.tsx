@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from "react"
@@ -17,6 +16,7 @@ import { PanelLeft, PanelRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardData, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
+import { useNotification } from "@/components/notification-provider"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
@@ -24,6 +24,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const searchParams = useSearchParams();
   const memoIdFromUrl = searchParams.get('id');
 
+  const { showNotification } = useNotification();
   const [memos, setMemos] = useState<MemoWithActivity[]>(initialMemos);
   const [selectedMemo, setSelectedMemo] = useState<MemoWithActivity | null>(null);
   const [isListExpanded, setIsListExpanded] = useState(true);
@@ -41,6 +42,65 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     return undefined;
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
+
+  // WebSocket connection for real-time memo updates
+  useEffect(() => {
+    if (tab !== 'inbox' || !user) return;
+    
+    // In a real application, the WebSocket URL would come from environment variables.
+    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://echo.websocket.org';
+    const socket = new WebSocket(WS_URL);
+
+    socket.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    socket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            // Assuming server sends messages with a 'type' and 'payload'
+            if (data.type === 'new-memo' && data.payload) {
+                const newMemo: MemoWithActivity = data.payload;
+
+                // Check if the memo is for the current user
+                const isRecipient = newMemo.to.some(u => u.id === user.id) || newMemo.cc.some(u => u.id === user.id);
+                if (isRecipient) {
+                     setMemos(prevMemos => {
+                        // Prevent duplicate entries
+                        if (prevMemos.some(m => m.id === newMemo.id)) {
+                            return prevMemos;
+                        }
+                        return [newMemo, ...prevMemos];
+                    });
+                    
+                    // Trigger a toast notification
+                    showNotification({
+                        title: 'New Memo Received',
+                        description: `From: ${newMemo.from.name} - ${newMemo.subject}`,
+                        memoId: newMemo.id,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Clean up the connection when the component unmounts
+    return () => {
+      socket.close();
+    };
+  }, [tab, user, showNotification]);
+
 
   const markMemoAsReadInState = useCallback((memoId: string) => {
     if (!user) return;
@@ -65,23 +125,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [user, selectedMemo?.id]);
 
 
-  // Real-time inbox update listener
+  // Listener for client-side events like "mark all as read"
   useEffect(() => {
-    const handleNewMemo = (event: Event) => {
-        const customEvent = event as CustomEvent;
-        const { memo: newMemo } = customEvent.detail;
-
-        if (tab === 'inbox') {
-            setMemos(prevMemos => {
-                // Avoid adding duplicates
-                if (prevMemos.some(m => m.id === newMemo.id)) {
-                    return prevMemos;
-                }
-                return [newMemo, ...prevMemos];
-            });
-        }
-    };
-
     const handleMarkAsRead = (event: Event) => {
         const customEvent = event as CustomEvent;
         const { memoId } = customEvent.detail;
@@ -108,16 +153,14 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         }));
     };
 
-    window.addEventListener('new-memo-event', handleNewMemo);
     window.addEventListener('mark-memo-as-read', handleMarkAsRead);
     window.addEventListener('mark-all-memos-as-read', handleMarkAllAsRead);
 
     return () => {
-        window.removeEventListener('new-memo-event', handleNewMemo);
         window.removeEventListener('mark-memo-as-read', handleMarkAsRead);
         window.removeEventListener('mark-all-memos-as-read', handleMarkAllAsRead);
     };
-  }, [tab, markMemoAsReadInState, user]);
+  }, [markMemoAsReadInState, user]);
 
 
   const handleSelectMemo = useCallback((id: string) => {

@@ -34,7 +34,7 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { showNotification, addNotificationToList } = useNotification();
+  const { addNotificationToList } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
   const isInitialCheck = useRef(true);
 
@@ -45,7 +45,10 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   useEffect(() => {
     if (!user || user.mustChangePassword || !isMounted) return;
 
-    const checkNewMemos = async () => {
+    // This function runs only once on initial load to populate the notification list
+    const checkInitialMemos = async () => {
+      if (!isInitialCheck.current) return;
+
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
       
       const unreadMemos = inboxMemos.filter(memo => 
@@ -64,31 +67,19 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             memoId: memo.id,
           };
           
-          // Only show toast for new memos after the initial load.
-          if (!isInitialCheck.current) {
-            showNotification(notificationPayload);
-          } else {
-            // On initial load, just add to the list without a toast.
-            addNotificationToList(notificationPayload);
-          }
+          // On initial load, just add to the list without a toast.
+          addNotificationToList(notificationPayload);
         });
       }
       
       // After the first check, all subsequent checks are not initial.
-      if (isInitialCheck.current) {
-        isInitialCheck.current = false;
-      }
+      isInitialCheck.current = false;
     };
 
     // Initial check
-    checkNewMemos();
+    checkInitialMemos();
 
-    // Poll every 15 seconds
-    const intervalId = setInterval(checkNewMemos, 15000);
-
-    return () => clearInterval(intervalId);
-
-  }, [user, addNotificationToList, showNotification, isMounted]);
+  }, [user, addNotificationToList, isMounted]);
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
