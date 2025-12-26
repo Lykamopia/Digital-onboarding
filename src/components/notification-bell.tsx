@@ -21,13 +21,18 @@ import {
 } from "@/components/ui/dialog";
 import { NotificationList } from './notification-list';
 import { NotificationSettings } from './notification-settings';
+import { markAllAsReadForUser } from '@/app/actions/memo';
 
 export function NotificationBell() {
   const { unreadCount, markAllAsRead } = useNotification();
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    // This updates the client-side notification list UI
     markAllAsRead();
+    // This updates the backend and memo state
+    await markAllAsReadForUser();
+    // This tells other components (like memo list) to update their state
     window.dispatchEvent(new CustomEvent('mark-all-memos-as-read'));
   }
 

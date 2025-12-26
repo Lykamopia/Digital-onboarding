@@ -170,6 +170,62 @@ export async function markAsRead(memoId: string) {
     }
 }
 
+export async function markAllAsReadForUser() {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    // Find all memos in the user's inbox that are unread by them
+    const unreadMemos = await prisma.memo.findMany({
+        where: {
+            AND: [
+                // Is in inbox
+                {
+                    status: { not: 'draft' },
+                    OR: [
+                        { to: { some: { id: user.id } } },
+                        { cc: { some: { id: user.id } } },
+                        { current_holderId: user.id },
+                    ],
+                },
+                // Is not archived by the user
+                { NOT: { archivedBy: { some: { id: user.id } } } },
+                // Is not already viewed or acknowledged by the user
+                {
+                    NOT: {
+                        activity: {
+                            some: {
+                                actorId: user.id,
+                                action: { in: ['viewed', 'acknowledged'] }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        select: {
+            id: true
+        }
+    });
+
+    if (unreadMemos.length === 0) {
+        return { success: true, count: 0 };
+    }
+
+    // Create 'viewed' activity for each unread memo
+    await prisma.activity.createMany({
+        data: unreadMemos.map(memo => ({
+            memoId: memo.id,
+            actorId: user.id,
+            action: 'viewed',
+            details: 'Marked as read via "Mark all as read"'
+        }))
+    });
+
+    revalidatePath('/dashboard/inbox');
+    return { success: true, count: unreadMemos.length };
+}
+
+
 export async function toggleMemoReadStatus(memoId: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
