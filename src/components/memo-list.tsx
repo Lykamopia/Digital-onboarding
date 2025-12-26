@@ -121,16 +121,18 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </>
                 )}
                  {(tab === 'inbox' || tab === 'sent') && canForward && (
-                    <ForwardDialog memo={memo} onUpdate={() => {}}>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
-                                    <Share2 />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Forward</TooltipContent>
-                        </Tooltip>
-                    </ForwardDialog>
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <ForwardDialog memo={memo} onUpdate={() => {}}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                                        <Share2 />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Forward</TooltipContent>
+                            </Tooltip>
+                        </ForwardDialog>
+                    </div>
                 )}
                  {tab === 'sent' && (
                     <Tooltip>
@@ -330,3 +332,5 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
+
+    
