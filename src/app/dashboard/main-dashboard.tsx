@@ -254,6 +254,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             onSelectMemo={handleSelectMemo}
             isExpanded={isListExpanded}
             tab={tab}
+            onUpdate={() => loadMemos(true)}
             />
         ) : (
           <div className="h-full p-2">

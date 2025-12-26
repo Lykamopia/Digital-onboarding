@@ -24,9 +24,10 @@ interface MemoListProps {
   onSelectMemo: (id: string) => void
   isExpanded: boolean
   tab: string
+  onUpdate: () => void;
 }
 
-const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
+const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser, onUpdate }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null, onUpdate: () => void }) => {
     
     const { toast } = useToast();
     const router = useRouter();
@@ -57,15 +58,15 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     }
     
     const handleArchive = async (memoId: string, archive: boolean) => {
-        setMemos(prev => prev.filter(m => m.id !== memoId));
-        toast({ title: archive ? "Memo Archived" : "Memo Restored" });
         await archiveMemo(memoId, archive);
+        toast({ title: archive ? "Memo Archived" : "Memo Restored" });
+        onUpdate();
     }
     
     const handleDeleteDraft = async (memoId: string) => {
-        setMemos(prev => prev.filter(m => m.id !== memoId));
-        toast({ title: "Draft Deleted" });
         await deleteDraft(memoId);
+        toast({ title: "Draft Deleted" });
+        onUpdate();
     }
 
     const handleReply = (memoId: string) => {
@@ -139,7 +140,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     <div onClick={(e) => e.stopPropagation()}>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <ForwardDialog memo={memo} onUpdate={() => {}}>
+                                <ForwardDialog memo={memo} onUpdate={onUpdate}>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
                                         <Share2 />
                                     </Button>
@@ -204,7 +205,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                 )}
                 {(tab === 'inbox' || tab === 'sent') && (
                          <div onClick={(e) => e.stopPropagation()}>
-                            <ForwardDialog memo={memo} onUpdate={() => {}}>
+                            <ForwardDialog memo={memo} onUpdate={onUpdate}>
                                 <ContextMenuItem onSelect={(e) => e.preventDefault()}>
                                     <Share2 className="mr-2 h-4 w-4" />
                                     <span>Forward</span>
@@ -321,7 +322,7 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     )
 }
 
-export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab }: MemoListProps) {
+export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab, onUpdate }: MemoListProps) {
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   
@@ -341,7 +342,7 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     <ScrollArea className="h-full">
         <TooltipProvider>
             {isExpanded ? (
-                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
+                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser} onUpdate={onUpdate} />
             ) : (
                 <CollapsedView memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
             )}
