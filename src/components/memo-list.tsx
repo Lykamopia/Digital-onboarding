@@ -122,16 +122,16 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                 )}
                  {(tab === 'inbox' || tab === 'sent') && canForward && (
                     <div onClick={(e) => e.stopPropagation()}>
-                        <ForwardDialog memo={memo} onUpdate={() => {}}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <ForwardDialog memo={memo} onUpdate={() => {}}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
                                         <Share2 />
                                     </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Forward</TooltipContent>
-                            </Tooltip>
-                        </ForwardDialog>
+                                </ForwardDialog>
+                            </TooltipTrigger>
+                            <TooltipContent>Forward</TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                  {tab === 'sent' && (
@@ -188,12 +188,14 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </>
                 )}
                 {(tab === 'inbox' || tab === 'sent') && (
-                     <ForwardDialog memo={memo} onUpdate={() => {}}>
-                        <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            <span>Forward</span>
-                        </ContextMenuItem>
-                    </ForwardDialog>
+                         <div onClick={(e) => e.stopPropagation()}>
+                            <ForwardDialog memo={memo} onUpdate={() => {}}>
+                                <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <Share2 className="mr-2 h-4 w-4" />
+                                    <span>Forward</span>
+                                </ContextMenuItem>
+                            </ForwardDialog>
+                         </div>
                 )}
                  {tab === 'sent' && (
                      <>
