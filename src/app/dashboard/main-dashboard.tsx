@@ -67,7 +67,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                 const isRecipient = newMemo.to.some(u => u.id === user.id) || newMemo.cc.some(u => u.id === user.id);
                 const isSender = newMemo.fromId === user.id;
 
-                if ((tab === 'inbox' && isRecipient) || (tab === 'sent' && isSender)) {
+                if (tab === 'inbox' && isRecipient) {
                      setMemos(prevMemos => {
                         // Prevent duplicate entries
                         if (prevMemos.some(m => m.id === newMemo.id)) {
