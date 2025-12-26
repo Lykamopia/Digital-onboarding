@@ -6,7 +6,7 @@
     "dev": "ts-node server.ts & next dev --turbopack -p 9002",
     "dev:ws": "ts-node server.ts",
     "build": "next build",
-    "start": "node server.js & next start",
+    "start": "ts-node server.ts & next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
