@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -45,6 +45,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function NewMemoPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [isDraft, setIsDraft] = useState(false);
   const router = useRouter();
@@ -227,7 +228,7 @@ export default function NewMemoPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-
+    
     if (isSendDisabled) {
         let errorDescription = 'Please fill all required fields: To, Subject, and Body.';
         if (to.length === 0) {
@@ -244,6 +245,8 @@ export default function NewMemoPage() {
         return;
     }
 
+    setIsSending(true);
+
     const formData = new FormData();
     to.forEach(user => formData.append('to[]', user.id));
     cc.forEach(user => formData.append('cc[]', user.id));
@@ -256,6 +259,8 @@ export default function NewMemoPage() {
     if (draftId) formData.append('draftId', draftId);
     
     const result = await sendMemo(formData);
+    
+    setIsSending(false);
 
     if (result.error) {
         toast({ title: 'Error sending memo', description: result.error, variant: 'destructive' });
@@ -481,9 +486,13 @@ export default function NewMemoPage() {
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button type="submit" disabled={isSaving || isSendDisabled}>
-                          <Send className="mr-2 h-4 w-4" />
-                          Send Memo
+                        <Button type="submit" disabled={isSaving || isSendDisabled || isSending}>
+                          {isSending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="mr-2 h-4 w-4" />
+                          )}
+                          {isSending ? 'Sending...' : 'Send Memo'}
                         </Button>
                     </div>
                     </div>
