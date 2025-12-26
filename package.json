@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node server.ts & next dev --turbopack -p 9002",
+    "dev": "next dev --turbopack -p 9002",
     "dev:ws": "ts-node server.ts",
     "build": "next build",
-    "start": "ts-node server.ts & next start",
+    "start": "next start",
+    "start:ws": "ts-node server.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
