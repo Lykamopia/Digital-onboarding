@@ -57,7 +57,15 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div id={id} className={cn("flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm", className)}>
+        <button
+          id={id}
+          type="button"
+          className={cn(
+            "flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm text-left",
+            className
+          )}
+          aria-haspopup="listbox"
+        >
           {selected.map((user) => (
             <Badge
               key={user.id}
@@ -81,7 +89,7 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
           ))}
           <span className="flex-1 text-muted-foreground ml-1 text-sm">{selected.length === 0 && placeholder}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", popoverClassName)}>
         <Command>
