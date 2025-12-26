@@ -54,9 +54,13 @@ import { cn } from "@/lib/utils";
 
 type UserWithRelations = User & {
     office: Office & {
-        department: {
+        department?: {
             name: string,
             division: { name: string }
+        },
+        district?: {
+            name: string,
+            branch: { name: string }
         }
     },
     role: Role
@@ -161,82 +165,20 @@ export default function UsersPage() {
   };
   
   const handleDialogClose = (open: boolean) => {
-    setIsFormDialogOpen(open);
     if (!open) {
       setEditingUser(null);
       setFormState(initialFormState);
     }
-    // Force cleanup of any remaining overlay elements
-    // Use requestAnimationFrame to ensure state update happens first
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Remove any remaining Radix UI dialog overlays
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
+    setIsFormDialogOpen(open);
   };
 
   const handlePasswordDialogClose = (open: boolean) => {
-    if (!open) {
       setPasswordDialog({ open: false, password: "" });
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-        overlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
-    } else {
-      setPasswordDialog(prev => ({ ...prev, open: true }));
-    }
   };
 
   const handleAlertClose = (open: boolean) => {
-    if (!open) {
       setResetUser(null);
       setDeleteUserAlert(null);
-    }
-    // Force cleanup of any remaining overlay elements (both dialog and alert-dialog)
-    // Use requestAnimationFrame to ensure state update happens first
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Clean up all possible overlay elements using Radix UI data attributes
-          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-          allOverlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   };
 
 
@@ -265,7 +207,7 @@ export default function UsersPage() {
     if(result.success && result.newPassword) {
       // Small delay to ensure alert dialog is fully closed before opening password dialog
       setTimeout(() => {
-        setPasswordDialog({ open: true, password: result.newPassword });
+        setPasswordDialog({ open: true, password: result.newPassword! });
         toast({ title: "Success", description: "Password has been reset." });
       }, 100);
     } else {
@@ -312,6 +254,7 @@ export default function UsersPage() {
               status 
             });
           }
+          return Promise.resolve();
       }));
       await mutateUsers();
       setSelectedUsers([]);
@@ -337,30 +280,6 @@ export default function UsersPage() {
   const handleFormChange = (field: keyof typeof formState, value: string) => {
       setFormState(prev => ({ ...prev, [field]: value }));
   }
-
-  // Cleanup body styles and overlays when all dialogs are closed
-  useEffect(() => {
-    const allDialogsClosed = !isFormDialogOpen && !passwordDialog.open && !resetUser && !deleteUserAlert;
-    
-    if (allDialogsClosed) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        // Remove any lingering overlay elements (both Dialog and AlertDialog)
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      });
-    }
-  }, [isFormDialogOpen, passwordDialog.open, resetUser, deleteUserAlert]);
 
   if (loadingUsers || loadingOffices || loadingRoles) {
     return <UsersLoadingSkeleton />;
@@ -400,18 +319,17 @@ export default function UsersPage() {
                         }}
                     />
                 </TableHead>
-                <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Office</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Division</TableHead>
+                <TableHead>Parent</TableHead>
+                <TableHead>Top-Level</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right w-20">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {paginatedUsers.map((user, index) => (
+                {paginatedUsers.map((user) => (
                     <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''}>
                         <TableCell>
                             <Checkbox
@@ -421,7 +339,6 @@ export default function UsersPage() {
                                 }}
                             />
                         </TableCell>
-                        <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                         <TableCell>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
@@ -436,8 +353,8 @@ export default function UsersPage() {
                         </TableCell>
                         <TableCell>{user.role.name}</TableCell>
                         <TableCell>{user.office?.name}</TableCell>
-                        <TableCell>{user.office?.department.name}</TableCell>
-                        <TableCell>{user.office?.department.division.name}</TableCell>
+                        <TableCell>{user.office?.department?.name || user.office?.district?.name}</TableCell>
+                        <TableCell>{user.office?.department?.division.name || user.office?.district?.branch.name}</TableCell>
                         <TableCell>
                             <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
                                 {user.status}
@@ -549,14 +466,7 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleAlertClose(false);
-                  }}
-                >
-                  Cancel
-                </AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleResetPassword}>
                 Reset Password
                 </AlertDialogAction>

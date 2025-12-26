@@ -19,12 +19,25 @@ const departments = [
   { id: 'dept-5', name: 'Infrastructure', code: 'INFRA', divisionId: 'div-4' },
 ];
 
+const branches = [
+  { id: 'branch-1', name: 'Addis Ababa', code: 'AA' },
+  { id: 'branch-2', name: 'Regional', code: 'REG' },
+];
+
+const districts = [
+    { id: 'dist-1', name: 'North Addis', code: 'NA', branchId: 'branch-1' },
+    { id: 'dist-2', name: 'South Addis', code: 'SA', branchId: 'branch-1' },
+    { id: 'dist-3', name: 'Adama', code: 'AD', branchId: 'branch-2' },
+];
+
 const offices = [
-  { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1' },
-  { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-1' },
-  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3' },
-  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4' },
-  { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5' },
+  { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1', type: 'division' },
+  { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-1', type: 'division' },
+  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3', type: 'division' },
+  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4', type: 'division' },
+  { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5', type: 'division' },
+  { id: 'off-6', name: 'Bole Office', code: 'BO', districtId: 'dist-1', type: 'branch' },
+  { id: 'off-7', name: 'Kirkos Office', code: 'KO', districtId: 'dist-2', type: 'branch' },
 ];
 
 const roles = [
@@ -37,6 +50,8 @@ const roles = [
       'view_admin',
       'manage_divisions',
       'manage_departments',
+      'manage_branches',
+      'manage_districts',
       'manage_offices',
       'manage_users',
       'manage_roles',
@@ -92,6 +107,15 @@ const users = [
     roleId: 'role-2',
     mustChangePassword: true,
   },
+  {
+    id: 'user-6',
+    name: 'Fiona Glenanne',
+    email: 'fiona.g@bank.com',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
+    officeId: 'off-6',
+    roleId: 'role-2',
+    mustChangePassword: true,
+  },
 ];
 
 async function main() {
@@ -103,6 +127,8 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   await prisma.office.deleteMany();
+  await prisma.district.deleteMany();
+  await prisma.branch.deleteMany();
   await prisma.department.deleteMany();
   await prisma.division.deleteMany();
   console.log('Cleared existing data.');
@@ -110,9 +136,15 @@ async function main() {
   // Seed data
   await prisma.division.createMany({ data: divisions });
   console.log(`Seeded ${divisions.length} divisions.`);
+  
+  await prisma.branch.createMany({ data: branches });
+  console.log(`Seeded ${branches.length} branches.`);
 
   await prisma.department.createMany({ data: departments });
   console.log(`Seeded ${departments.length} departments.`);
+
+  await prisma.district.createMany({ data: districts });
+  console.log(`Seeded ${districts.length} districts.`);
 
   await prisma.office.createMany({ data: offices });
   console.log(`Seeded ${offices.length} offices.`);

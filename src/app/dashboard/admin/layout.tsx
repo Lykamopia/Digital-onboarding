@@ -15,9 +15,11 @@ import { AnimatedContent } from '@/components/animated-content';
 const navItemsConfig = [
   { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions' },
   { value: '/dashboard/admin/departments', label: 'Departments', permission: 'manage_departments' },
+  { value: '/dashboard/admin/branches', label: 'Branches', permission: 'manage_branches' },
+  { value: '/dashboard/admin/districts', label: 'Districts', permission: 'manage_districts' },
   { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices' },
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
-  { value: '/dashboard/admin/roles', label: 'Role Management', permission: 'manage_roles' },
+  { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles' },
   { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
   { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_archive' }, // Assuming same permission as archive
 ];
@@ -46,7 +48,7 @@ function useAdminNavigation(user: (User & { role: { permissions: Permission[] } 
     } else if (user && accessibleNavItems.length === 0) {
       // If user has no admin permissions, redirect away from admin area
       if (pathname.startsWith('/dashboard/admin')) {
-          router.replace('/dashboard');
+          router.replace('/dashboard/inbox');
       }
     }
   }, [user, pathname, accessibleNavItems, router]);
@@ -77,7 +79,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-7">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-9">
                 {accessibleNavItems.map((item) => (
                 <TabsTrigger 
                     key={item.value} 
@@ -111,7 +113,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     getLoggedInUser().then(userData => {
-      setUser(userData);
+      setUser(userData as any);
       setLoading(false);
     });
   }, []);

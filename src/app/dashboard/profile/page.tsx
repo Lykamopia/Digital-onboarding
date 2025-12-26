@@ -9,15 +9,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
-import type { User } from '@/lib/types';
+import type { User, Office } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+type UserWithFullOffice = User & { 
+    office: Office & {
+        department?: { name: string, division: { name: string } };
+        district?: { name: string, branch: { name: string } };
+    } 
+};
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<(User & { office: { name: string, department: { name: string, division: { name: string } } } }) | null>(null);
+  const [user, setUser] = useState<UserWithFullOffice | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -88,6 +95,9 @@ export default function ProfilePage() {
   }
   
   const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
+
+  const topLevel = user.office.department?.division?.name || user.office.district?.branch?.name;
+  const parent = user.office.department?.name || user.office.district?.name;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -165,15 +175,15 @@ export default function ProfilePage() {
                                         <li className="flex items-center gap-3">
                                             <Globe className="h-5 w-5 text-muted-foreground" />
                                             <div>
-                                                <p className="text-muted-foreground">Division</p>
-                                                <p className="font-medium">{user.office.department.division.name}</p>
+                                                <p className="text-muted-foreground">{user.office.type === 'division' ? 'Division' : 'Branch'}</p>
+                                                <p className="font-medium">{topLevel}</p>
                                             </div>
                                         </li>
                                         <li className="flex items-center gap-3">
                                             <Building className="h-5 w-5 text-muted-foreground" />
                                             <div>
-                                                <p className="text-muted-foreground">Department</p>
-                                                <p className="font-medium">{user.office.department.name}</p>
+                                                <p className="text-muted-foreground">{user.office.type === 'division' ? 'Department' : 'District'}</p>
+                                                <p className="font-medium">{parent}</p>
                                             </div>
                                         </li>
                                         <li className="flex items-center gap-3">

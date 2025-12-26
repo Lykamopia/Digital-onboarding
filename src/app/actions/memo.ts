@@ -182,7 +182,7 @@ export async function markAsRead(memoId: string) {
                 }
             }
         });
-        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/inbox');
     }
 }
 
@@ -267,7 +267,7 @@ export async function toggleMemoReadStatus(memoId: string) {
             }
         });
     }
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
     return getDashboardData('inbox', '', '', {});
 }
@@ -382,7 +382,7 @@ export async function sendMemo(formData: FormData) {
     }
 
 
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/inbox');
     return { success: true, memo: newMemo };
 }
 
@@ -456,7 +456,6 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
 
 export async function deleteDraft(draftId: string) {
     await prisma.memo.delete({ where: { id: draftId }});
-    revalidatePath('/dashboard');
     revalidatePath('/dashboard/drafts');
     return { success: true };
 }
@@ -482,7 +481,7 @@ export async function acknowledgeMemo(memoId: string) {
     },
   });
 
-  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
 }
 
@@ -533,7 +532,7 @@ export async function forwardMemo(memoId: string, forwardToIds: string[], remark
       },
     });
   
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
     return { success: true };
 }
@@ -561,7 +560,7 @@ export async function archiveMemo(memoId: string, archive: boolean) {
       }
   });
 
-  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
 }
 
@@ -577,6 +576,11 @@ export async function getUsers() {
                             division: true,
                         },
                     },
+                    district: {
+                        include: {
+                            branch: true,
+                        }
+                    }
                 },
             },
         },
@@ -607,8 +611,27 @@ export async function getDivisions() {
 export async function getDepartments() {
     return await prisma.department.findMany({ include: { division: true } });
 }
+export async function getBranches() {
+    return await prisma.branch.findMany();
+}
+export async function getDistricts() {
+    return await prisma.district.findMany({ include: { branch: true } });
+}
 export async function getOffices() {
-    return await prisma.office.findMany({ include: { department: { include: { division: true } } } });
+    return await prisma.office.findMany({ 
+        include: { 
+            department: { 
+                include: { 
+                    division: true 
+                } 
+            },
+            district: {
+                include: {
+                    branch: true
+                }
+            }
+        } 
+    });
 }
 export async function getRoles() {
     return await prisma.role.findMany();
@@ -629,6 +652,11 @@ export async function getLoggedInUser() {
                     department: {
                         include: {
                             division: true
+                        }
+                    },
+                    district: {
+                        include: {
+                            branch: true
                         }
                     }
                 }
@@ -680,11 +708,56 @@ export async function deleteDepartment(id: string) {
     return { success: true };
 }
 
-export async function saveOffice(data: { id?: string, name: string, code: string, departmentId: string }) {
+export async function saveBranch(data: { id?: string, name: string, code: string }) {
     if (data.id) {
-        await prisma.office.update({ where: { id: data.id }, data });
+        await prisma.branch.update({ where: { id: data.id }, data });
     } else {
-        await prisma.office.create({ data });
+        await prisma.branch.create({ data });
+    }
+    revalidatePath('/dashboard/admin/branches');
+}
+
+export async function deleteBranch(id: string) {
+    const districts = await prisma.district.count({ where: { branchId: id } });
+    if (districts > 0) {
+        return { error: 'Cannot delete branch. It has associated districts. Please delete them first.' };
+    }
+    await prisma.branch.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/branches');
+    return { success: true };
+}
+
+export async function saveDistrict(data: { id?: string, name: string, code: string, branchId: string }) {
+    if (data.id) {
+        await prisma.district.update({ where: { id: data.id }, data });
+    } else {
+        await prisma.district.create({ data });
+    }
+    revalidatePath('/dashboard/admin/districts');
+}
+
+export async function deleteDistrict(id: string) {
+    const offices = await prisma.office.count({ where: { districtId: id } });
+    if (offices > 0) {
+        return { error: 'Cannot delete district. It has associated offices. Please delete them first.' };
+    }
+    await prisma.district.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/districts');
+    return { success: true };
+}
+
+export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division' | 'branch', departmentId?: string, districtId?: string }) {
+    const payload: any = {
+        name: data.name,
+        code: data.code,
+        type: data.type,
+        departmentId: data.type === 'division' ? data.departmentId : null,
+        districtId: data.type === 'branch' ? data.districtId : null,
+    };
+    if (data.id) {
+        await prisma.office.update({ where: { id: data.id }, data: payload });
+    } else {
+        await prisma.office.create({ data: payload });
     }
     revalidatePath('/dashboard/admin/offices');
 }
@@ -790,7 +863,7 @@ export async function changeUserPassword(password: string) {
              });
         }
         
-        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/inbox');
         return { success: true };
     } catch (error) {
         console.error("Password change error:", error);
@@ -906,6 +979,6 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     }
     
     revalidatePath('/dashboard/admin/archive');
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/inbox');
     return { success: true };
 }

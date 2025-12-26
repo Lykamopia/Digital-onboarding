@@ -8,18 +8,27 @@ import type {
     Memo as PrismaMemo,
     Attachment as PrismaAttachment,
     Activity as PrismaActivity,
+    Branch as PrismaBranch,
+    District as PrismaDistrict,
 } from '@prisma/client';
 
-export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive';
+export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts';
 
 
 export type Role = PrismaRole;
 export type Division = PrismaDivision;
+export type Branch = PrismaBranch;
+
 export type Department = PrismaDepartment & {
     division: PrismaDivision;
 };
+export type District = PrismaDistrict & {
+    branch: PrismaBranch;
+};
+
 export type Office = PrismaOffice & {
-    department: Department;
+    department?: Department;
+    district?: District;
 };
 
 // Extend PrismaUser to include next-auth properties if needed
