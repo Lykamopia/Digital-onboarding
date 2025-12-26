@@ -313,19 +313,37 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
     };
 
     if (draftId) {
+         const existingDraft = await prisma.memo.findUnique({
+            where: { id: draftId },
+            include: { to: true, cc: true },
+        });
+
+        const toIds = data.to.map(u => u.id);
+        const ccIds = data.cc.map(u => u.id);
+
+        const toToDisconnect = existingDraft?.to.filter(u => !toIds.includes(u.id)) || [];
+        const ccToDisconnect = existingDraft?.cc.filter(u => !ccIds.includes(u.id)) || [];
+        
         const payload = {
             fromId: user.id,
             subject: data.subject || '',
             body: data.body || '',
-            to: { set: data.to.map(u => ({ id: u.id })) },
-            cc: { set: data.cc.map(u => ({ id: u.id })) },
+            to: {
+                disconnect: toToDisconnect.map(u => ({ id: u.id })),
+                connect: toIds.map(id => ({ id })),
+            },
+            cc: {
+                disconnect: ccToDisconnect.map(u => ({ id: u.id })),
+                connect: ccIds.map(id => ({ id })),
+            },
             attachments: {
-                deleteMany: {}, // Clear existing attachments
-                ...attachmentsData
+                deleteMany: {},
+                ...attachmentsData,
             },
             status: 'draft' as const,
             replyToId: data.replyTo,
         };
+
         const updatedDraft = await prisma.memo.update({
             where: { id: draftId },
             data: payload,
