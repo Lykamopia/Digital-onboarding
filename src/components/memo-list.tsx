@@ -89,6 +89,21 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         await toggleMemoReadStatus(memo.id);
     }
 
+    const getDisplayName = (memo: MemoWithActivity) => {
+        if (tab === 'sent' || tab === 'drafts') {
+            if (memo.to.length > 0) {
+                const mainRecipient = memo.to[0].name;
+                const otherRecipientsCount = memo.to.length - 1 + memo.cc.length;
+                if (otherRecipientsCount > 0) {
+                    return `${mainRecipient}, +${otherRecipientsCount}`;
+                }
+                return mainRecipient;
+            }
+            return "No recipients";
+        }
+        return memo.from.name;
+    }
+
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
         const memoStatus = getMemoStatus(memo);
         
@@ -237,7 +252,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <div className="flex w-full flex-col gap-0.5">
                             <div className="flex items-center">
                                 <div className="flex items-center gap-2 truncate">
-                                    <div className="font-semibold truncate">{memo.from.name}</div>
+                                    <div className="font-semibold truncate">{getDisplayName(memo)}</div>
                                     {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
                                 </div>
                                 <div
@@ -334,7 +349,3 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
-
-    
-
-    
