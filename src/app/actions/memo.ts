@@ -21,19 +21,19 @@ const memoSchema = z.object({
   replyTo: z.string().optional(),
 });
 
-// Function to send data to WebSocket server
-function sendToWebSocket(data: any) {
-    const ws = new WebSocket('ws://localhost:8080');
-
-    ws.on('open', () => {
-        console.log('Connected to WebSocket server to send data.');
-        ws.send(JSON.stringify(data));
-        ws.close();
-    });
-
-    ws.on('error', (error) => {
-        console.error('WebSocket error:', error.message);
-    });
+// Function to send data to WebSocket server via HTTP
+async function sendToWebSocket(data: any) {
+    try {
+        await fetch('http://localhost:8080/broadcast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+    } catch (error) {
+        console.error('Failed to send message to WebSocket server:', error);
+    }
 }
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
@@ -359,14 +359,10 @@ export async function sendMemo(formData: FormData) {
     }
 
     // Send to WebSocket server
-    try {
-        sendToWebSocket({
-            type: 'new-memo',
-            payload: newMemo,
-        });
-    } catch (error) {
-        console.error('Failed to send memo to WebSocket:', error);
-    }
+    await sendToWebSocket({
+        type: 'new-memo',
+        payload: newMemo,
+    });
 
     // Send email notifications
     const allRecipients = [...newMemo.to, ...newMemo.cc];
@@ -567,7 +563,6 @@ export async function archiveMemo(memoId: string, archive: boolean) {
 
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard?id=${memoId}`);
-  onUpdate();
 }
 
 
