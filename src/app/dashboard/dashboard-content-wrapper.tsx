@@ -2,7 +2,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock } from 'lucide-react';
 
@@ -34,9 +34,9 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { showNotification } = useNotification();
+  const { showNotification, addNotificationToList } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
-  const [seenMemos, setSeenMemos] = useState<string[]>([]);
+  const isInitialCheck = useRef(true);
 
   useEffect(() => {
     setIsMounted(true);
@@ -47,33 +47,36 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     const checkNewMemos = async () => {
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
+      
+      const unreadMemos = inboxMemos.filter(memo => 
+          !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
+          !memo.acknowledgedBy?.some(ackUser => ackUser.id === user.id)
+      );
 
-      const newMemos = inboxMemos.filter(memo => !seenMemos.includes(memo.id));
-
-      if (newMemos.length > 0) {
-        newMemos.forEach(memo => {
+      if (unreadMemos.length > 0) {
+        unreadMemos.forEach(memo => {
           const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
           const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
-
-          if (isForward) {
-            showNotification({
-              title: 'Memo Delegated to You',
-              description: `From: ${lastActivity.actor.name} - ${memo.subject}`,
-              memoId: memo.id,
-            });
+          
+          const notificationPayload = {
+            title: isForward ? 'Memo Delegated to You' : 'New Memo Received',
+            description: `From: ${isForward ? lastActivity.actor.name : memo.from.name} - ${memo.subject}`,
+            memoId: memo.id,
+          };
+          
+          // Only show toast for new memos after the initial load.
+          if (!isInitialCheck.current) {
+            showNotification(notificationPayload);
           } else {
-            showNotification({
-              title: 'New Memo Received',
-              description: `From: ${memo.from.name} - ${memo.subject}`,
-              memoId: memo.id,
-            });
+            // On initial load, just add to the list without a toast.
+            addNotificationToList(notificationPayload);
           }
-
-          // Dispatch custom event for real-time update
-          window.dispatchEvent(new CustomEvent('new-memo-event', { detail: { memo } }));
         });
-
-        setSeenMemos(prevSeen => [...prevSeen, ...newMemos.map(m => m.id)]);
+      }
+      
+      // After the first check, all subsequent checks are not initial.
+      if (isInitialCheck.current) {
+        isInitialCheck.current = false;
       }
     };
 
@@ -85,7 +88,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     return () => clearInterval(intervalId);
 
-  }, [user, showNotification, isMounted, seenMemos]);
+  }, [user, addNotificationToList, showNotification, isMounted]);
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;

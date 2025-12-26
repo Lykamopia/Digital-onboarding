@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
@@ -15,13 +16,13 @@ type Notification = {
 type ShowNotificationProps = {
     title: string;
     description: string;
-    variant: 'success' | 'error' | 'info' | 'warning';
 } & { memoId?: string };
 
 type NotificationContextType = {
   settings: NotificationSettings;
   setSettings: (settings: Partial<NotificationSettings>) => void;
   showNotification: (props: ShowNotificationProps) => void;
+  addNotificationToList: (props: ShowNotificationProps) => void;
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
@@ -69,46 +70,41 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return updatedSettings;
     });
   };
+  
+  const addNotificationToList = useCallback((props: ShowNotificationProps) => {
+    if (!settings.notificationsEnabled) return;
+    
+    setNotifications(prev => {
+        const newNotif = {
+            id: `notif-${Date.now()}-${Math.random()}`,
+            title: props.title,
+            description: props.description,
+            createdAt: new Date(),
+            read: false,
+            memoId: props.memoId,
+        };
+        // Add new notification and prevent duplicates based on memoId
+        const newNotifications = [newNotif, ...prev];
+        const uniqueNotifications = newNotifications.filter((n, index, self) => 
+            index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId
+        );
+        return uniqueNotifications;
+    });
+  }, [settings.notificationsEnabled]);
 
-  const showNotification = useCallback(({ memoId, title, description, variant }: ShowNotificationProps) => {
-    // Play sound if it's enabled, regardless of visual notifications
+  const showNotification = useCallback((props: ShowNotificationProps) => {
+    // Play sound if enabled
     if (settings.soundEnabled && audio) {
       audio.play().catch(error => console.error("Audio playback failed:", error));
     }
     
-    // Show visual toast and add to list only if notifications are enabled
+    // Add to list and show toast if visual notifications are enabled
     if (settings.notificationsEnabled) {
-      switch(variant) {
-        case 'success':
-            toast.success(title, { description });
-            break;
-        case 'error':
-            toast.error(title, { description });
-            break;
-        case 'warning':
-            toast.warning(title, { description });
-            break;
-        case 'info':
-            toast.info(title, { description });
-            break;
-        default:
-            toast(title, { description });
-            break;
-      }
-      
-      setNotifications(prev => [
-        { 
-          id: `notif-${Date.now()}`,
-          title,
-          description,
-          createdAt: new Date(),
-          read: false,
-          memoId: memoId,
-        }, 
-        ...prev
-      ].filter((n, index, self) => index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId)); // Prevent duplicates
+      toast(props.title, { description: props.description });
+      addNotificationToList(props);
     }
-  }, [settings, audio]);
+  }, [settings, audio, addNotificationToList]);
+
 
   const markAsRead = useCallback((id: string) => {
     // Remove notification when read
@@ -122,7 +118,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <NotificationContext.Provider value={{ settings, setSettings, showNotification, notifications, unreadCount, markAsRead, markAllAsRead }}>
+    <NotificationContext.Provider value={{ settings, setSettings, showNotification, addNotificationToList, notifications, unreadCount, markAsRead, markAllAsRead }}>
       {children}
     </NotificationContext.Provider>
   );
