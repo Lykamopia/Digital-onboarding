@@ -36,6 +36,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   const pathname = usePathname();
   const { showNotification } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
+  const [seenMemos, setSeenMemos] = useState<string[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -46,14 +47,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     const checkNewMemos = async () => {
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
-
-      let seenMemos: string[] = [];
-      try {
-        const stored = localStorage.getItem('seenMemos');
-        seenMemos = stored ? JSON.parse(stored) : [];
-      } catch (e) {
-        console.error("Could not parse seenMemos from localStorage", e);
-      }
 
       const newMemos = inboxMemos.filter(memo => !seenMemos.includes(memo.id));
 
@@ -80,8 +73,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           window.dispatchEvent(new CustomEvent('new-memo-event', { detail: { memo } }));
         });
 
-        const allSeenMemos = [...seenMemos, ...newMemos.map(m => m.id)];
-        localStorage.setItem('seenMemos', JSON.stringify(allSeenMemos));
+        setSeenMemos(prevSeen => [...prevSeen, ...newMemos.map(m => m.id)]);
       }
     };
 
@@ -93,7 +85,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
     return () => clearInterval(intervalId);
 
-  }, [user, showNotification, isMounted]);
+  }, [user, showNotification, isMounted, seenMemos]);
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
