@@ -16,13 +16,13 @@ import { Loader2, Save } from "lucide-react";
 function EmailSettingsSkeleton() {
     return (
         <div className="space-y-6">
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-96 w-full" />
         </div>
     );
 }
 
 export default function EmailSettingsPage() {
-  const [settings, setSettings] = useState({ notificationsEnabled: true, headerText: '', footerText: '' });
+  const [settings, setSettings] = useState({ notificationsEnabled: true, headerText: '', bodyText: '', footerText: '' });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -57,7 +57,7 @@ export default function EmailSettingsPage() {
       <CardHeader>
         <CardTitle>Email Notification Settings</CardTitle>
         <CardDescription>
-          Manage email notifications and customize their appearance.
+          Manage email notifications and customize their content and appearance.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -84,8 +84,25 @@ export default function EmailSettingsPage() {
                 value={settings.headerText}
                 onChange={(e) => setSettings(prev => ({ ...prev, headerText: e.target.value }))}
                 placeholder="e.g., New Memo Notification"
+                disabled={!settings.notificationsEnabled}
             />
         </div>
+        
+        <div className="space-y-2">
+            <Label htmlFor="body-text">Email Body Template</Label>
+            <Textarea
+                id="body-text"
+                value={settings.bodyText}
+                onChange={(e) => setSettings(prev => ({ ...prev, bodyText: e.target.value }))}
+                placeholder="e.g., Hello, {{notificationType}}"
+                rows={5}
+                disabled={!settings.notificationsEnabled}
+            />
+             <p className="text-xs text-muted-foreground">
+              Use placeholders like `{{'{'}}{{'{'}}notificationType{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}senderName{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}subject{{'}'}}{{'}'}}`, `{{'{'}}{{'{'}}reference{{'}'}}{{'}'}}`, and `{{'{'}}{{'{'}}memoUrl{{'}'}}{{'}'}}`.
+            </p>
+        </div>
+
 
         <div className="space-y-2">
             <Label htmlFor="footer-text">Email Footer Text</Label>
@@ -95,6 +112,7 @@ export default function EmailSettingsPage() {
                 onChange={(e) => setSettings(prev => ({ ...prev, footerText: e.target.value }))}
                 placeholder="e.g., This is an automated message. Please do not reply."
                 rows={3}
+                disabled={!settings.notificationsEnabled}
             />
         </div>
       </CardContent>

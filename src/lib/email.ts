@@ -7,6 +7,15 @@ const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT) || 465,
   secure: true, // For port 465, this should be true
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  // If using port 587, secure should be false and you might need tls options
+  // secure: false, 
+  // tls: {
+  //   ciphers:'SSLv3'
+  // }
 });
 
 interface EmailOptions {
@@ -18,16 +27,26 @@ interface EmailOptions {
 }
 
 async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'): Promise<string> {
-    const { notificationsEnabled, headerText, footerText } = await getEmailSettings();
+    const { notificationsEnabled, headerText, bodyText, footerText } = await getEmailSettings();
     if (!notificationsEnabled) {
         return '';
     }
 
-    const memoUrl = `${process.env.BASE_URL}/dashboard/inbox?id=${memo.id}`;
+    const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=${memo.id}`;
     
     const notificationType = type === 'direct' 
         ? `You have received a new memo from <strong>${sender.name}</strong>.`
         : `You have been CC'd on a memo from <strong>${sender.name}</strong>.`;
+    
+    const processedBody = bodyText
+        .replace(/{{notificationType}}/g, notificationType)
+        .replace(/{{senderName}}/g, sender.name)
+        .replace(/{{subject}}/g, memo.subject)
+        .replace(/{{reference}}/g, memo.memo_reference_number || '')
+        .replace(/{{memoUrl}}/g, memoUrl)
+        .replace(/\n/g, '<br>');
+
+    const logoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/Wide%20-%20LOGO.png`;
 
     return `
     <!DOCTYPE html>
@@ -35,10 +54,10 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Nib Memo Notification</title>
+        <title>${headerText}</title>
         <style>
             body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4; font-family: Arial, sans-serif; color: #333; }
-            .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+            .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
             .header { background-color: hsl(26, 61%, 36%); padding: 20px; text-align: center; }
             .header img { max-width: 150px; }
             .content { padding: 30px; }
@@ -47,8 +66,8 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
             .memo-details { background-color: #f9f9f9; border-left: 4px solid hsl(37, 100%, 48%); padding: 15px; margin: 20px 0; }
             .memo-details p { margin: 5px 0; font-size: 14px; }
             .button-container { text-align: center; margin: 30px 0; }
-            .button { display: inline-block; background-color: hsl(26, 61%, 36%); color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; }
-            .footer { padding: 20px; font-size: 12px; color: #777; text-align: center; background-color: #f4f4f4; }
+            .button { display: inline-block; background-color: hsl(26, 61%, 36%); color: #ffffff !important; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; }
+            .footer { padding: 20px; font-size: 12px; color: #777; text-align: center; background-color: #f1f1f1; }
         </style>
     </head>
     <body>
@@ -57,12 +76,11 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${process.env.BASE_URL}/Wide%20-%20LOGO.png" alt="Nib Memo Logo">
+                           <img src="${logoUrl}" alt="Nib Memo Logo">
                         </div>
                         <div class="content">
-                            <h2>${headerText || 'New Memo Notification'}</h2>
-                            <p>Hello,</p>
-                            <p>${notificationType}</p>
+                            <h2>${headerText}</h2>
+                            <p>${processedBody}</p>
                             
                             <div class="memo-details">
                                 <p><strong>From:</strong> ${sender.name}</p>
@@ -78,7 +96,7 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
                         </div>
                     </div>
                      <div class="footer">
-                        <p>${footerText || 'This is an automated notification. Please do not reply to this email.'}</p>
+                        <p>${footerText}</p>
                     </div>
                 </td>
             </tr>

@@ -756,15 +756,23 @@ export async function saveArchiveSettings(days: number) {
     return { success: true };
 }
 
-let emailSettings = { notificationsEnabled: true, headerText: 'New Memo Notification', footerText: 'This is an automated message. Please do not reply.' };
+let emailSettings = { 
+    notificationsEnabled: true, 
+    headerText: 'New Memo Notification', 
+    bodyText: 'Hello,\n\n{{notificationType}}\n\nPlease find the details of the memo below.',
+    footerText: 'This is an automated message. Please do not reply.' 
+};
+
 export async function getEmailSettings() {
     return emailSettings;
 }
-export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, footerText: string }) {
+
+export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
     emailSettings = settings;
     revalidatePath('/dashboard/admin/email');
     return { success: true };
 }
+
 
 // END SIMULATED SETTINGS
 
