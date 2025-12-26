@@ -70,6 +70,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const showNotification = useCallback(({ memoId, ...props }: ShowNotificationProps) => {
+    // Play sound if it's enabled, regardless of visual notifications
+    if (settings.soundEnabled && audio) {
+      audio.play().catch(error => console.error("Audio playback failed:", error));
+    }
+    
+    // Show visual toast and add to list only if notifications are enabled
     if (settings.notificationsEnabled) {
       toast(props);
       setNotifications(prev => [
@@ -83,9 +89,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }, 
         ...prev
       ].filter((n, index, self) => index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId)); // Prevent duplicates
-      if (settings.soundEnabled && audio) {
-        audio.play().catch(error => console.error("Audio playback failed:", error));
-      }
     }
   }, [settings, toast, audio]);
 

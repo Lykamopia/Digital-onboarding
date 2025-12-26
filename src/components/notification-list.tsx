@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-provider';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Mail } from 'lucide-react';
+import { Mail, BellOff } from 'lucide-react';
 
 export function NotificationList() {
-    const { notifications, markAsRead } = useNotification();
+    const { notifications, markAsRead, settings } = useNotification();
     const router = useRouter();
 
     const handleClick = (notification: typeof notifications[0]) => {
@@ -21,6 +21,16 @@ export function NotificationList() {
                 detail: { memoId: notification.memoId }
             }));
         }
+    }
+
+    if (!settings.notificationsEnabled) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                <BellOff className="h-10 w-10 mb-4" />
+                <p className="font-semibold">Notifications are disabled.</p>
+                <p>You can enable them in the settings.</p>
+            </div>
+        );
     }
 
     if (notifications.length === 0) {
