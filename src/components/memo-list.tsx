@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -92,6 +91,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
         const memoStatus = getMemoStatus(memo);
+        
+        const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
+        const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const canForward = isRecipient && !isCC;
 
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -117,7 +120,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </Tooltip>
                     </>
                 )}
-                 {(tab === 'inbox' || tab === 'sent') && (
+                 {(tab === 'inbox' || tab === 'sent') && canForward && (
                     <ForwardDialog memo={memo} onUpdate={() => {}}>
                         <Tooltip>
                             <TooltipTrigger asChild>

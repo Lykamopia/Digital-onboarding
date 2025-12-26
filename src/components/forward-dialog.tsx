@@ -51,7 +51,7 @@ function ForwardMemoIllustration() {
 }
 
 export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) {
-  const [selectedUser, setSelectedUser] = useState<User[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [remark, setRemark] = useState('');
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -83,32 +83,40 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
   }, [allUsers, currentUser, memo]);
 
   const handleForward = async () => {
-    if (selectedUser.length === 0) {
+    if (selectedUsers.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'No user selected',
-        description: 'Please select a user to forward the memo to.',
+        title: 'No users selected',
+        description: 'Please select at least one user to forward the memo to.',
       });
       return;
     }
-    const forwardTo = selectedUser[0];
+    const forwardToIds = selectedUsers.map(u => u.id);
 
-    await forwardMemo(memo.id, forwardTo.id, remark);
-
-    toast({
-      title: 'Memo Forwarded',
-      description: `Successfully forwarded to ${forwardTo.name}.`,
-    });
-    onUpdate();
-    setOpen(false);
-    setSelectedUser([]);
-    setRemark('');
+    const result = await forwardMemo(memo.id, forwardToIds, remark);
+    
+    if (result.success) {
+        toast({
+            title: 'Memo Forwarded',
+            description: `Successfully forwarded to ${selectedUsers.map(u => u.name).join(', ')}.`,
+        });
+        onUpdate();
+        setOpen(false);
+        setSelectedUsers([]);
+        setRemark('');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Forward Failed',
+            description: result.error,
+        });
+    }
   };
 
   const closeDialog = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setOpen(false);
-    setSelectedUser([]);
+    setSelectedUsers([]);
     setRemark('');
   }
 
@@ -117,7 +125,15 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
       <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent 
+        className="sm:max-w-md"
+        onInteractOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-radix-popper-content-wrapper]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <div className='relative pr-24'>
             <div className="mb-4">
@@ -127,7 +143,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
                 <Share2 /> Forward Memo
             </DialogTitle>
             <DialogDescription className="mt-2">
-                Delegate or share this memo with another user. They will become the new current holder.
+                Delegate or share this memo with other users.
             </DialogDescription>
             <ForwardMemoIllustration />
           </div>
@@ -138,9 +154,10 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
             <RecipientSelector
               id="forward-to"
               allUsers={availableUsers}
-              selected={selectedUser}
-              setSelected={(users) => setSelectedUser(users.slice(0, 1))}
-              placeholder="Select a user..."
+              selected={selectedUsers}
+              setSelected={setSelectedUsers}
+              placeholder="Select one or more users..."
+              popoverClassName="z-[51]"
             />
           </div>
           <div className="space-y-2">
@@ -155,7 +172,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={handleForward} disabled={selectedUser.length === 0}>
+          <Button onClick={handleForward} disabled={selectedUsers.length === 0}>
             <Share2 className="mr-2" />
             Confirm Forward
           </Button>
