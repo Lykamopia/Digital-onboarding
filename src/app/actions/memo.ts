@@ -324,7 +324,6 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
                 ...attachmentsData
             },
             status: 'draft' as const,
-            memo_reference_number: 'DRAFT',
             replyToId: data.replyTo,
         };
         const updatedDraft = await prisma.memo.update({
@@ -341,7 +340,7 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
             cc: { connect: data.cc.map(u => ({ id: u.id })) },
             attachments: attachmentsData,
             status: 'draft' as const,
-            memo_reference_number: 'DRAFT',
+            memo_reference_number: `DRAFT-${Date.now()}`,
             replyToId: data.replyTo,
         };
         const newDraft = await prisma.memo.create({ data: payload });

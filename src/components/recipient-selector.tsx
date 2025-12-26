@@ -57,11 +57,17 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <div
           id={id}
-          type="button"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                setOpen(true);
+            }
+          }}
           className={cn(
-            "flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm text-left",
+            "flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm text-left cursor-pointer",
             className
           )}
           aria-haspopup="listbox"
@@ -73,23 +79,32 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
               className="rounded-sm pr-1"
             >
               {user.name}
-              <button
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Remove ${user.name}`}
                 className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleUnselect(user)
                   }
                 }}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleUnselect(user)}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnselect(user)
+                }}
               >
                 <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-              </button>
+              </span>
             </Badge>
           ))}
           <span className="flex-1 text-muted-foreground ml-1 text-sm">{selected.length === 0 && placeholder}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </button>
+        </div>
       </PopoverTrigger>
       <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", popoverClassName)}>
         <Command>
