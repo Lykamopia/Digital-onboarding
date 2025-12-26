@@ -27,7 +27,7 @@ export default function LoginClientPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/inbox';
 
   useEffect(() => {
     const error = searchParams.get('error');

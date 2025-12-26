@@ -11,6 +11,7 @@ export default async function middleware(req: NextRequest) {
     // If no token, and not trying to access login, redirect to login
     if (!token && pathname !== '/login') {
         const loginUrl = new URL('/login', req.url);
+        loginUrl.searchParams.set('callbackUrl', req.url);
         return NextResponse.redirect(loginUrl);
     }
     
@@ -24,7 +25,7 @@ export default async function middleware(req: NextRequest) {
         }
 
         if (!mustChangePassword && pathname === '/dashboard/change-password') {
-             const dashboardUrl = new URL('/dashboard', req.url);
+             const dashboardUrl = new URL('/dashboard/inbox', req.url);
              return NextResponse.redirect(dashboardUrl);
         }
     }
