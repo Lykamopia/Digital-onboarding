@@ -4,6 +4,8 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 
+const READ_NOTIFICATIONS_KEY = 'read-notifications';
+
 type Notification = {
   id: string;
   title: React.ReactNode;
@@ -39,12 +41,19 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
+  // Load read notifications from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const audioInstance = new Audio('/ring.mp3');
         audioInstance.load();
         setAudio(audioInstance);
+
+        const storedReadIds = localStorage.getItem(READ_NOTIFICATIONS_KEY);
+        if (storedReadIds) {
+            setReadIds(new Set(JSON.parse(storedReadIds)));
+        }
     }
   }, []);
   
@@ -74,23 +83,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const addNotificationToList = useCallback((props: ShowNotificationProps) => {
     if (!settings.notificationsEnabled) return;
     
+    const newNotif = {
+        id: props.memoId || `notif-${Date.now()}-${Math.random()}`,
+        title: props.title,
+        description: props.description,
+        createdAt: new Date(),
+        read: false,
+        memoId: props.memoId,
+    };
+    
+    // Do not add if it's already been read
+    if (readIds.has(newNotif.id)) {
+        return;
+    }
+
     setNotifications(prev => {
-        const newNotif = {
-            id: `notif-${Date.now()}-${Math.random()}`,
-            title: props.title,
-            description: props.description,
-            createdAt: new Date(),
-            read: false,
-            memoId: props.memoId,
-        };
-        // Add new notification and prevent duplicates based on memoId
-        const newNotifications = [newNotif, ...prev];
-        const uniqueNotifications = newNotifications.filter((n, index, self) => 
-            index === self.findIndex((t) => t.memoId === n.memoId) || !n.memoId
-        );
-        return uniqueNotifications;
+        // Prevent duplicate entries
+        if (prev.some(n => n.id === newNotif.id)) {
+            return prev;
+        }
+        return [newNotif, ...prev];
     });
-  }, [settings.notificationsEnabled]);
+  }, [settings.notificationsEnabled, readIds]);
 
   const showNotification = useCallback((props: ShowNotificationProps) => {
     // Play sound if enabled
@@ -107,13 +121,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
 
   const markAsRead = useCallback((id: string) => {
-    // Remove notification when read
     setNotifications(prev => prev.filter(n => n.id !== id));
+    
+    if (typeof window !== 'undefined') {
+      setReadIds(prevReadIds => {
+          const newReadIds = new Set(prevReadIds);
+          newReadIds.add(id);
+          localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(Array.from(newReadIds)));
+          return newReadIds;
+      });
+    }
   }, []);
 
   const markAllAsRead = useCallback(() => {
+    if (typeof window !== 'undefined') {
+        const allIds = notifications.map(n => n.id);
+        setReadIds(prevReadIds => {
+            const newReadIds = new Set([...prevReadIds, ...allIds]);
+            localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(Array.from(newReadIds)));
+            return newReadIds;
+        });
+    }
     setNotifications([]);
-  }, []);
+  }, [notifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
