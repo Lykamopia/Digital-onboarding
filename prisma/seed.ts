@@ -31,13 +31,13 @@ const districts = [
 ];
 
 const offices = [
-  { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1', type: 'division' },
-  { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-1', type: 'division' },
-  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3', type: 'division' },
-  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4', type: 'division' },
-  { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5', type: 'division' },
-  { id: 'off-6', name: 'Bole Office', code: 'BO', districtId: 'dist-1', type: 'branch' },
-  { id: 'off-7', name: 'Kirkos Office', code: 'KO', districtId: 'dist-2', type: 'branch' },
+  { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1', districtId: null, type: 'division' },
+  { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-1', districtId: null, type: 'division' },
+  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3', districtId: null, type: 'division' },
+  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4', districtId: null, type: 'division' },
+  { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5', districtId: null, type: 'division' },
+  { id: 'off-6', name: 'Bole Office', code: 'BO', districtId: 'dist-1', departmentId: null, type: 'branch' },
+  { id: 'off-7', name: 'Kirkos Office', code: 'KO', districtId: 'dist-2', departmentId: null, type: 'branch' },
 ];
 
 const roles = [
