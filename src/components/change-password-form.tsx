@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { changeUserPassword } from '@/app/actions/memo';
+import { useSession } from 'next-auth/react';
 
 const changePasswordSchema = z.object({
     newPassword: z.string().min(8, 'Password must be at least 8 characters long.'),
@@ -32,6 +33,8 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
     const [loading, setLoading] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const { update } = useSession();
+
 
     const {
         register,
@@ -45,24 +48,27 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
     const onSubmit = async (data: ChangePasswordFormData) => {
         setLoading(true);
         const result = await changeUserPassword(data.newPassword);
-        setLoading(false);
 
         if (result.success) {
+            // This is the key change: update the session client-side
+            await update({ mustChangePassword: false });
+            
             toast({
                 title: 'Password Changed',
                 description: 'Your password has been successfully updated.',
             });
-            
-            // This refresh is crucial. It re-triggers the middleware, which will now
-            // see that mustChangePassword is false and allow the redirect to the inbox.
-            router.refresh();
             
             if (onPasswordChanged) {
                 onPasswordChanged();
             }
             
             reset();
+            
+            // This refresh will now re-run middleware with the updated token
+            router.refresh();
+
         } else {
+            setLoading(false);
             toast({
                 variant: 'destructive',
                 title: 'Update Failed',

@@ -569,15 +569,12 @@ export async function getUsers() {
     return await prisma.user.findMany({
         include: {
             role: true,
-            branch: {
+            office: {
                 include: {
-                    district: {
-                        include: {
-                            office: true,
-                        }
-                    }
-                },
-            },
+                    district: true,
+                    department: true,
+                }
+            }
         },
         orderBy: {
             name: 'asc'
@@ -629,11 +626,16 @@ export async function getLoggedInUser() {
         where: { email: session.user.email },
         include: { 
             role: true,
-            branch: {
+            office: {
                 include: {
+                    department: {
+                        include: {
+                            division: true,
+                        },
+                    },
                     district: {
                         include: {
-                            office: true
+                            branch: true,
                         }
                     }
                 }
@@ -656,6 +658,11 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDivision(id: string) {
+    const users = await prisma.user.count({ where: { office: { department: { division: { some: { id } } } } }});
+    if (users > 0) {
+        return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
+    }
+
     await prisma.division.delete({ where: { id } });
     revalidatePath('/dashboard/admin/divisions');
     return { success: true };
@@ -691,6 +698,10 @@ export async function saveBranch(data: { id?: string, name: string, code: string
 }
 
 export async function deleteBranch(id: string) {
+    const users = await prisma.user.count({ where: { office: { district: { branch: { some: { id } } } } }});
+    if (users > 0) {
+        return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
+    }
     await prisma.branch.delete({ where: { id } });
     revalidatePath('/dashboard/admin/branches');
     return { success: true };
@@ -715,7 +726,7 @@ export async function deleteDistrict(id: string) {
     return { success: true };
 }
 
-export async function saveOffice(data: { id?: string, name: string, code: string }) {
+export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division' | 'branch' }) {
     if (data.id) {
         await prisma.office.update({ where: { id: data.id }, data });
     } else {
@@ -725,11 +736,6 @@ export async function saveOffice(data: { id?: string, name: string, code: string
 }
 
 export async function deleteOffice(id: string) {
-    const users = await prisma.user.count({ where: { branch: { district: { officeId: id } } } });
-    if (users > 0) {
-        return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
-    }
-    
     const districts = await prisma.district.count({ where: { officeId: id } });
     if (districts > 0) {
         return { error: 'Cannot delete office. It has associated districts. Please delete them first.' };
@@ -746,11 +752,11 @@ export async function deleteOffice(id: string) {
 }
 
 
-export async function saveUser(data: { id?: string, name: string, email: string, branchId: string, roleId: string, password?: string, status?: string }) {
+export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string, password?: string, status?: string }) {
     const payload: any = {
         name: data.name,
         email: data.email,
-        branchId: data.branchId,
+        officeId: data.officeId,
         roleId: data.roleId,
         status: data.status ?? 'active',
     };
@@ -821,20 +827,6 @@ export async function changeUserPassword(password: string) {
                 mustChangePassword: false
             }
         });
-        
-        // This is the key change: update the session token in the database
-        // so the middleware can pick up the change immediately.
-        // We find the session associated with the user and update its content.
-        const sessions = await prisma.session.findMany({ where: { userId: user.id } });
-        for (const session of sessions) {
-             const sessionData = JSON.parse(session.sessionToken); // Assuming sessionToken is a JSON string
-             sessionData.mustChangePassword = false;
-
-             await prisma.session.update({
-                 where: { id: session.id },
-                 data: { sessionToken: JSON.stringify(sessionData) }
-             });
-        }
         
         revalidatePath('/dashboard/inbox');
         return { success: true };
