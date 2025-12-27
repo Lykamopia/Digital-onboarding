@@ -407,7 +407,7 @@ export default function NewMemoPage() {
     const template = memoTemplates.find(t => t.value === templateValue);
     if (template) {
         setSubject(template.subject);
-        setBody(template.body);
+        setBody(template.body.trim());
     }
     setIsTemplateDialogOpen(false);
   };
@@ -454,7 +454,7 @@ export default function NewMemoPage() {
                                                 tabIndex={0}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleTemplateSelect(template.value)}
                                             >
-                                                <div className="mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:rotate-3">{template.icon}</div>
+                                                <div className="mb-4 transition-transform duration-300 group-hover:animate-template-icon-dance">{template.icon}</div>
                                                 <p className="text-sm font-medium">{template.label}</p>
                                             </div>
                                         ))}

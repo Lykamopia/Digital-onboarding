@@ -89,10 +89,17 @@ export default {
             height: '0',
           },
         },
+        'template-icon-dance': {
+            '0%': { transform: 'scale(1) rotate(0deg) translateY(0)' },
+            '30%': { transform: 'scale(1.2) rotate(-5deg) translateY(-8px)' },
+            '50%': { transform: 'scale(1.2) rotate(5deg) translateY(-8px)' },
+            '100%': { transform: 'scale(1.1) rotate(0deg) translateY(-4px)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'template-icon-dance': 'template-icon-dance 0.5s ease-in-out forwards',
       },
     },
   },
