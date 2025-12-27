@@ -138,8 +138,8 @@ export default function EmailSettingsPage() {
             <div className="mt-2 rounded-lg border bg-muted/30 p-4">
                 <div className="mx-auto max-w-xl rounded-md border bg-card shadow-lg">
                     {/* Email Header */}
-                    <div className="bg-primary p-4 text-center rounded-t-md">
-                        <Image src="/Wide - LOGO.png" alt="Logo" width={120} height={40} className="mx-auto" />
+                    <div className="p-4 text-center rounded-t-md">
+                        <Image src="/Logo.png" alt="Logo" width={90} height={30} className="mx-auto" />
                     </div>
                     {/* Email Body */}
                     <div className="p-6">

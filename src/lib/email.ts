@@ -46,7 +46,7 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
         .replace(/{{memoUrl}}/g, memoUrl)
         .replace(/\n/g, '<br>');
 
-    const logoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/Wide%20-%20LOGO.png`;
+    const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
 
     return `
     <!DOCTYPE html>
@@ -58,7 +58,7 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
         <style>
             body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4; font-family: Arial, sans-serif; color: #333; }
             .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
-            .header { background-color: hsl(26, 61%, 36%); padding: 20px; text-align: center; }
+            .header { background-color: hsl(0, 0, 100); padding: 20px; text-align: center; }
             .header img { max-width: 150px; }
             .content { padding: 30px; }
             .content h2 { font-size: 20px; color: #333; margin-top: 0; }
