@@ -1,6 +1,6 @@
 
 import nodemailer from 'nodemailer';
-import type { Memo, User } from './types';
+import type { Memo, User, Role } from './types';
 import { getEmailSettings } from '@/app/actions/memo';
 
 const transporter = nodemailer.createTransport({
@@ -22,11 +22,11 @@ interface EmailOptions {
   to: string;
   subject: string;
   memo: Memo;
-  sender: User;
+  sender: User & { role: Role | null };
   type: 'direct' | 'cc';
 }
 
-async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'): Promise<string> {
+async function generateEmailBody(memo: Memo, sender: User & { role: Role | null }, type: 'direct' | 'cc'): Promise<string> {
     const { notificationsEnabled, headerText, bodyText, footerText } = await getEmailSettings();
     if (!notificationsEnabled) {
         return '';
@@ -34,7 +34,9 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
 
     const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=${memo.id}`;
     
-    const senderNameWithRole = `${sender.name} ${sender.role ? `[${sender.role.name}]` : ''}`.trim();
+    const senderNameWithRole = sender.role 
+        ? `${sender.name} <span style="font-size: 0.8em; font-style: italic; color: #666;">(${sender.role.name})</span>`
+        : sender.name;
 
     const notificationType = type === 'direct' 
         ? `You have received a new memo from <strong>${senderNameWithRole}</strong>.`

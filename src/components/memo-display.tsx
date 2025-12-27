@@ -175,15 +175,23 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         {formatTimestamp(memo.createdAt, false)}
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
-                        <div>
-                            <div className='font-semibold'>{`${(memo.from as UserWithRole).name} ${memo.from.role ? `[${memo.from.role.name}]` : ''}`.trim()}</div>
+                        <div className='font-semibold'>
+                            {(memo.from as UserWithRole).name}
+                            {(memo.from as UserWithRole).role && (
+                                <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
+                            )}
                         </div>
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
                         <div className="flex flex-col gap-1 font-sans">
                             {memo.to.map((user) => (
                                 <div key={user.id} className="flex items-center gap-2">
-                                    <span>{`${user.name} ${user.role ? `[${user.role.name}]` : ''}`.trim()}</span>
+                                    <span>
+                                        {user.name}
+                                        {(user as UserWithRole).role && (
+                                            <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
+                                        )}
+                                    </span>
                                     {memo.acknowledgedBy?.some(u => u.id === user.id) && (
                                         <StatusBadge status="acknowledged" />
                                     )}
@@ -196,7 +204,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <MemoField label="CC" amharic="ግልባጭ">
                             <div className="flex flex-col gap-2">
                                 {memo.cc.map((user) => (
-                                    <div key={user.id}>{`${user.name} ${user.role ? `[${user.role.name}]` : ''}`.trim()}</div>
+                                    <div key={user.id}>
+                                        {user.name}
+                                        {(user as UserWithRole).role && (
+                                            <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </MemoField>
