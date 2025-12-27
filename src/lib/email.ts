@@ -34,13 +34,15 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
 
     const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=${memo.id}`;
     
+    const senderNameWithRole = `${sender.name} ${sender.role ? `[${sender.role.name}]` : ''}`.trim();
+
     const notificationType = type === 'direct' 
-        ? `You have received a new memo from <strong>${sender.name}</strong>.`
-        : `You have been CC'd on a memo from <strong>${sender.name}</strong>.`;
+        ? `You have received a new memo from <strong>${senderNameWithRole}</strong>.`
+        : `You have been CC'd on a memo from <strong>${senderNameWithRole}</strong>.`;
     
     const processedBody = bodyText
         .replace(/{{notificationType}}/g, notificationType)
-        .replace(/{{senderName}}/g, sender.name)
+        .replace(/{{senderName}}/g, senderNameWithRole)
         .replace(/{{subject}}/g, memo.subject)
         .replace(/{{reference}}/g, memo.memo_reference_number || '')
         .replace(/{{memoUrl}}/g, memoUrl)
@@ -83,7 +85,7 @@ async function generateEmailBody(memo: Memo, sender: User, type: 'direct' | 'cc'
                             <p>${processedBody}</p>
                             
                             <div class="memo-details">
-                                <p><strong>From:</strong> ${sender.name}</p>
+                                <p><strong>From:</strong> ${senderNameWithRole}</p>
                                 <p><strong>Subject:</strong> ${memo.subject}</p>
                                 <p><strong>Reference:</strong> ${memo.memo_reference_number}</p>
                             </div>
