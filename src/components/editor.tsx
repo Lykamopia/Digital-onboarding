@@ -108,7 +108,6 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
         onInput={handleInput}
         className={cn(
             "prose dark:prose-invert max-w-none min-h-[250px] p-4 font-serif text-sm focus:outline-none",
-            "[&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:p-2",
             readOnly && "min-h-fit"
         )}
       />

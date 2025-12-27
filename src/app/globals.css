@@ -89,6 +89,23 @@
   }
 }
 
+@layer components {
+    .prose {
+        table {
+            @apply border-collapse w-full my-4;
+        }
+        td, th {
+            @apply border border-border p-2 text-left;
+        }
+        th {
+            @apply bg-muted;
+        }
+        tr:nth-child(even) {
+            @apply bg-muted/50;
+        }
+    }
+}
+
 @layer utilities {
     .word-break-break-word {
       word-break: break-word;
@@ -131,6 +148,12 @@
           font-family: 'Times New Roman', Times, serif !important;
           font-size: 12pt;
           color: black !important;
+      }
+      .printable-memo .prose table, 
+      .printable-memo .prose td, 
+      .printable-memo .prose th {
+          border-color: #000 !important;
+          color: #000 !important;
       }
       .printable-memo * {
         color: black !important;
