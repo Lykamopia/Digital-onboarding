@@ -7,6 +7,7 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 224 71.4% 4.1%;
+    --sidebar-background: 220 13% 96%;
 
     --card: 0 0% 100%;
     --card-foreground: 224 71.4% 4.1%;
@@ -43,6 +44,7 @@
   .dark {
     --background: 224 71.4% 4.1%;
     --foreground: 210 20% 98%;
+    --sidebar-background: 224 71.4% 6%;
 
     --card: 224 71.4% 4.1%;
     --card-foreground: 210 20% 98%;
@@ -80,10 +82,10 @@
   }
 
   [data-sidebar='sidebar'] {
-    background-color: hsl(var(--background));
+    background-color: hsl(var(--sidebar-background));
   }
   .dark [data-sidebar='sidebar'] {
-    background-color: hsl(var(--background));
+    background-color: hsl(var(--sidebar-background));
   }
 }
 
