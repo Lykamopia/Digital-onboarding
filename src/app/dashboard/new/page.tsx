@@ -64,6 +64,7 @@ export default function NewMemoPage() {
   const [body, setBody] = useState('');
   const [replyBody, setReplyBody] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
 
   const isReplying = !!replyTo;
@@ -213,7 +214,7 @@ export default function NewMemoPage() {
 
     initialize();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftId, searchParams]); // Only run on draftId change
+  }, [draftId, searchParams]);
 
   async function handleDeleteDraft() {
       if (draftId) {
@@ -273,37 +274,69 @@ export default function NewMemoPage() {
     }
   }
   
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    const newAttachments: Attachment[] = [...attachments];
-
-    Array.from(files).forEach(file => {
+    const filesToUpload = Array.from(files).filter(file => {
       if (file.size > MAX_FILE_SIZE) {
         toast({
           variant: 'destructive',
           title: 'File too large',
           description: `${file.name} exceeds the 5MB size limit.`,
         });
-        return;
+        return false;
       }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const newAttachment: Attachment = {
-          id: `att-${Date.now()}-${file.name}`,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: e.target?.result as string,
-        };
-        newAttachments.push(newAttachment);
-        setAttachments(newAttachments);
-      };
-      reader.readAsDataURL(file);
+      return true;
     });
+
+    if (filesToUpload.length === 0) return;
+
+    setIsUploading(true);
+
+    const uploadPromises = filesToUpload.map(async file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
+            }
+
+            const result = await response.json();
+            return {
+                id: `att-${Date.now()}-${result.name}`,
+                name: result.name,
+                size: result.size,
+                type: result.type,
+                url: result.path,
+            };
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: `Upload failed for ${file.name}`,
+                description: error.message,
+            });
+            return null;
+        }
+    });
+
+    const newAttachments = (await Promise.all(uploadPromises)).filter(Boolean) as Attachment[];
+    setAttachments(prev => [...prev, ...newAttachments]);
+    setIsUploading(false);
+    
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
+
 
   const removeAttachment = (id: string) => {
     setAttachments(attachments.filter(att => att.id !== id));
@@ -395,9 +428,9 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-start space-y-0">
                         <label className='text-right pr-4 pt-2 font-semibold text-sm'>ENC - አባሪ</label>
                         <div className="col-start-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                              <Paperclip className="mr-2 h-4 w-4" />
-                              Add Attachment
+                          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
+                              {isUploading ? 'Uploading...' : 'Add Attachment'}
                           </Button>
                           <Input
                             type="file"
