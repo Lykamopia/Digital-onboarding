@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -154,6 +154,36 @@ const memoTemplates = [
         <p>[Detail any immediate steps that were taken to mitigate the incident.]</p>
         <p><br></p>
         <p>An investigation is underway to determine the root cause. Further updates will be provided as they become available.</p>
+      `,
+    },
+    {
+      value: 'meeting_agenda',
+      label: 'Meeting / Agenda Memo',
+      icon: <CalendarDays className="h-8 w-8 text-primary" />,
+      subject: 'Meeting Agenda: [Meeting Title]',
+      body: `
+        <p>This memo is to announce an upcoming meeting and outline the agenda.</p>
+        <p><br></p>
+        <p><strong>Meeting Details:</strong></p>
+        <ul>
+          <li><strong>Date:</strong> [Date of meeting].</li>
+          <li><strong>Time:</strong> [Time of meeting].</li>
+          <li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li>
+          <li><strong>Attendees:</strong> [List key attendees or teams].</li>
+        </ul>
+        <p><br></p>
+        <p><strong>Agenda:</strong></p>
+        <ol>
+          <li><strong>Call to Order & Welcome</strong></li>
+          <li><strong>Review of Previous Minutes</strong></li>
+          <li><strong>[Agenda Item 1]:</strong> [Brief description].</li>
+          <li><strong>[Agenda Item 2]:</strong> [Brief description].</li>
+          <li><strong>Open Discussion / Q&A</strong></li>
+          <li><strong>Action Items & Next Steps</strong></li>
+          <li><strong>Adjournment</strong></li>
+        </ol>
+        <p><br></p>
+        <p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>
       `,
     },
 ];
@@ -693,4 +723,5 @@ export default function NewMemoPage() {
     
 
     
+
 
