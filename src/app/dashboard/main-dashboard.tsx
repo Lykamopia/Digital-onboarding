@@ -17,6 +17,11 @@ import { cn } from "@/lib/utils"
 import { getDashboardData, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { useNotification } from "@/components/notification-provider"
+import { InboxEmptyIllustration } from "@/components/inbox-empty-illustration"
+import { SentEmptyIllustration } from "@/components/sent-empty-illustration"
+import { DraftEmptyIllustration } from "@/components/draft-empty-illustration"
+import { ArchiveEmptyIllustration } from "@/components/archive-empty-illustration"
+import { SearchEmptyIllustration } from "@/components/search-empty-illustration"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
@@ -242,19 +247,44 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   
   const getEmptyState = () => {
       if (search || status || dateRange) {
-        return { title: "No Memos Found", description: "Try adjusting your search or filters."}
+        return { 
+            icon: <SearchEmptyIllustration />,
+            title: "No Memos Found", 
+            description: "Try adjusting your search or filters."
+        }
       }
       switch(tab) {
           case 'inbox':
-              return { title: "Inbox Zero", description: "You've read all your memos. Great job!" };
+              return { 
+                icon: <InboxEmptyIllustration />,
+                title: "Inbox Zero", 
+                description: "You've read all your memos. Great job!" 
+              };
           case 'drafts':
-              return { title: "No Drafts", description: "You haven't started any memos yet.", action: <Button onClick={() => router.push('/dashboard/new')}>New Memo</Button> };
+              return { 
+                icon: <DraftEmptyIllustration />,
+                title: "No Drafts", 
+                description: "You haven't started any memos yet.", 
+                action: <Button onClick={() => router.push('/dashboard/new')}>New Memo</Button> 
+              };
           case 'sent':
-              return { title: "No Sent Memos", description: "You haven't sent any memos yet." };
+              return { 
+                icon: <SentEmptyIllustration />,
+                title: "No Sent Memos", 
+                description: "You haven't sent any memos yet." 
+              };
           case 'archive':
-              return { title: "Nothing in Archive", description: "You haven't archived any memos." };
+              return { 
+                icon: <ArchiveEmptyIllustration />,
+                title: "Nothing in Archive", 
+                description: "You haven't archived any memos." 
+              };
           default:
-              return { title: "No Memos", description: "There are no memos to display here." };
+              return { 
+                icon: <InboxEmptyIllustration />,
+                title: "No Memos", 
+                description: "There are no memos to display here." 
+              };
       }
   }
   const emptyState = getEmptyState();
@@ -304,7 +334,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             />
         ) : (
           <div className="h-full p-2">
-            <EmptyState title={emptyState.title} description={emptyState.description} action={emptyState.action} />
+            <EmptyState icon={emptyState.icon} title={emptyState.title} description={emptyState.description} action={emptyState.action} />
           </div>
         )}
       </Card>
