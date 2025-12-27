@@ -152,7 +152,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <TooltipContent>Acknowledge</TooltipContent>
                     </Tooltip>
                 )}
-                 {canReply && (
+                 {canReply && tab !== 'sent' && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
@@ -235,7 +235,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <span>Acknowledge</span>
                     </ContextMenuItem>
                 )}
-                {canReply && (
+                {canReply && tab !== 'sent' && (
                     <ContextMenuItem onSelect={() => handleReply(memo.id)}>
                         <Reply className="mr-2 h-4 w-4" />
                         <span>Reply</span>
