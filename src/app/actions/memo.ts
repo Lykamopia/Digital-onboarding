@@ -117,19 +117,19 @@ export async function getDashboardData(tab: string, query: string, status: strin
     const memos = await prisma.memo.findMany({
         where,
         include: {
-            from: true,
-            to: true,
-            cc: true,
+            from: { include: { role: true } },
+            to: { include: { role: true } },
+            cc: { include: { role: true } },
             attachments: true,
             activity: {
                 include: {
                     actor: true
                 }
             },
-            current_holder: true,
-            previous_holders: true,
-            acknowledgedBy: true,
-            archivedBy: true,
+            current_holder: { include: { role: true } },
+            previous_holders: { include: { role: true } },
+            acknowledgedBy: { include: { role: true } },
+            archivedBy: { include: { role: true } },
         },
         orderBy: {
             createdAt: 'desc'
@@ -144,17 +144,17 @@ export async function getMemo(id: string) {
   const memo = await prisma.memo.findUnique({
     where: { id },
     include: {
-      from: true,
-      to: true,
-      cc: true,
+      from: { include: { role: true } },
+      to: { include: { role: true } },
+      cc: { include: { role: true } },
       attachments: true,
       activity: { include: { actor: true }, orderBy: { timestamp: 'desc' } },
-      current_holder: true,
-      previous_holders: true,
-      acknowledgedBy: true,
-      archivedBy: true,
-      replies: true,
-      replyTo: true
+      current_holder: { include: { role: true } },
+      previous_holders: { include: { role: true } },
+      acknowledgedBy: { include: { role: true } },
+      archivedBy: { include: { role: true } },
+      replies: { include: { role: true } },
+      replyTo: { include: { role: true } }
     },
   });
   return memo;
@@ -324,17 +324,17 @@ export async function sendMemo(formData: FormData) {
             replyToId: validatedData.replyTo,
         },
         include: {
+            from: { include: { role: true } },
             to: { include: { role: true } },
             cc: { include: { role: true } },
-            from: true,
             attachments: true,
             activity: {
                 include: { actor: true }
             },
-            current_holder: true,
-            previous_holders: true,
-            acknowledgedBy: true,
-            archivedBy: true,
+            current_holder: { include: { role: true } },
+            previous_holders: { include: { role: true } },
+            acknowledgedBy: { include: { role: true } },
+            archivedBy: { include: { role: true } },
         }
     });
 

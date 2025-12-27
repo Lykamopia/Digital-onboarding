@@ -16,7 +16,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { MemoWithActivity, User, Attachment } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment, Role } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +46,8 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   archived: <Archive className="h-4 w-4" />,
   unarchived: <Undo2 className="h-4 w-4" />,
 };
+
+type UserWithRole = User & { role: Role | null };
 
 const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
@@ -159,7 +161,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
   const MemoContent = () => (
-    <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
+    <div className={`font-serif printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
         <div className="printable-memo p-4 md:p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
             <CardHeader className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
@@ -174,14 +176,14 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
                         <div>
-                            <div className='font-semibold'>{memo.from.name}</div>
+                            <div className='font-semibold'>{(memo.from as UserWithRole).name} [{(memo.from as UserWithRole).role?.name}]</div>
                         </div>
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
                         <div className="flex flex-col gap-1 font-sans">
                             {memo.to.map((user) => (
                                 <div key={user.id} className="flex items-center gap-2">
-                                    <span>{user.name}</span>
+                                    <span>{(user as UserWithRole).name} [{(user as UserWithRole).role?.name}]</span>
                                     {memo.acknowledgedBy?.some(u => u.id === user.id) && (
                                         <StatusBadge status="acknowledged" />
                                     )}
@@ -194,7 +196,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <MemoField label="CC" amharic="ግልባጭ">
                             <div className="flex flex-col gap-2">
                                 {memo.cc.map((user) => (
-                                    <div key={user.id}>{user.name}</div>
+                                    <div key={user.id}>{(user as UserWithRole).name} [{(user as UserWithRole).role?.name}]</div>
                                 ))}
                             </div>
                         </MemoField>

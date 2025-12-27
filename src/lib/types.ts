@@ -38,6 +38,7 @@ export type User = PrismaUser & {
     // any custom properties if needed
     mustChangePassword?: boolean;
     office: Office;
+    role: Role | null;
 };
 
 export type Attachment = PrismaAttachment;
