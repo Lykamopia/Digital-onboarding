@@ -27,7 +27,7 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
       } finally {
         setLoading(false);
       }
-    }, [fetcher]);
+    }, []);
 
     useEffect(() => {
       fetchData();

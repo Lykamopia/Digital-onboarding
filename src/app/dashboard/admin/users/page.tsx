@@ -34,11 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
-import type { User, Role, Office } from "@/lib/types";
+import type { User, Role, Branch } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUsers, useOffices, useRoles } from "../hooks";
+import { useUsers, useBranches, useRoles } from "../hooks";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -53,15 +53,11 @@ import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 
 type UserWithRelations = User & {
-    office: Office & {
-        department?: {
+    branch: Branch & {
+        district: {
             name: string,
-            division: { name: string }
+            office: { name: string }
         },
-        district?: {
-            name: string,
-            branch: { name: string }
-        }
     },
     role: Role
 };
@@ -87,11 +83,11 @@ function UsersLoadingSkeleton() {
 
 const ITEMS_PER_PAGE = 10;
 
-const initialFormState = { name: '', email: '', password: '', officeId: '', roleId: '' };
+const initialFormState = { name: '', email: '', password: '', branchId: '', roleId: '' };
 
 export default function UsersPage() {
   const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
-  const { data: offices, loading: loadingOffices } = useOffices();
+  const { data: branches, loading: loadingBranches } = useBranches();
   const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
@@ -118,7 +114,7 @@ export default function UsersPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!formState.name || !formState.email || !formState.officeId || !formState.roleId) {
+    if (!formState.name || !formState.email || !formState.branchId || !formState.roleId) {
         toast({ title: "Error", description: "All fields except password are required.", variant: "destructive" });
         return;
     }
@@ -144,7 +140,7 @@ export default function UsersPage() {
         id: editingUser?.id,
         name: formState.name,
         email: formState.email,
-        officeId: formState.officeId,
+        branchId: formState.branchId,
         roleId: formState.roleId,
         password: passwordToSend || undefined,
         status: editingUser?.status ?? 'active',
@@ -170,26 +166,6 @@ export default function UsersPage() {
       setEditingUser(null);
       setFormState(initialFormState);
     }
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Remove any remaining Radix UI dialog overlays
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   };
 
   const handlePasswordDialogClose = (open: boolean) => {
@@ -198,50 +174,12 @@ export default function UsersPage() {
     } else {
       setPasswordDialog(prev => ({ ...prev, open: true }));
     }
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   };
 
   const handleAlertClose = (open: boolean) => {
     if (!open) {
       setResetUser(null);
       setDeleteUserAlert(null);
-    }
-    // Force cleanup of any remaining overlay elements (both dialog and alert-dialog)
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Clean up all possible overlay elements using Radix UI data attributes
-          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-          allOverlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
     }
   };
 
@@ -251,7 +189,7 @@ export default function UsersPage() {
     setFormState({
         name: user.name || '',
         email: user.email || '',
-        officeId: user.officeId || '',
+        branchId: user.branchId || '',
         roleId: user.roleId || '',
         password: '',
     });
@@ -297,7 +235,7 @@ export default function UsersPage() {
         id: user.id,
         name: user.name || '',
         email: user.email || '',
-        officeId: user.officeId || '',
+        branchId: user.branchId || '',
         roleId: user.roleId || '',
         status: newStatus 
       });
@@ -313,7 +251,7 @@ export default function UsersPage() {
               id: user.id,
               name: user.name || '',
               email: user.email || '',
-              officeId: user.officeId || '',
+              branchId: user.branchId || '',
               roleId: user.roleId || '',
               status 
             });
@@ -338,14 +276,14 @@ export default function UsersPage() {
     setSelectedUsers([]);
   }
 
-  const officeOptions = offices.map(o => ({ value: o.id, label: o.name }));
+  const branchOptions = branches.map(o => ({ value: o.id, label: o.name }));
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
 
   const handleFormChange = (field: keyof typeof formState, value: string) => {
       setFormState(prev => ({ ...prev, [field]: value }));
   }
 
-  if (loadingUsers || loadingOffices || loadingRoles) {
+  if (loadingUsers || loadingBranches || loadingRoles) {
     return <UsersLoadingSkeleton />;
   }
 
@@ -385,9 +323,9 @@ export default function UsersPage() {
                 </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Branch</TableHead>
+                <TableHead>District</TableHead>
                 <TableHead>Office</TableHead>
-                <TableHead>Parent</TableHead>
-                <TableHead>Top-Level</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right w-20">Actions</TableHead>
                 </TableRow>
@@ -416,9 +354,9 @@ export default function UsersPage() {
                             </div>
                         </TableCell>
                         <TableCell>{user.role.name}</TableCell>
-                        <TableCell>{user.office?.name}</TableCell>
-                        <TableCell>{user.office?.department?.name || user.office?.district?.name}</TableCell>
-                        <TableCell>{user.office?.department?.division.name || user.office?.district?.branch.name}</TableCell>
+                        <TableCell>{user.branch?.name}</TableCell>
+                        <TableCell>{user.branch?.district.name}</TableCell>
+                        <TableCell>{user.branch?.district.office.name}</TableCell>
                         <TableCell>
                             <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
                                 {user.status}
@@ -487,13 +425,13 @@ export default function UsersPage() {
                         <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="officeId">Office</Label>
+                        <Label htmlFor="branchId">Branch</Label>
                         <Combobox
-                            options={officeOptions}
-                            value={formState.officeId}
-                            onChange={v => handleFormChange('officeId', v)}
-                            placeholder="Select an office"
-                            searchPlaceholder="Search offices..."
+                            options={branchOptions}
+                            value={formState.branchId}
+                            onChange={v => handleFormChange('branchId', v)}
+                            placeholder="Select a branch"
+                            searchPlaceholder="Search branches..."
                         />
                     </div>
                     <div className="space-y-2">

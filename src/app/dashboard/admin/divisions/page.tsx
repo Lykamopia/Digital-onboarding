@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -35,9 +35,10 @@ import { saveDivision, deleteDivision } from "@/app/actions/memo";
 import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDivisions } from "../hooks";
+import { useDivisions, useDepartments } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Combobox } from "@/components/ui/combobox";
 
 
 const ITEMS_PER_PAGE = 10;
@@ -63,6 +64,7 @@ function DivisionsLoadingSkeleton() {
 
 export default function DivisionsPage() {
   const { data: divisions, loading, mutate } = useDivisions();
+  const { data: departments, loading: loadingDepts } = useDepartments();
   const { toast } = useToast();
   
   const [editingDivision, setEditingDivision] = useState<Partial<Division> | null>(null);
@@ -70,6 +72,7 @@ export default function DivisionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
   const paginatedDivisions = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -79,14 +82,22 @@ export default function DivisionsPage() {
 
   const totalPages = Math.ceil(divisions.length / ITEMS_PER_PAGE);
 
+  useEffect(() => {
+    if (isDialogOpen && editingDivision) {
+      setSelectedDepartmentId((editingDivision as Division).departmentId);
+    } else if (isDialogOpen && !editingDivision) {
+      setSelectedDepartmentId(undefined);
+    }
+  }, [isDialogOpen, editingDivision]);
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
     const code = formData.get('code') as string;
     
-    if (!name || !code) {
-        toast({ title: "Error", description: "Name and code are required.", variant: "destructive" });
+    if (!name || !code || !selectedDepartmentId) {
+        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
         return;
     }
 
@@ -94,6 +105,7 @@ export default function DivisionsPage() {
         id: editingDivision?.id,
         name,
         code,
+        departmentId: selectedDepartmentId,
     }
 
     await saveDivision(divisionData);
@@ -124,7 +136,7 @@ export default function DivisionsPage() {
     if (!deletingDivision) return;
 
     const result = await deleteDivision(deletingDivision.id);
-    if (result.error) {
+    if (result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     } else {
         toast({ title: "Success", description: "Division deleted successfully." });
@@ -139,26 +151,7 @@ export default function DivisionsPage() {
     setIsDialogOpen(open);
     if (!open) {
       setEditingDivision(null);
-    }
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Remove any remaining Radix UI dialog overlays
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
+      setSelectedDepartmentId(undefined);
     }
   }
   
@@ -167,29 +160,15 @@ export default function DivisionsPage() {
       setDeletingDivision(null);
     }
     setIsAlertOpen(open);
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Clean up all possible overlay elements using Radix UI data attributes
-          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-          allOverlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   }
 
-  if (loading) {
+  const getDepartmentName = (departmentId: string) => {
+      return departments.find(d => d.id === departmentId)?.name || 'N/A';
+  }
+
+  const departmentOptions = departments.map(d => ({ value: d.id, label: d.name }));
+
+  if (loading || loadingDepts) {
     return <DivisionsLoadingSkeleton />;
   }
 
@@ -211,6 +190,7 @@ export default function DivisionsPage() {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
@@ -220,6 +200,7 @@ export default function DivisionsPage() {
                     <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                     <TableCell>{division.name}</TableCell>
                     <TableCell>{division.code}</TableCell>
+                    <TableCell>{getDepartmentName(division.departmentId)}</TableCell>
                     <TableCell className="text-right">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -265,6 +246,17 @@ export default function DivisionsPage() {
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="code" className="text-right">Code</Label>
                 <Input id="code" name="code" defaultValue={editingDivision?.code} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="departmentId" className="text-right">Department</Label>
+                <Combobox
+                    options={departmentOptions}
+                    value={selectedDepartmentId}
+                    onChange={setSelectedDepartmentId}
+                    placeholder="Select a department"
+                    searchPlaceholder="Search departments..."
+                    className="col-span-3"
+                />
             </div>
             </div>
             <DialogFooter>

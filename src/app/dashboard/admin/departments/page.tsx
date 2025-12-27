@@ -36,7 +36,7 @@ import { saveDepartment, deleteDepartment } from "@/app/actions/memo";
 import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDepartments, useDivisions } from "../hooks";
+import { useDepartments, useOffices } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
@@ -63,14 +63,14 @@ function DepartmentsLoadingSkeleton() {
 
 export default function DepartmentsPage() {
   const { data: departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
-  const { data: divisions, loading: loadingDivs } = useDivisions();
+  const { data: offices, loading: loadingOffices } = useOffices();
   const { toast } = useToast();
 
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [selectedDivisionId, setSelectedDivisionId] = useState<string | undefined>(undefined);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
   const paginatedDepartments = useMemo(() => {
@@ -83,9 +83,9 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     if (isDialogOpen && editingDepartment) {
-      setSelectedDivisionId(editingDepartment.divisionId);
+      setSelectedOfficeId(editingDepartment.officeId);
     } else if (isDialogOpen && !editingDepartment) {
-      setSelectedDivisionId(undefined);
+      setSelectedOfficeId(undefined);
     }
   }, [isDialogOpen, editingDepartment]);
   
@@ -95,7 +95,7 @@ export default function DepartmentsPage() {
     const name = formData.get('name') as string;
     const code = formData.get('code') as string;
 
-    if (!name || !code || !selectedDivisionId) {
+    if (!name || !code || !selectedOfficeId) {
         toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
         return;
     }
@@ -104,7 +104,7 @@ export default function DepartmentsPage() {
         id: editingDepartment?.id,
         name,
         code,
-        divisionId: selectedDivisionId,
+        officeId: selectedOfficeId,
     }
 
     await saveDepartment(departmentData);
@@ -114,7 +114,7 @@ export default function DepartmentsPage() {
     
     setIsDialogOpen(false);
     setEditingDepartment(null);
-    setSelectedDivisionId(undefined);
+    setSelectedOfficeId(undefined);
   };
 
   const handleEdit = (department: Department) => {
@@ -152,27 +152,7 @@ export default function DepartmentsPage() {
     setIsDialogOpen(open);
     if (!open) {
       setEditingDepartment(null);
-      setSelectedDivisionId(undefined);
-    }
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Remove any remaining Radix UI dialog overlays
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
+      setSelectedOfficeId(undefined);
     }
   }
   
@@ -181,36 +161,16 @@ export default function DepartmentsPage() {
       setDeletingDepartment(null);
     }
     setIsAlertOpen(open);
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Clean up all possible overlay elements using Radix UI data attributes
-          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-          allOverlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   }
 
 
-  const getDivisionName = (divisionId: string) => {
-      return divisions.find(d => d.id === divisionId)?.name || 'N/A';
+  const getOfficeName = (officeId: string) => {
+      return offices.find(d => d.id === officeId)?.name || 'N/A';
   }
 
-  const divisionOptions = divisions.map(d => ({ value: d.id, label: d.name }));
+  const officeOptions = offices.map(d => ({ value: d.id, label: d.name }));
 
-  if (loadingDepts || loadingDivs) {
+  if (loadingDepts || loadingOffices) {
     return <DepartmentsLoadingSkeleton />;
   }
 
@@ -232,7 +192,7 @@ export default function DepartmentsPage() {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
-                <TableHead>Division</TableHead>
+                <TableHead>Office</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
@@ -242,7 +202,7 @@ export default function DepartmentsPage() {
                     <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                     <TableCell>{department.name}</TableCell>
                     <TableCell>{department.code}</TableCell>
-                    <TableCell>{getDivisionName(department.divisionId)}</TableCell>
+                    <TableCell>{getOfficeName(department.officeId)}</TableCell>
                     <TableCell className="text-right">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -290,13 +250,13 @@ export default function DepartmentsPage() {
                 <Input id="code" name="code" defaultValue={editingDepartment?.code} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="divisionId" className="text-right">Division</Label>
+                <Label htmlFor="officeId" className="text-right">Office</Label>
                 <Combobox
-                    options={divisionOptions}
-                    value={selectedDivisionId}
-                    onChange={setSelectedDivisionId}
-                    placeholder="Select a division"
-                    searchPlaceholder="Search divisions..."
+                    options={officeOptions}
+                    value={selectedOfficeId}
+                    onChange={setSelectedOfficeId}
+                    placeholder="Select an office"
+                    searchPlaceholder="Search offices..."
                     className="col-span-3"
                 />
             </div>

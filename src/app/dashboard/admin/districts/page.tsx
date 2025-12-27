@@ -36,7 +36,7 @@ import { saveDistrict, deleteDistrict } from "@/app/actions/memo";
 import type { District } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDistricts, useBranches } from "../hooks";
+import { useDistricts, useOffices } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
@@ -63,14 +63,14 @@ function DistrictsLoadingSkeleton() {
 
 export default function DistrictsPage() {
   const { data: districts, loading: loadingDistricts, mutate: mutateDistricts } = useDistricts();
-  const { data: branches, loading: loadingBranches } = useBranches();
+  const { data: offices, loading: loadingOffices } = useOffices();
   const { toast } = useToast();
 
   const [editingDistrict, setEditingDistrict] = useState<District | null>(null);
   const [deletingDistrict, setDeletingDistrict] = useState<District | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>(undefined);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
   const paginatedDistricts = useMemo(() => {
@@ -83,9 +83,9 @@ export default function DistrictsPage() {
 
   useEffect(() => {
     if (isDialogOpen && editingDistrict) {
-      setSelectedBranchId(editingDistrict.branchId);
+      setSelectedOfficeId(editingDistrict.officeId);
     } else if (isDialogOpen && !editingDistrict) {
-      setSelectedBranchId(undefined);
+      setSelectedOfficeId(undefined);
     }
   }, [isDialogOpen, editingDistrict]);
   
@@ -95,7 +95,7 @@ export default function DistrictsPage() {
     const name = formData.get('name') as string;
     const code = formData.get('code') as string;
 
-    if (!name || !code || !selectedBranchId) {
+    if (!name || !code || !selectedOfficeId) {
         toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
         return;
     }
@@ -104,7 +104,7 @@ export default function DistrictsPage() {
         id: editingDistrict?.id,
         name,
         code,
-        branchId: selectedBranchId,
+        officeId: selectedOfficeId,
     }
 
     await saveDistrict(districtData);
@@ -114,7 +114,7 @@ export default function DistrictsPage() {
     
     setIsDialogOpen(false);
     setEditingDistrict(null);
-    setSelectedBranchId(undefined);
+    setSelectedOfficeId(undefined);
   };
 
   const handleEdit = (district: District) => {
@@ -152,27 +152,7 @@ export default function DistrictsPage() {
     setIsDialogOpen(open);
     if (!open) {
       setEditingDistrict(null);
-      setSelectedBranchId(undefined);
-    }
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Remove any remaining Radix UI dialog overlays
-          const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-          overlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
+      setSelectedOfficeId(undefined);
     }
   }
   
@@ -181,36 +161,16 @@ export default function DistrictsPage() {
       setDeletingDistrict(null);
     }
     setIsAlertOpen(open);
-    // Force cleanup of any remaining overlay elements
-    if (!open) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Clean up all possible overlay elements using Radix UI data attributes
-          const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-          allOverlays.forEach(overlay => {
-            const state = overlay.getAttribute('data-state');
-            if (!state || state === 'closed') {
-              (overlay as HTMLElement).style.display = 'none';
-              overlay.remove();
-            }
-          });
-          // Ensure body styles are reset
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
-        }, 200);
-      });
-    }
   }
 
 
-  const getBranchName = (branchId: string) => {
-      return branches.find(d => d.id === branchId)?.name || 'N/A';
+  const getOfficeName = (officeId: string) => {
+      return offices.find(d => d.id === officeId)?.name || 'N/A';
   }
 
-  const branchOptions = branches.map(d => ({ value: d.id, label: d.name }));
+  const officeOptions = offices.map(d => ({ value: d.id, label: d.name }));
 
-  if (loadingDistricts || loadingBranches) {
+  if (loadingDistricts || loadingOffices) {
     return <DistrictsLoadingSkeleton />;
   }
 
@@ -232,7 +192,7 @@ export default function DistrictsPage() {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
-                <TableHead>Branch</TableHead>
+                <TableHead>Office</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
@@ -242,7 +202,7 @@ export default function DistrictsPage() {
                     <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
                     <TableCell>{district.name}</TableCell>
                     <TableCell>{district.code}</TableCell>
-                    <TableCell>{getBranchName(district.branchId)}</TableCell>
+                    <TableCell>{getOfficeName(district.officeId)}</TableCell>
                     <TableCell className="text-right">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -290,13 +250,13 @@ export default function DistrictsPage() {
                 <Input id="code" name="code" defaultValue={editingDistrict?.code} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="branchId" className="text-right">Branch</Label>
+                <Label htmlFor="officeId" className="text-right">Office</Label>
                 <Combobox
-                    options={branchOptions}
-                    value={selectedBranchId}
-                    onChange={setSelectedBranchId}
-                    placeholder="Select a branch"
-                    searchPlaceholder="Search branches..."
+                    options={officeOptions}
+                    value={selectedOfficeId}
+                    onChange={setSelectedOfficeId}
+                    placeholder="Select an office"
+                    searchPlaceholder="Search offices..."
                     className="col-span-3"
                 />
             </div>

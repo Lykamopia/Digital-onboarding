@@ -569,16 +569,11 @@ export async function getUsers() {
     return await prisma.user.findMany({
         include: {
             role: true,
-            office: {
+            branch: {
                 include: {
-                    department: {
-                        include: {
-                            division: true,
-                        },
-                    },
                     district: {
                         include: {
-                            branch: true,
+                            office: true,
                         }
                     }
                 },
@@ -606,32 +601,19 @@ export async function getAllMemosForAdmin() {
 
 
 export async function getDivisions() {
-    return await prisma.division.findMany();
+    return await prisma.division.findMany({ include: { department: true }});
 }
 export async function getDepartments() {
-    return await prisma.department.findMany({ include: { division: true } });
+    return await prisma.department.findMany({ include: { office: true }});
 }
 export async function getBranches() {
-    return await prisma.branch.findMany();
+    return await prisma.branch.findMany({ include: { district: true }});
 }
 export async function getDistricts() {
-    return await prisma.district.findMany({ include: { branch: true } });
+    return await prisma.district.findMany({ include: { office: true }});
 }
 export async function getOffices() {
-    return await prisma.office.findMany({ 
-        include: { 
-            department: { 
-                include: { 
-                    division: true 
-                } 
-            },
-            district: {
-                include: {
-                    branch: true
-                }
-            }
-        } 
-    });
+    return await prisma.office.findMany();
 }
 export async function getRoles() {
     return await prisma.role.findMany();
@@ -647,16 +629,11 @@ export async function getLoggedInUser() {
         where: { email: session.user.email },
         include: { 
             role: true,
-            office: {
+            branch: {
                 include: {
-                    department: {
-                        include: {
-                            division: true
-                        }
-                    },
                     district: {
                         include: {
-                            branch: true
+                            office: true
                         }
                     }
                 }
@@ -669,7 +646,7 @@ export async function getLoggedInUser() {
 
 
 // Admin actions
-export async function saveDivision(data: { id?: string, name: string, code: string }) {
+export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
     if (data.id) {
         await prisma.division.update({ where: { id: data.id }, data });
     } else {
@@ -679,17 +656,13 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDivision(id: string) {
-    const departments = await prisma.department.count({ where: { divisionId: id } });
-    if (departments > 0) {
-        return { error: 'Cannot delete division. It has associated departments. Please delete them first.' };
-    }
     await prisma.division.delete({ where: { id } });
     revalidatePath('/dashboard/admin/divisions');
     return { success: true };
 }
 
 
-export async function saveDepartment(data: { id?: string, name: string, code: string, divisionId: string }) {
+export async function saveDepartment(data: { id?: string, name: string, code: string, officeId: string }) {
     if (data.id) {
         await prisma.department.update({ where: { id: data.id }, data });
     } else {
@@ -699,16 +672,16 @@ export async function saveDepartment(data: { id?: string, name: string, code: st
 }
 
 export async function deleteDepartment(id: string) {
-    const offices = await prisma.office.count({ where: { departmentId: id } });
-    if (offices > 0) {
-        return { error: 'Cannot delete department. It has associated offices. Please delete them first.' };
+    const divisions = await prisma.division.count({ where: { departmentId: id } });
+    if (divisions > 0) {
+        return { error: 'Cannot delete department. It has associated divisions. Please delete them first.' };
     }
     await prisma.department.delete({ where: { id } });
     revalidatePath('/dashboard/admin/departments');
     return { success: true };
 }
 
-export async function saveBranch(data: { id?: string, name: string, code: string }) {
+export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
     if (data.id) {
         await prisma.branch.update({ where: { id: data.id }, data });
     } else {
@@ -718,16 +691,12 @@ export async function saveBranch(data: { id?: string, name: string, code: string
 }
 
 export async function deleteBranch(id: string) {
-    const districts = await prisma.district.count({ where: { branchId: id } });
-    if (districts > 0) {
-        return { error: 'Cannot delete branch. It has associated districts. Please delete them first.' };
-    }
     await prisma.branch.delete({ where: { id } });
     revalidatePath('/dashboard/admin/branches');
     return { success: true };
 }
 
-export async function saveDistrict(data: { id?: string, name: string, code: string, branchId: string }) {
+export async function saveDistrict(data: { id?: string, name: string, code: string, officeId: string }) {
     if (data.id) {
         await prisma.district.update({ where: { id: data.id }, data });
     } else {
@@ -737,47 +706,51 @@ export async function saveDistrict(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDistrict(id: string) {
-    const offices = await prisma.office.count({ where: { districtId: id } });
-    if (offices > 0) {
-        return { error: 'Cannot delete district. It has associated offices. Please delete them first.' };
+    const branches = await prisma.branch.count({ where: { districtId: id } });
+    if (branches > 0) {
+        return { error: 'Cannot delete district. It has associated branches. Please delete them first.' };
     }
     await prisma.district.delete({ where: { id } });
     revalidatePath('/dashboard/admin/districts');
     return { success: true };
 }
 
-export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division' | 'branch', departmentId?: string, districtId?: string }) {
-    const payload: any = {
-        name: data.name,
-        code: data.code,
-        type: data.type,
-        departmentId: data.type === 'division' ? data.departmentId : null,
-        districtId: data.type === 'branch' ? data.districtId : null,
-    };
+export async function saveOffice(data: { id?: string, name: string, code: string }) {
     if (data.id) {
-        await prisma.office.update({ where: { id: data.id }, data: payload });
+        await prisma.office.update({ where: { id: data.id }, data });
     } else {
-        await prisma.office.create({ data: payload });
+        await prisma.office.create({ data });
     }
     revalidatePath('/dashboard/admin/offices');
 }
 
 export async function deleteOffice(id: string) {
-    const users = await prisma.user.count({ where: { officeId: id } });
+    const users = await prisma.user.count({ where: { branch: { district: { officeId: id } } } });
     if (users > 0) {
         return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
     }
+    
+    const districts = await prisma.district.count({ where: { officeId: id } });
+    if (districts > 0) {
+        return { error: 'Cannot delete office. It has associated districts. Please delete them first.' };
+    }
+    
+    const departments = await prisma.department.count({ where: { officeId: id } });
+    if (departments > 0) {
+        return { error: 'Cannot delete office. It has associated departments. Please delete them first.' };
+    }
+
     await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/offices');
     return { success: true };
 }
 
 
-export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string, password?: string, status?: string }) {
+export async function saveUser(data: { id?: string, name: string, email: string, branchId: string, roleId: string, password?: string, status?: string }) {
     const payload: any = {
         name: data.name,
         email: data.email,
-        officeId: data.officeId,
+        branchId: data.branchId,
         roleId: data.roleId,
         status: data.status ?? 'active',
     };
