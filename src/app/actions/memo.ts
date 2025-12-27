@@ -571,8 +571,8 @@ export async function getUsers() {
             role: true,
             office: {
                 include: {
-                    district: true,
-                    department: true,
+                    districts: true,
+                    departments: true,
                 }
             }
         },
@@ -628,14 +628,14 @@ export async function getLoggedInUser() {
             role: true,
             office: {
                 include: {
-                    department: {
+                    departments: {
                         include: {
-                            division: true,
+                            divisions: true,
                         },
                     },
-                    district: {
+                    districts: {
                         include: {
-                            branch: true,
+                            branches: true,
                         }
                     }
                 }
@@ -658,12 +658,13 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDivision(id: string) {
-    const users = await prisma.user.count({ where: { office: { department: { division: { some: { id } } } } }});
+    const users = await prisma.user.count({ where: { officeId: id }});
     if (users > 0) {
         return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
     }
 
     await prisma.division.delete({ where: { id } });
+    await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/divisions');
     return { success: true };
 }
@@ -698,11 +699,12 @@ export async function saveBranch(data: { id?: string, name: string, code: string
 }
 
 export async function deleteBranch(id: string) {
-    const users = await prisma.user.count({ where: { office: { district: { branch: { some: { id } } } } }});
+    const users = await prisma.user.count({ where: { officeId: id }});
     if (users > 0) {
         return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
     }
     await prisma.branch.delete({ where: { id } });
+    await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/branches');
     return { success: true };
 }

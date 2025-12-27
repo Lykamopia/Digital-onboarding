@@ -37,10 +37,10 @@ function createDataHook<T>(fetcher: () => Promise<T[]>): () => UseDataHook<T> {
   };
 }
 
-export const useDivisions = createDataHook(getDivisions);
-export const useDepartments = createDataHook(getDepartments);
-export const useBranches = createDataHook(getBranches);
-export const useDistricts = createDataHook(getDistricts);
-export const useOffices = createDataHook(getOffices);
-export const useRoles = createDataHook(getRoles);
-export const useUsers = createDataHook(getUsers);
+export const useDivisions = createDataHook(getDivisions as () => Promise<Division[]>);
+export const useDepartments = createDataHook(getDepartments as () => Promise<Department[]>);
+export const useBranches = createDataHook(getBranches as () => Promise<Branch[]>);
+export const useDistricts = createDataHook(getDistricts as () => Promise<District[]>);
+export const useOffices = createDataHook(getOffices as () => Promise<Office[]>);
+export const useRoles = createDataHook(getRoles as () => Promise<Role[]>);
+export const useUsers = createDataHook(getUsers as () => Promise<User[]>);

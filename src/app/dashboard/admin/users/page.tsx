@@ -34,11 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
-import type { User, Role, Branch } from "@/lib/types";
+import type { User, Role, Office } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUsers, useBranches, useRoles } from "../hooks";
+import { useUsers, useOffices, useRoles } from "../hooks";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -53,12 +53,7 @@ import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 
 type UserWithRelations = User & {
-    branch: Branch & {
-        district: {
-            name: string,
-            office: { name: string }
-        },
-    },
+    office: Office;
     role: Role
 };
 
@@ -83,11 +78,11 @@ function UsersLoadingSkeleton() {
 
 const ITEMS_PER_PAGE = 10;
 
-const initialFormState = { name: '', email: '', password: '', branchId: '', roleId: '' };
+const initialFormState = { name: '', email: '', password: '', officeId: '', roleId: '' };
 
 export default function UsersPage() {
   const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
-  const { data: branches, loading: loadingBranches } = useBranches();
+  const { data: offices, loading: loadingOffices } = useOffices();
   const { data: roles, loading: loadingRoles } = useRoles();
   const { toast } = useToast();
 
@@ -114,7 +109,7 @@ export default function UsersPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!formState.name || !formState.email || !formState.branchId || !formState.roleId) {
+    if (!formState.name || !formState.email || !formState.officeId || !formState.roleId) {
         toast({ title: "Error", description: "All fields except password are required.", variant: "destructive" });
         return;
     }
@@ -140,7 +135,7 @@ export default function UsersPage() {
         id: editingUser?.id,
         name: formState.name,
         email: formState.email,
-        branchId: formState.branchId,
+        officeId: formState.officeId,
         roleId: formState.roleId,
         password: passwordToSend || undefined,
         status: editingUser?.status ?? 'active',
@@ -189,7 +184,7 @@ export default function UsersPage() {
     setFormState({
         name: user.name || '',
         email: user.email || '',
-        branchId: user.branchId || '',
+        officeId: user.officeId || '',
         roleId: user.roleId || '',
         password: '',
     });
@@ -235,7 +230,7 @@ export default function UsersPage() {
         id: user.id,
         name: user.name || '',
         email: user.email || '',
-        branchId: user.branchId || '',
+        officeId: user.officeId || '',
         roleId: user.roleId || '',
         status: newStatus 
       });
@@ -251,7 +246,7 @@ export default function UsersPage() {
               id: user.id,
               name: user.name || '',
               email: user.email || '',
-              branchId: user.branchId || '',
+              officeId: user.officeId || '',
               roleId: user.roleId || '',
               status 
             });
@@ -276,14 +271,30 @@ export default function UsersPage() {
     setSelectedUsers([]);
   }
 
-  const branchOptions = branches.map(o => ({ value: o.id, label: o.name }));
+  const officeOptions = offices
+    .filter(o => o.type === 'division' || o.type === 'branch')
+    .map(o => ({ value: o.id, label: o.name }));
+
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
 
   const handleFormChange = (field: keyof typeof formState, value: string) => {
       setFormState(prev => ({ ...prev, [field]: value }));
   }
 
-  if (loadingUsers || loadingBranches || loadingRoles) {
+  const getOfficeDetails = (office: Office) => {
+      if (!office) return { officeName: 'N/A', parentName: 'N/A' };
+      const officeName = office.name;
+      let parentName = 'N/A';
+
+      if (office.type === 'division' && (office as any).department) {
+          parentName = (office as any).department.name;
+      } else if (office.type === 'branch' && (office as any).district) {
+          parentName = (office as any).district.name;
+      }
+      return { officeName, parentName };
+  }
+
+  if (loadingUsers || loadingOffices || loadingRoles) {
     return <UsersLoadingSkeleton />;
   }
 
@@ -323,9 +334,7 @@ export default function UsersPage() {
                 </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>District</TableHead>
-                <TableHead>Office</TableHead>
+                <TableHead>Office/Branch</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right w-20">Actions</TableHead>
                 </TableRow>
@@ -354,9 +363,7 @@ export default function UsersPage() {
                             </div>
                         </TableCell>
                         <TableCell>{user.role.name}</TableCell>
-                        <TableCell>{user.branch?.name}</TableCell>
-                        <TableCell>{user.branch?.district.name}</TableCell>
-                        <TableCell>{user.branch?.district.office.name}</TableCell>
+                        <TableCell>{user.office?.name}</TableCell>
                         <TableCell>
                             <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
                                 {user.status}
@@ -425,13 +432,13 @@ export default function UsersPage() {
                         <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="branchId">Branch</Label>
+                        <Label htmlFor="officeId">Office (Division/Branch)</Label>
                         <Combobox
-                            options={branchOptions}
-                            value={formState.branchId}
-                            onChange={v => handleFormChange('branchId', v)}
-                            placeholder="Select a branch"
-                            searchPlaceholder="Search branches..."
+                            options={officeOptions}
+                            value={formState.officeId}
+                            onChange={v => handleFormChange('officeId', v)}
+                            placeholder="Select an office"
+                            searchPlaceholder="Search offices..."
                         />
                     </div>
                     <div className="space-y-2">

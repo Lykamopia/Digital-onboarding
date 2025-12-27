@@ -19,9 +19,11 @@ export type Office = PrismaOffice;
 
 export type Department = PrismaDepartment & {
     office: PrismaOffice;
+    divisions: PrismaDivision[];
 };
 export type District = PrismaDistrict & {
     office: PrismaOffice;
+    branches: PrismaBranch[];
 };
 
 export type Division = PrismaDivision & {
@@ -35,7 +37,7 @@ export type Branch = PrismaBranch & {
 export type User = PrismaUser & {
     // any custom properties if needed
     mustChangePassword?: boolean;
-    branch?: Branch;
+    office: Office;
 };
 
 export type Attachment = PrismaAttachment;

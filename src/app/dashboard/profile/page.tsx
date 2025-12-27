@@ -18,8 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type UserWithFullOffice = User & { 
     office: Office & {
-        department?: { name: string, division: { name: string } };
-        district?: { name: string, branch: { name: string } };
+        departments?: { name: string, divisions: { name: string }[] }[];
+        districts?: { name: string, branches: { name: string }[] }[];
     } 
 };
 
@@ -96,8 +96,32 @@ export default function ProfilePage() {
   
   const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
 
-  const topLevel = user.office.department?.division?.name || user.office.district?.branch?.name;
-  const parent = user.office.department?.name || user.office.district?.name;
+  const getUserOrgPath = () => {
+    if (!user.office) return { division: null, department: null, branch: null, district: null };
+
+    if(user.office.type === 'division') {
+      for(const dept of user.office.departments || []) {
+        const division = dept.divisions.find(d => d.id === user.officeId);
+        if(division) {
+          return { division: division.name, department: dept.name, branch: null, district: null }
+        }
+      }
+    }
+
+    if(user.office.type === 'branch') {
+      for(const dist of user.office.districts || []) {
+        const branch = dist.branches.find(b => b.id === user.officeId);
+        if(branch) {
+          return { division: null, department: null, branch: branch.name, district: dist.name }
+        }
+      }
+    }
+    
+    return { division: null, department: null, branch: null, district: null };
+  }
+
+  const { division, department, branch, district } = getUserOrgPath();
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -172,20 +196,42 @@ export default function ProfilePage() {
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4">Organizational Info</h3>
                                     <ul className="space-y-4 text-sm">
-                                        <li className="flex items-center gap-3">
-                                            <Globe className="h-5 w-5 text-muted-foreground" />
-                                            <div>
-                                                <p className="text-muted-foreground">{user.office.type === 'division' ? 'Division' : 'Branch'}</p>
-                                                <p className="font-medium">{topLevel}</p>
-                                            </div>
-                                        </li>
-                                        <li className="flex items-center gap-3">
-                                            <Building className="h-5 w-5 text-muted-foreground" />
-                                            <div>
-                                                <p className="text-muted-foreground">{user.office.type === 'division' ? 'Department' : 'District'}</p>
-                                                <p className="font-medium">{parent}</p>
-                                            </div>
-                                        </li>
+                                        {division && (
+                                            <li className="flex items-center gap-3">
+                                                <Globe className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Division</p>
+                                                    <p className="font-medium">{division}</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {department && (
+                                            <li className="flex items-center gap-3">
+                                                <Building className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Department</p>
+                                                    <p className="font-medium">{department}</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {branch && (
+                                            <li className="flex items-center gap-3">
+                                                <Globe className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Branch</p>
+                                                    <p className="font-medium">{branch}</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {district && (
+                                            <li className="flex items-center gap-3">
+                                                <Building className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">District</p>
+                                                    <p className="font-medium">{district}</p>
+                                                </div>
+                                            </li>
+                                        )}
                                         <li className="flex items-center gap-3">
                                             <Briefcase className="h-5 w-5 text-muted-foreground" />
                                             <div>
