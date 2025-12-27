@@ -320,23 +320,25 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             onRefresh={() => loadMemos(true)}
             loading={loading}
         />
-        {loading ? (
-            <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
-        ) : memos.length > 0 ? (
-          <MemoList 
-            memos={memos}
-            setMemos={setMemos}
-            selectedMemoId={selectedMemo?.id || null} 
-            onSelectMemo={handleSelectMemo}
-            isExpanded={isListExpanded}
-            tab={tab}
-            onUpdate={() => loadMemos(true)}
-            />
-        ) : (
-          <div className="h-full p-2">
-            <EmptyState icon={emptyState.icon} title={emptyState.title} description={emptyState.description} action={emptyState.action} />
-          </div>
-        )}
+        <div className="flex-1 min-h-0">
+          {loading ? (
+              <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
+          ) : memos.length > 0 ? (
+            <MemoList 
+              memos={memos}
+              setMemos={setMemos}
+              selectedMemoId={selectedMemo?.id || null} 
+              onSelectMemo={handleSelectMemo}
+              isExpanded={isListExpanded}
+              tab={tab}
+              onUpdate={() => loadMemos(true)}
+              />
+          ) : (
+            <div className="h-full p-2">
+              <EmptyState icon={emptyState.icon} title={emptyState.title} description={emptyState.description} action={emptyState.action} />
+            </div>
+          )}
+        </div>
       </Card>
       <div className="h-full overflow-y-auto rounded-lg no-print">
         {loadingMemo ? (
