@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -50,8 +49,8 @@ const actionIcons: { [key: string]: React.ReactNode } = {
 
 const MemoField = ({ label, amharic, children, className }: { label: string, amharic: string, children: React.ReactNode, className?: string }) => {
     return (
-        <div className={`grid grid-cols-[120px_1fr] border-b border-black ${className}`}>
-            <div className="font-semibold text-sm border-r border-black p-2 flex flex-col justify-center text-right">
+        <div className={`grid grid-cols-[120px_1fr] border-b border-border ${className}`}>
+            <div className="font-semibold text-sm border-r border-border p-2 flex flex-col justify-center text-right">
                 <span>{label}</span>
                 <span className="text-xs">{amharic}</span>
             </div>
@@ -156,8 +155,8 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
   const MemoContent = () => (
-    <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card' : ''}`}>
-        <div className="printable-memo bg-white p-8 max-w-4xl mx-auto my-8 shadow-lg">
+    <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
+        <div className="printable-memo p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
             <CardHeader className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" />
@@ -165,7 +164,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                     </div>
                 </div>
-                <div className="border-t-4 border-b-4 border-double border-black">
+                <div className="border-t-4 border-b-4 border-double border-border">
                      <MemoField label="Date" amharic="ቀን">
                         {formatTimestamp(memo.createdAt, false)}
                     </MemoField>
@@ -219,7 +218,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
             <CardContent className='pt-6 printable-memo-content'>
                 <div
-                className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif text-black word-break-break-word"
+                className="prose prose-sm max-w-none dark:prose-invert break-words whitespace-pre-wrap font-serif word-break-break-word"
                 dangerouslySetInnerHTML={{ __html: memo.body }}
                 />
 
