@@ -47,7 +47,7 @@ const memoTemplates = [
     {
       value: 'announcement',
       label: 'Announcement / Update Memo',
-      icon: <BookCopy className="h-8 w-8 text-primary" />,
+      icon: <BookCopy className="h-10 w-10 text-primary" />,
       subject: 'Announcement: [Your Title Here]',
       body: `
         <p>Dear Team,</p>
@@ -70,7 +70,7 @@ const memoTemplates = [
     {
       value: 'request',
       label: 'Request / Action Memo',
-      icon: <MessageSquarePlus className="h-8 w-8 text-primary" />,
+      icon: <MessageSquarePlus className="h-10 w-10 text-primary" />,
       subject: 'Request for [Action/Information]',
       body: `
         <p>This memo is to formally request [specific action or information needed].</p>
@@ -90,7 +90,7 @@ const memoTemplates = [
     {
       value: 'confirmation',
       label: 'Confirmation Memo',
-      icon: <FileCheck className="h-8 w-8 text-primary" />,
+      icon: <FileCheck className="h-10 w-10 text-primary" />,
       subject: 'Confirmation of [Action/Decision]',
       body: `
         <p>This memo serves to confirm that [Action/Decision] has been completed/approved as of [Date].</p>
@@ -110,7 +110,7 @@ const memoTemplates = [
     {
       value: 'directive',
       label: 'Directive / Instruction Memo',
-      icon: <ClipboardList className="h-8 w-8 text-primary" />,
+      icon: <ClipboardList className="h-10 w-10 text-primary" />,
       subject: 'Directive: [Your Title Here]',
       body: `
         <p>This memo serves as a directive regarding [Subject of the directive].</p>
@@ -132,7 +132,7 @@ const memoTemplates = [
     {
       value: 'incident_report',
       label: 'Problem / Incident Report Memo',
-      icon: <AlertTriangle className="h-8 w-8 text-primary" />,
+      icon: <AlertTriangle className="h-10 w-10 text-primary" />,
       subject: 'Incident Report: [Briefly Describe Incident]',
       body: `
         <p>This memo is to formally report an incident that occurred on [Date] at approximately [Time].</p>
@@ -159,7 +159,7 @@ const memoTemplates = [
     {
       value: 'meeting_agenda',
       label: 'Meeting / Agenda Memo',
-      icon: <CalendarDays className="h-8 w-8 text-primary" />,
+      icon: <CalendarDays className="h-10 w-10 text-primary" />,
       subject: 'Meeting Agenda: [Meeting Title]',
       body: `
         <p>This memo is to announce an upcoming meeting and outline the agenda.</p>
@@ -189,7 +189,7 @@ const memoTemplates = [
     {
       value: 'policy_procedure',
       label: 'Policy / Procedure Memo',
-      icon: <BookMarked className="h-8 w-8 text-primary" />,
+      icon: <BookMarked className="h-10 w-10 text-primary" />,
       subject: 'New Policy: [Policy Name]',
       body: `
         <p>This memo introduces a new policy regarding [Subject of Policy].</p>
@@ -273,7 +273,7 @@ export default function NewMemoPage() {
 
       const getCombinedBody = () => {
         if (replyTo && body) {
-          return `${replyBody || ''}<hr>${body}`;
+          return `${replyBody}<hr>${body}`;
         }
         return replyBody || body || '';
       };
@@ -303,7 +303,7 @@ export default function NewMemoPage() {
   const saveDraftCallback = useCallback(async () => {
     if (!loggedInUser) return;
     
-    let draftBody = replyTo ? (replyBody || '') : (body || '');
+    let draftBody = replyTo ? replyBody : body;
     if (replyTo && body) {
         draftBody = `${replyBody}<hr>${body}`;
     }
@@ -566,14 +566,16 @@ export default function NewMemoPage() {
                                     </DialogHeader>
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
                                         {memoTemplates.map(template => (
-                                            <Card 
+                                            <div 
                                                 key={template.value}
-                                                className="flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                                                className="relative group flex flex-col items-center justify-center p-6 text-center cursor-pointer border rounded-lg bg-gradient-to-br from-muted/20 to-background backdrop-blur-sm transition-all duration-300 hover:border-primary/50 hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
                                                 onClick={() => handleTemplateSelect(template.value)}
+                                                tabIndex={0}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleTemplateSelect(template.value)}
                                             >
-                                                <div className="mb-2">{template.icon}</div>
+                                                <div className="mb-4 transition-transform duration-300 group-hover:scale-110">{template.icon}</div>
                                                 <p className="text-sm font-medium">{template.label}</p>
-                                            </Card>
+                                            </div>
                                         ))}
                                     </div>
                                 </DialogContent>
@@ -752,5 +754,7 @@ export default function NewMemoPage() {
 
 
 
+
+    
 
     
