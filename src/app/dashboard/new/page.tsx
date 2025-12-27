@@ -87,11 +87,11 @@ const memoTemplates = [
       body: `<p>This memo is to announce an upcoming meeting and outline the agenda.</p><p><strong>Meeting Details:</strong></p><ul><li><strong>Date:</strong> [Date of meeting].</li><li><strong>Time:</strong> [Time of meeting].</li><li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li><li><strong>Attendees:</strong> [List key attendees or teams].</li></ul><p><strong>Agenda:</strong></p><ol><li><strong>Call to Order & Welcome</strong></li><li><strong>Review of Previous Minutes</strong></li><li><strong>[Agenda Item 1]:</strong> [Brief description].</li><li><strong>[Agenda Item 2]:</strong> [Brief description].</li><li><strong>Open Discussion / Q&A</strong></li><li><strong>Action Items & Next Steps</strong></li><li><strong>Adjournment</strong></li></ol><p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>`,
     },
     {
-      value: 'policy_procedure',
-      label: 'Policy / Procedure Memo',
-      icon: <BookMarked className="h-10 w-10 text-primary" />,
-      subject: 'New Policy: [Policy Name]',
-      body: `<p>This memo introduces a new policy regarding [Subject of Policy].</p><p><strong>1. Policy Statement</strong></p><p>[State the new policy clearly and concisely.]</p><p><strong>2. Purpose</strong></p><p>[Explain the reason for the new policy and the goals it aims to achieve.]</p><p><strong>3. Scope</strong></p><p>[Define who this policy applies to (e.g., all employees, specific departments).]</p><p><strong>4. Procedure</strong></p><p>[Outline the step-by-step procedures required to comply with the new policy.]</p><p><strong>5. Effective Date</strong></p><p>This policy is effective as of [Start Date].</p><p>All employees are expected to read, understand, and adhere to this new policy. Please direct any questions to [Appropriate Department or Manager].</p>`,
+        value: 'policy_procedure',
+        label: 'Policy / Procedure Memo',
+        icon: <BookMarked className="h-10 w-10 text-primary" />,
+        subject: 'New Policy: [Policy Name]',
+        body: `<p>This memo introduces a new policy regarding [Subject of Policy].</p><p><strong>1. Policy Statement</strong></p><p>[State the new policy clearly and concisely.]</p><p><strong>2. Purpose</strong></p><p>[Explain the reason for the new policy and the goals it aims to achieve.]</p><p><strong>3. Scope</strong></p><p>[Define who this policy applies to (e.g., all employees, specific departments).]</p><p><strong>4. Procedure</strong></p><p>[Outline the step-by-step procedures required to comply with the new policy.]</p><p><strong>5. Effective Date</strong></p><p>This policy is effective as of [Start Date].</p><p>All employees are expected to read, understand, and adhere to this new policy. Please direct any questions to [Appropriate Department or Manager].</p>`,
     },
 ];
 
@@ -628,16 +628,3 @@ export default function NewMemoPage() {
     </div>
   );
 }
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-    
