@@ -155,7 +155,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
   const canAcknowledge = isRecipient && !isCC && !hasAcknowledged;
-  const canReply = isRecipient || isSender;
+  const canReply = isRecipient;
   const canForward = isRecipient && !isCC;
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);

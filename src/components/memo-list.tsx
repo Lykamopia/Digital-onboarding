@@ -108,11 +108,26 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         
         const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
         const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
 
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient || isSender;
+        const canReply = isRecipient;
         const canForward = isRecipient && !isCC;
+
+        // Conditional rendering logic
+        if (tab === 'drafts') {
+            return (
+                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
+                                <Trash2 />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                 </div>
+            )
+        }
 
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -136,7 +151,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <TooltipContent>Acknowledge</TooltipContent>
                     </Tooltip>
                 )}
-                 {canReply && (
+                 {canReply && tab !== 'sent' && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
@@ -160,16 +175,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         </Tooltip>
                     </div>
                 )}
-                {tab === 'drafts' ? (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
-                                <Trash2 />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
-                ) : tab === 'archive' ? (
+                {tab === 'archive' ? (
                      <Tooltip>
                         <TooltipTrigger asChild>
                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
@@ -197,11 +203,21 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         
         const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
         const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
 
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient || isSender;
+        const canReply = isRecipient;
         const canForward = isRecipient && !isCC;
+        
+        if (tab === 'drafts') {
+            return (
+                <ContextMenuContent>
+                    <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete Draft</span>
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            );
+        }
 
         return (
             <ContextMenuContent>
@@ -217,7 +233,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <span>Acknowledge</span>
                     </ContextMenuItem>
                 )}
-                {canReply && (
+                {canReply && tab !== 'sent' && (
                     <ContextMenuItem onSelect={() => handleReply(memo.id)}>
                         <Reply className="mr-2 h-4 w-4" />
                         <span>Reply</span>
@@ -234,12 +250,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </div>
                 )}
                 <ContextMenuSeparator />
-                {tab === 'drafts' ? (
-                     <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete Draft</span>
-                    </ContextMenuItem>
-                ) : tab === 'archive' ? (
+                {tab === 'archive' ? (
                     <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
                         <Undo2 className="mr-2 h-4 w-4" />
                         <span>Unarchive</span>
