@@ -4,7 +4,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert } from 'lucide-react';
 
 import type { User, Permission, MemoWithActivity } from '@/lib/types';
 import { useNotification } from '@/components/notification-provider';
@@ -87,7 +87,10 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
   const navItems = [
     ...(user.mustChangePassword
-      ? [{ href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true }]
+      ? [
+          { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
+          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
+        ]
       : [
           { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
           { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
@@ -95,6 +98,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
           { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
           { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
+          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]),
   ];
 
@@ -112,7 +116,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           </SidebarHeader>
           <SidebarMenu className="flex-1 px-3">
             {navItems.filter(item => item.visible).map(item => (
-              <SidebarMenuItem key={item.label}>
+              <SidebarMenuItem key={item.label} className={item.className}>
                 <Link href={item.href}>
                   <SidebarMenuButton tooltip={item.label} isActive={item.active}>
                     {item.icon}

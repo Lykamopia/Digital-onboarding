@@ -48,7 +48,7 @@ function useAdminNavigation(user: (User & { role: { permissions: Permission[] } 
     } else if (user && accessibleNavItems.length === 0) {
       // If user has no admin permissions, redirect away from admin area
       if (pathname.startsWith('/dashboard/admin')) {
-          router.replace('/dashboard/inbox');
+          router.replace('/dashboard/access-denied');
       }
     }
   }, [user, pathname, accessibleNavItems, router]);

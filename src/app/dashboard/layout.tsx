@@ -1,7 +1,7 @@
 
 
 import Link from "next/link"
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock, ShieldAlert } from "lucide-react"
 import { Suspense } from "react"
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
