@@ -41,11 +41,11 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
   const handleInsertTable = (rows: number, cols: number) => {
     if (editorRef.current) {
       editorRef.current.focus();
-      let tableHTML = '<table style="border-collapse: collapse; width: 100%;">';
+      let tableHTML = '<table>';
       for (let r = 0; r < rows; r++) {
         tableHTML += '<tr>';
         for (let c = 0; c < cols; c++) {
-          tableHTML += '<td style="border: 1px solid #ccc; padding: 8px;">&nbsp;</td>';
+          tableHTML += '<td>&nbsp;</td>';
         }
         tableHTML += '</tr>';
       }
