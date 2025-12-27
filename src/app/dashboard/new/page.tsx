@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -39,7 +39,6 @@ import {
 import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -48,6 +47,7 @@ const memoTemplates = [
     {
       value: 'announcement',
       label: 'Announcement / Update Memo',
+      icon: <BookCopy className="h-8 w-8 text-primary" />,
       subject: 'Announcement: [Your Title Here]',
       body: `
         <p>Dear Team,</p>
@@ -92,6 +92,7 @@ export default function NewMemoPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
   const isReplying = !!replyTo;
   const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !body.trim()) || (isReplying && !replyBody.trim());
@@ -382,6 +383,7 @@ export default function NewMemoPage() {
         setSubject(template.subject);
         setBody(template.body);
     }
+    setIsTemplateDialogOpen(false);
   };
 
 
@@ -405,23 +407,32 @@ export default function NewMemoPage() {
             <CardContent>
                 <form onSubmit={onSubmit} className="space-y-4">
                     {!isReplying && (
-                        <div className="grid grid-cols-[120px_1fr] items-center">
-                            <label className='text-right pr-4 font-semibold text-sm'>Template</label>
-                            <Select onValueChange={handleTemplateSelect}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a template (optional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {memoTemplates.map(template => (
-                                        <SelectItem key={template.value} value={template.value}>
-                                            <div className="flex items-center gap-2">
-                                                <BookCopy className="h-4 w-4" />
-                                                {template.label}
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="flex justify-end">
+                            <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline">
+                                        <BookPlus className="mr-2 h-4 w-4" />
+                                        Use a Template
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle>Select a Template</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="grid grid-cols-2 gap-4 py-4">
+                                        {memoTemplates.map(template => (
+                                            <Card 
+                                                key={template.value}
+                                                className="flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                                                onClick={() => handleTemplateSelect(template.value)}
+                                            >
+                                                <div className="mb-2">{template.icon}</div>
+                                                <p className="text-sm font-medium">{template.label}</p>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     )}
                     <div className="grid grid-cols-[120px_1fr] items-center border-b py-2">
@@ -589,5 +600,7 @@ export default function NewMemoPage() {
     </div>
   );
 }
+
+    
 
     
