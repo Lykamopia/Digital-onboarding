@@ -108,9 +108,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         
         const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
         const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
 
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient;
+        const canReply = isRecipient && !isSender;
         const canForward = isRecipient && !isCC;
 
         // Conditional rendering logic
@@ -151,7 +152,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <TooltipContent>Acknowledge</TooltipContent>
                     </Tooltip>
                 )}
-                 {canReply && tab !== 'sent' && (
+                 {canReply && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
@@ -203,9 +204,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         
         const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
         const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-
+        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
+        
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient;
+        const canReply = isRecipient && !isSender;
         const canForward = isRecipient && !isCC;
         
         if (tab === 'drafts') {
@@ -233,7 +235,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <span>Acknowledge</span>
                     </ContextMenuItem>
                 )}
-                {canReply && tab !== 'sent' && (
+                {canReply && (
                     <ContextMenuItem onSelect={() => handleReply(memo.id)}>
                         <Reply className="mr-2 h-4 w-4" />
                         <span>Reply</span>
