@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2 } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -39,9 +39,35 @@ import {
 import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const memoTemplates = [
+    {
+      value: 'announcement',
+      label: 'Announcement / Update Memo',
+      subject: 'Announcement: [Your Title Here]',
+      body: `
+        <p>Dear Team,</p>
+        <p><br></p>
+        <p>This memo is to formally announce [briefly state the announcement or update].</p>
+        <p><br></p>
+        <p><strong>Key Details:</strong></p>
+        <ul>
+          <li><strong>What:</strong> [Detailed description of the announcement].</li>
+          <li><strong>When:</strong> [Effective date or timeline].</li>
+          <li><strong>Who:</strong> [Who is affected or involved].</li>
+          <li><strong>Why:</strong> [Reason or benefit of this change/announcement].</li>
+        </ul>
+        <p><br></p>
+        <p>Please take note of these changes. If you have any questions, feel free to reach out to [Contact Person/Department].</p>
+        <p><br></p>
+        <p>Thank you.</p>
+      `,
+    },
+];
 
 export default function NewMemoPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -350,6 +376,14 @@ export default function NewMemoPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleTemplateSelect = (templateValue: string) => {
+    const template = memoTemplates.find(t => t.value === templateValue);
+    if (template) {
+        setSubject(template.subject);
+        setBody(template.body);
+    }
+  };
+
 
   if (!loggedInUser) {
       return <div className="flex justify-center items-center h-full"><p>Loading user data...</p></div>;
@@ -370,6 +404,26 @@ export default function NewMemoPage() {
             </CardHeader>
             <CardContent>
                 <form onSubmit={onSubmit} className="space-y-4">
+                    {!isReplying && (
+                        <div className="grid grid-cols-[120px_1fr] items-center">
+                            <label className='text-right pr-4 font-semibold text-sm'>Template</label>
+                            <Select onValueChange={handleTemplateSelect}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a template (optional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {memoTemplates.map(template => (
+                                        <SelectItem key={template.value} value={template.value}>
+                                            <div className="flex items-center gap-2">
+                                                <BookCopy className="h-4 w-4" />
+                                                {template.label}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <div className="grid grid-cols-[120px_1fr] items-center border-b py-2">
                         <span className="font-semibold text-sm text-right pr-4">Date - ቀን</span>
                         <div>{formatTimestamp(new Date().toISOString(), false)}</div>
@@ -535,3 +589,5 @@ export default function NewMemoPage() {
     </div>
   );
 }
+
+    
