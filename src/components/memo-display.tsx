@@ -215,7 +215,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         </MemoField>
                     )}
                     <MemoField label="Subject" amharic="ጉዳዩ">
-                        <span className="font-medium underline">{memo.subject}</span>
+                        <span className="font-medium">{memo.subject}</span>
                     </MemoField>
                     <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
                          {memo.attachments.length > 0 ? (
