@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -67,6 +67,26 @@ const memoTemplates = [
         <p>Thank you.</p>
       `,
     },
+    {
+      value: 'request',
+      label: 'Request / Action Memo',
+      icon: <MessageSquarePlus className="h-8 w-8 text-primary" />,
+      subject: 'Request for [Action/Information]',
+      body: `
+        <p>This memo is to formally request [specific action or information needed].</p>
+        <p><br></p>
+        <p><strong>Request Details:</strong></p>
+        <ul>
+          <li><strong>Action Required:</strong> [Clearly describe the task to be performed].</li>
+          <li><strong>Deadline:</strong> [Specify the due date for the action].</li>
+          <li><strong>Background:</strong> [Provide brief context or reason for the request].</li>
+        </ul>
+        <p><br></p>
+        <p>Your prompt attention to this matter is greatly appreciated. Please confirm receipt and your ability to complete this request by the specified deadline.</p>
+        <p><br></p>
+        <p>Thank you.</p>
+      `,
+    }
 ];
 
 export default function NewMemoPage() {
@@ -128,7 +148,7 @@ export default function NewMemoPage() {
 
       const getCombinedBody = () => {
         if (replyTo && body) {
-          return `${replyBody || ''}<br><br><hr>${body}`;
+          return `${replyBody || ''}<hr>${body}`;
         }
         return replyBody || body || '';
       };
@@ -160,7 +180,7 @@ export default function NewMemoPage() {
     
     let draftBody = replyTo ? (replyBody || '') : (body || '');
     if (replyTo && body) {
-        draftBody = `${replyBody}<br><br><hr>${body}`;
+        draftBody = `${replyBody}<hr>${body}`;
     }
 
     const draftData = {
@@ -206,7 +226,7 @@ export default function NewMemoPage() {
           let replyBody = '';
           if (draft.replyToId && draft.body.includes('<hr>')) {
               const parts = draft.body.split('<hr>');
-              replyBody = parts[0].replace(/<br><br>$/, '');
+              replyBody = parts[0];
               body = parts.slice(1).join('<hr>');
           }
           setTo(draft.to);
@@ -280,7 +300,7 @@ export default function NewMemoPage() {
     cc.forEach(user => formData.append('cc[]', user.id));
     formData.append('subject', subject);
     
-    let finalBody = replyTo ? `${replyBody}<br><br><hr>${body}` : body;
+    let finalBody = replyTo ? `${replyBody}<hr>${body}` : body;
     formData.append('body', finalBody);
     formData.append('attachments', JSON.stringify(attachments));
     if (replyTo) formData.append('replyTo', replyTo);
