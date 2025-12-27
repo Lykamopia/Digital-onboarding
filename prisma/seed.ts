@@ -5,9 +5,9 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 const offices = [
-  { id: 'off-1', name: 'Head Office', code: 'HO', type: 'division' },
-  { id: 'off-2', name: 'City Branches', code: 'CB', type: 'branch' },
-  { id: 'off-3', name: 'Regional Branches', code: 'RB', type: 'branch' },
+  { id: 'off-1', name: 'Head Office', code: 'HO', type: 'division_office' },
+  { id: 'off-2', name: 'City Branches', code: 'CB', type: 'branch_office' },
+  { id: 'off-3', name: 'Regional Branches', code: 'RB', type: 'branch_office' },
 ];
 
 const departments = [
@@ -18,11 +18,11 @@ const departments = [
 ];
 
 const divisions = [
-  { id: 'div-1', name: 'Client Services', code: 'CS', departmentId: 'dept-1' },
-  { id: 'div-2', name: 'Operations', code: 'OPS', departmentId: 'dept-1' },
-  { id: 'div-3', name: 'Loan Origination', code: 'LO', departmentId: 'dept-2' },
-  { id: 'div-4', name: 'Mergers & Acquisitions', code: 'MA', departmentId: 'dept-3' },
-  { id: 'div-5', name: 'Infrastructure', code: 'INFRA', departmentId: 'dept-4' },
+  { id: 'div-1', name: 'Client Services', code: 'CS', departmentId: 'dept-1', type: 'division' },
+  { id: 'div-2', name: 'Operations', code: 'OPS', departmentId: 'dept-1', type: 'division' },
+  { id: 'div-3', name: 'Loan Origination', code: 'LO', departmentId: 'dept-2', type: 'division' },
+  { id: 'div-4', name: 'Mergers & Acquisitions', code: 'MA', departmentId: 'dept-3', type: 'division' },
+  { id: 'div-5', name: 'Infrastructure', code: 'INFRA', departmentId: 'dept-4', type: 'division' },
 ];
 
 const districts = [
@@ -32,10 +32,10 @@ const districts = [
 ];
 
 const branches = [
-  { id: 'branch-1', name: 'Bole', code: 'BOL', districtId: 'dist-1' },
-  { id: 'branch-2', name: 'Cazanches', code: 'CAZ', districtId: 'dist-1' },
-  { id: 'branch-3', name: 'Kirkos', code: 'KIR', districtId: 'dist-2' },
-  { id: 'branch-4', name: 'Adama Main', code: 'ADM', districtId: 'dist-3' },
+  { id: 'branch-1', name: 'Bole', code: 'BOL', districtId: 'dist-1', type: 'branch' },
+  { id: 'branch-2', name: 'Cazanches', code: 'CAZ', districtId: 'dist-1', type: 'branch' },
+  { id: 'branch-3', name: 'Kirkos', code: 'KIR', districtId: 'dist-2', type: 'branch' },
+  { id: 'branch-4', name: 'Adama Main', code: 'ADM', districtId: 'dist-3', type: 'branch' },
 ];
 
 
@@ -66,7 +66,7 @@ const users = [
     name: 'Alice Johnson',
     email: 'alice.j@bank.com',
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-1', // division user
+    officeId: 'div-1',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -75,7 +75,7 @@ const users = [
     name: 'Bob Williams',
     email: 'bob.w@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-5', // division user
+    officeId: 'div-5',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -84,7 +84,7 @@ const users = [
     name: 'Charlie Brown',
     email: 'charlie.b@bank.com',
     avatar: 'https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-1', // Branch User
+    officeId: 'branch-1',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -93,7 +93,7 @@ const users = [
     name: 'Diana Prince',
     email: 'diana.p@bank.com',
     avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-2', // Branch User
+    officeId: 'branch-2',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -102,7 +102,7 @@ const users = [
     name: 'Ethan Hunt',
     email: 'ethan.h@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-2', // division user
+    officeId: 'div-2',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -111,7 +111,7 @@ const users = [
     name: 'Fiona Glenanne',
     email: 'fiona.g@bank.com',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-3', // Branch User
+    officeId: 'branch-3',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -136,16 +136,21 @@ async function main() {
   await prisma.office.createMany({ data: offices });
   console.log(`Seeded ${offices.length} offices.`);
 
+  const officeLikeDivisions = divisions.map(d => ({ id: d.id, name: d.name, code: d.code, type: d.type }));
+  const officeLikeBranches = branches.map(b => ({ id: b.id, name: b.name, code: b.code, type: b.type }));
+  await prisma.office.createMany({ data: [...officeLikeDivisions, ...officeLikeBranches] });
+  console.log(`Seeded ${officeLikeDivisions.length} division-offices and ${officeLikeBranches.length} branch-offices.`);
+
   await prisma.department.createMany({ data: departments });
   console.log(`Seeded ${departments.length} departments.`);
 
-  await prisma.division.createMany({ data: divisions });
+  await prisma.division.createMany({ data: divisions.map(({type, ...rest}) => rest) });
   console.log(`Seeded ${divisions.length} divisions.`);
   
   await prisma.district.createMany({ data: districts });
   console.log(`Seeded ${districts.length} districts.`);
 
-  await prisma.branch.createMany({ data: branches });
+  await prisma.branch.createMany({ data: branches.map(({type, ...rest}) => rest) });
   console.log(`Seeded ${branches.length} branches.`);
 
   await prisma.role.createMany({ data: roles });
