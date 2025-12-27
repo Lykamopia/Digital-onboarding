@@ -9,10 +9,10 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2 } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
@@ -47,11 +47,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         return 'unread';
     }
 
-    const isMemoUnread = (memo: MemoWithActivity) => {
-        const status = getMemoStatus(memo);
-        return status === 'unread';
-    }
-
     const handleActionClick = (e: MouseEvent, callback: () => void) => {
         e.stopPropagation();
         callback();
@@ -73,10 +68,13 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         router.push(`/dashboard/new?replyTo=${memoId}`);
     }
 
+    const handleAcknowledge = async (memoId: string) => {
+        await acknowledgeMemo(memoId);
+        toast({ title: "Memo Acknowledged" });
+        onUpdate();
+    }
+    
     const handleMarkAsRead = async (memo: MemoWithActivity) => {
-        const wasUnread = isMemoUnread(memo);
-        if (!wasUnread) return;
-        
         // Optimistic update
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
@@ -110,23 +108,36 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         
         const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
         const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
+
+        const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
+        const canReply = isRecipient || isSender;
         const canForward = isRecipient && !isCC;
 
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {tab === 'inbox' && (
-                    <>
-                    {memoStatus === 'unread' && (
-                         <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
-                                    <MailOpen />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Mark as Read</TooltipContent>
-                        </Tooltip>
-                    )}
-                     <Tooltip>
+                 {memoStatus === 'unread' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
+                                <MailOpen />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Mark as Read</TooltipContent>
+                    </Tooltip>
+                )}
+                {canAcknowledge && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAcknowledge(memo.id))}>
+                                <CheckCircle />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Acknowledge</TooltipContent>
+                    </Tooltip>
+                )}
+                 {canReply && (
+                    <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
                                 <Reply />
@@ -134,9 +145,8 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         </TooltipTrigger>
                         <TooltipContent>Reply</TooltipContent>
                     </Tooltip>
-                    </>
                 )}
-                 {(tab === 'inbox' || tab === 'sent') && canForward && (
+                {canForward && (
                     <div onClick={(e) => e.stopPropagation()}>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -150,7 +160,25 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         </Tooltip>
                     </div>
                 )}
-                 {tab === 'sent' && (
+                {tab === 'drafts' ? (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
+                                <Trash2 />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                ) : tab === 'archive' ? (
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
+                                <Undo2 />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Unarchive</TooltipContent>
+                    </Tooltip>
+                ) : (
                     <Tooltip>
                         <TooltipTrigger asChild>
                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
@@ -160,77 +188,66 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         <TooltipContent>Archive</TooltipContent>
                     </Tooltip>
                 )}
-                {tab === 'drafts' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
-                                <Trash2 />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
-                )}
-                {tab === 'archive' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
-                                <Undo2 />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Unarchive</TooltipContent>
-                    </Tooltip>
-                )}
             </div>
         )
     }
 
     const MemoContextMenu = ({ memo }: { memo: MemoWithActivity }) => {
         const memoStatus = getMemoStatus(memo);
+        
+        const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
+        const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
+
+        const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
+        const canReply = isRecipient || isSender;
+        const canForward = isRecipient && !isCC;
 
         return (
             <ContextMenuContent>
-                 {tab === 'inbox' && (
-                    <>
-                        {memoStatus === 'unread' && (
-                            <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
-                                <MailOpen className="mr-2 h-4 w-4" />
-                                <span>Mark as Read</span>
+                {memoStatus === 'unread' && (
+                    <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
+                        <MailOpen className="mr-2 h-4 w-4" />
+                        <span>Mark as Read</span>
+                    </ContextMenuItem>
+                )}
+                {canAcknowledge && (
+                    <ContextMenuItem onSelect={() => handleAcknowledge(memo.id)}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        <span>Acknowledge</span>
+                    </ContextMenuItem>
+                )}
+                {canReply && (
+                    <ContextMenuItem onSelect={() => handleReply(memo.id)}>
+                        <Reply className="mr-2 h-4 w-4" />
+                        <span>Reply</span>
+                    </ContextMenuItem>
+                )}
+                {canForward && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <ForwardDialog memo={memo} onUpdate={onUpdate}>
+                            <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                <span>Forward</span>
                             </ContextMenuItem>
-                        )}
-                        <ContextMenuItem onSelect={() => handleReply(memo.id)}>
-                            <Reply className="mr-2 h-4 w-4" />
-                            <span>Reply</span>
-                        </ContextMenuItem>
-                    </>
+                        </ForwardDialog>
+                    </div>
                 )}
-                {(tab === 'inbox' || tab === 'sent') && (
-                         <div onClick={(e) => e.stopPropagation()}>
-                            <ForwardDialog memo={memo} onUpdate={onUpdate}>
-                                <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                                    <Share2 className="mr-2 h-4 w-4" />
-                                    <span>Forward</span>
-                                </ContextMenuItem>
-                            </ForwardDialog>
-                         </div>
-                )}
-                 {tab === 'sent' && (
-                     <>
-                        <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
-                            <Archive className="mr-2 h-4 w-4" />
-                            <span>Archive</span>
-                        </ContextMenuItem>
-                     </>
-                )}
-                {tab === 'drafts' && (
-                    <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
+                <ContextMenuSeparator />
+                {tab === 'drafts' ? (
+                     <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
                         <Trash2 className="mr-2 h-4 w-4" />
                         <span>Delete Draft</span>
                     </ContextMenuItem>
-                )}
-                {tab === 'archive' && (
-                     <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
+                ) : tab === 'archive' ? (
+                    <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
                         <Undo2 className="mr-2 h-4 w-4" />
                         <span>Unarchive</span>
+                    </ContextMenuItem>
+                ) : (
+                    <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        <span>Archive</span>
                     </ContextMenuItem>
                 )}
             </ContextMenuContent>

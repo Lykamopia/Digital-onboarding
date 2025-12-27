@@ -149,9 +149,13 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   
   const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
   const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+  const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
-  const canAcknowledge = !hasAcknowledged && isRecipient && !isCC;
+  
+  const canAcknowledge = isRecipient && !isCC && !hasAcknowledged;
+  const canReply = isRecipient || isSender;
   const canForward = isRecipient && !isCC;
+  
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
   const MemoContent = () => (
@@ -232,10 +236,12 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                                 Acknowledge
                             </Button>
                         }
-                        <Button variant="outline" onClick={handleReply}>
-                            <Reply className="mr-2 h-4 w-4" />
-                            Reply
-                        </Button>
+                        {canReply && (
+                            <Button variant="outline" onClick={handleReply}>
+                                <Reply className="mr-2 h-4 w-4" />
+                                Reply
+                            </Button>
+                        )}
                         {canForward && (
                             <ForwardDialog memo={memo} onUpdate={onUpdate}>
                                 <Button variant="outline" className='no-print'>
