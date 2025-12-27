@@ -49,49 +49,49 @@ const memoTemplates = [
       label: 'Announcement / Update Memo',
       icon: <BookCopy className="h-10 w-10 text-primary" />,
       subject: 'Announcement: [Your Title Here]',
-      body: `<p>Dear Team,</p><p><br></p><p>This memo is to formally announce [briefly state the announcement or update].</p><p><br></p><p><strong>Key Details:</strong></p><ul><li><strong>What:</strong> [Detailed description of the announcement].</li><li><strong>When:</strong> [Effective date or timeline].</li><li><strong>Who:</strong> [Who is affected or involved].</li><li><strong>Why:</strong> [Reason or benefit of this change/announcement].</li></ul><p><br></p><p>Please take note of these changes. If you have any questions, feel free to reach out to [Contact Person/Department].</p><p><br></p><p>Thank you.</p>`,
+      body: `<p>Dear Team,</p><p>This memo is to formally announce [briefly state the announcement or update].</p><p><strong>Key Details:</strong></p><ul><li><strong>What:</strong> [Detailed description of the announcement].</li><li><strong>When:</strong> [Effective date or timeline].</li><li><strong>Who:</strong> [Who is affected or involved].</li><li><strong>Why:</strong> [Reason or benefit of this change/announcement].</li></ul><p>Please take note of these changes. If you have any questions, feel free to reach out to [Contact Person/Department].</p><p>Thank you.</p>`,
     },
     {
       value: 'request',
       label: 'Request / Action Memo',
       icon: <MessageSquarePlus className="h-10 w-10 text-primary" />,
       subject: 'Request for [Action/Information]',
-      body: `<p>This memo is to formally request [specific action or information needed].</p><p><br></p><p><strong>Request Details:</strong></p><ul><li><strong>Action Required:</strong> [Clearly describe the task to be performed].</li><li><strong>Deadline:</strong> [Specify the due date for the action].</li><li><strong>Background:</strong> [Provide brief context or reason for the request].</li></ul><p><br></p><p>Your prompt attention to this matter is greatly appreciated. Please confirm receipt and your ability to complete this request by the specified deadline.</p><p><br></p><p>Thank you.</p>`,
+      body: `<p>This memo is to formally request [specific action or information needed].</p><p><strong>Request Details:</strong></p><ul><li><strong>Action Required:</strong> [Clearly describe the task to be performed].</li><li><strong>Deadline:</strong> [Specify the due date for the action].</li><li><strong>Background:</strong> [Provide brief context or reason for the request].</li></ul><p>Your prompt attention to this matter is greatly appreciated. Please confirm receipt and your ability to complete this request by the specified deadline.</p><p>Thank you.</p>`,
     },
     {
       value: 'confirmation',
       label: 'Confirmation Memo',
       icon: <FileCheck className="h-10 w-10 text-primary" />,
       subject: 'Confirmation of [Action/Decision]',
-      body: `<p>This memo serves to confirm that [Action/Decision] has been completed/approved as of [Date].</p><p><br></p><p><strong>Confirmation Details:</strong></p><ul><li><strong>Subject of Confirmation:</strong> [Briefly describe what is being confirmed].</li><li><strong>Effective Date:</strong> [Date].</li><li><strong>Reference:</strong> [Any related memo reference numbers or documents].</li></ul><p><br></p><p>This confirmation is for your records. No further action is required at this time unless specified otherwise.</p><p><br></p><p>Regards,</p>`,
+      body: `<p>This memo serves to confirm that [Action/Decision] has been completed/approved as of [Date].</p><p><strong>Confirmation Details:</strong></p><ul><li><strong>Subject of Confirmation:</strong> [Briefly describe what is being confirmed].</li><li><strong>Effective Date:</strong> [Date].</li><li><strong>Reference:</strong> [Any related memo reference numbers or documents].</li></ul><p>This confirmation is for your records. No further action is required at this time unless specified otherwise.</p><p>Regards,</p>`,
     },
     {
       value: 'directive',
       label: 'Directive / Instruction Memo',
       icon: <ClipboardList className="h-10 w-10 text-primary" />,
       subject: 'Directive: [Your Title Here]',
-      body: `<p>This memo serves as a directive regarding [Subject of the directive].</p><p><br></p><p>Effective immediately, all personnel are instructed to adhere to the following procedures:</p><ol><li><strong>Instruction 1:</strong> [Clearly state the first instruction or step].</li><li><strong>Instruction 2:</strong> [Clearly state the second instruction or step].</li><li><strong>Instruction 3:</strong> [Continue as needed].</li></ol><p><br></p><p><strong>Reasoning:</strong> [Briefly explain the reason for this directive, e.g., compliance, efficiency, security].</p><p><br></p><p>Compliance with this directive is mandatory. Failure to adhere may result in [consequences, if applicable]. Please direct any questions to [Appropriate Person/Department].</p><p><br></p><p>Thank you for your cooperation.</p>`,
+      body: `<p>This memo serves as a directive regarding [Subject of the directive].</p><p>Effective immediately, all personnel are instructed to adhere to the following procedures:</p><ol><li><strong>Instruction 1:</strong> [Clearly state the first instruction or step].</li><li><strong>Instruction 2:</strong> [Clearly state the second instruction or step].</li><li><strong>Instruction 3:</strong> [Continue as needed].</li></ol><p><strong>Reasoning:</strong> [Briefly explain the reason for this directive, e.g., compliance, efficiency, security].</p><p>Compliance with this directive is mandatory. Failure to adhere may result in [consequences, if applicable]. Please direct any questions to [Appropriate Person/Department].</p><p>Thank you for your cooperation.</p>`,
     },
     {
       value: 'incident_report',
       label: 'Problem / Incident Report Memo',
       icon: <AlertTriangle className="h-10 w-10 text-primary" />,
       subject: 'Incident Report: [Briefly Describe Incident]',
-      body: `<p>This memo is to formally report an incident that occurred on [Date] at approximately [Time].</p><p><br></p><p><strong>Incident Summary:</strong></p><p>[Provide a brief, high-level summary of the incident.]</p><p><br></p><p><strong>Timeline of Events:</strong></p><ul><li><strong>[Time]:</strong> [Event 1].</li><li><strong>[Time]:</strong> [Event 2].</li><li><strong>[Time]:</strong> [Event 3].</li></ul><p><br></p><p><strong>Impact Assessment:</strong></p><p>[Describe the impact of the incident on operations, security, personnel, etc.]</p><p><br></p><p><strong>Immediate Actions Taken:</strong></p><p>[Detail any immediate steps that were taken to mitigate the incident.]</p><p><br></p><p>An investigation is underway to determine the root cause. Further updates will be provided as they become available.</p>`,
+      body: `<p>This memo is to formally report an incident that occurred on [Date] at approximately [Time].</p><p><strong>Incident Summary:</strong></p><p>[Provide a brief, high-level summary of the incident.]</p><p><strong>Timeline of Events:</strong></p><ul><li><strong>[Time]:</strong> [Event 1].</li><li><strong>[Time]:</strong> [Event 2].</li><li><strong>[Time]:</strong> [Event 3].</li></ul><p><strong>Impact Assessment:</strong></p><p>[Describe the impact of the incident on operations, security, personnel, etc.]</p><p><strong>Immediate Actions Taken:</strong></p><p>[Detail any immediate steps that were taken to mitigate the incident.]</p><p>An investigation is underway to determine the root cause. Further updates will be provided as they become available.</p>`,
     },
     {
       value: 'meeting_agenda',
       label: 'Meeting / Agenda Memo',
       icon: <CalendarDays className="h-10 w-10 text-primary" />,
       subject: 'Meeting Agenda: [Meeting Title]',
-      body: `<p>This memo is to announce an upcoming meeting and outline the agenda.</p><p><br></p><p><strong>Meeting Details:</strong></p><ul><li><strong>Date:</strong> [Date of meeting].</li><li><strong>Time:</strong> [Time of meeting].</li><li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li><li><strong>Attendees:</strong> [List key attendees or teams].</li></ul><p><br></p><p><strong>Agenda:</strong></p><ol><li><strong>Call to Order & Welcome</strong></li><li><strong>Review of Previous Minutes</strong></li><li><strong>[Agenda Item 1]:</strong> [Brief description].</li><li><strong>[Agenda Item 2]:</strong> [Brief description].</li><li><strong>Open Discussion / Q&A</strong></li><li><strong>Action Items & Next Steps</strong></li><li><strong>Adjournment</strong></li></ol><p><br></p><p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>`,
+      body: `<p>This memo is to announce an upcoming meeting and outline the agenda.</p><p><strong>Meeting Details:</strong></p><ul><li><strong>Date:</strong> [Date of meeting].</li><li><strong>Time:</strong> [Time of meeting].</li><li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li><li><strong>Attendees:</strong> [List key attendees or teams].</li></ul><p><strong>Agenda:</strong></p><ol><li><strong>Call to Order & Welcome</strong></li><li><strong>Review of Previous Minutes</strong></li><li><strong>[Agenda Item 1]:</strong> [Brief description].</li><li><strong>[Agenda Item 2]:</strong> [Brief description].</li><li><strong>Open Discussion / Q&A</strong></li><li><strong>Action Items & Next Steps</strong></li><li><strong>Adjournment</strong></li></ol><p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>`,
     },
     {
       value: 'policy_procedure',
       label: 'Policy / Procedure Memo',
       icon: <BookMarked className="h-10 w-10 text-primary" />,
       subject: 'New Policy: [Policy Name]',
-      body: `<p>This memo introduces a new policy regarding [Subject of Policy].</p><p><br></p><p><strong>1. Policy Statement</strong></p><p>[State the new policy clearly and concisely.]</p><p><br></p><p><strong>2. Purpose</strong></p><p>[Explain the reason for the new policy and the goals it aims to achieve.]</p><p><br></p><p><strong>3. Scope</strong></p><p>[Define who this policy applies to (e.g., all employees, specific departments).]</p><p><br></p><p><strong>4. Procedure</strong></p><p>[Outline the step-by-step procedures required to comply with the new policy.]</p><p><br></p><p><strong>5. Effective Date</strong></p><p>This policy is effective as of [Start Date].</p><p><br></p><p>All employees are expected to read, understand, and adhere to this new policy. Please direct any questions to [Appropriate Department or Manager].</p>`,
+      body: `<p>This memo introduces a new policy regarding [Subject of Policy].</p><p><strong>1. Policy Statement</strong></p><p>[State the new policy clearly and concisely.]</p><p><strong>2. Purpose</strong></p><p>[Explain the reason for the new policy and the goals it aims to achieve.]</p><p><strong>3. Scope</strong></p><p>[Define who this policy applies to (e.g., all employees, specific departments).]</p><p><strong>4. Procedure</strong></p><p>[Outline the step-by-step procedures required to comply with the new policy.]</p><p><strong>5. Effective Date</strong></p><p>This policy is effective as of [Start Date].</p><p>All employees are expected to read, understand, and adhere to this new policy. Please direct any questions to [Appropriate Department or Manager].</p>`,
     },
 ];
 
@@ -454,7 +454,7 @@ export default function NewMemoPage() {
                                                 tabIndex={0}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleTemplateSelect(template.value)}
                                             >
-                                                <div className="mb-4 transition-transform duration-300 group-hover:scale-110">{template.icon}</div>
+                                                <div className="mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:rotate-3">{template.icon}</div>
                                                 <p className="text-sm font-medium">{template.label}</p>
                                             </div>
                                         ))}
