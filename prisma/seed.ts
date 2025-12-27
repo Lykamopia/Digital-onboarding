@@ -66,7 +66,7 @@ const users = [
     name: 'Alice Johnson',
     email: 'alice.j@bank.com',
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-1', // HQ user
+    officeId: 'div-1', // division user
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -75,7 +75,7 @@ const users = [
     name: 'Bob Williams',
     email: 'bob.w@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-1', // HQ user
+    officeId: 'div-5', // division user
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -102,7 +102,7 @@ const users = [
     name: 'Ethan Hunt',
     email: 'ethan.h@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-1', // HQ user
+    officeId: 'div-2', // division user
     roleId: 'role-2',
     mustChangePassword: true,
   },
