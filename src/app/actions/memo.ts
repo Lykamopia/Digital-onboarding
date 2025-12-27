@@ -571,8 +571,8 @@ export async function getUsers() {
             role: true,
             office: {
                 include: {
-                    districts: true,
                     departments: true,
+                    districts: true,
                 }
             }
         },

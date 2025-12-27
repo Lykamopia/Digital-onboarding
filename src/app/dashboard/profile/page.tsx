@@ -55,12 +55,6 @@ export default function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-      // Re-fetch user to update state, but don't reload the whole page
-      const updatedUser = await getLoggedInUser();
-      setUser(updatedUser as any);
-      setName(updatedUser.name);
-      setEmail(updatedUser.email);
-      setAvatar(updatedUser.avatar || '');
       // Force a refresh to update user-nav, which might not be reactive to this change without a page reload.
       window.location.reload();
     } else {
@@ -130,7 +124,7 @@ export default function ProfilePage() {
     );
   }
   
-  const isChanged = name !== user.name || email !== user.email || avatar !== user.avatar;
+  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '');
 
   const getUserOrgPath = () => {
     if (!user.office) return { division: null, department: null, branch: null, district: null };
