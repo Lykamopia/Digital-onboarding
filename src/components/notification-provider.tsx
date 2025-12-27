@@ -76,6 +76,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('notification-settings', JSON.stringify(updatedSettings));
       }
+
+      // Play test sound if sound is being enabled
+      if (newSettings.soundEnabled && !prev.soundEnabled && audio) {
+        audio.play().catch(error => console.error("Test sound playback failed:", error));
+      }
+
       return updatedSettings;
     });
   };
