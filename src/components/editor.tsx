@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
@@ -16,12 +16,55 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isTablePopoverOpen, setIsTablePopoverOpen] = useState(false);
   const [tableGridHighlight, setTableGridHighlight] = useState({ rows: 0, cols: 0 });
+  const [activeCommands, setActiveCommands] = useState({
+      bold: false,
+      italic: false,
+      underline: false,
+      insertUnorderedList: false,
+      insertOrderedList: false,
+  });
+
+  const updateActiveCommands = useCallback(() => {
+    setActiveCommands({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        insertUnorderedList: document.queryCommandState('insertUnorderedList'),
+        insertOrderedList: document.queryCommandState('insertOrderedList'),
+    });
+  }, []);
 
   useEffect(() => {
     if (editorRef.current && value !== editorRef.current.innerHTML) {
       editorRef.current.innerHTML = value;
     }
   }, [value]);
+
+  useEffect(() => {
+    if (readOnly) return;
+    
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleSelectionChange = () => {
+        updateActiveCommands();
+    };
+    
+    document.addEventListener('selectionchange', handleSelectionChange);
+    editor.addEventListener('focus', updateActiveCommands);
+    editor.addEventListener('click', updateActiveCommands);
+    editor.addEventListener('keyup', updateActiveCommands);
+    
+    return () => {
+        document.removeEventListener('selectionchange', handleSelectionChange);
+        if (editor) {
+            editor.removeEventListener('focus', updateActiveCommands);
+            editor.removeEventListener('click', updateActiveCommands);
+            editor.removeEventListener('keyup', updateActiveCommands);
+        }
+    };
+  }, [readOnly, updateActiveCommands]);
+
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     if (e.currentTarget) {
@@ -35,6 +78,7 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
         editorRef.current.focus();
         document.execCommand(command, false);
         onChange(editorRef.current.innerHTML);
+        updateActiveCommands();
       }
   }
 
@@ -55,18 +99,22 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
       setIsTablePopoverOpen(false);
     }
   };
+  
+  const toolbarButtonClass = "p-2 rounded hover:bg-muted text-sm";
+  const activeToolbarButtonClass = "bg-primary/20";
+
 
   return (
     <div className={cn("rounded-md border border-input", readOnly && "bg-muted/50")}>
       {!readOnly && (
         <div className="flex items-center gap-1 border-b p-2">
-            <button onClick={handleCommand('bold')} className="p-2 rounded hover:bg-muted font-bold text-sm">B</button>
-            <button onClick={handleCommand('italic')} className="p-2 rounded hover:bg-muted italic text-sm">I</button>
-            <button onClick={handleCommand('underline')} className="p-2 rounded hover:bg-muted underline text-sm">U</button>
-            <button onClick={handleCommand('insertUnorderedList')} className="p-2 rounded hover:bg-muted">
+            <button onClick={handleCommand('bold')} className={cn(toolbarButtonClass, "font-bold", { [activeToolbarButtonClass]: activeCommands.bold })}>B</button>
+            <button onClick={handleCommand('italic')} className={cn(toolbarButtonClass, "italic", { [activeToolbarButtonClass]: activeCommands.italic })}>I</button>
+            <button onClick={handleCommand('underline')} className={cn(toolbarButtonClass, "underline", { [activeToolbarButtonClass]: activeCommands.underline })}>U</button>
+            <button onClick={handleCommand('insertUnorderedList')} className={cn(toolbarButtonClass, { [activeToolbarButtonClass]: activeCommands.insertUnorderedList })}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 4H3V5H2V4ZM5 4H14V5H5V4ZM2 7.5H3V8.5H2V7.5ZM5 7.5H14V8.5H5V7.5ZM2 11H3V12H2V11ZM5 11H14V12H5V11Z" fill="currentColor"></path></svg>
             </button>
-            <button onClick={handleCommand('insertOrderedList')} className="p-2 rounded hover:bg-muted">
+            <button onClick={handleCommand('insertOrderedList')} className={cn(toolbarButtonClass, { [activeToolbarButtonClass]: activeCommands.insertOrderedList })}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.2 3.25L1.5 4L2.2 4.75H3.5V5.5H1.5V6.25H3.5V7H1.5V8.5H3.5V9.25H1.5L2.2 10L1.5 10.75V11.5H4V3.25H2.2ZM5 4H14V5H5V4ZM5 7.5H14V8.5H5V7.5ZM2.5 11V10H2V9.25H3.5L2.75 10.75L3.5 12.25H2V11.5H2.5V11ZM5 11H14V12H5V11Z" fill="currentColor"></path></svg>
             </button>
             <Popover open={isTablePopoverOpen} onOpenChange={setIsTablePopoverOpen}>
