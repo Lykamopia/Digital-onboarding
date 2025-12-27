@@ -15,6 +15,7 @@ interface EditorProps {
 export function Editor({ value, onChange, readOnly = false }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isTablePopoverOpen, setIsTablePopoverOpen] = useState(false);
+  const [tableGridHighlight, setTableGridHighlight] = useState({ rows: 0, cols: 0 });
 
   useEffect(() => {
     if (editorRef.current && value !== editorRef.current.innerHTML) {
@@ -75,15 +76,23 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-2">
-                <div className="grid grid-cols-5 gap-1">
+                <div 
+                  className="grid grid-cols-5 gap-1"
+                  onMouseLeave={() => setTableGridHighlight({ rows: 0, cols: 0 })}
+                >
                   {Array.from({ length: 25 }).map((_, i) => {
                     const row = Math.floor(i / 5) + 1;
                     const col = (i % 5) + 1;
+                    const isHighlighted = row <= tableGridHighlight.rows && col <= tableGridHighlight.cols;
                     return (
                       <div
                         key={i}
                         onClick={() => handleInsertTable(row, col)}
-                        className="w-6 h-6 border border-gray-300 hover:bg-blue-200 cursor-pointer"
+                        onMouseEnter={() => setTableGridHighlight({ rows: row, cols: col })}
+                        className={cn(
+                          "w-6 h-6 border border-gray-300 cursor-pointer",
+                          isHighlighted ? "bg-blue-200" : "hover:bg-blue-100"
+                        )}
                         title={`${row}x${col} table`}
                       />
                     );
