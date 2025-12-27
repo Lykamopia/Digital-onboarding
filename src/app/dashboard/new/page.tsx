@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -85,6 +85,26 @@ const memoTemplates = [
         <p>Your prompt attention to this matter is greatly appreciated. Please confirm receipt and your ability to complete this request by the specified deadline.</p>
         <p><br></p>
         <p>Thank you.</p>
+      `,
+    },
+    {
+      value: 'confirmation',
+      label: 'Confirmation Memo',
+      icon: <FileCheck className="h-8 w-8 text-primary" />,
+      subject: 'Confirmation of [Action/Decision]',
+      body: `
+        <p>This memo serves to confirm that [Action/Decision] has been completed/approved as of [Date].</p>
+        <p><br></p>
+        <p><strong>Confirmation Details:</strong></p>
+        <ul>
+          <li><strong>Subject of Confirmation:</strong> [Briefly describe what is being confirmed].</li>
+          <li><strong>Effective Date:</strong> [Date].</li>
+          <li><strong>Reference:</strong> [Any related memo reference numbers or documents].</li>
+        </ul>
+        <p><br></p>
+        <p>This confirmation is for your records. No further action is required at this time unless specified otherwise.</p>
+        <p><br></p>
+        <p>Regards,</p>
       `,
     }
 ];
