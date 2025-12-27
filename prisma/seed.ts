@@ -4,41 +4,40 @@ import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-const divisions = [
-  { id: 'div-1', name: 'Retail Banking', code: 'RB' },
-  { id: 'div-2', name: 'Corporate Banking', code: 'CB' },
-  { id: 'div-3', name: 'Investment Banking', code: 'IB' },
-  { id: 'div-4', name: 'Information Technology', code: 'IT' },
+const offices = [
+  { id: 'off-1', name: 'Head Office', code: 'HO', type: 'division' },
+  { id: 'off-2', name: 'City Branches', code: 'CB', type: 'branch' },
+  { id: 'off-3', name: 'Regional Branches', code: 'RB', type: 'branch' },
 ];
 
 const departments = [
-  { id: 'dept-1', name: 'Client Services', code: 'CS', divisionId: 'div-1' },
-  { id: 'dept-2', name: 'Operations', code: 'OPS', divisionId: 'div-1' },
-  { id: 'dept-3', name: 'Loan Origination', code: 'LO', divisionId: 'div-2' },
-  { id: 'dept-4', name: 'Mergers & Acquisitions', code: 'MA', divisionId: 'div-3' },
-  { id: 'dept-5', name: 'Infrastructure', code: 'INFRA', divisionId: 'div-4' },
+  { id: 'dept-1', name: 'Retail Banking', code: 'RB', officeId: 'off-1' },
+  { id: 'dept-2', name: 'Corporate Banking', code: 'CB', officeId: 'off-1' },
+  { id: 'dept-3', name: 'Investment Banking', code: 'IB', officeId: 'off-1' },
+  { id: 'dept-4', name: 'Information Technology', code: 'IT', officeId: 'off-1' },
 ];
 
-const branches = [
-  { id: 'branch-1', name: 'Addis Ababa', code: 'AA' },
-  { id: 'branch-2', name: 'Regional', code: 'REG' },
+const divisions = [
+  { id: 'div-1', name: 'Client Services', code: 'CS', departmentId: 'dept-1' },
+  { id: 'div-2', name: 'Operations', code: 'OPS', departmentId: 'dept-1' },
+  { id: 'div-3', name: 'Loan Origination', code: 'LO', departmentId: 'dept-2' },
+  { id: 'div-4', name: 'Mergers & Acquisitions', code: 'MA', departmentId: 'dept-3' },
+  { id: 'div-5', name: 'Infrastructure', code: 'INFRA', departmentId: 'dept-4' },
 ];
 
 const districts = [
-    { id: 'dist-1', name: 'North Addis', code: 'NA', branchId: 'branch-1' },
-    { id: 'dist-2', name: 'South Addis', code: 'SA', branchId: 'branch-1' },
-    { id: 'dist-3', name: 'Adama', code: 'AD', branchId: 'branch-2' },
+    { id: 'dist-1', name: 'North Addis', code: 'NA', officeId: 'off-2' },
+    { id: 'dist-2', name: 'South Addis', code: 'SA', officeId: 'off-2' },
+    { id: 'dist-3', name: 'Adama', code: 'AD', officeId: 'off-3' },
 ];
 
-const offices = [
-  { id: 'off-1', name: 'Main Branch', code: 'MB', departmentId: 'dept-1', districtId: null, type: 'division' },
-  { id: 'off-2', name: 'North Branch', code: 'NB', departmentId: 'dept-1', districtId: null, type: 'division' },
-  { id: 'off-3', name: 'Headquarters - CB', code: 'HQ-CB', departmentId: 'dept-3', districtId: null, type: 'division' },
-  { id: 'off-4', name: 'Headquarters - IB', code: 'HQ-IB', departmentId: 'dept-4', districtId: null, type: 'division' },
-  { id: 'off-5', name: 'Data Center', code: 'DC', departmentId: 'dept-5', districtId: null, type: 'division' },
-  { id: 'off-6', name: 'Bole Office', code: 'BO', districtId: 'dist-1', departmentId: null, type: 'branch' },
-  { id: 'off-7', name: 'Kirkos Office', code: 'KO', districtId: 'dist-2', departmentId: null, type: 'branch' },
+const branches = [
+  { id: 'branch-1', name: 'Bole', code: 'BOL', districtId: 'dist-1' },
+  { id: 'branch-2', name: 'Cazanches', code: 'CAZ', districtId: 'dist-1' },
+  { id: 'branch-3', name: 'Kirkos', code: 'KIR', districtId: 'dist-2' },
+  { id: 'branch-4', name: 'Adama Main', code: 'ADM', districtId: 'dist-3' },
 ];
+
 
 const roles = [
   {
@@ -67,7 +66,7 @@ const users = [
     name: 'Alice Johnson',
     email: 'alice.j@bank.com',
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-1',
+    officeId: 'off-1', // HQ user
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -76,7 +75,7 @@ const users = [
     name: 'Bob Williams',
     email: 'bob.w@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-3',
+    officeId: 'off-1', // HQ user
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -85,7 +84,7 @@ const users = [
     name: 'Charlie Brown',
     email: 'charlie.b@bank.com',
     avatar: 'https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-4',
+    officeId: 'branch-1', // Branch User
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -94,7 +93,7 @@ const users = [
     name: 'Diana Prince',
     email: 'diana.p@bank.com',
     avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-2',
+    officeId: 'branch-2', // Branch User
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -103,7 +102,7 @@ const users = [
     name: 'Ethan Hunt',
     email: 'ethan.h@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-5',
+    officeId: 'off-1', // HQ user
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -112,7 +111,7 @@ const users = [
     name: 'Fiona Glenanne',
     email: 'fiona.g@bank.com',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'off-6',
+    officeId: 'branch-3', // Branch User
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -126,28 +125,28 @@ async function main() {
   await prisma.memo.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
-  await prisma.office.deleteMany();
-  await prisma.district.deleteMany();
   await prisma.branch.deleteMany();
-  await prisma.department.deleteMany();
   await prisma.division.deleteMany();
+  await prisma.district.deleteMany();
+  await prisma.department.deleteMany();
+  await prisma.office.deleteMany();
   console.log('Cleared existing data.');
 
   // Seed data
-  await prisma.division.createMany({ data: divisions });
-  console.log(`Seeded ${divisions.length} divisions.`);
-  
-  await prisma.branch.createMany({ data: branches });
-  console.log(`Seeded ${branches.length} branches.`);
+  await prisma.office.createMany({ data: offices });
+  console.log(`Seeded ${offices.length} offices.`);
 
   await prisma.department.createMany({ data: departments });
   console.log(`Seeded ${departments.length} departments.`);
 
+  await prisma.division.createMany({ data: divisions });
+  console.log(`Seeded ${divisions.length} divisions.`);
+  
   await prisma.district.createMany({ data: districts });
   console.log(`Seeded ${districts.length} districts.`);
 
-  await prisma.office.createMany({ data: offices });
-  console.log(`Seeded ${offices.length} offices.`);
+  await prisma.branch.createMany({ data: branches });
+  console.log(`Seeded ${branches.length} branches.`);
 
   await prisma.role.createMany({ data: roles });
   console.log(`Seeded ${roles.length} roles.`);
