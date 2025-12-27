@@ -155,7 +155,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
   const canAcknowledge = isRecipient && !isCC && !hasAcknowledged;
-  const canReply = isRecipient;
+  const canReply = isRecipient && !isSender;
   const canForward = isRecipient && !isCC;
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
@@ -175,7 +175,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                         {formatTimestamp(memo.createdAt, false)}
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
-                        <div className='font-semibold'>
+                        <div className='font-semibold font-sans'>
                             {(memo.from as UserWithRole).name}
                             {(memo.from as UserWithRole).role && (
                                 <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
@@ -202,7 +202,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                     
                     {memo.cc.length > 0 && (
                         <MemoField label="CC" amharic="ግልባጭ">
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 font-sans">
                                 {memo.cc.map((user) => (
                                     <div key={user.id}>
                                         {user.name}
