@@ -26,6 +26,7 @@ import { UserNav } from '@/components/user-nav';
 import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface DashboardContentWrapperProps {
   user: (User & { role: { permissions: Permission[] } }) | null;
@@ -160,6 +161,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
                 </Button>
               </Link>
             )}
+            <ThemeToggle />
             <NotificationBell />
             {user && <UserNav user={user} />}
           </div>

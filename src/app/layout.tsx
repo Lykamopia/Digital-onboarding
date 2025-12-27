@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/sonner"
 import { NotificationProvider } from '@/components/notification-provider';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'Nib Memo',
@@ -21,10 +22,17 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <NotificationProvider>
-            {children}
-            <Toaster />
-        </NotificationProvider>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <NotificationProvider>
+                {children}
+                <Toaster />
+            </NotificationProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
