@@ -153,8 +153,16 @@ export async function getMemo(id: string) {
       previous_holders: { include: { role: true } },
       acknowledgedBy: { include: { role: true } },
       archivedBy: { include: { role: true } },
-      replies: { include: { role: true } },
-      replyTo: { include: { role: true } }
+      replies: {
+        include: {
+          from: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      },
+      replyTo: { include: { from: { include: { role: true } } } },
     },
   });
   return memo;
