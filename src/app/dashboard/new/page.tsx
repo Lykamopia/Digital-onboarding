@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -184,6 +184,32 @@ const memoTemplates = [
         </ol>
         <p><br></p>
         <p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>
+      `,
+    },
+    {
+      value: 'policy_procedure',
+      label: 'Policy / Procedure Memo',
+      icon: <BookMarked className="h-8 w-8 text-primary" />,
+      subject: 'New Policy: [Policy Name]',
+      body: `
+        <p>This memo introduces a new policy regarding [Subject of Policy].</p>
+        <p><br></p>
+        <p><strong>1. Policy Statement</strong></p>
+        <p>[State the new policy clearly and concisely.]</p>
+        <p><br></p>
+        <p><strong>2. Purpose</strong></p>
+        <p>[Explain the reason for the new policy and the goals it aims to achieve.]</p>
+        <p><br></p>
+        <p><strong>3. Scope</strong></p>
+        <p>[Define who this policy applies to (e.g., all employees, specific departments).]</p>
+        <p><br></p>
+        <p><strong>4. Procedure</strong></p>
+        <p>[Outline the step-by-step procedures required to comply with the new policy.]</p>
+        <p><br></p>
+        <p><strong>5. Effective Date</strong></p>
+        <p>This policy is effective as of [Start Date].</p>
+        <p><br></p>
+        <p>All employees are expected to read, understand, and adhere to this new policy. Please direct any questions to [Appropriate Department or Manager].</p>
       `,
     },
 ];
@@ -534,11 +560,11 @@ export default function NewMemoPage() {
                                         Use a Template
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-xl">
+                                <DialogContent className="sm:max-w-4xl">
                                     <DialogHeader>
                                         <DialogTitle>Select a Template</DialogTitle>
                                     </DialogHeader>
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 py-4">
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
                                         {memoTemplates.map(template => (
                                             <Card 
                                                 key={template.value}
@@ -725,3 +751,6 @@ export default function NewMemoPage() {
     
 
 
+
+
+    
