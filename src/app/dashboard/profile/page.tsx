@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User, Office } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe } from 'lucide-react';
+import { Camera, Briefcase, Building, Globe, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
@@ -18,8 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type UserWithFullOffice = User & { 
     office: Office & {
-        departments?: { name: string, divisions: { name: string }[] }[];
-        districts?: { name: string, branches: { name: string }[] }[];
+        departments?: { id: string, name: string, divisions: { id: string, name: string }[] }[];
+        districts?: { id: string, name: string, branches: { id: string, name: string }[] }[];
     } 
 };
 
@@ -28,6 +28,8 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -38,7 +40,7 @@ export default function ProfilePage() {
         if (initialUser) {
             setName(initialUser.name);
             setEmail(initialUser.email);
-            setAvatar(initialUser.avatar);
+            setAvatar(initialUser.avatar || '');
         }
     }
     loadUser();
@@ -46,19 +48,20 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!user) return;
+    setIsSaving(true);
     const result = await updateUserProfile(user.id, { name, email, avatar });
     if (result.success) {
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-      // Re-fetch user to update state
+      // Re-fetch user to update state, but don't reload the whole page
       const updatedUser = await getLoggedInUser();
       setUser(updatedUser as any);
       setName(updatedUser.name);
       setEmail(updatedUser.email);
-      setAvatar(updatedUser.avatar);
-      // Force a reload to update user-nav and other components that might not be reactive to this change.
+      setAvatar(updatedUser.avatar || '');
+      // Force a refresh to update user-nav, which might not be reactive to this change without a page reload.
       window.location.reload();
     } else {
         toast({
@@ -67,18 +70,51 @@ export default function ProfilePage() {
             description: 'Could not update your profile.',
         });
     }
+    setIsSaving(false);
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (readEvent) => {
-        if (readEvent.target?.result) {
-            setAvatar(readEvent.target.result as string);
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Profile picture must be less than 5MB.',
+        });
+        return;
+      }
+      
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Upload failed');
         }
-      };
-      reader.readAsDataURL(file);
+
+        const result = await response.json();
+        setAvatar(result.path); // Set the URL path from the server
+        toast({
+            title: "Avatar Updated",
+            description: "Click 'Save Changes' to apply your new avatar.",
+        });
+      } catch (error: any) {
+         toast({
+            variant: 'destructive',
+            title: 'Upload Failed',
+            description: error.message,
+        });
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
   
@@ -98,29 +134,34 @@ export default function ProfilePage() {
 
   const getUserOrgPath = () => {
     if (!user.office) return { division: null, department: null, branch: null, district: null };
-
-    if(user.office.type === 'division') {
-      for(const dept of user.office.departments || []) {
+  
+    if (user.office.type === 'division_office') {
+      for (const dept of user.office.departments || []) {
         const division = dept.divisions.find(d => d.id === user.officeId);
-        if(division) {
-          return { division: division.name, department: dept.name, branch: null, district: null }
+        if (division) {
+          return { division: division.name, department: dept.name, branch: null, district: null, office: user.office.name };
+        }
+      }
+    }
+  
+    if (user.office.type === 'branch_office') {
+      for (const dist of user.office.districts || []) {
+        const branch = dist.branches.find(b => b.id === user.officeId);
+        if (branch) {
+          return { division: null, department: null, branch: branch.name, district: dist.name, office: user.office.name };
         }
       }
     }
 
-    if(user.office.type === 'branch') {
-      for(const dist of user.office.districts || []) {
-        const branch = dist.branches.find(b => b.id === user.officeId);
-        if(branch) {
-          return { division: null, department: null, branch: branch.name, district: dist.name }
-        }
-      }
+    // Fallback for Head Office itself
+    if(user.office.type === 'head_office') {
+        return { division: null, department: null, branch: null, district: null, office: user.office.name };
     }
     
-    return { division: null, department: null, branch: null, district: null };
-  }
+    return { division: null, department: null, branch: null, district: null, office: user.office.name };
+  };
 
-  const { division, department, branch, district } = getUserOrgPath();
+  const { division, department, branch, district, office } = getUserOrgPath();
 
 
   return (
@@ -152,9 +193,9 @@ export default function ProfilePage() {
                                     </Avatar>
                                     <div 
                                         className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={() => fileInputRef.current?.click()}
+                                        onClick={() => !isUploading && fileInputRef.current?.click()}
                                     >
-                                        <Camera className="h-8 w-8 text-white" />
+                                        {isUploading ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
                                     </div>
                                     <Input
                                         type="file"
@@ -162,6 +203,7 @@ export default function ProfilePage() {
                                         onChange={handleAvatarChange}
                                         className="hidden"
                                         accept="image/*"
+                                        disabled={isUploading}
                                     />
                                 </div>
                                 <h2 className="text-2xl font-bold text-center">{user.name}</h2>
@@ -185,7 +227,8 @@ export default function ProfilePage() {
                                     </div>
                                     
                                     <div className="flex justify-end">
-                                        <Button type="button" onClick={handleSave} disabled={!isChanged}>
+                                        <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploading}>
+                                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                             Save Changes
                                         </Button>
                                     </div>
@@ -196,30 +239,12 @@ export default function ProfilePage() {
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4">Organizational Info</h3>
                                     <ul className="space-y-4 text-sm">
-                                        {division && (
+                                        {office && (
                                             <li className="flex items-center gap-3">
-                                                <Globe className="h-5 w-5 text-muted-foreground" />
+                                                <Briefcase className="h-5 w-5 text-muted-foreground" />
                                                 <div>
-                                                    <p className="text-muted-foreground">Division</p>
-                                                    <p className="font-medium">{division}</p>
-                                                </div>
-                                            </li>
-                                        )}
-                                        {department && (
-                                            <li className="flex items-center gap-3">
-                                                <Building className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">Department</p>
-                                                    <p className="font-medium">{department}</p>
-                                                </div>
-                                            </li>
-                                        )}
-                                        {branch && (
-                                            <li className="flex items-center gap-3">
-                                                <Globe className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">Branch</p>
-                                                    <p className="font-medium">{branch}</p>
+                                                    <p className="text-muted-foreground">Office</p>
+                                                    <p className="font-medium">{office}</p>
                                                 </div>
                                             </li>
                                         )}
@@ -232,13 +257,33 @@ export default function ProfilePage() {
                                                 </div>
                                             </li>
                                         )}
-                                        <li className="flex items-center gap-3">
-                                            <Briefcase className="h-5 w-5 text-muted-foreground" />
-                                            <div>
-                                                <p className="text-muted-foreground">Office</p>
-                                                <p className="font-medium">{user.office.name}</p>
-                                            </div>
-                                        </li>
+                                        {branch && (
+                                            <li className="flex items-center gap-3">
+                                                <Globe className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Branch</p>
+                                                    <p className="font-medium">{branch}</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {department && (
+                                            <li className="flex items-center gap-3">
+                                                <Building className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Department</p>
+                                                    <p className="font-medium">{department}</p>
+                                                </div>
+                                            </li>
+                                        )}
+                                        {division && (
+                                            <li className="flex items-center gap-3">
+                                                <Globe className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-muted-foreground">Division</p>
+                                                    <p className="font-medium">{division}</p>
+                                                </div>
+                                            </li>
+                                        )}
                                     </ul>
                                 </div>
                             </div>
