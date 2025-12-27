@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -127,6 +127,33 @@ const memoTemplates = [
         <p>Compliance with this directive is mandatory. Failure to adhere may result in [consequences, if applicable]. Please direct any questions to [Appropriate Person/Department].</p>
         <p><br></p>
         <p>Thank you for your cooperation.</p>
+      `,
+    },
+    {
+      value: 'incident_report',
+      label: 'Problem / Incident Report Memo',
+      icon: <AlertTriangle className="h-8 w-8 text-primary" />,
+      subject: 'Incident Report: [Briefly Describe Incident]',
+      body: `
+        <p>This memo is to formally report an incident that occurred on [Date] at approximately [Time].</p>
+        <p><br></p>
+        <p><strong>Incident Summary:</strong></p>
+        <p>[Provide a brief, high-level summary of the incident.]</p>
+        <p><br></p>
+        <p><strong>Timeline of Events:</strong></p>
+        <ul>
+          <li><strong>[Time]:</strong> [Event 1].</li>
+          <li><strong>[Time]:</strong> [Event 2].</li>
+          <li><strong>[Time]:</strong> [Event 3].</li>
+        </ul>
+        <p><br></p>
+        <p><strong>Impact Assessment:</strong></p>
+        <p>[Describe the impact of the incident on operations, security, personnel, etc.]</p>
+        <p><br></p>
+        <p><strong>Immediate Actions Taken:</strong></p>
+        <p>[Detail any immediate steps that were taken to mitigate the incident.]</p>
+        <p><br></p>
+        <p>An investigation is underway to determine the root cause. Further updates will be provided as they become available.</p>
       `,
     },
 ];
@@ -477,11 +504,11 @@ export default function NewMemoPage() {
                                         Use a Template
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
+                                <DialogContent className="sm:max-w-xl">
                                     <DialogHeader>
                                         <DialogTitle>Select a Template</DialogTitle>
                                     </DialogHeader>
-                                    <div className="grid grid-cols-2 gap-4 py-4">
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 py-4">
                                         {memoTemplates.map(template => (
                                             <Card 
                                                 key={template.value}
