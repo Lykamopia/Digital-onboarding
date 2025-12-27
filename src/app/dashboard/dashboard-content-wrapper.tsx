@@ -133,7 +133,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>
               <SheetTrigger asChild>
-                <Button size="icon" variant="outline" className="sm:hidden">
+                <Button size="icon" variant="outline" className="md:hidden">
                   <PanelLeft className="h-5 w-5" />
                   <span className="sr-only">Toggle Menu</span>
                 </Button>

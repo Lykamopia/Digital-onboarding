@@ -160,7 +160,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
   const MemoContent = () => (
     <div className={`font-serif text-sm printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
-        <div className="printable-memo p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
+        <div className="printable-memo p-4 md:p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
             <CardHeader className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
                     <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" />
@@ -229,7 +229,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
                 { !isPreview && (
                     <>
                         <Separator className="my-6 no-print" />
-                        <div className="flex items-center gap-2 font-sans no-print">
+                        <div className="flex items-center gap-2 font-sans no-print flex-wrap">
                         {canAcknowledge && 
                             <Button variant="outline" onClick={handleAcknowledge}>
                                 <CheckCircle className="mr-2 h-4 w-4" />

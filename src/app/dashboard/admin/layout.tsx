@@ -79,19 +79,21 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-9">
-                {accessibleNavItems.map((item) => (
-                <TabsTrigger 
-                    key={item.value} 
-                    value={item.value}
-                    className={cn(
-                        "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
-                    )}
-                >
-                    {item.label}
-                </TabsTrigger>
-                ))}
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+                <TabsList className="grid-cols-auto grid h-auto w-max sm:w-full sm:grid-cols-4 md:grid-cols-9">
+                    {accessibleNavItems.map((item) => (
+                    <TabsTrigger 
+                        key={item.value} 
+                        value={item.value}
+                        className={cn(
+                            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
+                        )}
+                    >
+                        {item.label}
+                    </TabsTrigger>
+                    ))}
+                </TabsList>
+            </div>
             <div className="mt-4">
                 <AnimatePresence mode="wait">
                     <AnimatedContent key={activeTab}>
