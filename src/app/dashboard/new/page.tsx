@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -106,7 +106,29 @@ const memoTemplates = [
         <p><br></p>
         <p>Regards,</p>
       `,
-    }
+    },
+    {
+      value: 'directive',
+      label: 'Directive / Instruction Memo',
+      icon: <ClipboardList className="h-8 w-8 text-primary" />,
+      subject: 'Directive: [Your Title Here]',
+      body: `
+        <p>This memo serves as a directive regarding [Subject of the directive].</p>
+        <p><br></p>
+        <p>Effective immediately, all personnel are instructed to adhere to the following procedures:</p>
+        <ol>
+          <li><strong>Instruction 1:</strong> [Clearly state the first instruction or step].</li>
+          <li><strong>Instruction 2:</strong> [Clearly state the second instruction or step].</li>
+          <li><strong>Instruction 3:</strong> [Continue as needed].</li>
+        </ol>
+        <p><br></p>
+        <p><strong>Reasoning:</strong> [Briefly explain the reason for this directive, e.g., compliance, efficiency, security].</p>
+        <p><br></p>
+        <p>Compliance with this directive is mandatory. Failure to adhere may result in [consequences, if applicable]. Please direct any questions to [Appropriate Person/Department].</p>
+        <p><br></p>
+        <p>Thank you for your cooperation.</p>
+      `,
+    },
 ];
 
 export default function NewMemoPage() {
@@ -644,3 +666,4 @@ export default function NewMemoPage() {
     
 
     
+
