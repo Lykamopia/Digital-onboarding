@@ -280,27 +280,29 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         )}
                         onClick={() => onSelectMemo(memo.id)}
                     >
-                        <div className="flex w-full flex-col gap-0.5">
-                            <div className="flex items-center">
-                                <div className="flex items-center gap-2 truncate">
-                                    <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                    {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
-                                </div>
-                                <div
-                                className={cn(
-                                    "ml-auto text-xs shrink-0 transition-opacity duration-300",
-                                    "group-hover:opacity-0",
-                                    selectedMemoId === memo.id
-                                    ? "text-foreground"
-                                    : "text-muted-foreground"
-                                )}
-                                >
-                                {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
-                                </div>
+                        <div className="flex w-full items-start justify-between">
+                            <div className="flex items-center gap-2 truncate">
+                                <div className="font-semibold truncate">{getDisplayName(memo)}</div>
+                                {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
                             </div>
-                            <div className="text-sm font-medium truncate pr-24">{memo.subject || "No Subject"}</div>
+                            <div
+                            className={cn(
+                                "ml-auto text-xs shrink-0 pl-2 transition-opacity duration-300",
+                                "group-hover:opacity-0",
+                                selectedMemoId === memo.id
+                                ? "text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                            >
+                            {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                            </div>
                         </div>
-                        <div className="line-clamp-1 text-xs text-muted-foreground break-words pr-24" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+
+                        <div className="w-full pr-24 overflow-hidden">
+                            <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
+                            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                        </div>
+                        
                         <MemoActions memo={memo} />
                     </div>
                 </ContextMenuTrigger>
