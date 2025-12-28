@@ -17,6 +17,7 @@ import { redirect } from 'next/navigation';
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
   cc: z.array(z.string()).optional(),
+  labels: z.array(z.string()).optional(),
   subject: z.string().min(1, 'Subject is required.'),
   body: z.string().min(1, 'Body is required.'),
   attachments: z.array(z.any()).optional(),
@@ -327,12 +328,14 @@ export async function sendMemo(formData: FormData) {
 
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
+    const labels = formData.getAll('labels[]') as string[];
     const scheduledForRaw = formData.get('scheduledFor') as string | null;
     const scheduledFor = scheduledForRaw ? new Date(scheduledForRaw) : undefined;
 
     const data = {
         to,
         cc,
+        labels,
         subject: formData.get('subject') as string,
         body: formData.get('body') as string,
         attachments: JSON.parse(formData.get('attachments') as string || '[]'),
@@ -356,6 +359,7 @@ export async function sendMemo(formData: FormData) {
         fromId: user.id,
         to: { connect: validatedData.to.map(id => ({ id })) },
         cc: { connect: validatedData.cc?.map(id => ({ id })) },
+        labels: { connect: validatedData.labels?.map(id => ({ id })) },
         current_holderId: validatedData.to[0],
         subject: validatedData.subject,
         body: validatedData.body,
@@ -1099,4 +1103,3 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard/inbox');
     return { success: true };
 }
-

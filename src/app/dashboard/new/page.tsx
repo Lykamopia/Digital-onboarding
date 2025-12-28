@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Attachment, MemoWithActivity } from '@/lib/types';
+import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
@@ -37,8 +37,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { MemoDisplay } from '@/components/memo-display';
-import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft } from '@/app/actions/memo';
+import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
+import { RecipientSelector as LabelSelector } from '@/components/recipient-selector';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -108,10 +109,12 @@ export default function NewMemoPage() {
 
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [allLabels, setAllLabels] = useState<LabelType[]>([]);
   const [previewMemo, setPreviewMemo] = useState<MemoWithActivity | null>(null);
   
   const [to, setTo] = useState<User[]>([]);
   const [cc, setCc] = useState<User[]>([]);
+  const [labels, setLabels] = useState<LabelType[]>([]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [replyBody, setReplyBody] = useState('');
@@ -125,9 +128,10 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     async function fetchData() {
-        const [user, allUsers] = await Promise.all([getLoggedInUser(), getUsers()]);
+        const [user, allUsers, allLabels] = await Promise.all([getLoggedInUser(), getUsers(), getLabels()]);
         setLoggedInUser(user);
         setUsers(allUsers);
+        setAllLabels(allLabels);
     }
     fetchData();
   }, []);
@@ -173,9 +177,10 @@ export default function NewMemoPage() {
         status: 'draft',
         activity: [],
         replyToId: replyTo,
+        labels,
       };
       setPreviewMemo(newPreview);
-  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo]);
+  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo, labels]);
   
   useEffect(() => {
     updatePreview();
@@ -192,10 +197,11 @@ export default function NewMemoPage() {
     const draftData = {
         to: to,
         cc: cc,
+        labels,
         subject: subject,
         body: draftBody,
         attachments: attachments,
-        replyTo: replyTo
+        replyToId: replyTo
     };
     
     setIsSaving(true);
@@ -211,16 +217,16 @@ export default function NewMemoPage() {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString());
     }, 500);
-  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, draftId, replyTo, router]);
+  }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, router]);
 
   const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
 
   useEffect(() => {
-    const hasContent = subject || body || replyBody || to.length || cc.length || attachments.length;
+    const hasContent = subject || body || replyBody || to.length || cc.length || attachments.length || labels.length;
     if (hasContent) {
         debouncedSave();
     }
-  }, [subject, body, replyBody, to, cc, attachments, debouncedSave]);
+  }, [subject, body, replyBody, to, cc, attachments, labels, debouncedSave]);
 
 
   useEffect(() => {
@@ -237,6 +243,7 @@ export default function NewMemoPage() {
           }
           setTo(draft.to);
           setCc(draft.cc);
+          setLabels(draft.labels);
           setSubject(draft.subject);
           setBody(draft.replyToId ? body : draft.body);
           setReplyBody(draft.replyToId ? replyBody : '');
@@ -304,6 +311,7 @@ export default function NewMemoPage() {
     const formData = new FormData();
     to.forEach(user => formData.append('to[]', user.id));
     cc.forEach(user => formData.append('cc[]', user.id));
+    labels.forEach(label => formData.append('labels[]', label.id));
     formData.append('subject', subject);
     
     let finalBody = replyTo ? `${replyBody}<hr>${body}` : body;
@@ -417,6 +425,12 @@ export default function NewMemoPage() {
       return <div className="flex justify-center items-center h-full"><p>Loading user data...</p></div>;
   }
 
+  const labelOptions = allLabels.map(label => ({
+    ...label,
+    value: label.id,
+    label: label.name,
+  }));
+
   return (
     <div className="w-full">
         <Card>
@@ -496,6 +510,17 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>Subject - ጉዳዩ</label>
                         <Input placeholder="Enter memo subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                    </div>
+
+                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                        <label className='text-right pr-4 font-semibold text-sm'>Labels - መለያዎች</label>
+                        <LabelSelector
+                            // @ts-ignore
+                            allUsers={labelOptions}
+                            selected={labels}
+                            setSelected={setLabels}
+                            placeholder="Select labels..."
+                        />
                     </div>
                     
                     
