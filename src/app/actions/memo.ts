@@ -454,7 +454,7 @@ export async function sendMemo(formData: FormData) {
     return { success: true, memo: newMemo };
 }
 
-export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[], labels: Label[] }, draftId?: string | null) {
+export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -473,9 +473,10 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[], 
             include: { to: true, cc: true, labels: true },
         });
 
-        const toIds = data.to.map(u => u.id);
-        const ccIds = data.cc.map(u => u.id);
-        const labelIds = data.labels.map(l => l.id);
+        const toIds = (data.to || []).map(u => u.id);
+        const ccIds = (data.cc || []).map(u => u.id);
+        const labelIds = (data.labels || []).map(l => l.id);
+
 
         const toToDisconnect = existingDraft?.to.filter(u => !toIds.includes(u.id)) || [];
         const ccToDisconnect = existingDraft?.cc.filter(u => !ccIds.includes(u.id)) || [];
@@ -515,9 +516,9 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[], 
             fromId: user.id,
             subject: data.subject || '',
             body: data.body || '',
-            to: { connect: data.to.map(u => ({ id: u.id })) },
-            cc: { connect: data.cc.map(u => ({ id: u.id })) },
-            labels: { connect: data.labels.map(l => ({ id: l.id })) },
+            to: { connect: (data.to || []).map(u => ({ id: u.id })) },
+            cc: { connect: (data.cc || []).map(u => ({ id: u.id })) },
+            labels: { connect: (data.labels || []).map(l => ({ id: l.id })) },
             attachments: attachmentsData,
             status: 'draft' as const,
             memo_reference_number: `DRAFT-${Date.now()}`,
