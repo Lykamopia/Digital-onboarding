@@ -6,6 +6,7 @@ import { useNotification } from '@/components/notification-provider';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { Mail, BellOff } from 'lucide-react';
+import { markAsRead as markMemoAsReadAction } from '@/app/actions/memo';
 
 export function NotificationList() {
     const { notifications, markAsRead, settings } = useNotification();
@@ -16,7 +17,9 @@ export function NotificationList() {
         
         if (notification.memoId) {
             router.push(`/dashboard/inbox?id=${notification.memoId}`);
-            // Dispatch event to notify memo list
+            // This persistently updates the memo's status on the backend
+            markMemoAsReadAction(notification.memoId);
+            // This dispatches a client-side event for optimistic UI updates in the memo list
             window.dispatchEvent(new CustomEvent('mark-memo-as-read', {
                 detail: { memoId: notification.memoId }
             }));

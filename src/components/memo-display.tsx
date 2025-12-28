@@ -35,6 +35,7 @@ import { acknowledgeMemo, archiveMemo, getLoggedInUser } from '@/app/actions/mem
 import { StatusBadge } from './status-badge';
 import { ForwardDialog } from './forward-dialog';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
+import { InboxEmptyIllustration } from './inbox-empty-illustration';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -69,7 +70,7 @@ const formatFileSize = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayProps) {
+export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
@@ -118,15 +119,16 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
   }
 
   if (!memo) {
-    return (
-      <div className="h-full">
-        <EmptyState
-          icon={<MemoEmptyIllustration />}
-          title="Select a memo to read"
-          description="Your selected memo's content will appear here."
-        />
-      </div>
-    );
+      const isListEmpty = memoCount === 0;
+      return (
+        <div className="h-full">
+          <EmptyState
+            icon={isListEmpty ? <InboxEmptyIllustration /> : <MemoEmptyIllustration />}
+            title={isListEmpty ? "No Memos to Display" : "Select a memo to read"}
+            description={isListEmpty ? "This folder is currently empty." : "Your selected memo's content will appear here."}
+          />
+        </div>
+      );
   }
 
   if (memo.status === 'draft' && !isPreview) {
@@ -351,6 +353,7 @@ export function MemoDisplay({ memo, onUpdate, isPreview = false }: MemoDisplayPr
 
 interface MemoDisplayProps {
   memo: MemoWithActivity | null;
+  memoCount: number;
   onUpdate: () => void;
   isPreview?: boolean;
 }

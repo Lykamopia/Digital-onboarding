@@ -296,13 +296,13 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   );
 
   if (!user && loading) {
-     return <div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><HoneycombLoader /></div>;
+     return <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>;
   }
 
   return (
     <div 
         className={cn(
-            "grid gap-4 h-[calc(100vh-8rem)] transition-all",
+            "grid gap-4 h-full transition-all",
             isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
         )}
     >
@@ -346,12 +346,13 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         ) : (
             <MemoDisplay 
                 memo={selectedMemo} 
+                memoCount={memos.length}
                 onUpdate={() => loadMemos(true)}
             />
         )}
       </div>
       <div className="hidden print:block col-span-2">
-         <MemoDisplay memo={selectedMemo} onUpdate={() => loadMemos(true)} />
+         <MemoDisplay memo={selectedMemo} memoCount={memos.length} onUpdate={() => loadMemos(true)} />
       </div>
     </div>
   )
@@ -359,10 +360,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
 export default function MainDashboard({ tab, initialMemos, user }: { tab: string, initialMemos: MemoWithActivity[], user: User | null }) {
     return (
-        <Suspense fallback={<div className="h-[calc(100vh-8rem)] w-full flex items-center justify-center"><HoneycombLoader /></div>}>
+        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>}>
             <DashboardContent tab={tab} initialMemos={initialMemos} user={user} />
         </Suspense>
     )
 }
-
-    
