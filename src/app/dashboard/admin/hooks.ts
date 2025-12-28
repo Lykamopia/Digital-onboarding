@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getDepartments, getDivisions, getOffices, getRoles, getUsers, getBranches, getDistricts } from '@/app/actions/memo';
-import type { Department, Division, Office, Role, User, Branch, District } from '@/lib/types';
+import { getDepartments, getDivisions, getOffices, getRoles, getUsers, getBranches, getDistricts, getLabels } from '@/app/actions/memo';
+import type { Department, Division, Office, Role, User, Branch, District, Label } from '@/lib/types';
 
 type UseDataHook<T> = {
   data: T[];
@@ -44,3 +44,4 @@ export const useDistricts = createDataHook(getDistricts as () => Promise<Distric
 export const useOffices = createDataHook(getOffices as () => Promise<Office[]>);
 export const useRoles = createDataHook(getRoles as () => Promise<Role[]>);
 export const useUsers = createDataHook(getUsers as () => Promise<User[]>);
+export const useLabels = createDataHook(getLabels as () => Promise<Label[]>);

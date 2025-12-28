@@ -54,10 +54,19 @@ const roles = [
       'manage_offices',
       'manage_users',
       'manage_roles',
-      'manage_archive'
+      'manage_archive',
+      'manage_scheduled',
+      'manage_labels'
     ].join(','),
   },
   { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'].join(',') },
+];
+
+const labels = [
+    { id: 'label-1', name: 'Urgent', color: '#ef4444', type: 'SYSTEM' },
+    { id: 'label-2', name: 'Confidential', color: '#8b5cf6', type: 'SYSTEM' },
+    { id: 'label-3', name: 'Action Required', color: '#f97316', type: 'SYSTEM' },
+    { id: 'label-4', name: 'For Review', color: '#3b82f6', type: 'SYSTEM' },
 ];
 
 const users = [
@@ -124,6 +133,7 @@ async function main() {
   await prisma.attachment.deleteMany();
   await prisma.memo.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.label.deleteMany();
   await prisma.role.deleteMany();
   await prisma.branch.deleteMany();
   await prisma.division.deleteMany();
@@ -155,6 +165,10 @@ async function main() {
 
   await prisma.role.createMany({ data: roles });
   console.log(`Seeded ${roles.length} roles.`);
+
+  await prisma.label.createMany({ data: labels });
+  console.log(`Seeded ${labels.length} labels.`);
+
 
   // Seed Admin User
   const adminPassword = 'Admin@123';
@@ -225,6 +239,9 @@ async function main() {
           },
         ],
       },
+      labels: {
+          connect: [{ id: 'label-1' }, { id: 'label-4' }]
+      }
     },
   });
 
@@ -237,7 +254,6 @@ async function main() {
       createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       status: 'sent',
       fromId: 'user-4',
-      // use a different current holder to avoid unique constraint conflicts
       current_holderId: 'user-4',
       to: { connect: [{ id: 'user-1' }] },
       acknowledgedBy: { connect: [{ id: 'user-1' }] },
@@ -275,6 +291,9 @@ async function main() {
           },
         ],
       },
+      labels: {
+        connect: [{ id: 'label-2' }, { id: 'label-3' }]
+      }
     },
   });
 

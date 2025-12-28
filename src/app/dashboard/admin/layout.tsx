@@ -20,6 +20,7 @@ const navItemsConfig = [
   { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices' },
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
   { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles' },
+  { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels' },
   { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
   { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_archive' }, // Assuming same permission as archive
 ];
@@ -80,7 +81,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="overflow-x-auto pb-2">
-                <TabsList className="grid-cols-auto grid h-auto w-max sm:w-full sm:grid-cols-4 md:grid-cols-9">
+                <TabsList className="grid-cols-auto grid h-auto w-max sm:w-full sm:grid-cols-5 md:grid-cols-10">
                     {accessibleNavItems.map((item) => (
                     <TabsTrigger 
                         key={item.value} 

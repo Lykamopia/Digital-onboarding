@@ -10,12 +10,14 @@ import type {
     Activity as PrismaActivity,
     Branch as PrismaBranch,
     District as PrismaDistrict,
+    Label as PrismaLabel,
 } from '@prisma/client';
 
-export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts';
+export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_scheduled' | 'manage_labels';
 
 export type Role = PrismaRole;
 export type Office = PrismaOffice;
+export type Label = PrismaLabel;
 
 export type Department = PrismaDepartment & {
     office: PrismaOffice;
@@ -54,6 +56,7 @@ export type Memo = PrismaMemo & {
     acknowledgedBy?: User[];
     archivedBy?: User[];
     favoritedBy?: { id: string }[];
+    labels: Label[];
 };
 
 export type Activity = PrismaActivity & {
