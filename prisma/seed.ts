@@ -186,7 +186,7 @@ async function main() {
       subject: 'Q3 Financial Report Review',
       body: '<p>Please review the attached Q3 financial report and provide your feedback by EOD Friday.</p><p>We need to finalize this for the board meeting next week.</p>',
       createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      status: 'read',
+      status: 'sent',
       fromId: 'user-2',
       current_holderId: 'user-1',
       to: { connect: [{ id: 'user-1' }, { id: 'user-3' }] },
@@ -235,7 +235,7 @@ async function main() {
       subject: 'New Security Protocol Implementation',
       body: '<p>Team,</p><p>We will be rolling out a new security protocol starting next Monday. Please ensure all your team members complete the mandatory training module by then. See attached document for details.</p><p>Thank you.</p>',
       createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'acknowledged',
+      status: 'sent',
       fromId: 'user-4',
       // use a different current holder to avoid unique constraint conflicts
       current_holderId: 'user-4',
