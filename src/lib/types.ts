@@ -53,6 +53,7 @@ export type Memo = PrismaMemo & {
     previous_holders?: User[];
     acknowledgedBy?: User[];
     archivedBy?: User[];
+    favoritedBy?: { id: string }[];
 };
 
 export type Activity = PrismaActivity & {

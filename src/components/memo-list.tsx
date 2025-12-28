@@ -9,10 +9,10 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
@@ -87,6 +87,34 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         toast({ title: "Marked as Read" });
         await toggleMemoReadStatus(memo.id);
     }
+    
+    const handleToggleFavorite = async (memoId: string) => {
+        // Optimistic update
+        setMemos(prevMemos => {
+            const newMemos = prevMemos.map(m => {
+                if (m.id === memoId) {
+                    const isFavorited = m.favoritedBy && m.favoritedBy.length > 0;
+                    return {
+                        ...m,
+                        favoritedBy: isFavorited ? [] : [{ id: loggedInUser.id }]
+                    };
+                }
+                return m;
+            });
+            // Re-sort based on new favorite status
+            return newMemos.sort((a, b) => {
+                const aIsFav = (a.favoritedBy?.length ?? 0) > 0;
+                const bIsFav = (b.favoritedBy?.length ?? 0) > 0;
+                if (aIsFav !== bIsFav) return aIsFav ? -1 : 1;
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+        });
+
+        const result = await toggleFavorite(memoId);
+        toast({ title: result.isFavorited ? "Memo favorited" : "Memo unfavorited" });
+        // Optional: uncomment to re-fetch from server to ensure consistency
+        // onUpdate();
+    };
 
     const getDisplayName = (memo: MemoWithActivity) => {
         if (tab === 'sent' || tab === 'drafts') {
@@ -209,6 +237,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
         const canReply = isRecipient && !isSender;
         const canForward = isRecipient && !isCC;
+        const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
         
         if (tab === 'drafts') {
             return (
@@ -223,6 +252,11 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
         return (
             <ContextMenuContent>
+                <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
+                    <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                    <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
+                </ContextMenuItem>
+                <ContextMenuSeparator />
                 {memoStatus === 'unread' && (
                     <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
                         <MailOpen className="mr-2 h-4 w-4" />
@@ -269,46 +303,54 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
     return (
         <div className="flex flex-col gap-0.5 p-1">
-            {memos.map((memo) => (
-            <ContextMenu key={memo.id}>
-                <ContextMenuTrigger>
-                    <div
-                        className={cn(
-                        "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
-                        "hover:bg-primary/5",
-                        selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : ""
-                        )}
-                        onClick={() => onSelectMemo(memo.id)}
-                    >
-                        <div className="flex w-full items-start justify-between">
-                            <div className="flex items-center gap-2 truncate">
-                                <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
-                            </div>
-                            <div
+            {memos.map((memo) => {
+                const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
+                return (
+                <ContextMenu key={memo.id}>
+                    <ContextMenuTrigger>
+                        <div
                             className={cn(
-                                "ml-auto text-xs shrink-0 pl-2 transition-opacity duration-300",
-                                "group-hover:opacity-0",
-                                selectedMemoId === memo.id
-                                ? "text-foreground"
-                                : "text-muted-foreground"
+                            "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
+                            "hover:bg-primary/5",
+                            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : ""
                             )}
-                            >
-                            {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                            onClick={() => onSelectMemo(memo.id)}
+                        >
+                            <div className="flex w-full items-start justify-between">
+                                <div className="flex items-center gap-2 truncate">
+                                    <div className="font-semibold truncate">{getDisplayName(memo)}</div>
+                                    {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
+                                </div>
+                                <div
+                                className={cn(
+                                    "ml-auto text-xs shrink-0 pl-2 transition-opacity duration-300",
+                                    "group-hover:opacity-0",
+                                    selectedMemoId === memo.id
+                                    ? "text-foreground"
+                                    : "text-muted-foreground"
+                                )}
+                                >
+                                {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="w-full pr-24 overflow-hidden">
-                            <div className="text-sm font-medium truncate">{memo.subject || "No Subject"}</div>
-                            <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                            <div className="w-full pr-24 overflow-hidden">
+                                <div className="text-sm font-medium truncate flex items-center gap-2">
+                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className="z-10 shrink-0">
+                                        <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                                    </button>
+                                    <span className="truncate">{memo.subject || "No Subject"}</span>
+                                </div>
+                                <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                            </div>
+                            
+                            <MemoActions memo={memo} />
                         </div>
-                        
-                        <MemoActions memo={memo} />
-                    </div>
-                </ContextMenuTrigger>
-                <MemoContextMenu memo={memo} />
-            </ContextMenu>
-            ))}
+                    </ContextMenuTrigger>
+                    <MemoContextMenu memo={memo} />
+                </ContextMenu>
+                )
+            })}
         </div>
     )
 }

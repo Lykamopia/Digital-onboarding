@@ -130,17 +130,50 @@ export async function getDashboardData(tab: string, query: string, status: strin
             previous_holders: { include: { role: true } },
             acknowledgedBy: { include: { role: true } },
             archivedBy: { include: { role: true } },
+            favoritedBy: { where: { id: user.id }, select: { id: true } }, // check if favorited by current user
         },
-        orderBy: {
-            createdAt: 'desc'
-        }
+        orderBy: [
+            { favoritedBy: { _count: 'desc' } }, // favorited memos first
+            { createdAt: 'desc' }
+        ]
     });
     return memos;
+}
+
+export async function toggleFavorite(memoId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const memo = await prisma.memo.findUnique({
+        where: { id: memoId },
+        include: { favoritedBy: { where: { id: user.id } } }
+    });
+
+    if (!memo) throw new Error("Memo not found");
+
+    const isFavorited = memo.favoritedBy.length > 0;
+
+    await prisma.memo.update({
+        where: { id: memoId },
+        data: {
+            favoritedBy: isFavorited
+                ? { disconnect: { id: user.id } }
+                : { connect: { id: user.id } }
+        }
+    });
+
+    revalidatePath('/dashboard/inbox');
+    revalidatePath('/dashboard/sent');
+    revalidatePath('/dashboard/drafts');
+    revalidatePath('/dashboard/archive');
+    return { success: true, isFavorited: !isFavorited };
 }
 
 
 export async function getMemo(id: string) {
   if (!id) return null;
+  const user = await getLoggedInUser();
+
   const memo = await prisma.memo.findUnique({
     where: { id },
     include: {
@@ -163,6 +196,7 @@ export async function getMemo(id: string) {
         },
       },
       replyTo: { include: { from: { include: { role: true } } } },
+      favoritedBy: { where: { id: user?.id }, select: { id: true } },
     },
   });
   return memo;
@@ -343,6 +377,7 @@ export async function sendMemo(formData: FormData) {
             previous_holders: { include: { role: true } },
             acknowledgedBy: { include: { role: true } },
             archivedBy: { include: { role: true } },
+            favoritedBy: { where: { id: user.id }, select: { id: true } },
         }
     });
 
@@ -957,3 +992,4 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard/inbox');
     return { success: true };
 }
+
