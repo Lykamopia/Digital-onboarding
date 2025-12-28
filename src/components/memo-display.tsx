@@ -12,11 +12,12 @@ import {
   Printer,
   Expand,
   Undo2,
+  Copy,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { MemoWithActivity, User, Attachment, Role } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment, Role, Label as LabelType } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { ForwardDialog } from './forward-dialog';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
@@ -46,6 +47,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   created: <Edit className="h-4 w-4" />,
   archived: <Archive className="h-4 w-4" />,
   unarchived: <Undo2 className="h-4 w-4" />,
+  scheduled: <CheckCircle className="h-4 w-4 text-yellow-500" />,
 };
 
 type UserWithRole = User & { role: Role | null };
@@ -91,6 +93,16 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
         description: "You have acknowledged receipt of this memo."
     });
     onUpdate();
+  }
+  
+  const handleDuplicate = async () => {
+    if (!memo) return;
+    await duplicateMemo(memo.id);
+    // The action will redirect, but we can show a toast for feedback
+    toast({
+        title: "Memo Duplicated",
+        description: "A new draft has been created from this memo."
+    });
   }
 
   const handleArchive = async () => {
@@ -157,8 +169,9 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
   const canAcknowledge = isRecipient && !isCC && !hasAcknowledged;
-  const canReply = isRecipient && !isSender;
-  const canForward = isRecipient && !isCC;
+  const canReply = (isRecipient || isCC) && !isSender;
+  const canForward = (isRecipient || isCC);
+  const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
@@ -217,7 +230,14 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                         </MemoField>
                     )}
                     <MemoField label="Subject" amharic="ጉዳዩ">
-                        <span className="font-medium">{memo.subject}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{memo.subject}</span>
+                            {memo.labels.map((label: LabelType) => (
+                                <span key={label.id} style={{ backgroundColor: label.color }} className="px-2 py-0.5 rounded-full text-xs font-medium text-white">
+                                    {label.name}
+                                </span>
+                            ))}
+                        </div>
                     </MemoField>
                     <MemoField label="Enc" amharic="አባሪ" className='border-b-0'>
                          {memo.attachments.length > 0 ? (
@@ -267,6 +287,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                 </Button>
                             </ForwardDialog>
                         )}
+                         {canDuplicate && (
+                            <Button variant="outline" onClick={handleDuplicate}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                            </Button>
+                        )}
                         <div className="flex-grow" />
                         <Button variant="ghost" size="icon" onClick={handlePrint}>
                             <Printer className="h-4 w-4" />
@@ -290,7 +316,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                             <li key={act.id} className="flex items-start gap-3">
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={(act.actor as User).avatar} alt={(act.actor as User).name} />
+                                    <AvatarImage src={(act.actor as User).avatar || undefined} alt={(act.actor as User).name} />
                                     <AvatarFallback>{(act.actor as User).name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 </span>

@@ -9,10 +9,10 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
@@ -35,6 +35,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
     const getMemoStatus = (memo: MemoWithActivity) => {
         if (memo.status === 'draft') return 'draft';
+        if (memo.status === 'scheduled') return 'scheduled';
         const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser!.id;
         if (!isRecipient) return memo.status;
 
@@ -66,6 +67,11 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
     const handleReply = (memoId: string) => {
         router.push(`/dashboard/new?replyTo=${memoId}`);
+    }
+
+    const handleDuplicate = async (memoId: string) => {
+        await duplicateMemo(memoId);
+        toast({ title: "Memo Duplicated", description: "A new draft has been created." });
     }
 
     const handleAcknowledge = async (memoId: string) => {
@@ -117,7 +123,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     };
 
     const getDisplayName = (memo: MemoWithActivity) => {
-        if (tab === 'sent' || tab === 'drafts') {
+        if (tab === 'sent' || tab === 'drafts' || tab === 'scheduled') {
             if (memo.to.length > 0) {
                 const mainRecipient = memo.to[0].name;
                 const otherRecipientsCount = memo.to.length - 1 + memo.cc.length;
@@ -139,8 +145,9 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const isSender = loggedInUser && memo.fromId === loggedInUser.id;
 
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient && !isSender;
-        const canForward = isRecipient && !isCC;
+        const canReply = (isRecipient || isCC) && !isSender;
+        const canForward = isRecipient || isCC;
+        const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
 
         // Conditional rendering logic
         if (tab === 'drafts') {
@@ -235,8 +242,9 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const isSender = loggedInUser && memo.fromId === loggedInUser.id;
         
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = isRecipient && !isSender;
-        const canForward = isRecipient && !isCC;
+        const canReply = (isRecipient || isCC) && !isSender;
+        const canForward = isRecipient || isCC;
+        const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
         const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
         
         if (tab === 'drafts') {
@@ -256,6 +264,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
                     <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
                 </ContextMenuItem>
+                {canDuplicate && (
+                    <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        <span>Duplicate</span>
+                    </ContextMenuItem>
+                )}
                 <ContextMenuSeparator />
                 {memoStatus === 'unread' && (
                     <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
@@ -319,7 +333,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             <div className="flex w-full items-start justify-between">
                                 <div className="flex items-center gap-2 truncate">
                                     <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                    {tab === 'inbox' && <StatusBadge status={getMemoStatus(memo)} />}
+                                    {(tab === 'inbox' || tab === 'scheduled') && <StatusBadge status={getMemoStatus(memo)} />}
                                 </div>
                                 <div
                                 className={cn(
@@ -341,7 +355,16 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                                     </button>
                                     <span className="truncate">{memo.subject || "No Subject"}</span>
                                 </div>
-                                <div className="line-clamp-1 text-xs text-muted-foreground break-words" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                                {memo.labels.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {memo.labels.map(label => (
+                                            <span key={label.id} style={{backgroundColor: label.color}} className="px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white">
+                                                {label.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="line-clamp-1 text-xs text-muted-foreground break-words mt-1" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
                             </div>
                             
                             <MemoActions memo={memo} />
@@ -377,7 +400,7 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
                                 onClick={() => onSelectMemo(memo.id)}
                             >
                                 <Avatar className="h-10 w-10">
-                                    <AvatarImage src={memo.from.avatar} alt={memo.from.name} />
+                                    <AvatarImage src={memo.from.avatar || undefined} alt={memo.from.name} />
                                     <AvatarFallback>{memo.from.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 {isUnread(memo) && (
@@ -404,7 +427,10 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     getLoggedInUser().then(user => setLoggedInUser(user as User));
   }, []);
 
-  const handleSelect = (memo: MemoWithActivity) => {
+  const handleSelect = (memoId: string) => {
+    const memo = memos.find(m => m.id === memoId);
+    if (!memo) return;
+    
     if (memo.status === 'draft') {
       router.push(`/dashboard/new?id=${memo.id}`);
     } else {
@@ -416,9 +442,9 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     <ScrollArea className="h-full">
         <TooltipProvider>
             {isExpanded ? (
-                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser} onUpdate={onUpdate} />
+                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={handleSelect} loggedInUser={loggedInUser} onUpdate={onUpdate} />
             ) : (
-                <CollapsedView memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={onSelectMemo} loggedInUser={loggedInUser}/>
+                <CollapsedView memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={handleSelect} loggedInUser={loggedInUser}/>
             )}
         </TooltipProvider>
     </ScrollArea>

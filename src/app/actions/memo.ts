@@ -5,12 +5,14 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User } from '@/lib/types';
+import type { Memo, User, Label } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
 import { sendEmail } from '@/lib/email';
 import WebSocket from 'ws';
+import { redirect } from 'next/navigation';
+
 
 const memoSchema = z.object({
   to: z.array(z.string()).min(1, 'Please select at least one recipient.'),
@@ -19,6 +21,7 @@ const memoSchema = z.object({
   body: z.string().min(1, 'Body is required.'),
   attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
+  scheduledFor: z.date().optional(),
 });
 
 // Function to send data to WebSocket server via HTTP
@@ -58,7 +61,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {
             where.AND.push({
-                status: { not: 'draft' } ,
+                status: { in: ['sent', 'scheduled'] } ,
                 OR: [
                     { to: { some: { id: user.id } } },
                     { cc: { some: { id: user.id } } },
@@ -69,6 +72,8 @@ export async function getDashboardData(tab: string, query: string, status: strin
             where.AND.push({ fromId: user.id, status: { not: 'draft' } });
         } else if (tab === 'drafts') {
             where.AND.push({ fromId: user.id, status: 'draft' });
+        } else if (tab === 'scheduled') {
+             where.AND.push({ fromId: user.id, status: 'scheduled' });
         }
     }
     
@@ -120,6 +125,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
             from: { include: { role: true } },
             to: { include: { role: true } },
             cc: { include: { role: true } },
+            labels: true,
             attachments: true,
             activity: {
                 include: {
@@ -180,6 +186,7 @@ export async function getMemo(id: string) {
       from: { include: { role: true } },
       to: { include: { role: true } },
       cc: { include: { role: true } },
+      labels: true,
       attachments: true,
       activity: { include: { actor: true }, orderBy: { timestamp: 'desc' } },
       current_holder: { include: { role: true } },
@@ -320,6 +327,8 @@ export async function sendMemo(formData: FormData) {
 
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
+    const scheduledForRaw = formData.get('scheduledFor') as string | null;
+    const scheduledFor = scheduledForRaw ? new Date(scheduledForRaw) : undefined;
 
     const data = {
         to,
@@ -328,6 +337,7 @@ export async function sendMemo(formData: FormData) {
         body: formData.get('body') as string,
         attachments: JSON.parse(formData.get('attachments') as string || '[]'),
         replyTo: formData.get('replyTo') as string || undefined,
+        scheduledFor,
     };
     
     const validation = memoSchema.safeParse(data);
@@ -337,39 +347,45 @@ export async function sendMemo(formData: FormData) {
     }
     
     const validatedData = validation.data;
+    const isScheduled = validatedData.scheduledFor && validatedData.scheduledFor > new Date();
 
     const memoCount = await prisma.memo.count({ where: { status: { not: 'draft' } } });
+    
+    const newMemoData: any = {
+        memo_reference_number: `MEMO-${new Date().getFullYear()}-${String(memoCount + 1).padStart(3, '0')}`,
+        fromId: user.id,
+        to: { connect: validatedData.to.map(id => ({ id })) },
+        cc: { connect: validatedData.cc?.map(id => ({ id })) },
+        current_holderId: validatedData.to[0],
+        subject: validatedData.subject,
+        body: validatedData.body,
+        status: isScheduled ? 'scheduled' : 'sent',
+        attachments: {
+            create: validatedData.attachments.map((att: any) => ({
+                name: att.name,
+                type: att.type,
+                size: att.size,
+                url: att.url,
+            }))
+        },
+        activity: {
+            create: [
+                { actorId: user.id, action: isScheduled ? 'scheduled' : 'sent', details: isScheduled ? `Scheduled to be sent on ${validatedData.scheduledFor?.toLocaleString()}` : `Sent to recipients.` }
+            ]
+        },
+        replyToId: validatedData.replyTo,
+        scheduledFor: validatedData.scheduledFor,
+    };
+
 
     const newMemo = await prisma.memo.create({
-        data: {
-            memo_reference_number: `MEMO-${new Date().getFullYear()}-${String(memoCount + 1).padStart(3, '0')}`,
-            fromId: user.id,
-            to: { connect: validatedData.to.map(id => ({ id })) },
-            cc: { connect: validatedData.cc?.map(id => ({ id })) },
-            current_holderId: validatedData.to[0],
-            subject: validatedData.subject,
-            body: validatedData.body,
-            status: 'sent',
-            attachments: {
-                create: validatedData.attachments.map((att: any) => ({
-                    name: att.name,
-                    type: att.type,
-                    size: att.size,
-                    url: att.url,
-                }))
-            },
-            activity: {
-                create: [
-                    { actorId: user.id, action: 'sent', details: `Sent to recipients.` }
-                ]
-            },
-            replyToId: validatedData.replyTo,
-        },
+        data: newMemoData,
         include: {
             from: { include: { role: true } },
             to: { include: { role: true } },
             cc: { include: { role: true } },
             attachments: true,
+            labels: true,
             activity: {
                 include: { actor: true }
             },
@@ -400,6 +416,11 @@ export async function sendMemo(formData: FormData) {
     if (draftId) {
         await prisma.memo.delete({ where: { id: draftId } });
     }
+    
+    if (isScheduled) {
+        revalidatePath('/dashboard/scheduled');
+        return { success: true, memo: newMemo };
+    }
 
     // Send to WebSocket server
     await sendToWebSocket({
@@ -429,7 +450,7 @@ export async function sendMemo(formData: FormData) {
     return { success: true, memo: newMemo };
 }
 
-export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }, draftId?: string | null) {
+export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[], labels: Label[] }, draftId?: string | null) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -445,14 +466,16 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
     if (draftId) {
          const existingDraft = await prisma.memo.findUnique({
             where: { id: draftId },
-            include: { to: true, cc: true },
+            include: { to: true, cc: true, labels: true },
         });
 
         const toIds = data.to.map(u => u.id);
         const ccIds = data.cc.map(u => u.id);
+        const labelIds = data.labels.map(l => l.id);
 
         const toToDisconnect = existingDraft?.to.filter(u => !toIds.includes(u.id)) || [];
         const ccToDisconnect = existingDraft?.cc.filter(u => !ccIds.includes(u.id)) || [];
+        const labelsToDisconnect = existingDraft?.labels.filter(l => !labelIds.includes(l.id)) || [];
         
         const payload = {
             fromId: user.id,
@@ -466,12 +489,16 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
                 disconnect: ccToDisconnect.map(u => ({ id: u.id })),
                 connect: ccIds.map(id => ({ id })),
             },
+            labels: {
+                disconnect: labelsToDisconnect.map(l => ({ id: l.id })),
+                connect: labelIds.map(id => ({ id })),
+            },
             attachments: {
                 deleteMany: {},
                 ...attachmentsData,
             },
             status: 'draft' as const,
-            replyToId: data.replyTo,
+            replyToId: data.replyToId,
         };
 
         const updatedDraft = await prisma.memo.update({
@@ -486,10 +513,11 @@ export async function saveDraft(data: Partial<Memo> & { to: User[], cc: User[] }
             body: data.body || '',
             to: { connect: data.to.map(u => ({ id: u.id })) },
             cc: { connect: data.cc.map(u => ({ id: u.id })) },
+            labels: { connect: data.labels.map(l => ({ id: l.id })) },
             attachments: attachmentsData,
             status: 'draft' as const,
             memo_reference_number: `DRAFT-${Date.now()}`,
-            replyToId: data.replyTo,
+            replyToId: data.replyToId,
         };
         const newDraft = await prisma.memo.create({ data: payload });
         return newDraft;
@@ -502,6 +530,55 @@ export async function deleteDraft(draftId: string) {
     revalidatePath('/dashboard/drafts');
     return { success: true };
 }
+
+export async function duplicateMemo(memoId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const originalMemo = await prisma.memo.findUnique({
+        where: { id: memoId },
+        include: {
+            to: true,
+            cc: true,
+            attachments: true,
+            labels: true,
+        },
+    });
+
+    if (!originalMemo) {
+        throw new Error("Memo not found");
+    }
+
+    const newDraft = await prisma.memo.create({
+        data: {
+            fromId: user.id,
+            subject: `(copy) ${originalMemo.subject}`,
+            body: originalMemo.body,
+            status: 'draft',
+            memo_reference_number: `DRAFT-${Date.now()}`,
+            to: {
+                connect: originalMemo.to.map(u => ({ id: u.id }))
+            },
+            cc: {
+                connect: originalMemo.cc.map(u => ({ id: u.id }))
+            },
+            labels: {
+                connect: originalMemo.labels.map(l => ({ id: l.id }))
+            },
+            attachments: {
+                create: originalMemo.attachments.map(att => ({
+                    name: att.name,
+                    size: att.size,
+                    type: att.type,
+                    url: att.url,
+                }))
+            }
+        }
+    });
+
+    redirect(`/dashboard/new?id=${newDraft.id}`);
+}
+
 
 export async function acknowledgeMemo(memoId: string) {
   const user = await getLoggedInUser();
@@ -658,6 +735,9 @@ export async function getOffices() {
 export async function getRoles() {
     return await prisma.role.findMany();
 }
+export async function getLabels() {
+    return await prisma.label.findMany();
+}
 
 export async function getLoggedInUser() {
     const session = await getServerSession(authOptions);
@@ -694,8 +774,10 @@ export async function getLoggedInUser() {
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
     if (data.id) {
         await prisma.division.update({ where: { id: data.id }, data });
+        await prisma.office.update({ where: { id: data.id }, data: { name: data.name, code: data.code } });
     } else {
-        await prisma.division.create({ data });
+        const newDivision = await prisma.division.create({ data });
+        await prisma.office.create({ data: { id: newDivision.id, name: newDivision.name, code: newDivision.code, type: 'division' }})
     }
     revalidatePath('/dashboard/admin/divisions');
 }
@@ -735,8 +817,10 @@ export async function deleteDepartment(id: string) {
 export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
     if (data.id) {
         await prisma.branch.update({ where: { id: data.id }, data });
+        await prisma.office.update({ where: { id: data.id }, data: { name: data.name, code: data.code } });
     } else {
-        await prisma.branch.create({ data });
+        const newBranch = await prisma.branch.create({ data });
+        await prisma.office.create({ data: { id: newBranch.id, name: newBranch.name, code: newBranch.code, type: 'branch' }})
     }
     revalidatePath('/dashboard/admin/branches');
 }
@@ -771,7 +855,7 @@ export async function deleteDistrict(id: string) {
     return { success: true };
 }
 
-export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division' | 'branch' }) {
+export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division_office' | 'branch_office' | 'head_office' }) {
     if (data.id) {
         await prisma.office.update({ where: { id: data.id }, data });
     } else {
@@ -884,9 +968,9 @@ export async function changeUserPassword(password: string) {
 
 export async function saveRole(data: { id?: string, name: string, permissions: any }) {
      if (data.id) {
-        await prisma.role.update({ where: { id: data.id }, data });
+        await prisma.role.update({ where: { id: data.id }, data: { ...data, permissions: data.permissions.join(',') } });
     } else {
-        await prisma.role.create({ data });
+        await prisma.role.create({ data: { ...data, permissions: data.permissions.join(',') } });
     }
     revalidatePath('/dashboard/admin/roles');
 }
@@ -898,6 +982,29 @@ export async function deleteRole(roleId: string) {
     }
     await prisma.role.delete({ where: { id: roleId } });
     revalidatePath('/dashboard/admin/roles');
+    return { success: true };
+}
+
+export async function saveLabel(data: { id?: string, name: string, color: string, type: 'SYSTEM' | 'USER' }) {
+    if (data.id) {
+        await prisma.label.update({ where: { id: data.id }, data });
+    } else {
+        await prisma.label.create({ data });
+    }
+    revalidatePath('/dashboard/admin/labels');
+    return { success: true };
+}
+
+export async function deleteLabel(id: string) {
+    const label = await prisma.label.findUnique({ where: { id }});
+    if (!label) {
+        return { error: "Label not found." };
+    }
+    if (label.type === 'SYSTEM') {
+        return { error: "Cannot delete a system label." };
+    }
+    await prisma.label.delete({ where: { id } });
+    revalidatePath('/dashboard/admin/labels');
     return { success: true };
 }
 
