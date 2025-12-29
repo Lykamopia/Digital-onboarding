@@ -47,6 +47,7 @@ const roles = [
       'view_dashboard',
       'manage_memos',
       'view_admin',
+      'manage_general_settings',
       'manage_divisions',
       'manage_departments',
       'manage_branches',
