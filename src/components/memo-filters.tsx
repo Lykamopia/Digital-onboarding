@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSearchParams } from '@/hooks/use-search-params';
 import { useDebouncedCallback } from 'use-debounce';
 import { cn } from '@/lib/utils';
-import { RecipientSelector as LabelFilterSelector } from './recipient-selector';
+import { LabelSelector } from '@/components/label-selector';
 import type { Label as LabelType } from '@/lib/types';
 
 
@@ -60,7 +60,7 @@ export function MemoFilters({
       setSearchParams({ status: newStatus === 'all' ? null : newStatus });
   }
   
-  const handleLabelChange = (newLabels: { id: string }[]) => {
+  const handleLabelChange = (newLabels: LabelType[]) => {
       const labelIds = newLabels.map(l => l.id);
       setSelectedLabels(labelIds);
       setSearchParams({ labels: labelIds.length > 0 ? labelIds.join(',') : null });
@@ -81,17 +81,10 @@ export function MemoFilters({
   }
 
   const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0 || show;
-
-  const labelOptions = allLabels.map(label => ({
-    ...label,
-    value: label.id,
-    label: label.name,
-  }));
   
   const selectedLabelObjects = selectedLabels.map(id => {
-      const label = allLabels.find(l => l.id === id);
-      return label ? { ...label, value: label.id, label: label.name } : null;
-  }).filter(Boolean) as (LabelType & { value: string; label: string })[];
+      return allLabels.find(l => l.id === id);
+  }).filter(Boolean) as LabelType[];
 
 
   return (
@@ -187,11 +180,10 @@ export function MemoFilters({
                 </Button>
             )}
            </div>
-           <LabelFilterSelector
-              // @ts-ignore
-              allUsers={labelOptions}
+           <LabelSelector
+              allLabels={allLabels}
               selected={selectedLabelObjects}
-              setSelected={(newLabels) => handleLabelChange(newLabels as any)}
+              setSelected={handleLabelChange}
               placeholder="Filter by labels..."
             />
         </div>

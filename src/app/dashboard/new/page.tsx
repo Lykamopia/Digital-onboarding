@@ -39,7 +39,7 @@ import {
 import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
-import { RecipientSelector as LabelSelector } from '@/components/recipient-selector';
+import { LabelSelector } from '@/components/label-selector';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -425,12 +425,6 @@ export default function NewMemoPage() {
       return <div className="flex justify-center items-center h-full"><p>Loading user data...</p></div>;
   }
 
-  const labelOptions = allLabels.map(label => ({
-    ...label,
-    value: label.id,
-    label: label.name,
-  }));
-
   return (
     <div className="w-full">
         <Card>
@@ -515,8 +509,7 @@ export default function NewMemoPage() {
                      <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>Labels - መለያዎች</label>
                         <LabelSelector
-                            // @ts-ignore
-                            allUsers={labelOptions}
+                            allLabels={allLabels}
                             selected={labels}
                             setSelected={setLabels}
                             placeholder="Select labels..."
