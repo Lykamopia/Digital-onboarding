@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -9,12 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
-import type { User, Office } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2 } from 'lucide-react';
+import type { User, Office, AcknowledgementType } from '@/lib/types';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Shield } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import Image from 'next/image';
 
 type UserWithFullOffice = User & { 
     office: Office & {
@@ -23,14 +24,22 @@ type UserWithFullOffice = User & {
     } 
 };
 
+const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_SIGNATURE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
+
 export default function ProfilePage() {
   const [user, setUser] = useState<UserWithFullOffice | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [signature, setSignature] = useState('');
+  const [acknowledgementType, setAcknowledgementType] = useState<AcknowledgementType>('BADGE');
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,6 +50,8 @@ export default function ProfilePage() {
             setName(initialUser.name);
             setEmail(initialUser.email);
             setAvatar(initialUser.avatar || '');
+            setSignature(initialUser.signature || '');
+            setAcknowledgementType(initialUser.acknowledgementType || 'BADGE');
         }
     }
     loadUser();
@@ -49,7 +60,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    const result = await updateUserProfile(user.id, { name, email, avatar });
+    const result = await updateUserProfile(user.id, { name, email, avatar, signature, acknowledgementType });
     if (result.success) {
       toast({
         title: 'Profile Updated',
@@ -66,49 +77,48 @@ export default function ProfilePage() {
     }
     setIsSaving(false);
   };
-
+  
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-          variant: 'destructive',
-          title: 'File too large',
-          description: 'Profile picture must be less than 5MB.',
-        });
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ variant: 'destructive', title: 'File too large', description: 'Profile picture must be less than 5MB.' });
         return;
-      }
-      
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      try {
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData,
-        });
+    }
+    await handleFileUpload(file, setIsUploadingAvatar, setAvatar, "Avatar");
+  };
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Upload failed');
-        }
+  const handleSignatureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-        const result = await response.json();
-        setAvatar(result.path); // Set the URL path from the server
-        toast({
-            title: "Avatar Updated",
-            description: "Click 'Save Changes' to apply your new avatar.",
-        });
-      } catch (error: any) {
-         toast({
-            variant: 'destructive',
-            title: 'Upload Failed',
-            description: error.message,
-        });
-      } finally {
-        setIsUploading(false);
-      }
+    if (!ALLOWED_SIGNATURE_TYPES.includes(file.type)) {
+        toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please upload a PNG, JPG, or SVG file for your signature.' });
+        return;
+    }
+    if (file.size > MAX_SIGNATURE_SIZE) {
+        toast({ variant: 'destructive', title: 'File too large', description: 'Signature image must be less than 2MB.' });
+        return;
+    }
+    await handleFileUpload(file, setIsUploadingSignature, setSignature, "Signature");
+  };
+
+  const handleFileUpload = async (file: File, setLoading: (loading: boolean) => void, setUrl: (url: string) => void, fieldName: string) => {
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
+      const result = await response.json();
+      setUrl(result.path);
+      toast({ title: `${fieldName} Updated`, description: `Click 'Save Changes' to apply your new ${fieldName.toLowerCase()}.` });
+    } catch (error: any) {
+       toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -124,35 +134,29 @@ export default function ProfilePage() {
     );
   }
   
-  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '');
+  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '') || signature !== (user.signature || '') || acknowledgementType !== user.acknowledgementType;
 
   const getUserOrgPath = () => {
-    if (!user.office) return { division: null, department: null, branch: null, district: null };
+    if (!user.office) return { division: null, department: null, branch: null, district: null, office: null };
   
-    if (user.office.type === 'division_office') {
-      for (const dept of user.office.departments || []) {
-        const division = dept.divisions.find(d => d.id === user.officeId);
-        if (division) {
-          return { division: division.name, department: dept.name, branch: null, district: null, office: user.office.name };
-        }
-      }
+    // This logic relies on the includes in getLoggedInUser. Ensure they are correct.
+    const officeData = user.office as any;
+  
+    if (officeData.type === 'division') {
+      const department = officeData.department as { name: string };
+      return { division: officeData.name, department: department?.name, branch: null, district: null, office: department?.office?.name };
     }
   
-    if (user.office.type === 'branch_office') {
-      for (const dist of user.office.districts || []) {
-        const branch = dist.branches.find(b => b.id === user.officeId);
-        if (branch) {
-          return { division: null, department: null, branch: branch.name, district: dist.name, office: user.office.name };
-        }
-      }
+    if (officeData.type === 'branch') {
+      const district = officeData.district as { name: string, office: { name: string } };
+      return { division: null, department: null, branch: officeData.name, district: district?.name, office: district?.office?.name };
     }
 
-    // Fallback for Head Office itself
-    if(user.office.type === 'head_office') {
-        return { division: null, department: null, branch: null, district: null, office: user.office.name };
+    if(officeData.type === 'head_office' || officeData.type === 'division_office' || officeData.type === 'branch_office') {
+        return { division: null, department: null, branch: null, district: null, office: officeData.name };
     }
     
-    return { division: null, department: null, branch: null, district: null, office: user.office.name };
+    return { division: null, department: null, branch: null, district: null, office: null };
   };
 
   const { division, department, branch, district, office } = getUserOrgPath();
@@ -166,9 +170,10 @@ export default function ProfilePage() {
         </div>
         
         <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Profile</TabsTrigger>
-                <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="profile">My Profile</TabsTrigger>
+                <TabsTrigger value="acknowledgement">Acknowledgement</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
                 <Card>
@@ -178,7 +183,6 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent>
                         <div className="md:flex md:gap-8">
-                            {/* Left Column: Avatar and Details */}
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
@@ -187,17 +191,17 @@ export default function ProfilePage() {
                                     </Avatar>
                                     <div 
                                         className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={() => !isUploading && fileInputRef.current?.click()}
+                                        onClick={() => !isUploadingAvatar && avatarInputRef.current?.click()}
                                     >
-                                        {isUploading ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
+                                        {isUploadingAvatar ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
                                     </div>
                                     <Input
                                         type="file"
-                                        ref={fileInputRef}
+                                        ref={avatarInputRef}
                                         onChange={handleAvatarChange}
                                         className="hidden"
-                                        accept="image/*"
-                                        disabled={isUploading}
+                                        accept="image/png, image/jpeg, image/gif"
+                                        disabled={isUploadingAvatar}
                                     />
                                 </div>
                                 <h2 className="text-2xl font-bold text-center">{user.name}</h2>
@@ -206,9 +210,8 @@ export default function ProfilePage() {
                                 <Separator className="my-6 md:hidden" />
                             </div>
 
-                            {/* Right Column: Form and Org Info */}
                             <div className="md:w-2/3 md:pl-8">
-                                <form className="space-y-6">
+                                <div className="space-y-6">
                                      <div className="grid sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="name">Full Name</Label>
@@ -219,14 +222,7 @@ export default function ProfilePage() {
                                             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                                         </div>
                                     </div>
-                                    
-                                    <div className="flex justify-end">
-                                        <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploading}>
-                                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Save Changes
-                                        </Button>
-                                    </div>
-                                </form>
+                                </div>
 
                                 <Separator className="my-8" />
                                 
@@ -285,6 +281,67 @@ export default function ProfilePage() {
                     </CardContent>
                 </Card>
             </TabsContent>
+            <TabsContent value="acknowledgement">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Acknowledgement Method</CardTitle>
+                        <CardDescription>Choose how your acknowledgement appears on memos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="ack-type" className="text-base">Use Digital Signature</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Toggle on to use your uploaded signature. Otherwise, a standard badge will be used.
+                                </p>
+                            </div>
+                            <Switch
+                                id="ack-type"
+                                checked={acknowledgementType === 'SIGNATURE'}
+                                onCheckedChange={(checked) => setAcknowledgementType(checked ? 'SIGNATURE' : 'BADGE')}
+                            />
+                        </div>
+                        <div className="space-y-4">
+                            <Label htmlFor="signature-upload">Digital Signature Image</Label>
+                             <div className="flex items-center gap-4">
+                                <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50">
+                                    {signature ? (
+                                        <Image src={signature} alt="Signature preview" width={180} height={90} className="object-contain" />
+                                    ) : (
+                                        <div className="text-center text-xs text-muted-foreground">
+                                            <ImageIcon className="mx-auto h-6 w-6" />
+                                            <p>No Signature</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <Button 
+                                        type="button" 
+                                        variant="outline"
+                                        onClick={() => signatureInputRef.current?.click()}
+                                        disabled={acknowledgementType === 'BADGE' || isUploadingSignature}
+                                    >
+                                        {isUploadingSignature ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                                        {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                                    </Button>
+                                    <Input
+                                        id="signature-upload"
+                                        type="file"
+                                        ref={signatureInputRef}
+                                        onChange={handleSignatureChange}
+                                        className="hidden"
+                                        accept={ALLOWED_SIGNATURE_TYPES.join(',')}
+                                        disabled={acknowledgementType === 'BADGE' || isUploadingSignature}
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        PNG, JPG, or SVG. Max file size: 2MB.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
             <TabsContent value="security">
                 <Card>
                     <CardHeader>
@@ -292,13 +349,17 @@ export default function ProfilePage() {
                         <CardDescription>Change your password here. It's a good practice to use a strong password that you're not using elsewhere.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ChangePasswordForm onPasswordChanged={() => {
-                             // Optionally, you can add a toast message here, but the form already does.
-                        }} />
+                        <ChangePasswordForm onPasswordChanged={() => {}} />
                     </CardContent>
                 </Card>
             </TabsContent>
         </Tabs>
+        <div className="flex justify-end mt-6">
+            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploadingAvatar || isUploadingSignature}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save All Changes
+            </Button>
+        </div>
     </div>
   );
 }

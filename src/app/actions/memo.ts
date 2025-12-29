@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -1053,7 +1053,7 @@ export async function deleteLabel(id: string) {
     return { success: true };
 }
 
-export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string }) {
+export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string, acknowledgementType?: AcknowledgementType }) {
     await prisma.user.update({
         where: { id: userId },
         data: data

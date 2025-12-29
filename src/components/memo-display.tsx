@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -199,6 +198,17 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
+  const AcknowledgementDisplay = ({ user }: { user: User }) => {
+    if (user.acknowledgementType === 'SIGNATURE' && user.signature) {
+        return (
+            <div className="flex items-end gap-2">
+                <Image src={user.signature} alt={`${user.name}'s signature`} width={120} height={40} className="object-contain" />
+            </div>
+        );
+    }
+    return <StatusBadge status="acknowledged" />;
+};
+
   const MemoContent = () => (
     <div className={`font-serif printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
         <div className="printable-memo p-4 md:p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
@@ -232,7 +242,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                         )}
                                     </span>
                                     {memo.acknowledgedBy?.some(u => u.id === user.id) && (
-                                        <StatusBadge status="acknowledged" />
+                                        <AcknowledgementDisplay user={user} />
                                     )}
                                 </div>
                             ))}
