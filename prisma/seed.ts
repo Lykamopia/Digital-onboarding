@@ -76,7 +76,9 @@ const users = [
     name: 'Alice Johnson',
     email: 'alice.j@bank.com',
     avatar: 'https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-1',
+    officeId: 'off-1',
+    departmentId: 'dept-1',
+    divisionId: 'div-1',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -85,7 +87,9 @@ const users = [
     name: 'Bob Williams',
     email: 'bob.w@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-5',
+    officeId: 'off-1',
+    departmentId: 'dept-4',
+    divisionId: 'div-5',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -94,7 +98,9 @@ const users = [
     name: 'Charlie Brown',
     email: 'charlie.b@bank.com',
     avatar: 'https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-1',
+    officeId: 'off-2',
+    districtId: 'dist-1',
+    branchId: 'branch-1',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -103,7 +109,9 @@ const users = [
     name: 'Diana Prince',
     email: 'diana.p@bank.com',
     avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-2',
+    officeId: 'off-2',
+    districtId: 'dist-1',
+    branchId: 'branch-2',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -112,7 +120,9 @@ const users = [
     name: 'Ethan Hunt',
     email: 'ethan.h@bank.com',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwNTI3Njl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'div-2',
+    officeId: 'off-1',
+    departmentId: 'dept-1',
+    divisionId: 'div-2',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -121,7 +131,9 @@ const users = [
     name: 'Fiona Glenanne',
     email: 'fiona.g@bank.com',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
-    officeId: 'branch-3',
+    officeId: 'off-2',
+    districtId: 'dist-2',
+    branchId: 'branch-3',
     roleId: 'role-2',
     mustChangePassword: true,
   },
@@ -146,11 +158,6 @@ async function main() {
   // Seed data
   await prisma.office.createMany({ data: offices });
   console.log(`Seeded ${offices.length} offices.`);
-
-  const officeLikeDivisions = divisions.map(d => ({ id: d.id, name: d.name, code: d.code, type: d.type }));
-  const officeLikeBranches = branches.map(b => ({ id: b.id, name: b.name, code: b.code, type: b.type }));
-  await prisma.office.createMany({ data: [...officeLikeDivisions, ...officeLikeBranches] });
-  console.log(`Seeded ${officeLikeDivisions.length} division-offices and ${officeLikeBranches.length} branch-offices.`);
 
   await prisma.department.createMany({ data: departments });
   console.log(`Seeded ${departments.length} departments.`);
@@ -389,3 +396,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    

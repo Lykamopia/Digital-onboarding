@@ -15,7 +15,10 @@ import type {
 export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_scheduled' | 'manage_labels' | 'manage_general_settings';
 
 export type Role = PrismaRole;
-export type Office = PrismaOffice;
+export type Office = PrismaOffice & {
+    departments?: Department[];
+    districts?: District[];
+};
 export type Label = PrismaLabel;
 export type AcknowledgementType = 'BADGE' | 'SIGNATURE';
 
@@ -39,7 +42,11 @@ export type Branch = PrismaBranch & {
 export type User = PrismaUser & {
     // any custom properties if needed
     mustChangePassword?: boolean;
-    office: Office;
+    office?: Office | null;
+    department?: Department | null;
+    division?: Division | null;
+    district?: District | null;
+    branch?: Branch | null;
     role: Role | null;
 };
 
@@ -72,3 +79,5 @@ export type MemoWithActivity = Memo & {
 export type UserWithStatus = User & {
     status: 'active' | 'inactive';
 }
+
+    

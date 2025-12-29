@@ -34,11 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
-import type { User, Role, Office } from "@/lib/types";
+import type { User, Role, Office, Department, Division, District, Branch } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUsers, useOffices, useRoles } from "../hooks";
+import { useUsers, useOffices, useRoles, useDepartments, useDivisions, useDistricts, useBranches } from "../hooks";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -54,7 +54,11 @@ import { cn } from "@/lib/utils";
 
 type UserWithRelations = User & {
     office: Office;
-    role: Role
+    role: Role;
+    department?: Department;
+    division?: Division;
+    district?: District;
+    branch?: Branch;
 };
 
 function UsersLoadingSkeleton() {
@@ -78,12 +82,20 @@ function UsersLoadingSkeleton() {
 
 const ITEMS_PER_PAGE = 10;
 
-const initialFormState = { name: '', email: '', password: '', officeId: '', roleId: '' };
+const initialFormState = { 
+    name: '', email: '', password: '', roleId: '',
+    officeId: '', departmentId: '', divisionId: '', districtId: '', branchId: ''
+};
 
 export default function UsersPage() {
   const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
   const { data: offices, loading: loadingOffices } = useOffices();
   const { data: roles, loading: loadingRoles } = useRoles();
+  const { data: departments, loading: loadingDepts } = useDepartments();
+  const { data: divisions, loading: loadingDivisions } = useDivisions();
+  const { data: districts, loading: loadingDistricts } = useDistricts();
+  const { data: branches, loading: loadingBranches } = useBranches();
+  
   const { toast } = useToast();
 
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -110,7 +122,7 @@ export default function UsersPage() {
     e.preventDefault();
     
     if (!formState.name || !formState.email || !formState.officeId || !formState.roleId) {
-        toast({ title: "Error", description: "All fields except password are required.", variant: "destructive" });
+        toast({ title: "Error", description: "Name, Email, Office and Role are required.", variant: "destructive" });
         return;
     }
     
@@ -133,10 +145,7 @@ export default function UsersPage() {
 
     const userData = {
         id: editingUser?.id,
-        name: formState.name,
-        email: formState.email,
-        officeId: formState.officeId,
-        roleId: formState.roleId,
+        ...formState,
         password: passwordToSend || undefined,
         status: editingUser?.status ?? 'active',
     };
@@ -184,8 +193,12 @@ export default function UsersPage() {
     setFormState({
         name: user.name || '',
         email: user.email || '',
-        officeId: user.officeId || '',
         roleId: user.roleId || '',
+        officeId: user.officeId || '',
+        departmentId: user.departmentId || '',
+        divisionId: user.divisionId || '',
+        districtId: user.districtId || '',
+        branchId: user.branchId || '',
         password: '',
     });
     setIsFormDialogOpen(true);
@@ -226,14 +239,7 @@ export default function UsersPage() {
 
   const handleStatusChange = async (user: UserWithRelations) => {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
-      await saveUser({ 
-        id: user.id,
-        name: user.name || '',
-        email: user.email || '',
-        officeId: user.officeId || '',
-        roleId: user.roleId || '',
-        status: newStatus 
-      });
+      await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
       await mutateUsers();
       toast({ title: "Success", description: `User has been ${newStatus}.` });
   }
@@ -242,14 +248,7 @@ export default function UsersPage() {
       await Promise.all(selectedUsers.map(id => {
           const user = users.find(u => u.id === id) as UserWithRelations | undefined;
           if (user) {
-            return saveUser({ 
-              id: user.id,
-              name: user.name || '',
-              email: user.email || '',
-              officeId: user.officeId || '',
-              roleId: user.roleId || '',
-              status 
-            });
+            return saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status });
           }
           return Promise.resolve();
       }));
@@ -271,30 +270,42 @@ export default function UsersPage() {
     setSelectedUsers([]);
   }
 
-  const officeOptions = offices
-    .filter(o => o.type === 'division' || o.type === 'branch')
-    .map(o => ({ value: o.id, label: o.name }));
-
+  const officeOptions = offices.map(o => ({ value: o.id, label: o.name }));
   const roleOptions = roles.map(r => ({ value: r.id, label: r.name }));
 
   const handleFormChange = (field: keyof typeof formState, value: string) => {
       setFormState(prev => ({ ...prev, [field]: value }));
   }
 
-  const getOfficeDetails = (office: Office) => {
-      if (!office) return { officeName: 'N/A', parentName: 'N/A' };
-      const officeName = office.name;
-      let parentName = 'N/A';
+  const selectedOffice = offices.find(o => o.id === formState.officeId);
 
-      if (office.type === 'division' && (office as any).department) {
-          parentName = (office as any).department.name;
-      } else if (office.type === 'branch' && (office as any).district) {
-          parentName = (office as any).district.name;
-      }
-      return { officeName, parentName };
+  const departmentOptions = departments
+    .filter(d => d.officeId === formState.officeId)
+    .map(d => ({ value: d.id, label: d.name }));
+    
+  const divisionOptions = divisions
+    .filter(d => d.departmentId === formState.departmentId)
+    .map(d => ({ value: d.id, label: d.name }));
+
+  const districtOptions = districts
+    .filter(d => d.officeId === formState.officeId)
+    .map(d => ({ value: d.id, label: d.name }));
+
+  const branchOptions = branches
+    .filter(b => b.districtId === formState.districtId)
+    .map(b => ({ value: b.id, label: b.name }));
+
+
+  const getUserAssignment = (user: UserWithRelations) => {
+      const path = [user.office?.name];
+      if(user.department) path.push(user.department.name);
+      if(user.division) path.push(user.division.name);
+      if(user.district) path.push(user.district.name);
+      if(user.branch) path.push(user.branch.name);
+      return path.filter(Boolean).join(' / ');
   }
 
-  if (loadingUsers || loadingOffices || loadingRoles) {
+  if (loadingUsers || loadingOffices || loadingRoles || loadingDepts || loadingDivisions || loadingDistricts || loadingBranches) {
     return <UsersLoadingSkeleton />;
   }
 
@@ -334,7 +345,7 @@ export default function UsersPage() {
                 </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Office/Branch</TableHead>
+                <TableHead>Assignment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right w-20">Actions</TableHead>
                 </TableRow>
@@ -365,8 +376,8 @@ export default function UsersPage() {
                                 </div>
                             </div>
                         </TableCell>
-                        <TableCell>{user.role.name}</TableCell>
-                        <TableCell>{user.office?.name}</TableCell>
+                        <TableCell>{user.role?.name}</TableCell>
+                        <TableCell>{getUserAssignment(user)}</TableCell>
                         <TableCell>
                             <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
                                 {user.status}
@@ -435,16 +446,6 @@ export default function UsersPage() {
                         <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="officeId">Office (Division/Branch)</Label>
-                        <Combobox
-                            options={officeOptions}
-                            value={formState.officeId}
-                            onChange={v => handleFormChange('officeId', v)}
-                            placeholder="Select an office"
-                            searchPlaceholder="Search offices..."
-                        />
-                    </div>
-                    <div className="space-y-2">
                         <Label htmlFor="roleId">Role</Label>
                         <Combobox
                             options={roleOptions}
@@ -455,11 +456,54 @@ export default function UsersPage() {
                         />
                     </div>
                     {editingUser && (
-                        <div className="space-y-2 md:col-span-2">
+                        <div className="space-y-2">
                             <Label htmlFor="password">New Password</Label>
                             <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
                         </div>
                     )}
+                    
+                    <Separator className="md:col-span-2" />
+
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="officeId">Office</Label>
+                            <Combobox
+                                options={officeOptions}
+                                value={formState.officeId}
+                                onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
+                                placeholder="Select an office"
+                                searchPlaceholder="Search offices..."
+                            />
+                        </div>
+                        {selectedOffice && (
+                            <div className="space-y-4">
+                                {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="departmentId">Department</Label>
+                                        <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
+                                    </div>
+                                )}
+                                {formState.departmentId && divisionOptions.length > 0 && (
+                                     <div className="space-y-2">
+                                        <Label htmlFor="divisionId">Division</Label>
+                                        <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
+                                    </div>
+                                )}
+                                {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="districtId">District</Label>
+                                        <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
+                                    </div>
+                                )}
+                                {formState.districtId && branchOptions.length > 0 && (
+                                     <div className="space-y-2">
+                                        <Label htmlFor="branchId">Branch</Label>
+                                        <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
@@ -544,3 +588,5 @@ export default function UsersPage() {
     </>
   );
 }
+
+    

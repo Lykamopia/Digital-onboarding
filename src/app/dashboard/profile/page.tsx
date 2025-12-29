@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
-import type { User, Office } from '@/lib/types';
+import type { User, Office, Department, Division, District, Branch } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,18 +19,19 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 
-type UserWithFullOffice = User & { 
-    office: Office & {
-        departments?: { id: string, name: string, divisions: { id: string, name: string }[] }[];
-        districts?: { id: string, name: string, branches: { id: string, name: string }[] }[];
-    } 
+type UserWithRelations = User & {
+    office: Office;
+    department?: Department;
+    division?: Division;
+    district?: District;
+    branch?: Branch;
 };
 
 const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_SIGNATURE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserWithFullOffice | null>(null);
+  const [user, setUser] = useState<UserWithRelations | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -137,29 +138,16 @@ export default function ProfilePage() {
   const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '') || signature !== (user.signature || '');
 
   const getUserOrgPath = () => {
-    if (!user.office) return { division: null, department: null, branch: null, district: null, office: null };
-  
-    // This logic relies on the includes in getLoggedInUser. Ensure they are correct.
-    const officeData = user.office as any;
-  
-    if (officeData.type === 'division') {
-      const department = officeData.department as { name: string };
-      return { division: officeData.name, department: department?.name, branch: null, district: null, office: department?.office?.name };
-    }
-  
-    if (officeData.type === 'branch') {
-      const district = officeData.district as { name: string, office: { name: string } };
-      return { division: null, department: null, branch: officeData.name, district: district?.name, office: district?.office?.name };
-    }
-
-    if(officeData.type === 'head_office' || officeData.type === 'division_office' || officeData.type === 'branch_office') {
-        return { division: null, department: null, branch: null, district: null, office: officeData.name };
-    }
-    
-    return { division: null, department: null, branch: null, district: null, office: null };
+    if (!user) return [];
+    const path = [];
+    if(user.office) path.push({ label: 'Office', name: user.office.name, icon: <Briefcase/> });
+    if(user.department) path.push({ label: 'Department', name: user.department.name, icon: <Building/> });
+    if(user.district) path.push({ label: 'District', name: user.district.name, icon: <Building/> });
+    if(user.division) path.push({ label: 'Division', name: user.division.name, icon: <Globe/> });
+    if(user.branch) path.push({ label: 'Branch', name: user.branch.name, icon: <Globe/> });
+    return path;
   };
-
-  const { division, department, branch, district, office } = getUserOrgPath();
+  const orgPath = getUserOrgPath();
 
 
   return (
@@ -266,51 +254,15 @@ export default function ProfilePage() {
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4">Organizational Info</h3>
                                     <ul className="space-y-4 text-sm">
-                                        {office && (
-                                            <li className="flex items-center gap-3">
-                                                <Briefcase className="h-5 w-5 text-muted-foreground" />
+                                        {orgPath.map(item => item && (
+                                            <li key={item.label} className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 w-5 h-5">{item.icon}</div>
                                                 <div>
-                                                    <p className="text-muted-foreground">Office</p>
-                                                    <p className="font-medium">{office}</p>
+                                                    <p className="text-muted-foreground">{item.label}</p>
+                                                    <p className="font-medium">{item.name}</p>
                                                 </div>
                                             </li>
-                                        )}
-                                        {district && (
-                                            <li className="flex items-center gap-3">
-                                                <Building className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">District</p>
-                                                    <p className="font-medium">{district}</p>
-                                                </div>
-                                            </li>
-                                        )}
-                                        {branch && (
-                                            <li className="flex items-center gap-3">
-                                                <Globe className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">Branch</p>
-                                                    <p className="font-medium">{branch}</p>
-                                                </div>
-                                            </li>
-                                        )}
-                                        {department && (
-                                            <li className="flex items-center gap-3">
-                                                <Building className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">Department</p>
-                                                    <p className="font-medium">{department}</p>
-                                                </div>
-                                            </li>
-                                        )}
-                                        {division && (
-                                            <li className="flex items-center gap-3">
-                                                <Globe className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-muted-foreground">Division</p>
-                                                    <p className="font-medium">{division}</p>
-                                                </div>
-                                            </li>
-                                        )}
+                                        ))}
                                     </ul>
                                 </div>
                             </div>
@@ -339,3 +291,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

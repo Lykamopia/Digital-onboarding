@@ -735,12 +735,11 @@ export async function getUsers() {
     return await prisma.user.findMany({
         include: {
             role: true,
-            office: {
-                include: {
-                    departments: true,
-                    districts: true,
-                }
-            }
+            office: true,
+            department: true,
+            division: true,
+            district: true,
+            branch: true,
         },
         orderBy: {
             name: 'asc'
@@ -776,7 +775,7 @@ export async function getDistricts() {
     return await prisma.district.findMany({ include: { office: true }});
 }
 export async function getOffices() {
-    return await prisma.office.findMany();
+    return await prisma.office.findMany({ include: { departments: true, districts: true } });
 }
 export async function getRoles() {
     return await prisma.role.findMany();
@@ -795,20 +794,11 @@ export async function getLoggedInUser() {
         where: { email: session.user.email },
         include: { 
             role: true,
-            office: {
-                include: {
-                    departments: {
-                        include: {
-                            divisions: true,
-                        },
-                    },
-                    districts: {
-                        include: {
-                            branches: true,
-                        }
-                    }
-                }
-            }
+            office: true,
+            department: true,
+            division: true,
+            district: true,
+            branch: true,
         }
     });
     if (!user) return null;
@@ -820,22 +810,19 @@ export async function getLoggedInUser() {
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
     if (data.id) {
         await prisma.division.update({ where: { id: data.id }, data });
-        await prisma.office.update({ where: { id: data.id }, data: { name: data.name, code: data.code } });
     } else {
-        const newDivision = await prisma.division.create({ data });
-        await prisma.office.create({ data: { id: newDivision.id, name: newDivision.name, code: newDivision.code, type: 'division' }})
+        await prisma.division.create({ data });
     }
     revalidatePath('/dashboard/admin/divisions');
 }
 
 export async function deleteDivision(id: string) {
-    const users = await prisma.user.count({ where: { officeId: id }});
+    const users = await prisma.user.count({ where: { divisionId: id }});
     if (users > 0) {
         return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
     }
 
     await prisma.division.delete({ where: { id } });
-    await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/divisions');
     return { success: true };
 }
@@ -863,21 +850,18 @@ export async function deleteDepartment(id: string) {
 export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
     if (data.id) {
         await prisma.branch.update({ where: { id: data.id }, data });
-        await prisma.office.update({ where: { id: data.id }, data: { name: data.name, code: data.code } });
     } else {
-        const newBranch = await prisma.branch.create({ data });
-        await prisma.office.create({ data: { id: newBranch.id, name: newBranch.name, code: newBranch.code, type: 'branch' }})
+        await prisma.branch.create({ data });
     }
     revalidatePath('/dashboard/admin/branches');
 }
 
 export async function deleteBranch(id: string) {
-    const users = await prisma.user.count({ where: { officeId: id }});
+    const users = await prisma.user.count({ where: { branchId: id }});
     if (users > 0) {
         return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
     }
     await prisma.branch.delete({ where: { id } });
-    await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/branches');
     return { success: true };
 }
@@ -920,6 +904,11 @@ export async function deleteOffice(id: string) {
     if (departments > 0) {
         return { error: 'Cannot delete office. It has associated departments. Please delete them first.' };
     }
+    
+    const users = await prisma.user.count({ where: { officeId: id }});
+    if (users > 0) {
+        return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
+    }
 
     await prisma.office.delete({ where: { id } });
     revalidatePath('/dashboard/admin/offices');
@@ -927,13 +916,29 @@ export async function deleteOffice(id: string) {
 }
 
 
-export async function saveUser(data: { id?: string, name: string, email: string, officeId: string, roleId: string, password?: string, status?: string }) {
+export async function saveUser(data: { 
+    id?: string, 
+    name: string, 
+    email: string, 
+    roleId: string, 
+    password?: string, 
+    status?: string,
+    officeId?: string,
+    departmentId?: string,
+    divisionId?: string,
+    districtId?: string,
+    branchId?: string,
+}) {
     const payload: any = {
         name: data.name,
         email: data.email,
-        officeId: data.officeId,
         roleId: data.roleId,
         status: data.status ?? 'active',
+        officeId: data.officeId || null,
+        departmentId: data.departmentId || null,
+        divisionId: data.divisionId || null,
+        districtId: data.districtId || null,
+        branchId: data.branchId || null,
     };
 
     if (data.password) {
@@ -1162,3 +1167,5 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard/inbox');
     return { success: true };
 }
+
+    
