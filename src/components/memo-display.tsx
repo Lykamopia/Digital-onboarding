@@ -18,12 +18,14 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import type { MemoWithActivity, User, Attachment, Role, Label as LabelType } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatTimestamp } from '@/lib/data';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -86,15 +88,39 @@ function hexToRgba(hex: string, alpha: number) {
     return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
 }
 
-const AcknowledgementDisplay = ({ user, className }: { user: User, className?: string }) => {
-    if (user.acknowledgementType === 'SIGNATURE' && user.signature) {
-        return (
-            <div className={cn("flex items-end gap-2", className)}>
-                <Image src={user.signature} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
-            </div>
-        );
-    }
-    return <StatusBadge status="acknowledged" />;
+const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) => (
+    <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
+        {children}
+    </motion.div>
+);
+
+
+const AcknowledgementDisplay = ({ user, timestamp, className }: { user: User; timestamp: string, className?: string }) => {
+    const content = user.acknowledgementType === 'SIGNATURE' && user.signature ? (
+        <Image src={user.signature} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
+    ) : (
+        <StatusBadge status="acknowledged" />
+    );
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                     <div className={cn("flex items-end gap-2 cursor-help", className)}>
+                        <AnimatedAcknowledgement>{content}</AnimatedAcknowledgement>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Acknowledged by {user.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatTimestamp(timestamp, false)}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
 };
 
 
@@ -240,19 +266,22 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
                         <div className="flex flex-col gap-1 font-sans">
-                            {memo.to.map((user) => (
-                                <div key={user.id} className="flex items-center gap-2">
-                                    <span>
-                                        {user.name}
-                                        {(user as UserWithRole).role && (
-                                            <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
+                            {memo.to.map((user) => {
+                                const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
+                                return (
+                                    <div key={user.id} className="flex items-center gap-2">
+                                        <span>
+                                            {user.name}
+                                            {(user as UserWithRole).role && (
+                                                <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
+                                            )}
+                                        </span>
+                                        {acknowledgement && (
+                                            <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} />
                                         )}
-                                    </span>
-                                    {memo.acknowledgedBy?.some(u => u.id === user.id) && (
-                                        <AcknowledgementDisplay user={user} />
-                                    )}
-                                </div>
-                            ))}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </MemoField>
                     
@@ -378,7 +407,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                             {act.action} this memo.
                                             </span>
                                         </p>
-                                        {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} />}
+                                        {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} timestamp={act.timestamp} />}
                                     </div>
 
                                     {act.details && (

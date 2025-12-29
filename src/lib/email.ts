@@ -103,11 +103,11 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
                             
                             <p>Thank you,</p>
                             <p>The Nib Memo System</p>
-                            ${signatureBlock}
                         </div>
-                    </div>
-                     <div class="footer">
-                        <p>${footerText}</p>
+                         <div class="footer">
+                            ${signatureBlock}
+                            <p>${footerText}</p>
+                        </div>
                     </div>
                 </td>
             </tr>
