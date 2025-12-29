@@ -90,12 +90,16 @@ export default function ArchiveSettingsPage() {
   }, []);
 
   const handleSaveSettings = async () => {
+    if (settings.autoArchiveDays < 1) {
+        toast.error("Invalid Value", { description: "Auto-archive period must be at least 1 day." });
+        return;
+    }
     setIsSaving(true);
     const result = await saveArchiveSettings(settings.autoArchiveDays);
     if(result.success) {
       toast.success("Settings Saved", { description: "Auto-archive settings have been updated." });
     } else {
-      toast.error("Error", { description: "Could not save settings." });
+      toast.error("Error", { description: result.error || "Could not save settings." });
     }
     setIsSaving(false);
   };
@@ -161,6 +165,7 @@ export default function ArchiveSettingsPage() {
               value={settings.autoArchiveDays}
               onChange={(e) => setSettings({ autoArchiveDays: Number(e.target.value) })}
               className="w-24"
+              min="1"
             />
             <span className="text-sm text-muted-foreground">days</span>
           </div>
