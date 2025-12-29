@@ -319,12 +319,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   return (
     <div 
-        className={cn(
-            "grid gap-4 h-full transition-all",
-            isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
-        )}
+      className={cn(
+        "grid gap-4 h-full transition-all",
+        isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
+      )}
     >
-      <Card className="no-print flex flex-col transition-all duration-300 overflow-hidden">
+      <Card className="no-print sticky top-0 self-start h-full min-h-0 flex flex-col transition-all duration-300 overflow-hidden">
         <MemoFilters
             tab={tab}
             search={search}
@@ -343,7 +343,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             onRefresh={() => loadMemos(true)}
             loading={loading}
         />
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
               <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
           ) : memos.length > 0 ? (
@@ -364,7 +364,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
           )}
         </div>
       </Card>
-      <div className="h-full overflow-y-auto rounded-lg no-print">
+      <div className="h-full rounded-lg no-print min-h-0">
         {loadingMemo ? (
              <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
         ) : (
