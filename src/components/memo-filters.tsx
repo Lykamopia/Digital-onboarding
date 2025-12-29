@@ -28,13 +28,19 @@ interface MemoFiltersProps {
   allLabels: LabelType[];
   selectedLabels: string[];
   setSelectedLabels: (labels: string[]) => void;
+  show: string;
+  setShow: (show: string) => void;
   toggle: React.ReactNode;
   isExpanded: boolean;
   onRefresh: () => void;
   loading: boolean;
 }
 
-export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, allLabels, selectedLabels, setSelectedLabels, toggle, isExpanded, onRefresh, loading }: MemoFiltersProps) {
+export function MemoFilters({ 
+    tab, search, setSearch, dateRange, setDateRange, 
+    status, setStatus, allLabels, selectedLabels, 
+    setSelectedLabels, show, setShow, toggle, isExpanded, onRefresh, loading 
+}: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
@@ -60,15 +66,21 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
       setSearchParams({ labels: labelIds.length > 0 ? labelIds.join(',') : null });
   }
 
+  const handleShowChange = (newShow: string) => {
+      setShow(newShow);
+      setSearchParams({ show: newShow === 'all' ? null : newShow });
+  }
+
   const clearFilters = () => {
     setSearch('');
     setDateRange(undefined);
     setStatus('');
     setSelectedLabels([]);
-    setSearchParams({ q: null, from: null, to: null, status: null, labels: null });
+    setShow('');
+    setSearchParams({ q: null, from: null, to: null, status: null, labels: null, show: null });
   }
 
-  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0;
+  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0 || show;
 
   const labelOptions = allLabels.map(label => ({
     ...label,
@@ -158,6 +170,16 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
                 </SelectContent>
                 </Select>
             )}
+            <Select value={show} onValueChange={handleShowChange}>
+                <SelectTrigger className="w-full sm:w-auto flex-1">
+                    <SelectValue placeholder="Show" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Show All</SelectItem>
+                    <SelectItem value="favorites">Favorites</SelectItem>
+                    <SelectItem value="flagged">Flagged</SelectItem>
+                </SelectContent>
+            </Select>
             {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
                     <X className="mr-1 h-4 w-4" />

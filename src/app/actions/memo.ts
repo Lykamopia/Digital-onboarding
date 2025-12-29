@@ -40,7 +40,7 @@ async function sendToWebSocket(data: any) {
     }
 }
 
-export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = []) {
+export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -58,8 +58,6 @@ export async function getDashboardData(tab: string, query: string, status: strin
 
     if (tab === 'archive') {
         where.AND.push(isArchivedByCurrentUser);
-    } else if (tab === 'favorites') {
-        where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else {
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {
@@ -128,6 +126,12 @@ export async function getDashboardData(tab: string, query: string, status: strin
         where.AND.push({ createdAt: { lte: new Date(dateRange.to) } });
     }
     
+    if (show === 'favorites') {
+        where.AND.push({ favoritedBy: { some: { id: user.id } } });
+    } else if (show === 'flagged') {
+        where.AND.push({ isFlagged: true });
+    }
+
     const memos = await prisma.memo.findMany({
         where,
         include: {
@@ -148,6 +152,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
             favoritedBy: { where: { id: user.id }, select: { id: true } }, // check if favorited by current user
         },
         orderBy: [
+            { isFlagged: 'desc' },
             { favoritedBy: { _count: 'desc' } }, // favorited memos first
             { createdAt: 'desc' }
         ]
@@ -184,6 +189,32 @@ export async function toggleFavorite(memoId: string) {
     return { success: true, isFavorited: !isFavorited };
 }
 
+export async function toggleFlag(memoId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const memo = await prisma.memo.findUnique({
+        where: { id: memoId },
+        select: { isFlagged: true }
+    });
+
+    if (!memo) throw new Error("Memo not found");
+
+    const newFlaggedState = !memo.isFlagged;
+
+    await prisma.memo.update({
+        where: { id: memoId },
+        data: {
+            isFlagged: newFlaggedState
+        }
+    });
+
+    revalidatePath('/dashboard/inbox');
+    revalidatePath('/dashboard/sent');
+    revalidatePath('/dashboard/drafts');
+    revalidatePath('/dashboard/archive');
+    return { success: true, isFlagged: newFlaggedState };
+}
 
 export async function getMemo(id: string) {
   if (!id) return null;
@@ -327,7 +358,7 @@ export async function toggleMemoReadStatus(memoId: string) {
     }
     revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
-    return getDashboardData('inbox', '', '', {});
+    return getDashboardData('inbox', '', '', {}, [], '');
 }
 
 export async function sendMemo(formData: FormData) {

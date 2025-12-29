@@ -54,6 +54,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       const labels = searchParams.get('labels');
       return labels ? labels.split(',') : [];
   });
+  const [show, setShow] = useState(searchParams.get('show') || '');
   
   useEffect(() => {
     getLabels().then(setAllLabels);
@@ -208,7 +209,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         to: dateRange?.to?.toISOString(),
     };
     try {
-      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels);
+      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels, show);
       setMemos(data as MemoWithActivity[]);
 
       if (memoIdFromUrl) {
@@ -236,11 +237,11 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     } finally {
       setLoading(false);
     }
-  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedLabels]);
+  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedLabels, show]);
 
   useEffect(() => {
     loadMemos();
-  }, [search, status, dateRange, selectedLabels]); // This effect ONLY runs when filters change
+  }, [search, status, dateRange, selectedLabels, show]); // This effect ONLY runs when filters change
 
   useEffect(() => {
       // This effect syncs the selected memo with the URL id, but does NOT reload the list.
@@ -257,7 +258,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [memoIdFromUrl, memos]);
   
   const getEmptyState = () => {
-      if (search || status || dateRange || selectedLabels.length > 0) {
+      if (search || status || dateRange || selectedLabels.length > 0 || show) {
         return { 
             icon: <SearchEmptyIllustration />,
             title: "No Memos Found", 
@@ -335,6 +336,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             allLabels={allLabels}
             selectedLabels={selectedLabels}
             setSelectedLabels={setSelectedLabels}
+            show={show}
+            setShow={setShow}
             isExpanded={isListExpanded}
             toggle={memoListToggle}
             onRefresh={() => loadMemos(true)}

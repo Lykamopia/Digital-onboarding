@@ -13,6 +13,7 @@ import {
   Expand,
   Undo2,
   Copy,
+  Flag,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,11 +33,12 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { ForwardDialog } from './forward-dialog';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
 import { InboxEmptyIllustration } from './inbox-empty-illustration';
+import { cn } from '@/lib/utils';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -141,6 +143,15 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const handleReply = () => {
     if(!memo) return;
     router.push(`/dashboard/new?replyTo=${memo.id}`);
+  }
+
+  const handleToggleFlag = async () => {
+      if (!memo) return;
+      const result = await toggleFlag(memo.id);
+      toast({
+          title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
+      });
+      onUpdate();
   }
 
   if (!memo) {
@@ -371,6 +382,9 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
             <div className="flex items-center gap-2 overflow-hidden">
+                 <Button variant="ghost" size="icon" onClick={handleToggleFlag} className="group shrink-0">
+                    <Flag className={cn("h-4 w-4 transition-colors duration-200 text-muted-foreground group-hover:text-amber-500", memo.isFlagged && "fill-amber-400 text-amber-500")} />
+                </Button>
                 <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
             </div>
             {!isPreview && (
