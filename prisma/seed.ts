@@ -196,7 +196,25 @@ async function main() {
 
 
   // Seed other users without passwords (they can't log in until one is set)
-  await prisma.user.createMany({ data: users.map(u => ({...u, hashedPassword: ''})) });
+  for (const user of users) {
+      const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId, mustChangePassword } = user;
+      await prisma.user.create({
+          data: {
+              id,
+              name,
+              email,
+              avatar,
+              officeId,
+              departmentId: departmentId || null,
+              divisionId: divisionId || null,
+              districtId: districtId || null,
+              branchId: branchId || null,
+              roleId,
+              mustChangePassword,
+              hashedPassword: '', // No password set initially
+          }
+      });
+  }
   console.log(`Seeded ${users.length} users.`);
 
 
