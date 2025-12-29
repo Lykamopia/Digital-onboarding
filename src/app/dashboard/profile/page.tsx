@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -8,13 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
-import type { User, Office, AcknowledgementType } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Shield } from 'lucide-react';
+import type { User, Office } from '@/lib/types';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
+
 
 type UserWithFullOffice = User & { 
     office: Office & {
@@ -168,8 +171,8 @@ export default function ProfilePage() {
         
         <Tabs defaultValue="profile" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="profile">My Profile</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Profile</TabsTrigger>
+                <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
                 <Card>
@@ -200,8 +203,8 @@ export default function ProfilePage() {
                                         disabled={isUploadingAvatar}
                                     />
                                 </div>
-                                <h2 className="text-2xl font-bold text-center">{user.name}</h2>
-                                <p className="text-muted-foreground text-center">{user.email}</p>
+                                <h2 className="text-2xl font-bold text-center">{name}</h2>
+                                <p className="text-muted-foreground text-center">{email}</p>
                                 
                                 <Separator className="my-6 md:hidden" />
                             </div>
