@@ -341,21 +341,24 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
                 {paginatedUsers.map((user) => (
-                    <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''}>
+                    <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''} className="group">
                         <TableCell>
-                            <Checkbox
-                                checked={selectedUsers.includes(user.id)}
-                                onCheckedChange={(checked) => {
-                                    setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
-                                }}
-                            />
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
+                             <div className="relative h-10 w-10 flex items-center justify-center">
+                                <Avatar className={cn("h-9 w-9 absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-0 scale-50" : "group-hover:opacity-0 group-hover:scale-50")}>
                                     <AvatarImage src={user.avatar ?? undefined} alt={user.name ?? ''} />
                                     <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                                 </Avatar>
+                                <Checkbox
+                                    checked={selectedUsers.includes(user.id)}
+                                    onCheckedChange={(checked) => {
+                                        setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
+                                    }}
+                                    className={cn("absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-100 scale-100" : "opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100")}
+                                />
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
                                 <div>
                                     <div className="font-medium">{user.name}</div>
                                     <div className="text-sm text-muted-foreground">{user.email}</div>
