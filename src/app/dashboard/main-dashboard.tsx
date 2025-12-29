@@ -22,6 +22,7 @@ import { SentEmptyIllustration } from "@/components/sent-empty-illustration"
 import { DraftEmptyIllustration } from "@/components/draft-empty-illustration"
 import { ArchiveEmptyIllustration } from "@/components/archive-empty-illustration"
 import { SearchEmptyIllustration } from "@/components/search-empty-illustration"
+import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
@@ -281,7 +282,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               };
           default:
               return { 
-                icon: <InboxEmptyIllustration />,
+                icon: <MemoEmptyIllustration />,
                 title: "No Memos", 
                 description: "There are no memos to display here." 
               };
@@ -306,7 +307,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
         )}
     >
-      <Card className="no-print flex flex-col transition-all duration-300">
+      <Card className="no-print flex flex-col transition-all duration-300 overflow-hidden">
         <MemoFilters
             tab={tab}
             search={search}
