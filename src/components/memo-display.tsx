@@ -278,7 +278,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                 <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
                                     <Paperclip className='h-4 w-4' />
                                     {att.name} ({formatFileSize(att.size)})
-                                a>
+                                </a>
                                 ))}
                             </div>
                         ) : (
