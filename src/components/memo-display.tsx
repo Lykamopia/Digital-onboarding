@@ -72,6 +72,19 @@ const formatFileSize = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+function hexToRgba(hex: string, alpha: number) {
+    if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+        return `rgba(200, 200, 200, ${alpha})`; // fallback color
+    }
+    let c = hex.substring(1).split('');
+    if (c.length === 3) {
+        c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+    }
+    const i = parseInt(c.join(''), 16);
+    return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
+}
+
+
 export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -233,7 +246,15 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{memo.subject}</span>
                             {memo.labels.map((label: LabelType) => (
-                                <span key={label.id} style={{ backgroundColor: label.color }} className="px-2 py-0.5 rounded-full text-xs font-medium text-white">
+                                <span 
+                                    key={label.id}
+                                    style={{ 
+                                        backgroundColor: hexToRgba(label.color, 0.2), 
+                                        color: label.color, 
+                                        borderColor: hexToRgba(label.color, 0.4) 
+                                    }} 
+                                    className="px-2 py-0.5 rounded-full text-xs font-medium border"
+                                >
                                     {label.name}
                                 </span>
                             ))}

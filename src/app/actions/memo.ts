@@ -40,7 +40,7 @@ async function sendToWebSocket(data: any) {
     }
 }
 
-export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}) {
+export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = []) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -58,6 +58,8 @@ export async function getDashboardData(tab: string, query: string, status: strin
 
     if (tab === 'archive') {
         where.AND.push(isArchivedByCurrentUser);
+    } else if (tab === 'favorites') {
+        where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else {
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {
@@ -87,6 +89,12 @@ export async function getDashboardData(tab: string, query: string, status: strin
                 { to: { some: { name: { contains: query, mode: 'insensitive' } } } },
             ]
         })
+    }
+    
+    if (labels.length > 0) {
+        where.AND.push({
+            labels: { some: { id: { in: labels } } }
+        });
     }
 
     if (tab === 'inbox' && status && status !== 'all') {

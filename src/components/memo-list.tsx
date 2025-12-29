@@ -16,6 +16,19 @@ import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Sta
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
+import { Badge } from "./ui/badge"
+
+function hexToRgba(hex: string, alpha: number) {
+    if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+        return `rgba(200, 200, 200, ${alpha})`; // fallback color
+    }
+    let c = hex.substring(1).split('');
+    if (c.length === 3) {
+        c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+    }
+    const i = parseInt(c.join(''), 16);
+    return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
+}
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -25,6 +38,7 @@ interface MemoListProps {
   isExpanded: boolean
   tab: string
   onUpdate: () => void;
+  user: User | null;
 }
 
 const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser, onUpdate }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null, onUpdate: () => void }) => {
@@ -46,6 +60,13 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         if (hasViewed) return 'read';
         
         return 'unread';
+    }
+    
+    const getOrigin = (memo: MemoWithActivity) => {
+        if (memo.fromId === loggedInUser.id) return "From Sent";
+        if (memo.status === 'draft') return "From Drafts";
+        if (memo.archivedBy?.some(u => u.id === loggedInUser.id)) return "From Archive";
+        return "From Inbox";
     }
 
     const handleActionClick = (e: MouseEvent, callback: () => void) => {
@@ -119,11 +140,11 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const result = await toggleFavorite(memoId);
         toast({ title: result.isFavorited ? "Memo favorited" : "Memo unfavorited" });
         // Optional: uncomment to re-fetch from server to ensure consistency
-        // onUpdate();
+        onUpdate();
     };
 
     const getDisplayName = (memo: MemoWithActivity) => {
-        if (tab === 'sent' || tab === 'drafts' || tab === 'scheduled') {
+        if (tab === 'sent' || tab === 'drafts' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId === loggedInUser.id)) {
             if (memo.to.length > 0) {
                 const mainRecipient = memo.to[0].name;
                 const otherRecipientsCount = memo.to.length - 1 + memo.cc.length;
@@ -333,7 +354,8 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             <div className="flex w-full items-start justify-between">
                                 <div className="flex items-center gap-2 truncate">
                                     <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                    {(tab === 'inbox' || tab === 'scheduled') && <StatusBadge status={getMemoStatus(memo)} />}
+                                    {(tab === 'inbox' || tab === 'scheduled' || tab === 'favorites') && <StatusBadge status={getMemoStatus(memo)} />}
+                                    {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
                                 </div>
                                 <div
                                 className={cn(
@@ -358,7 +380,15 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                                 {memo.labels.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1">
                                         {memo.labels.map(label => (
-                                            <span key={label.id} style={{backgroundColor: label.color}} className="px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white">
+                                             <span 
+                                                key={label.id}
+                                                style={{ 
+                                                    backgroundColor: hexToRgba(label.color, 0.2), 
+                                                    color: label.color, 
+                                                    borderColor: hexToRgba(label.color, 0.4) 
+                                                }} 
+                                                className="px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+                                            >
                                                 {label.name}
                                             </span>
                                         ))}
@@ -419,14 +449,9 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     )
 }
 
-export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab, onUpdate }: MemoListProps) {
+export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab, onUpdate, user: loggedInUser }: MemoListProps) {
   const router = useRouter();
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   
-  useEffect(() => {
-    getLoggedInUser().then(user => setLoggedInUser(user as User));
-  }, []);
-
   const handleSelect = (memoId: string) => {
     const memo = memos.find(m => m.id === memoId);
     if (!memo) return;

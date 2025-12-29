@@ -4,7 +4,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from "next/navigation"
-import type { MemoWithActivity, User } from "@/lib/types"
+import type { MemoWithActivity, User, Label as LabelType } from "@/lib/types"
 import { MemoList } from "@/components/memo-list"
 import { MemoDisplay } from "@/components/memo-display"
 import { Card } from "@/components/ui/card"
@@ -12,9 +12,9 @@ import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import { MemoFilters } from "@/components/memo-filters"
 import { DateRange } from "react-day-picker"
-import { PanelLeft, PanelRight } from "lucide-react"
+import { PanelLeft, PanelRight, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getDashboardData, markAsRead } from "../actions/memo"
+import { getDashboardData, getLabels, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
 import { useNotification } from "@/components/notification-provider"
 import { InboxEmptyIllustration } from "@/components/inbox-empty-illustration"
@@ -36,6 +36,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const [isListExpanded, setIsListExpanded] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
+  const [allLabels, setAllLabels] = useState<LabelType[]>([]);
+
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -48,6 +50,14 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     return undefined;
   });
   const [status, setStatus] = useState(searchParams.get('status') || '');
+  const [selectedLabels, setSelectedLabels] = useState<string[]>(() => {
+      const labels = searchParams.get('labels');
+      return labels ? labels.split(',') : [];
+  });
+  
+  useEffect(() => {
+    getLabels().then(setAllLabels);
+  }, []);
 
   // WebSocket connection for real-time memo updates
   useEffect(() => {
@@ -198,7 +208,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         to: dateRange?.to?.toISOString(),
     };
     try {
-      const data = await getDashboardData(tab, search, status, dateRangeParams);
+      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels);
       setMemos(data as MemoWithActivity[]);
 
       if (memoIdFromUrl) {
@@ -226,11 +236,11 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     } finally {
       setLoading(false);
     }
-  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams]);
+  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedLabels]);
 
   useEffect(() => {
     loadMemos();
-  }, [search, status, dateRange]); // This effect ONLY runs when filters change
+  }, [search, status, dateRange, selectedLabels]); // This effect ONLY runs when filters change
 
   useEffect(() => {
       // This effect syncs the selected memo with the URL id, but does NOT reload the list.
@@ -247,7 +257,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [memoIdFromUrl, memos]);
   
   const getEmptyState = () => {
-      if (search || status || dateRange) {
+      if (search || status || dateRange || selectedLabels.length > 0) {
         return { 
             icon: <SearchEmptyIllustration />,
             title: "No Memos Found", 
@@ -280,6 +290,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                 title: "Nothing in Archive", 
                 description: "You haven't archived any memos." 
               };
+          case 'favorites':
+              return {
+                icon: <Star className="h-20 w-20 text-yellow-400/30" />,
+                title: "No Favorites",
+                description: "Mark memos as favorite to see them here."
+              }
           default:
               return { 
                 icon: <MemoEmptyIllustration />,
@@ -316,6 +332,9 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             setDateRange={setDateRange}
             status={status}
             setStatus={setStatus}
+            allLabels={allLabels}
+            selectedLabels={selectedLabels}
+            setSelectedLabels={setSelectedLabels}
             isExpanded={isListExpanded}
             toggle={memoListToggle}
             onRefresh={() => loadMemos(true)}
@@ -333,6 +352,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               isExpanded={isListExpanded}
               tab={tab}
               onUpdate={() => loadMemos(true)}
+              user={user}
               />
           ) : (
             <div className="h-full p-2">

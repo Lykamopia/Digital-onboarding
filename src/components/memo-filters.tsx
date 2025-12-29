@@ -13,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSearchParams } from '@/hooks/use-search-params';
 import { useDebouncedCallback } from 'use-debounce';
 import { cn } from '@/lib/utils';
+import { RecipientSelector as LabelFilterSelector } from './recipient-selector';
+import type { Label as LabelType } from '@/lib/types';
+
 
 interface MemoFiltersProps {
   tab: string;
@@ -22,13 +25,16 @@ interface MemoFiltersProps {
   setDateRange: (date: DateRange | undefined) => void;
   status: string;
   setStatus: (status: string) => void;
+  allLabels: LabelType[];
+  selectedLabels: string[];
+  setSelectedLabels: (labels: string[]) => void;
   toggle: React.ReactNode;
   isExpanded: boolean;
   onRefresh: () => void;
   loading: boolean;
 }
 
-export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, toggle, isExpanded, onRefresh, loading }: MemoFiltersProps) {
+export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, status, setStatus, allLabels, selectedLabels, setSelectedLabels, toggle, isExpanded, onRefresh, loading }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
@@ -47,15 +53,34 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
       setStatus(newStatus);
       setSearchParams({ status: newStatus === 'all' ? null : newStatus });
   }
+  
+  const handleLabelChange = (newLabels: { id: string }[]) => {
+      const labelIds = newLabels.map(l => l.id);
+      setSelectedLabels(labelIds);
+      setSearchParams({ labels: labelIds.length > 0 ? labelIds.join(',') : null });
+  }
 
   const clearFilters = () => {
     setSearch('');
     setDateRange(undefined);
     setStatus('');
-    setSearchParams({ q: null, from: null, to: null, status: null });
+    setSelectedLabels([]);
+    setSearchParams({ q: null, from: null, to: null, status: null, labels: null });
   }
 
-  const hasActiveFilters = search || dateRange || status;
+  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0;
+
+  const labelOptions = allLabels.map(label => ({
+    ...label,
+    value: label.id,
+    label: label.name,
+  }));
+  
+  const selectedLabelObjects = selectedLabels.map(id => {
+      const label = allLabels.find(l => l.id === id);
+      return label ? { ...label, value: label.id, label: label.name } : null;
+  }).filter(Boolean) as (LabelType & { value: string; label: string })[];
+
 
   return (
     <div className={cn("p-2 border-b", !isExpanded && "flex flex-col items-center")}>
@@ -82,42 +107,43 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
             </Button>
         </div>
       {isExpanded && (
-        <div className="flex min-w-0 items-center flex-wrap gap-2 mt-2">
+        <div className="flex min-w-0 flex-col gap-2 mt-2">
+           <div className="flex items-center gap-2">
             <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                id="date"
-                variant={"outline"}
-                className={cn(
-                    "w-full sm:w-auto flex-1 justify-start text-left font-normal",
-                    !dateRange && "text-muted-foreground"
-                )}
-                >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                    dateRange.to ? (
-                    <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                    </>
+                <PopoverTrigger asChild>
+                    <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn(
+                        "w-full sm:w-auto flex-1 justify-start text-left font-normal",
+                        !dateRange && "text-muted-foreground"
+                    )}
+                    >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                        dateRange.to ? (
+                        <>
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
+                        </>
+                        ) : (
+                        format(dateRange.from, "LLL dd, y")
+                        )
                     ) : (
-                    format(dateRange.from, "LLL dd, y")
-                    )
-                ) : (
-                    <span>Pick a date</span>
-                )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={handleDateChange}
-                numberOfMonths={2}
-                />
-            </PopoverContent>
+                        <span>Pick a date</span>
+                    )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={handleDateChange}
+                    numberOfMonths={2}
+                    />
+                </PopoverContent>
             </Popover>
             {tab === 'inbox' && (
                 <Select value={status} onValueChange={handleStatusChange}>
@@ -138,6 +164,14 @@ export function MemoFilters({ tab, search, setSearch, dateRange, setDateRange, s
                     Clear
                 </Button>
             )}
+           </div>
+           <LabelFilterSelector
+              // @ts-ignore
+              allUsers={labelOptions}
+              selected={selectedLabelObjects}
+              setSelected={(newLabels) => handleLabelChange(newLabels as any)}
+              placeholder="Filter by labels..."
+            />
         </div>
       )}
     </div>
