@@ -51,6 +51,11 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
         .replace(/\n/g, '<br>');
 
     const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
+    
+    const signatureBlock = sender.acknowledgementType === 'SIGNATURE' && sender.signature
+        ? `<div><img src="${process.env.BASE_URL}${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
+        : '';
+
 
     return `
     <!DOCTYPE html>
@@ -96,7 +101,9 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
                                 <a href="${memoUrl}" class="button">View Full Memo</a>
                             </div>
                             
-                            <p>Thank you,<br>The Nib Memo System</p>
+                            <p>Thank you,</p>
+                            <p>The Nib Memo System</p>
+                            ${signatureBlock}
                         </div>
                     </div>
                      <div class="footer">

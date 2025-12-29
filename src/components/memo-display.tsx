@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -84,6 +85,17 @@ function hexToRgba(hex: string, alpha: number) {
     const i = parseInt(c.join(''), 16);
     return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
 }
+
+const AcknowledgementDisplay = ({ user, className }: { user: User, className?: string }) => {
+    if (user.acknowledgementType === 'SIGNATURE' && user.signature) {
+        return (
+            <div className={cn("flex items-end gap-2", className)}>
+                <Image src={user.signature} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
+            </div>
+        );
+    }
+    return <StatusBadge status="acknowledged" />;
+};
 
 
 export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: MemoDisplayProps) {
@@ -198,16 +210,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
 
-  const AcknowledgementDisplay = ({ user }: { user: User }) => {
-    if (user.acknowledgementType === 'SIGNATURE' && user.signature) {
-        return (
-            <div className="flex items-end gap-2">
-                <Image src={user.signature} alt={`${user.name}'s signature`} width={120} height={40} className="object-contain" />
-            </div>
-        );
-    }
-    return <StatusBadge status="acknowledged" />;
-};
 
   const MemoContent = () => (
     <div className={`font-serif printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
@@ -224,10 +226,15 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                         {formatTimestamp(memo.createdAt, false)}
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
-                        <div className='font-semibold font-sans'>
-                            {(memo.from as UserWithRole).name}
-                            {(memo.from as UserWithRole).role && (
-                                <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
+                        <div className='font-semibold font-sans flex items-center gap-2'>
+                            <span>
+                                {(memo.from as UserWithRole).name}
+                                {(memo.from as UserWithRole).role && (
+                                    <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
+                                )}
+                            </span>
+                            {memo.from.acknowledgementType === 'SIGNATURE' && memo.from.signature && (
+                                <Image src={memo.from.signature} alt={`${memo.from.name}'s signature`} width={100} height={35} className="object-contain" />
                             )}
                         </div>
                     </MemoField>
@@ -363,19 +370,24 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                 </Avatar>
                                 </span>
                                 <div className="flex-1">
-                                <p className="text-sm">
-                                    <span className="font-medium">{(act.actor as User).name}</span>
-                                    <span className="text-muted-foreground">
-                                    {' '}
-                                    {act.action} this memo.
-                                    </span>
-                                </p>
-                                {act.details && (
-                                    <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {formatTimestamp(act.timestamp)}
-                                </p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm">
+                                            <span className="font-medium">{(act.actor as User).name}</span>
+                                            <span className="text-muted-foreground">
+                                            {' '}
+                                            {act.action} this memo.
+                                            </span>
+                                        </p>
+                                        {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} />}
+                                    </div>
+
+                                    {act.details && (
+                                        <div className="text-sm text-muted-foreground mt-1 pl-4 border-l-2 ml-2" dangerouslySetInnerHTML={{__html: act.details.replace(/\n/g, '<br/>')}}/>
+                                    )}
+
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {formatTimestamp(act.timestamp)}
+                                    </p>
                                 </div>
                             </li>
                             ))}
