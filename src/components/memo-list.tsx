@@ -139,12 +139,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
         const result = await toggleFavorite(memoId);
         toast({ title: result.isFavorited ? "Memo favorited" : "Memo unfavorited" });
-        // Optional: uncomment to re-fetch from server to ensure consistency
         onUpdate();
     };
     
     const handleToggleFlag = async (memoId: string) => {
-        onUpdate();
         const result = await toggleFlag(memoId);
         toast({
             title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
@@ -388,7 +386,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                                      <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className="z-10 shrink-0">
                                         <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
                                     </button>
-                                    {memo.isFlagged && <Flag className="h-4 w-4 text-amber-500 fill-amber-400 shrink-0" />}
                                     <span className="truncate">{memo.subject || "No Subject"}</span>
                                 </div>
                                 {memo.labels.length > 0 && (

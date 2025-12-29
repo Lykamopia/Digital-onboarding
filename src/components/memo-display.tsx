@@ -150,7 +150,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const handleDuplicate = async () => {
     if (!memo) return;
     await duplicateMemo(memo.id);
-    // The action will redirect, but we can show a toast for feedback
     toast({
         title: "Memo Duplicated",
         description: "A new draft has been created from this memo."
@@ -259,8 +258,8 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                     <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
                                 )}
                             </span>
-                            {memo.from.acknowledgementType === 'SIGNATURE' && memo.from.signature && (
-                                <Image src={memo.from.signature} alt={`${memo.from.name}'s signature`} width={100} height={35} className="object-contain" />
+                            {(memo.from as UserWithRole).acknowledgementType === 'SIGNATURE' && (memo.from as UserWithRole).signature && (
+                                <Image src={(memo.from as UserWithRole).signature!} alt={`${(memo.from as UserWithRole).name}'s signature`} width={100} height={35} className="object-contain" />
                             )}
                         </div>
                     </MemoField>
@@ -434,7 +433,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
             <div className="flex items-center gap-2 overflow-hidden">
                  <Button variant="ghost" size="icon" onClick={handleToggleFlag} className="group shrink-0">
-                    <Flag className={cn("h-4 w-4 transition-colors duration-200 text-muted-foreground group-hover:text-amber-500", memo.isFlagged && "fill-amber-400 text-amber-500")} />
+                    <Flag className={cn("h-4 w-4 transition-colors duration-200 group-hover:text-amber-500", memo.isFlagged ? "fill-amber-400 text-amber-500" : "text-muted-foreground")} />
                 </Button>
                 <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
             </div>
