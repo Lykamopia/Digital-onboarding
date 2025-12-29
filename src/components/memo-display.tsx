@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -19,7 +18,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import type { MemoWithActivity, User, Attachment, Role, Label as LabelType } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, getGeneralSettings } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { ForwardDialog } from './forward-dialog';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
@@ -99,8 +98,8 @@ const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) =>
 );
 
 
-const AcknowledgementDisplay = ({ user, timestamp, className }: { user: User; timestamp: string, className?: string }) => {
-    const content = user.acknowledgementType === 'SIGNATURE' && user.signature ? (
+const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {
+    const content = useSignature && user.signature ? (
         <Image src={user.signature} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
     ) : (
         <StatusBadge status="acknowledged" />
@@ -128,9 +127,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const router = useRouter();
   const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
+  const [acknowledgementType, setAcknowledgementType] = React.useState<AcknowledgementType>('BADGE');
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
+    getGeneralSettings().then(settings => setAcknowledgementType(settings.acknowledgementType));
   }, []);
   
   const handlePrint = () => {
@@ -234,6 +235,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
+  const useSignature = acknowledgementType === 'SIGNATURE';
 
 
   const MemoContent = () => (
@@ -258,7 +260,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                     <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
                                 )}
                             </span>
-                            {(memo.from as UserWithRole).acknowledgementType === 'SIGNATURE' && (memo.from as UserWithRole).signature && (
+                            {useSignature && (memo.from as UserWithRole).signature && (
                                 <Image src={(memo.from as UserWithRole).signature!} alt={`${(memo.from as UserWithRole).name}'s signature`} width={100} height={35} className="object-contain" />
                             )}
                         </div>
@@ -276,7 +278,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                             )}
                                         </span>
                                         {acknowledgement && (
-                                            <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} />
+                                            <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
                                         )}
                                     </div>
                                 );
@@ -406,7 +408,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                             {act.action} this memo.
                                             </span>
                                         </p>
-                                        {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} timestamp={act.timestamp} />}
+                                        {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} timestamp={act.timestamp} useSignature={useSignature} />}
                                     </div>
 
                                     {act.details && (

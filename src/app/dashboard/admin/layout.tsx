@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -13,6 +12,7 @@ import { AnimatePresence } from 'framer-motion';
 import { AnimatedContent } from '@/components/animated-content';
 
 const navItemsConfig = [
+  { value: '/dashboard/admin/general', label: 'General', permission: 'manage_general_settings' },
   { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions' },
   { value: '/dashboard/admin/departments', label: 'Departments', permission: 'manage_departments' },
   { value: '/dashboard/admin/branches', label: 'Branches', permission: 'manage_branches' },
@@ -81,7 +81,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="overflow-x-auto pb-2">
-                <TabsList className="grid-cols-auto grid h-auto w-max sm:w-full sm:grid-cols-5 md:grid-cols-10">
+                <TabsList className="grid-cols-auto grid h-auto w-max sm:w-full sm:grid-cols-5 md:grid-cols-11">
                     {accessibleNavItems.map((item) => (
                     <TabsTrigger 
                         key={item.value} 

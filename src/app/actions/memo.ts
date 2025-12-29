@@ -1053,7 +1053,7 @@ export async function deleteLabel(id: string) {
     return { success: true };
 }
 
-export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string, acknowledgementType?: AcknowledgementType }) {
+export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
     await prisma.user.update({
         where: { id: userId },
         data: data
@@ -1091,6 +1091,20 @@ export async function getEmailSettings() {
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
     emailSettings = settings;
     revalidatePath('/dashboard/admin/email');
+    return { success: true };
+}
+
+let generalSettings = { 
+    acknowledgementType: 'SIGNATURE' as AcknowledgementType
+};
+
+export async function getGeneralSettings() {
+    return generalSettings;
+}
+
+export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType }) {
+    generalSettings = settings;
+    revalidatePath('/dashboard/admin/general');
     return { success: true };
 }
 

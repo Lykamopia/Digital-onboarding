@@ -14,7 +14,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import Image from 'next/image';
 
 type UserWithFullOffice = User & { 
@@ -33,8 +32,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
   const [signature, setSignature] = useState('');
-  const [acknowledgementType, setAcknowledgementType] = useState<AcknowledgementType>('BADGE');
-
+  
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +49,6 @@ export default function ProfilePage() {
             setEmail(initialUser.email);
             setAvatar(initialUser.avatar || '');
             setSignature(initialUser.signature || '');
-            setAcknowledgementType(initialUser.acknowledgementType || 'BADGE');
         }
     }
     loadUser();
@@ -60,7 +57,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    const result = await updateUserProfile(user.id, { name, email, avatar, signature, acknowledgementType });
+    const result = await updateUserProfile(user.id, { name, email, avatar, signature });
     if (result.success) {
       toast({
         title: 'Profile Updated',
@@ -114,7 +111,7 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
       const result = await response.json();
       setUrl(result.path);
-      toast({ title: `${fieldName} Updated`, description: `Click 'Save Changes' to apply your new ${fieldName.toLowerCase()}.` });
+      toast({ title: `${fieldName} Updated`, description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
     } catch (error: any) {
        toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
     } finally {
@@ -134,7 +131,7 @@ export default function ProfilePage() {
     );
   }
   
-  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '') || signature !== (user.signature || '') || acknowledgementType !== user.acknowledgementType;
+  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '') || signature !== (user.signature || '');
 
   const getUserOrgPath = () => {
     if (!user.office) return { division: null, department: null, branch: null, district: null, office: null };
@@ -170,9 +167,8 @@ export default function ProfilePage() {
         </div>
         
         <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="profile">My Profile</TabsTrigger>
-                <TabsTrigger value="acknowledgement">Acknowledgement</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
@@ -220,6 +216,44 @@ export default function ProfilePage() {
                                         <div className="space-y-2">
                                             <Label htmlFor="email">Email Address</Label>
                                             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <Label htmlFor="signature-upload">Digital Signature Image</Label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50">
+                                                {signature ? (
+                                                    <Image src={signature} alt="Signature preview" width={180} height={90} className="object-contain" />
+                                                ) : (
+                                                    <div className="text-center text-xs text-muted-foreground">
+                                                        <ImageIcon className="mx-auto h-6 w-6" />
+                                                        <p>No Signature</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <Button 
+                                                    type="button" 
+                                                    variant="outline"
+                                                    onClick={() => signatureInputRef.current?.click()}
+                                                    disabled={isUploadingSignature}
+                                                >
+                                                    {isUploadingSignature ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                                                    {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                                                </Button>
+                                                <Input
+                                                    id="signature-upload"
+                                                    type="file"
+                                                    ref={signatureInputRef}
+                                                    onChange={handleSignatureChange}
+                                                    className="hidden"
+                                                    accept={ALLOWED_SIGNATURE_TYPES.join(',')}
+                                                    disabled={isUploadingSignature}
+                                                />
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                    PNG, JPG, or SVG. Max file size: 2MB.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -275,67 +309,6 @@ export default function ProfilePage() {
                                             </li>
                                         )}
                                     </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-            <TabsContent value="acknowledgement">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Acknowledgement Method</CardTitle>
-                        <CardDescription>Choose how your acknowledgement appears on memos.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-8">
-                        <div className="flex items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="ack-type" className="text-base">Use Digital Signature</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Toggle on to use your uploaded signature. Otherwise, a standard badge will be used.
-                                </p>
-                            </div>
-                            <Switch
-                                id="ack-type"
-                                checked={acknowledgementType === 'SIGNATURE'}
-                                onCheckedChange={(checked) => setAcknowledgementType(checked ? 'SIGNATURE' : 'BADGE')}
-                            />
-                        </div>
-                        <div className="space-y-4">
-                            <Label htmlFor="signature-upload">Digital Signature Image</Label>
-                             <div className="flex items-center gap-4">
-                                <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50">
-                                    {signature ? (
-                                        <Image src={signature} alt="Signature preview" width={180} height={90} className="object-contain" />
-                                    ) : (
-                                        <div className="text-center text-xs text-muted-foreground">
-                                            <ImageIcon className="mx-auto h-6 w-6" />
-                                            <p>No Signature</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <Button 
-                                        type="button" 
-                                        variant="outline"
-                                        onClick={() => signatureInputRef.current?.click()}
-                                        disabled={acknowledgementType === 'BADGE' || isUploadingSignature}
-                                    >
-                                        {isUploadingSignature ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                                        {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
-                                    </Button>
-                                    <Input
-                                        id="signature-upload"
-                                        type="file"
-                                        ref={signatureInputRef}
-                                        onChange={handleSignatureChange}
-                                        className="hidden"
-                                        accept={ALLOWED_SIGNATURE_TYPES.join(',')}
-                                        disabled={acknowledgementType === 'BADGE' || isUploadingSignature}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                        PNG, JPG, or SVG. Max file size: 2MB.
-                                    </p>
                                 </div>
                             </div>
                         </div>

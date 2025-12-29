@@ -10,15 +10,14 @@ import type {
     Branch as PrismaBranch,
     District as PrismaDistrict,
     Label as PrismaLabel,
-    AcknowledgementType as PrismaAcknowledgementType,
 } from '@prisma/client';
 
-export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_scheduled' | 'manage_labels';
+export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_scheduled' | 'manage_labels' | 'manage_general_settings';
 
 export type Role = PrismaRole;
 export type Office = PrismaOffice;
 export type Label = PrismaLabel;
-export type AcknowledgementType = PrismaAcknowledgementType;
+export type AcknowledgementType = 'BADGE' | 'SIGNATURE';
 
 export type Department = PrismaDepartment & {
     office: PrismaOffice;

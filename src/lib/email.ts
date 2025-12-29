@@ -1,7 +1,6 @@
-
 import nodemailer from 'nodemailer';
 import type { Memo, User, Role } from './types';
-import { getEmailSettings } from '@/app/actions/memo';
+import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -32,6 +31,9 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
         return '';
     }
 
+    const { acknowledgementType } = await getGeneralSettings();
+    const useSignature = acknowledgementType === 'SIGNATURE';
+
     const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=${memo.id}`;
     
     const senderNameWithRole = sender.role 
@@ -52,7 +54,7 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
 
     const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
     
-    const signatureBlock = sender.acknowledgementType === 'SIGNATURE' && sender.signature
+    const signatureBlock = useSignature && sender.signature
         ? `<div><img src="${process.env.BASE_URL}${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
         : '';
 
