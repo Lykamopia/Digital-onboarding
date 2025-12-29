@@ -34,7 +34,8 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
     const { acknowledgementType } = await getGeneralSettings();
     const useSignature = acknowledgementType === 'SIGNATURE';
 
-    const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=${memo.id}`;
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const memoUrl = `${baseUrl}/dashboard/inbox?id=${memo.id}`;
     
     const senderNameWithRole = sender.role 
         ? `${sender.name} <span style="font-size: 0.8em; font-style: italic; color: #666;">(${sender.role.name})</span>`
@@ -52,10 +53,10 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
         .replace(/{{memoUrl}}/g, memoUrl)
         .replace(/\n/g, '<br>');
 
-    const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
+    const logoUrl = `${baseUrl}/Wide - LOGO.png`;
     
     const signatureBlock = useSignature && sender.signature
-        ? `<div><img src="${process.env.BASE_URL}${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
+        ? `<div><img src="${baseUrl}${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
         : '';
 
 
