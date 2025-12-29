@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -58,6 +57,8 @@ export async function getDashboardData(tab: string, query: string, status: strin
 
     if (tab === 'archive') {
         where.AND.push(isArchivedByCurrentUser);
+    } else if (tab === 'favorites') {
+        where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else {
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {

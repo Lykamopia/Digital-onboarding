@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -51,7 +50,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
       if (!isInitialLoad.current) return;
       isInitialLoad.current = false;
 
-      const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {});
+      const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', { from: undefined, to: undefined }, [], '');
       
       const unreadMemos = inboxMemos.filter(memo => 
           !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
@@ -172,7 +171,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           </div>
         </header>
         <main className="flex flex-1 flex-col bg-muted/40 overflow-auto no-print">
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-4 min-h-0">
             {children}
           </div>
         </main>
