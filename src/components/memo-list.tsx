@@ -1,3 +1,4 @@
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -8,10 +9,10 @@ import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { useEffect, useState, MouseEvent } from "react"
-import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo } from "@/app/actions/memo"
+import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo, toggleFlag } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
@@ -141,6 +142,15 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         // Optional: uncomment to re-fetch from server to ensure consistency
         onUpdate();
     };
+    
+    const handleToggleFlag = async (memoId: string) => {
+        onUpdate();
+        const result = await toggleFlag(memoId);
+        toast({
+            title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
+        });
+        onUpdate();
+    }
 
     const getDisplayName = (memo: MemoWithActivity) => {
         if (tab === 'sent' || tab === 'drafts' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId === loggedInUser.id)) {
@@ -284,6 +294,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
                     <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
                 </ContextMenuItem>
+                <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
+                    <Flag className={cn("mr-2 h-4 w-4", memo.isFlagged && "fill-amber-400 text-amber-500")} />
+                    <span>{memo.isFlagged ? 'Unflag' : 'Flag'}</span>
+                </ContextMenuItem>
                 {canDuplicate && (
                     <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
                         <Copy className="mr-2 h-4 w-4" />
@@ -374,6 +388,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                                      <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className="z-10 shrink-0">
                                         <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
                                     </button>
+                                    {memo.isFlagged && <Flag className="h-4 w-4 text-amber-500 fill-amber-400 shrink-0" />}
                                     <span className="truncate">{memo.subject || "No Subject"}</span>
                                 </div>
                                 {memo.labels.length > 0 && (
