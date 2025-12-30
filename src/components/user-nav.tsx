@@ -23,10 +23,13 @@ export function UserNav({ user }: { user: User }) {
   if (!user) return null;
 
   const getAvatarUrl = () => {
-    if (user.avatar?.startsWith('/uploads')) {
-      return `/api${user.avatar}`;
-    }
-    return user.avatar || user.image || '';
+    const p = user.avatar?.toString().trim();
+    if (!p) return user.image || undefined;
+    if (p.startsWith('http')) return p;
+    if (p.startsWith('/uploads')) return p;
+    if (p.startsWith('uploads')) return '/' + p;
+    // fallback to existing API-backed avatars
+    return p.startsWith('/') ? `/api${p}` : `/api/${p}`;
   }
 
   return (

@@ -1064,7 +1064,9 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         where: { id: userId },
         data: data
     });
+    // Revalidate both the profile page and dashboard layout so header updates instantly
     revalidatePath('/dashboard/profile');
+    revalidatePath('/dashboard');
     return { success: true };
 }
 
