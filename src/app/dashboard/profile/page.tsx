@@ -36,11 +36,9 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   
-  // State for the currently saved URL
   const [avatarUrl, setAvatarUrl] = useState('');
   const [signatureUrl, setSignatureUrl] = useState('');
   
-  // State for the temporary preview before saving
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
 
@@ -64,6 +62,8 @@ export default function ProfilePage() {
         setEmail(initialUser.email);
         setAvatarUrl(initialUser.avatar || '');
         setSignatureUrl(initialUser.signature || '');
+        setAvatarPreview(null);
+        setSignaturePreview(null);
     }
   }, []);
 
@@ -85,10 +85,6 @@ export default function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-      // Update local previews to match saved state
-      setAvatarPreview(null);
-      setSignaturePreview(null);
-      // Reload user to ensure UI is in sync with backend
       await loadUser();
     } else {
         toast({
@@ -109,7 +105,6 @@ export default function ProfilePage() {
         return;
     }
 
-    // Set preview immediately
     const reader = new FileReader();
     reader.onloadend = () => {
       setAvatarPreview(reader.result as string);
@@ -121,6 +116,7 @@ export default function ProfilePage() {
 
   const handleSignatureSave = async (dataUrl: string) => {
     setIsSignatureDialogOpen(false);
+    
     if (!dataUrl) {
       setSignaturePreview('');
       setSignatureUrl('');
@@ -128,7 +124,7 @@ export default function ProfilePage() {
       return;
     }
     
-    setSignaturePreview(dataUrl); // Set preview immediately
+    setSignaturePreview(dataUrl);
     
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], 'signature.webp', { type: 'image/webp' });
@@ -144,13 +140,12 @@ export default function ProfilePage() {
       const response = await fetch('/api/upload', { method: 'POST', body: formData });
       if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
       const result = await response.json();
-      setUrl(result.path); // Update the URL that will be saved
+      setUrl(result.path);
       toast({ title: `${fieldName} Updated`, description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
     } catch (error: any) {
        toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
-       // Revert preview if upload fails
-       if(fieldName === 'Avatar') setAvatarPreview(null);
-       if(fieldName === 'Signature') setSignaturePreview(null);
+       if(fieldName === 'Avatar') setAvatarPreview(user?.avatar || null);
+       if(fieldName === 'Signature') setSignaturePreview(user?.signature || null);
     } finally {
       setIsUploading(false);
     }
@@ -244,7 +239,7 @@ export default function ProfilePage() {
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
                                             <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2">
-                                                {signaturePreview !== null ? (
+                                                {signaturePreview ? (
                                                      signaturePreview ? <Image src={signaturePreview} alt="Signature preview" width={180} height={90} className="object-contain animate-in fade-in duration-300" /> : <div className="text-center text-xs text-muted-foreground"><ImageIcon className="mx-auto h-6 w-6" /><p>Signature Cleared</p></div>
                                                 ) : (
                                                     signatureUrl ? (

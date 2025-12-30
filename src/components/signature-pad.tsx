@@ -42,9 +42,10 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
 
   // Effect to handle canvas DPI scaling
   useLayoutEffect(() => {
+    if (!isClient) return;
     const canvas = canvasRef.current;
     const context = getContext();
-    if (!canvas || !context || !isClient) return;
+    if (!canvas || !context) return;
     
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -53,11 +54,14 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     canvas.height = rect.height * dpr;
 
     context.scale(dpr, dpr);
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
 
     // If there's an initial signature, draw it.
     if (initialSignature) {
         const image = new Image();
         image.onload = () => {
+            context.clearRect(0, 0, canvas.width/dpr, canvas.height/dpr);
             context.drawImage(image, 0, 0, canvas.width / dpr, canvas.height / dpr);
             saveHistory();
         }
@@ -92,8 +96,15 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const context = getContext();
     if (!context) return;
     saveHistory();
+
     const { x, y } = getCoordinates(e);
     pointsRef.current = [{ x, y, time: Date.now() }];
+    
+    context.lineWidth = strokeWidth;
+    context.strokeStyle = strokeColor;
+    context.beginPath();
+    context.moveTo(x,y);
+    
     setIsDrawing(true);
   };
   
@@ -106,25 +117,27 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const newPoint = { x, y, time: Date.now() };
     pointsRef.current.push(newPoint);
 
-    if(pointsRef.current.length > 2) {
-      const points = pointsRef.current;
-      const lastTwo = points.slice(-2);
-      const controlPoint = lastTwo[0];
-      const endPoint = {
-        x: (lastTwo[0].x + lastTwo[1].x) / 2,
-        y: (lastTwo[0].y + lastTwo[1].y) / 2,
-      };
-
-      context.beginPath();
-      context.moveTo(points[points.length-3].x, points[points.length-3].y);
-      context.quadraticCurveTo(controlPoint.x, controlPoint.y, endPoint.x, endPoint.y);
-      
-      context.strokeStyle = strokeColor;
-      context.lineWidth = strokeWidth;
-      context.lineCap = 'round';
-      context.lineJoin = 'round';
+    if(pointsRef.current.length < 3) {
+      context.lineTo(x, y);
       context.stroke();
+      return;
     }
+    
+    // Use the second to last point and the new point to create a quadratic curve
+    // The control point is the middle point, and the end point is the average of the last two
+    const points = pointsRef.current;
+    const p2 = points[points.length-2];
+    const p3 = points[points.length-1];
+
+    const midPoint = {
+      x: (p2.x + p3.x) / 2,
+      y: (p2.y + p3.y) / 2,
+    };
+
+    context.quadraticCurveTo(p2.x, p2.y, midPoint.x, midPoint.y);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(midPoint.x, midPoint.y);
   };
 
   const stopDrawing = (e: React.MouseEvent | React.TouchEvent) => {
@@ -150,10 +163,9 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const context = getContext();
     if (context && history.length > 0) {
         const lastState = history[history.length - 1];
-        context.putImageData(lastState, 0, 0);
         setHistory(prev => prev.slice(0, -1));
+        context.putImageData(lastState, 0, 0);
     } else if (context) {
-        // if history is empty, clear the canvas
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     }
   };
@@ -164,25 +176,16 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const context = getContext();
     if (!context) return;
     
-    // Create a copy of the canvas to avoid altering the original
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if(!tempCtx) return;
-
     const dpr = window.devicePixelRatio || 1;
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    tempCtx.drawImage(canvas, 0, 0);
-
-    const { width, height } = tempCanvas;
-    const imageData = tempCtx.getImageData(0, 0, width, height);
+    const { width, height } = canvas;
+    const imageData = context.getImageData(0, 0, width, height);
     const data = imageData.data;
     let minX = width, minY = height, maxX = -1, maxY = -1;
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4;
-        if (data[i + 3] > 0) {
+        if (data[i + 3] > 0) { // Check for non-transparent pixels
           minX = Math.min(minX, x);
           minY = Math.min(minY, y);
           maxX = Math.max(maxX, x);
@@ -206,11 +209,11 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const finalCtx = finalCanvas.getContext('2d');
     if (!finalCtx) return;
     
-    finalCtx.drawImage(tempCanvas, minX, minY, maxX - minX, maxY - minY, padding, padding, maxX - minX, maxY - minY);
+    // Draw the trimmed part of the original canvas onto the new one
+    finalCtx.drawImage(canvas, minX, minY, maxX - minX, maxY - minY, padding, padding, maxX - minX, maxY - minY);
     
     onSave(finalCanvas.toDataURL('image/webp', 0.95));
   };
-
 
   if (!isClient) return <div className="h-[300px] w-[500px] bg-muted/50 rounded-md animate-pulse"></div>;
 
