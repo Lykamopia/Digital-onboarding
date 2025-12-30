@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,16 @@ import { Undo, Trash2, Save } from 'lucide-react';
 
 interface SignaturePadProps {
   onSave: (dataUrl: string) => void;
+  initialSignature?: string;
 }
 
-export function SignaturePad({ onSave }: SignaturePadProps) {
+interface Point {
+  x: number;
+  y: number;
+  time: number;
+}
+
+export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [strokeWidth, setStrokeWidth] = useState(2);
@@ -20,141 +27,198 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
   const [history, setHistory] = useState<ImageData[]>([]);
   const [isClient, setIsClient] = useState(false);
 
+  const pointsRef = useRef<Point[]>([]);
+
+  // We wait for the component to mount before rendering the canvas
+  // to ensure window/document are available.
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const getContext = () => {
+  const getContext = useCallback(() => {
     const canvas = canvasRef.current;
     return canvas?.getContext('2d');
-  };
+  }, []);
 
-  const saveHistory = () => {
+  // Effect to handle canvas DPI scaling
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const context = getContext();
+    if (!canvas || !context || !isClient) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    context.scale(dpr, dpr);
+
+    // If there's an initial signature, draw it.
+    if (initialSignature) {
+        const image = new Image();
+        image.onload = () => {
+            context.drawImage(image, 0, 0, canvas.width / dpr, canvas.height / dpr);
+            saveHistory();
+        }
+        image.src = initialSignature;
+    }
+  }, [isClient, initialSignature, getContext]);
+
+  const saveHistory = useCallback(() => {
     const context = getContext();
     if (context) {
-        setHistory(prev => [...prev, context.getImageData(0, 0, context.canvas.width, context.canvas.height)]);
+        const { canvas } = context;
+        setHistory(prev => [...prev, context.getImageData(0, 0, canvas.width, canvas.height)]);
     }
-  };
+  }, [getContext]);
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    const context = getContext();
-    if (!context) return;
-    saveHistory();
-    context.beginPath();
-    const { x, y } = getCoordinates(e);
-    context.moveTo(x, y);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const context = getContext();
-    if (!context) return;
-    const { x, y } = getCoordinates(e);
-    context.lineTo(x, y);
-    context.strokeStyle = strokeColor;
-    context.lineWidth = strokeWidth;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.stroke();
-  };
-
-  const stopDrawing = () => {
-    const context = getContext();
-    if (!context) return;
-    context.closePath();
-    setIsDrawing(false);
-  };
-
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
-    }
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
+  };
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const context = getContext();
+    if (!context) return;
+    saveHistory();
+    const { x, y } = getCoordinates(e);
+    pointsRef.current = [{ x, y, time: Date.now() }];
+    setIsDrawing(true);
+  };
+  
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const context = getContext();
+    if (!context) return;
+    const { x, y } = getCoordinates(e);
+    const newPoint = { x, y, time: Date.now() };
+    pointsRef.current.push(newPoint);
+
+    if(pointsRef.current.length > 2) {
+      const points = pointsRef.current;
+      const lastTwo = points.slice(-2);
+      const controlPoint = lastTwo[0];
+      const endPoint = {
+        x: (lastTwo[0].x + lastTwo[1].x) / 2,
+        y: (lastTwo[0].y + lastTwo[1].y) / 2,
+      };
+
+      context.beginPath();
+      context.moveTo(points[points.length-3].x, points[points.length-3].y);
+      context.quadraticCurveTo(controlPoint.x, controlPoint.y, endPoint.x, endPoint.y);
+      
+      context.strokeStyle = strokeColor;
+      context.lineWidth = strokeWidth;
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.stroke();
+    }
+  };
+
+  const stopDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const context = getContext();
+    if (!context) return;
+
+    context.closePath();
+    setIsDrawing(false);
+    pointsRef.current = [];
   };
 
   const clearCanvas = () => {
     const context = getContext();
     if (context) {
+        saveHistory();
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-        setHistory([]);
     }
   };
-
+  
   const undoLast = () => {
     const context = getContext();
     if (context && history.length > 0) {
         const lastState = history[history.length - 1];
         context.putImageData(lastState, 0, 0);
         setHistory(prev => prev.slice(0, -1));
+    } else if (context) {
+        // if history is empty, clear the canvas
+        context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     }
   };
 
   const handleSave = () => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      // Create a temporary canvas to trim whitespace
-      const context = getContext();
-      if (!context) return;
+    if (!canvas) return;
+    const context = getContext();
+    if (!context) return;
+    
+    // Create a copy of the canvas to avoid altering the original
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if(!tempCtx) return;
 
-      const { width, height } = canvas;
-      const imageData = context.getImageData(0, 0, width, height);
-      const data = imageData.data;
-      let minX = width, minY = height, maxX = 0, maxY = 0;
+    const dpr = window.devicePixelRatio || 1;
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
 
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const i = (y * width + x) * 4;
-          if (data[i + 3] > 0) { // Check alpha channel
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-          }
+    const { width, height } = tempCanvas;
+    const imageData = tempCtx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (data[i + 3] > 0) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
         }
       }
-
-      if (minX > maxX) { // Canvas is empty
-        onSave('');
-        return;
-      }
-      
-      const padding = 20;
-      const trimmedWidth = maxX - minX + 2 * padding;
-      const trimmedHeight = maxY - minY + 2 * padding;
-
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = trimmedWidth;
-      tempCanvas.height = trimmedHeight;
-      const tempCtx = tempCanvas.getContext('2d');
-      if (!tempCtx) return;
-
-      // Draw the trimmed signature onto the temporary canvas
-      tempCtx.drawImage(canvas, minX, minY, maxX - minX + 1, maxY - minY + 1, padding, padding, maxX - minX + 1, maxY - minY + 1);
-
-      // Export as WebP
-      onSave(tempCanvas.toDataURL('image/webp', 0.9));
     }
+
+    if (maxX === -1) { // Canvas is empty
+      onSave('');
+      return;
+    }
+
+    const padding = 20 * dpr;
+    const trimmedWidth = maxX - minX + 2 * padding;
+    const trimmedHeight = maxY - minY + 2 * padding;
+
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = trimmedWidth;
+    finalCanvas.height = trimmedHeight;
+    const finalCtx = finalCanvas.getContext('2d');
+    if (!finalCtx) return;
+    
+    finalCtx.drawImage(tempCanvas, minX, minY, maxX - minX, maxY - minY, padding, padding, maxX - minX, maxY - minY);
+    
+    onSave(finalCanvas.toDataURL('image/webp', 0.95));
   };
 
-  if (!isClient) return null;
+
+  if (!isClient) return <div className="h-[300px] w-[500px] bg-muted/50 rounded-md animate-pulse"></div>;
 
   return (
     <div className="flex flex-col gap-4">
       <canvas
         ref={canvasRef}
-        width={500}
-        height={300}
-        className="rounded-md border-2 border-dashed bg-muted/50 cursor-crosshair"
+        className="w-[500px] h-[300px] rounded-md border-2 border-dashed bg-muted/50 cursor-crosshair touch-none"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}

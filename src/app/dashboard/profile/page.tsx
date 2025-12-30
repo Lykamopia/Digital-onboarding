@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -35,41 +35,61 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserWithRelations | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [avatar, setAvatar] = useState('');
-  const [signature, setSignature] = useState('');
   
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  // State for the currently saved URL
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [signatureUrl, setSignatureUrl] = useState('');
+  
+  // State for the temporary preview before saving
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+
+  const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
   const { toast } = useToast();
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const isChanged = 
+    name !== user?.name || 
+    email !== user?.email || 
+    avatarUrl !== (user?.avatar || '') || 
+    signatureUrl !== (user?.signature || '');
+
+  const loadUser = useCallback(async () => {
+    const initialUser = await getLoggedInUser();
+    setUser(initialUser as any);
+    if (initialUser) {
+        setName(initialUser.name);
+        setEmail(initialUser.email);
+        setAvatarUrl(initialUser.avatar || '');
+        setSignatureUrl(initialUser.signature || '');
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadUser() {
-        const initialUser = await getLoggedInUser();
-        setUser(initialUser as any);
-        if (initialUser) {
-            setName(initialUser.name);
-            setEmail(initialUser.email);
-            setAvatar(initialUser.avatar || '');
-            setSignature(initialUser.signature || '');
-        }
-    }
     loadUser();
-  }, []);
+  }, [loadUser]);
 
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    const result = await updateUserProfile(user.id, { name, email, avatar, signature });
+    const result = await updateUserProfile(user.id, { 
+        name, 
+        email, 
+        avatar: avatarUrl, 
+        signature: signatureUrl 
+    });
     if (result.success) {
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-      // Force a refresh to update user-nav, which might not be reactive to this change without a page reload.
-      window.location.reload();
+      // Update local previews to match saved state
+      setAvatarPreview(null);
+      setSignaturePreview(null);
+      // Reload user to ensure UI is in sync with backend
+      await loadUser();
     } else {
         toast({
             variant: 'destructive',
@@ -88,17 +108,35 @@ export default function ProfilePage() {
         toast({ variant: 'destructive', title: 'File too large', description: 'Profile picture must be less than 5MB.' });
         return;
     }
-     const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
 
-    await handleFileUpload(file, setIsUploadingAvatar, setAvatar, "Avatar");
+    // Set preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    await handleFileUpload(file, setAvatarUrl, "Avatar");
   };
 
-  const handleFileUpload = async (file: File, setLoading: (loading: boolean) => void, setUrl: (url: string) => void, fieldName: string) => {
-    setLoading(true);
+  const handleSignatureSave = async (dataUrl: string) => {
+    setIsSignatureDialogOpen(false);
+    if (!dataUrl) {
+      setSignaturePreview('');
+      setSignatureUrl('');
+      toast({ title: "Signature Cleared", description: "Click 'Save All Changes' to apply." });
+      return;
+    }
+    
+    setSignaturePreview(dataUrl); // Set preview immediately
+    
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob], 'signature.webp', { type: 'image/webp' });
+    await handleFileUpload(file, setSignatureUrl, "Signature");
+  };
+
+  const handleFileUpload = async (file: File, setUrl: (url: string) => void, fieldName: string) => {
+    setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     
@@ -106,26 +144,16 @@ export default function ProfilePage() {
       const response = await fetch('/api/upload', { method: 'POST', body: formData });
       if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
       const result = await response.json();
-      setUrl(result.path);
+      setUrl(result.path); // Update the URL that will be saved
       toast({ title: `${fieldName} Updated`, description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
     } catch (error: any) {
        toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+       // Revert preview if upload fails
+       if(fieldName === 'Avatar') setAvatarPreview(null);
+       if(fieldName === 'Signature') setSignaturePreview(null);
     } finally {
-      setLoading(false);
+      setIsUploading(false);
     }
-  };
-
-  const handleSignatureSave = async (dataUrl: string) => {
-    if (!dataUrl) {
-      setSignature('');
-      toast({ title: "Signature Cleared", description: "Click 'Save All Changes' to apply." });
-      setIsSignatureDialogOpen(false);
-      return;
-    }
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-    await handleFileUpload(file, () => {}, setSignature, "Signature");
-    setIsSignatureDialogOpen(false);
   };
   
   if (!user) {
@@ -140,8 +168,6 @@ export default function ProfilePage() {
     );
   }
   
-  const isChanged = name !== user.name || email !== user.email || avatar !== (user.avatar || '') || signature !== (user.signature || '');
-
   const getUserOrgPath = () => {
     if (!user) return [];
     const path = [];
@@ -178,14 +204,14 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
-                                        <AvatarImage src={avatarPreview || avatar} alt={name} />
+                                        <AvatarImage src={avatarPreview || avatarUrl} alt={name} />
                                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 
                                         className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={() => !isUploadingAvatar && avatarInputRef.current?.click()}
+                                        onClick={() => !isUploading && avatarInputRef.current?.click()}
                                     >
-                                        {isUploadingAvatar ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
+                                        {isUploading ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
                                     </div>
                                     <Input
                                         type="file"
@@ -193,7 +219,7 @@ export default function ProfilePage() {
                                         onChange={handleAvatarChange}
                                         className="hidden"
                                         accept="image/png, image/jpeg, image/gif"
-                                        disabled={isUploadingAvatar}
+                                        disabled={isUploading}
                                     />
                                 </div>
                                 <h2 className="text-2xl font-bold text-center">{name}</h2>
@@ -218,13 +244,17 @@ export default function ProfilePage() {
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
                                             <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2">
-                                                {signature ? (
-                                                    <Image src={signature} alt="Signature preview" width={180} height={90} className="object-contain" />
+                                                {signaturePreview !== null ? (
+                                                     signaturePreview ? <Image src={signaturePreview} alt="Signature preview" width={180} height={90} className="object-contain animate-in fade-in duration-300" /> : <div className="text-center text-xs text-muted-foreground"><ImageIcon className="mx-auto h-6 w-6" /><p>Signature Cleared</p></div>
                                                 ) : (
-                                                    <div className="text-center text-xs text-muted-foreground">
-                                                        <ImageIcon className="mx-auto h-6 w-6" />
-                                                        <p>No Signature Set</p>
-                                                    </div>
+                                                    signatureUrl ? (
+                                                        <Image src={signatureUrl} alt="Signature preview" width={180} height={90} className="object-contain" />
+                                                    ) : (
+                                                        <div className="text-center text-xs text-muted-foreground">
+                                                            <ImageIcon className="mx-auto h-6 w-6" />
+                                                            <p>No Signature Set</p>
+                                                        </div>
+                                                    )
                                                 )}
                                             </div>
                                             <div className="flex-1">
@@ -232,14 +262,14 @@ export default function ProfilePage() {
                                                     <DialogTrigger asChild>
                                                          <Button type="button" variant="outline">
                                                             <Edit className="mr-2 h-4 w-4" />
-                                                            {signature ? 'Edit Signature' : 'Create Signature'}
+                                                            {signatureUrl ? 'Edit Signature' : 'Create Signature'}
                                                         </Button>
                                                     </DialogTrigger>
                                                     <DialogContent className="max-w-2xl">
                                                         <DialogHeader>
                                                         <DialogTitle>Create Your Digital Signature</DialogTitle>
                                                         </DialogHeader>
-                                                        <SignaturePad onSave={handleSignatureSave} />
+                                                        <SignaturePad onSave={handleSignatureSave} initialSignature={signatureUrl} />
                                                     </DialogContent>
                                                 </Dialog>
                                                 <p className="text-xs text-muted-foreground mt-2">
@@ -284,7 +314,7 @@ export default function ProfilePage() {
             </TabsContent>
         </Tabs>
         <div className="flex justify-end mt-6">
-            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploadingAvatar}>
+            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploading}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save All Changes
             </Button>
