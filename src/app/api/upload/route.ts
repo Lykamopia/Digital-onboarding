@@ -4,19 +4,11 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { stat, mkdir, rm } from 'fs/promises';
 
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
 // Main POST handler for file uploads
 export async function POST(req: NextRequest) {
   const data = await req.formData();
   const file: File | null = data.get('file') as unknown as File;
+  const type = data.get('type') as string || 'attachments'; // default to attachments
 
   if (!file) {
     return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
@@ -25,8 +17,8 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  // Define the upload directory path
-  const uploadDir = join(process.cwd(), 'public', 'uploads');
+  // Define the upload directory path at the root level
+  const uploadDir = join(process.cwd(), 'uploads', type);
 
   // Ensure the upload directory exists
   try {
@@ -53,12 +45,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to save file' }, { status: 500 });
   }
   
-  // Return the public path to the file
-  const publicPath = `/uploads/${uniqueFilename}`;
+  // Return the path relative to the uploads directory
+  const relativePath = `/uploads/${type}/${uniqueFilename}`;
 
   return NextResponse.json({ 
     success: true, 
-    path: publicPath,
+    path: relativePath,
     name: file.name,
     size: file.size,
     type: file.type

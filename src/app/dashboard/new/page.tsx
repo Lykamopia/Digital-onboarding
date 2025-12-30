@@ -358,6 +358,7 @@ export default function NewMemoPage() {
     const uploadPromises = filesToUpload.map(async file => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('type', 'attachments');
         
         try {
             const response = await fetch('/api/upload', {
@@ -554,7 +555,7 @@ export default function NewMemoPage() {
                             {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
-                                    <Image src={att.url} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                    <Image src={`/api/uploads${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
                                 ) : (
                                     <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
                                         <FileIcon className="h-10 w-10 text-muted-foreground" />

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -100,7 +101,7 @@ const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) =>
 
 const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {
     const content = useSignature && user.signature ? (
-        <Image src={user.signature} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
+        <Image src={`/api/uploads${user.signature}`} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
     ) : (
         <StatusBadge status="acknowledged" />
     );
@@ -261,7 +262,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                 )}
                             </span>
                             {useSignature && (memo.from as UserWithRole).signature && (
-                                <Image src={(memo.from as UserWithRole).signature!} alt={`${(memo.from as UserWithRole).name}'s signature`} width={100} height={35} className="object-contain" />
+                                <Image src={`/api/uploads${(memo.from as UserWithRole).signature!}`} alt={`${(memo.from as UserWithRole).name}'s signature`} width={100} height={35} className="object-contain" />
                             )}
                         </div>
                     </MemoField>
@@ -322,7 +323,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                          {memo.attachments.length > 0 ? (
                             <div className="flex flex-col gap-1 font-sans">
                                 {memo.attachments.map(att => (
-                                <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
+                                <a key={att.id} href={`/api/uploads${att.url}`} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
                                     <Paperclip className='h-4 w-4' />
                                     {att.name} ({formatFileSize(att.size)})
                                 </a>
@@ -395,7 +396,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                             <li key={act.id} className="flex items-start gap-3">
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={(act.actor as User).avatar || undefined} alt={(act.actor as User).name} />
+                                    <AvatarImage src={(act.actor as User).avatar ? `/api/uploads${(act.actor as User).avatar!}` : undefined} alt={(act.actor as User).name} />
                                     <AvatarFallback>{(act.actor as User).name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 </span>

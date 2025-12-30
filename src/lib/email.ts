@@ -1,3 +1,4 @@
+
 import nodemailer from 'nodemailer';
 import type { Memo, User, Role } from './types';
 import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
@@ -56,7 +57,7 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
     const logoUrl = `${baseUrl}/Wide - LOGO.png`;
     
     const signatureBlock = useSignature && sender.signature
-        ? `<div><img src="${baseUrl}${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
+        ? `<div><img src="${baseUrl}/api/uploads${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
         : '';
 
 
