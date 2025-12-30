@@ -58,8 +58,6 @@ export async function getDashboardData(tab: string, query: string, status: strin
 
     if (tab === 'archive') {
         where.AND.push(isArchivedByCurrentUser);
-    } else if (tab === 'favorites') {
-        where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else {
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {
@@ -154,7 +152,6 @@ export async function getDashboardData(tab: string, query: string, status: strin
             favoritedBy: { where: { id: user.id }, select: { id: true } }, // check if favorited by current user
         },
         orderBy: [
-            { isFlagged: 'desc' },
             { favoritedBy: { _count: 'desc' } }, // favorited memos first
             { createdAt: 'desc' }
         ]
