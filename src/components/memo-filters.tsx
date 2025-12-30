@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarIcon, Search, X, RefreshCw, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSearchParams } from '@/hooks/use-search-params';
 import { useDebouncedCallback } from 'use-debounce';
@@ -54,6 +54,44 @@ export function MemoFilters({
         to: date?.to ? format(date.to, 'yyyy-MM-dd') : null
        });
   }
+
+  const setQuickDate = (range: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'lastYear') => {
+    const now = new Date();
+    let from: Date;
+    let to: Date;
+
+    switch(range) {
+        case 'today':
+            from = startOfDay(now);
+            to = endOfDay(now);
+            break;
+        case 'yesterday':
+            const yesterday = subYears(now, 0);
+            yesterday.setDate(now.getDate() - 1);
+            from = startOfDay(yesterday);
+            to = endOfDay(yesterday);
+            break;
+        case 'thisWeek':
+            from = startOfWeek(now);
+            to = endOfWeek(now);
+            break;
+        case 'thisMonth':
+            from = startOfMonth(now);
+            to = endOfMonth(now);
+            break;
+        case 'thisYear':
+            from = startOfYear(now);
+            to = endOfYear(now);
+            break;
+        case 'lastYear':
+            const lastYear = subYears(now, 1);
+            from = startOfYear(lastYear);
+            to = endOfYear(lastYear);
+            break;
+    }
+    handleDateChange({ from, to });
+  };
+
 
   const handleStatusChange = (newStatus: string) => {
       setStatus(newStatus);
@@ -141,13 +179,21 @@ export function MemoFilters({
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={handleDateChange}
-                    numberOfMonths={2}
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={handleDateChange}
+                        numberOfMonths={1}
                     />
+                    <div className="p-2 border-t grid grid-cols-2 gap-2">
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                    </div>
                 </PopoverContent>
             </Popover>
             {tab === 'inbox' && (
