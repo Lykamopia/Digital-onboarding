@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -42,6 +43,7 @@ export default function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -86,6 +88,12 @@ export default function ProfilePage() {
         toast({ variant: 'destructive', title: 'File too large', description: 'Profile picture must be less than 5MB.' });
         return;
     }
+     const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
     await handleFileUpload(file, setIsUploadingAvatar, setAvatar, "Avatar");
   };
 
@@ -108,8 +116,14 @@ export default function ProfilePage() {
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
+    if (!dataUrl) {
+      setSignature('');
+      toast({ title: "Signature Cleared", description: "Click 'Save All Changes' to apply." });
+      setIsSignatureDialogOpen(false);
+      return;
+    }
     const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], 'signature.png', { type: 'image/png' });
+    const file = new File([blob], 'signature.webp', { type: 'image/webp' });
     await handleFileUpload(file, () => {}, setSignature, "Signature");
     setIsSignatureDialogOpen(false);
   };
@@ -164,7 +178,7 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
-                                        <AvatarImage src={avatar} alt={name} />
+                                        <AvatarImage src={avatarPreview || avatar} alt={name} />
                                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 

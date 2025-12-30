@@ -138,11 +138,11 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
       const tempCtx = tempCanvas.getContext('2d');
       if (!tempCtx) return;
 
-      tempCtx.fillStyle = 'white';
-      tempCtx.fillRect(0, 0, trimmedWidth, trimmedHeight);
-      tempCtx.drawImage(canvas, minX, minY, maxX - minX, maxY - minY, padding, padding, maxX - minX, maxY - minY);
+      // Draw the trimmed signature onto the temporary canvas
+      tempCtx.drawImage(canvas, minX, minY, maxX - minX + 1, maxY - minY + 1, padding, padding, maxX - minX + 1, maxY - minY + 1);
 
-      onSave(tempCanvas.toDataURL('image/png'));
+      // Export as WebP
+      onSave(tempCanvas.toDataURL('image/webp', 0.9));
     }
   };
 
