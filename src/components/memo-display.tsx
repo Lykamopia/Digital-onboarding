@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { SignaturePreview } from './signature-preview';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType } from '@/lib/types';
@@ -100,15 +101,20 @@ const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) =>
 
 const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return `/api${path}`;
+    const trimmed = path.trim();
+    if (trimmed.startsWith('http')) return trimmed;
+    // Normalize uploads path: accept both '/uploads/...' and 'uploads/...'
+    if (trimmed.startsWith('/uploads')) return trimmed;
+    if (trimmed.startsWith('uploads')) return '/' + trimmed;
+    // fallback for other API-backed images (e.g., '/users/avatar')
+    return trimmed.startsWith('/') ? `/api${trimmed}` : `/api/${trimmed}`;
 }
 
 const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {
     const signatureUrl = getImageUrl(user.signature);
     
     const content = useSignature && signatureUrl ? (
-        <Image src={signatureUrl} alt={`${user.name}'s signature`} width={100} height={35} className="object-contain" />
+        <SignaturePreview src={signatureUrl} alt={`${user.name}'s signature`} compact />
     ) : (
         <StatusBadge status="acknowledged" />
     );
@@ -270,7 +276,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                                 )}
                             </span>
                             {useSignature && senderSignatureUrl && (
-                                <Image src={senderSignatureUrl} alt={`${(memo.from as UserWithRole).name}'s signature`} width={100} height={35} className="object-contain" />
+                                <SignaturePreview src={senderSignatureUrl} alt={`${(memo.from as UserWithRole).name}'s signature`} compact />
                             )}
                         </div>
                     </MemoField>
