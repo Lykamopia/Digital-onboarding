@@ -19,6 +19,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { SignaturePad } from '@/components/signature-pad';
+import { SignaturePreview } from '@/components/signature-preview';
 
 
 type UserWithRelations = User & {
@@ -238,12 +239,12 @@ export default function ProfilePage() {
                                     <div className="space-y-4">
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
-                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2">
+                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2 overflow-hidden">
                                                 {signaturePreview ? (
-                                                     signaturePreview ? <Image src={signaturePreview} alt="Signature preview" width={180} height={90} className="object-contain animate-in fade-in duration-300" /> : <div className="text-center text-xs text-muted-foreground"><ImageIcon className="mx-auto h-6 w-6" /><p>Signature Cleared</p></div>
+                                                    <SignaturePreview src={signaturePreview} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" priority />
                                                 ) : (
                                                     signatureUrl ? (
-                                                        <Image src={signatureUrl} alt="Signature preview" width={180} height={90} className="object-contain" />
+                                                        <SignaturePreview src={signatureUrl} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
                                                     ) : (
                                                         <div className="text-center text-xs text-muted-foreground">
                                                             <ImageIcon className="mx-auto h-6 w-6" />
