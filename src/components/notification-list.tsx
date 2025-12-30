@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-provider';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, BellOff } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { markAsRead as markMemoAsReadAction } from '@/app/actions/memo';
-import { NotificationIllustration } from './notification-illustration';
+import { BellOffIllustration } from './bell-off-illustration';
 
 export function NotificationList() {
     const { notifications, markAsRead, settings } = useNotification();
@@ -30,8 +30,8 @@ export function NotificationList() {
     if (!settings.notificationsEnabled) {
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                <BellOff className="h-10 w-10 mb-4" />
-                <p className="font-semibold">Notifications are disabled.</p>
+                <BellOffIllustration />
+                <p className="mt-4 font-semibold">Notifications are disabled.</p>
                 <p>You can enable them in the settings.</p>
             </div>
         );
@@ -40,7 +40,7 @@ export function NotificationList() {
     if (notifications.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                <NotificationIllustration />
+                <BellOffIllustration />
                 <p className="mt-4 font-semibold">All caught up!</p>
                 <p>You have no new notifications.</p>
             </div>
