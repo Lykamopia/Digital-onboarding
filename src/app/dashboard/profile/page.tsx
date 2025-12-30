@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -10,13 +9,15 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User, Office, Department, Division, District, Branch } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { SignaturePad } from '@/components/signature-pad';
 
 
 type UserWithRelations = User & {
@@ -27,8 +28,7 @@ type UserWithRelations = User & {
     branch?: Branch;
 };
 
-const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
-const ALLOWED_SIGNATURE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ProfilePage() {
   const [user, setUser] = useState<UserWithRelations | null>(null);
@@ -38,10 +38,9 @@ export default function ProfilePage() {
   const [signature, setSignature] = useState('');
   
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const signatureInputRef = useRef<HTMLInputElement>(null);
+  const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -83,26 +82,11 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (file.size > MAX_AVATAR_SIZE) {
         toast({ variant: 'destructive', title: 'File too large', description: 'Profile picture must be less than 5MB.' });
         return;
     }
     await handleFileUpload(file, setIsUploadingAvatar, setAvatar, "Avatar");
-  };
-
-  const handleSignatureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!ALLOWED_SIGNATURE_TYPES.includes(file.type)) {
-        toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please upload a PNG, JPG, or SVG file for your signature.' });
-        return;
-    }
-    if (file.size > MAX_SIGNATURE_SIZE) {
-        toast({ variant: 'destructive', title: 'File too large', description: 'Signature image must be less than 2MB.' });
-        return;
-    }
-    await handleFileUpload(file, setIsUploadingSignature, setSignature, "Signature");
   };
 
   const handleFileUpload = async (file: File, setLoading: (loading: boolean) => void, setUrl: (url: string) => void, fieldName: string) => {
@@ -121,6 +105,13 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignatureSave = async (dataUrl: string) => {
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob], 'signature.png', { type: 'image/png' });
+    await handleFileUpload(file, () => {}, setSignature, "Signature");
+    setIsSignatureDialogOpen(false);
   };
   
   if (!user) {
@@ -173,8 +164,8 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
-                                        <AvatarImage src={avatar} alt={user.name} />
-                                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                        <AvatarImage src={avatar} alt={name} />
+                                        <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 
                                         className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -210,39 +201,35 @@ export default function ProfilePage() {
                                         </div>
                                     </div>
                                     <div className="space-y-4">
-                                        <Label htmlFor="signature-upload">Digital Signature Image</Label>
+                                        <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
-                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50">
+                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2">
                                                 {signature ? (
                                                     <Image src={signature} alt="Signature preview" width={180} height={90} className="object-contain" />
                                                 ) : (
                                                     <div className="text-center text-xs text-muted-foreground">
                                                         <ImageIcon className="mx-auto h-6 w-6" />
-                                                        <p>No Signature</p>
+                                                        <p>No Signature Set</p>
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-1">
-                                                <Button 
-                                                    type="button" 
-                                                    variant="outline"
-                                                    onClick={() => signatureInputRef.current?.click()}
-                                                    disabled={isUploadingSignature}
-                                                >
-                                                    {isUploadingSignature ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                                                    {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
-                                                </Button>
-                                                <Input
-                                                    id="signature-upload"
-                                                    type="file"
-                                                    ref={signatureInputRef}
-                                                    onChange={handleSignatureChange}
-                                                    className="hidden"
-                                                    accept={ALLOWED_SIGNATURE_TYPES.join(',')}
-                                                    disabled={isUploadingSignature}
-                                                />
+                                                <Dialog open={isSignatureDialogOpen} onOpenChange={setIsSignatureDialogOpen}>
+                                                    <DialogTrigger asChild>
+                                                         <Button type="button" variant="outline">
+                                                            <Edit className="mr-2 h-4 w-4" />
+                                                            {signature ? 'Edit Signature' : 'Create Signature'}
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="max-w-2xl">
+                                                        <DialogHeader>
+                                                        <DialogTitle>Create Your Digital Signature</DialogTitle>
+                                                        </DialogHeader>
+                                                        <SignaturePad onSave={handleSignatureSave} />
+                                                    </DialogContent>
+                                                </Dialog>
                                                 <p className="text-xs text-muted-foreground mt-2">
-                                                    PNG, JPG, or SVG. Max file size: 2MB.
+                                                    Draw your signature. This will be used for memo acknowledgements if enabled by an admin.
                                                 </p>
                                             </div>
                                         </div>
@@ -283,7 +270,7 @@ export default function ProfilePage() {
             </TabsContent>
         </Tabs>
         <div className="flex justify-end mt-6">
-            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploadingAvatar || isUploadingSignature}>
+            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploadingAvatar}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save All Changes
             </Button>
@@ -291,5 +278,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
