@@ -12,7 +12,7 @@ import { useEffect, useState, MouseEvent } from "react"
 import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo, toggleFlag } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag } from "lucide-react"
+import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Pin, PinOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
@@ -358,7 +358,8 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             className={cn(
                             "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
                             "hover:bg-primary/5",
-                            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : ""
+                            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : "",
+                            memo.isFlagged && "border-l-4 border-l-red-500/70"
                             )}
                             onClick={() => onSelectMemo(memo.id)}
                         >
@@ -486,3 +487,5 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
+
+    
