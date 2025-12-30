@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Mail } from 'lucide-react';
 import { markAsRead as markMemoAsReadAction } from '@/app/actions/memo';
 import { BellOffIllustration } from './bell-off-illustration';
+import { NotificationIllustration } from './notification-illustration';
 
 export function NotificationList() {
     const { notifications, markAsRead, settings } = useNotification();
@@ -40,7 +41,7 @@ export function NotificationList() {
     if (notifications.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                <BellOffIllustration />
+                <NotificationIllustration />
                 <p className="mt-4 font-semibold">All caught up!</p>
                 <p>You have no new notifications.</p>
             </div>
