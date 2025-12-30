@@ -51,6 +51,7 @@ import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, Chevr
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 type UserWithRelations = User & {
     office: Office;
