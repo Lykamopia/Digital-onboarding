@@ -5,7 +5,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
@@ -47,18 +47,18 @@ export function MemoFilters({
     setSearchParams({ q: value });
   }, 300);
 
-  const handleDateChange = (date: DateRange | undefined) => {
-      setDateRange(date);
+  const handleDateChange = (range: DateRange | undefined, selectedDay: Date | undefined, modifiers: any, e: React.MouseEvent) => {
+      setDateRange(range);
       setSearchParams({ 
-        from: date?.from ? format(date.from, 'yyyy-MM-dd') : null,
-        to: date?.to ? format(date.to, 'yyyy-MM-dd') : null
+        from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
+        to: range?.to ? format(range.to, 'yyyy-MM-dd') : null
        });
   }
 
   const setQuickDate = (range: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'lastYear') => {
     const now = new Date();
     let from: Date;
-    let to: Date;
+    let to: Date | undefined = undefined;
 
     switch(range) {
         case 'today':
@@ -84,12 +84,16 @@ export function MemoFilters({
             to = endOfYear(now);
             break;
         case 'lastYear':
-            const lastYear = subYears(now, 1);
-            from = startOfYear(lastYear);
-            to = endOfYear(lastYear);
+            const lastYearDate = subYears(now, 1);
+            from = startOfYear(lastYearDate);
+            to = endOfYear(lastYearDate);
             break;
     }
-    handleDateChange({ from, to });
+    setDateRange({ from, to });
+    setSearchParams({ 
+      from: from.toISOString(),
+      to: to?.toISOString() ?? from.toISOString()
+     });
   };
 
 
@@ -183,10 +187,10 @@ export function MemoFilters({
                         mode="range"
                         defaultMonth={dateRange?.from}
                         selected={dateRange}
-                        onSelect={handleDateChange}
+                        onSelect={handleDateChange as any}
                         numberOfMonths={1}
                     />
-                    <div className="p-2 border-t grid grid-cols-2 gap-2">
+                     <div className="p-2 border-t grid grid-cols-2 gap-2">
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
