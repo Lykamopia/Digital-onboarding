@@ -27,6 +27,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Breadcrumb } from './breadcrumb';
 
 interface DashboardContentWrapperProps {
   user: (User & { role: { permissions: Permission[] } }) | null;
@@ -155,6 +156,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
               </SheetContent>
             </Sheet>
             <SidebarTrigger className="hidden md:flex" />
+            <Breadcrumb />
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>

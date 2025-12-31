@@ -1,0 +1,101 @@
+
+'use client';
+
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { Home, Inbox, Star, Edit, Send, Archive, Shield, User } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { Fragment } from 'react';
+
+const pathConfig: { [key: string]: { icon: React.ReactNode; label: string } } = {
+  dashboard: { icon: <Home className="h-4 w-4" />, label: 'Dashboard' },
+  inbox: { icon: <Inbox className="h-4 w-4" />, label: 'Inbox' },
+  favorites: { icon: <Star className="h-4 w-4 text-yellow-400" />, label: 'Favorites' },
+  drafts: { icon: <Edit className="h-4 w-4 text-blue-400" />, label: 'Drafts' },
+  sent: { icon: <Send className="h-4 w-4 text-green-400" />, label: 'Sent' },
+  archive: { icon: <Archive className="h-4 w-4 text-gray-400" />, label: 'Archive' },
+  admin: { icon: <Shield className="h-4 w-4 text-purple-400" />, label: 'Admin' },
+  profile: { icon: <User className="h-4 w-4 text-cyan-400" />, label: 'Profile' },
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { opacity: 1, x: 0 },
+};
+
+const iconVariants = {
+  rest: { scale: 1, rotate: 0 },
+  hover: { scale: 1.2, rotate: 5 },
+};
+
+export function Breadcrumb() {
+  const pathname = usePathname();
+  const segments = pathname.split('/').filter(Boolean);
+
+  // We only care about segments after 'dashboard'
+  const dashboardIndex = segments.indexOf('dashboard');
+  const relevantSegments = dashboardIndex !== -1 ? segments.slice(dashboardIndex) : [];
+
+  if (relevantSegments.length <= 1) {
+    return null; // Don't show breadcrumb on the root dashboard page
+  }
+  
+  const breadcrumbs = relevantSegments.map((segment, index) => {
+    const href = '/' + segments.slice(0, dashboardIndex + index + 1).join('/');
+    const config = pathConfig[segment] || { icon: null, label: segment.charAt(0).toUpperCase() + segment.slice(1) };
+    return {
+      href,
+      label: config.label,
+      icon: config.icon,
+    };
+  });
+
+  return (
+    <motion.nav
+      aria-label="Breadcrumb"
+      className="hidden md:flex items-center gap-2"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {breadcrumbs.map((crumb, index) => (
+        <Fragment key={crumb.href}>
+          <motion.div variants={itemVariants}>
+            <Link href={crumb.href}>
+              <motion.div
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  index === breadcrumbs.length - 1
+                    ? 'bg-primary/10 text-primary pointer-events-none'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+                variants={iconVariants}
+                whileHover="hover"
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
+                {crumb.icon}
+                <span className="whitespace-nowrap">{crumb.label}</span>
+              </motion.div>
+            </Link>
+          </motion.div>
+          {index < breadcrumbs.length - 1 && (
+            <motion.div variants={itemVariants} className="text-muted-foreground">
+              /
+            </motion.div>
+          )}
+        </Fragment>
+      ))}
+    </motion.nav>
+  );
+}
