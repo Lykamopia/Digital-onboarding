@@ -6,7 +6,7 @@ import type { Memo } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
 interface StatusBadgeProps {
-  status: Memo['status'] | 'unread' | 'read';
+  status: Memo['status'] | 'unread' | 'read' | 'forwarded';
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
@@ -16,6 +16,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     read: 'bg-gray-100/60 text-gray-800 border-gray-200/80 hover:bg-gray-100/80 dark:bg-gray-900/40 dark:text-gray-200 dark:border-gray-800/60',
     unread: 'bg-green-100/60 text-green-800 border-green-200/80 hover:bg-green-100/80 dark:bg-green-900/40 dark:text-green-200 dark:border-green-800/60',
     acknowledged: 'bg-purple-100/60 text-purple-800 border-purple-200/80 hover:bg-purple-100/80 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-800/60',
+    forwarded: 'bg-indigo-100/60 text-indigo-800 border-indigo-200/80 hover:bg-indigo-100/80 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800/60',
   };
 
   return (

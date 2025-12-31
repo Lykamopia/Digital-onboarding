@@ -656,51 +656,56 @@ export async function acknowledgeMemo(memoId: string) {
 
 export async function forwardMemo(memoId: string, forwardToIds: string[], remark: string) {
     const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
-  
+    if (!user) return { error: "Not authenticated." };
+
     const memo = await getMemo(memoId);
     if (!memo) return { error: 'Memo not found.' };
-  
+
     const forwardToUsers = await prisma.user.findMany({
-      where: { id: { in: forwardToIds } },
+        where: { id: { in: forwardToIds } },
     });
-    
+
     if (forwardToUsers.length !== forwardToIds.length) {
-      return { error: 'One or more users to forward to were not found.' };
+        return { error: 'One or more users to forward to were not found.' };
     }
-  
-    // For simplicity in this app, we'll assign the *first* recipient as the new current holder.
-    // In a more complex scenario, you might have parallel holders or a different logic.
+
     const newCurrentHolderId = forwardToUsers[0].id;
     const previousHolderId = memo.current_holderId;
-  
-    // Add all forwarded users to the 'to' list if they are not already there.
+
     const existingToIds = new Set(memo.to.map(u => u.id));
     const usersToConnect = forwardToUsers.filter(u => !existingToIds.has(u.id));
-  
-    // Create activity logs for each forwarded user.
+
     const activityCreates = forwardToUsers.map(forwardToUser => ({
-      actorId: user.id,
-      action: 'forwarded' as const,
-      details: `Forwarded from ${user.name} to ${forwardToUser.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
+        actorId: user.id,
+        action: 'forwarded' as const,
+        details: `Forwarded from ${user.name} to ${forwardToUser.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
     }));
-  
+
     await prisma.memo.update({
-      where: { id: memoId },
-      data: {
-        current_holderId: newCurrentHolderId,
-        previous_holders: { 
-            connect: previousHolderId ? { id: previousHolderId } : undefined
+        where: { id: memoId },
+        data: {
+            current_holderId: newCurrentHolderId,
+            previous_holders: {
+                connect: previousHolderId ? { id: previousHolderId } : undefined
+            },
+            to: {
+                connect: usersToConnect.map(u => ({ id: u.id }))
+            },
+            activity: {
+                create: activityCreates,
+            },
         },
-        to: {
-          connect: usersToConnect.map(u => ({ id: u.id }))
-        },
-        activity: {
-          create: activityCreates,
-        },
-      },
     });
-  
+
+    const updatedMemo = await getMemo(memoId);
+
+    // Send WebSocket notifications to new recipients
+    await sendToWebSocket({
+        type: 'forwarded-memo',
+        payload: updatedMemo,
+    });
+
+
     revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
     return { success: true };

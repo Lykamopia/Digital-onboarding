@@ -50,6 +50,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     const getMemoStatus = (memo: MemoWithActivity) => {
         if (memo.status === 'draft') return 'draft';
         if (memo.status === 'scheduled') return 'scheduled';
+
+        const lastActivity = memo.activity[memo.activity.length - 1];
+        if(lastActivity?.action === 'forwarded' && memo.current_holderId === loggedInUser.id) {
+            return 'forwarded';
+        }
+
         const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser!.id;
         if (!isRecipient) return memo.status;
 
