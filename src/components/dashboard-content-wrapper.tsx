@@ -156,7 +156,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
               </SheetContent>
             </Sheet>
             <SidebarTrigger className="hidden md:flex" />
-            <div className="hidden md:flex items-center">
+            <div className="flex items-center">
               <Breadcrumb />
             </div>
             <div className="w-full flex-1">
