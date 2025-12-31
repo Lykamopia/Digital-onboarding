@@ -39,7 +39,9 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
   }
 
   const handleSelect = (user: User) => {
-    if (!selected.some((s) => s.id === user.id)) {
+    if (selected.some((s) => s.id === user.id)) {
+      handleUnselect(user);
+    } else {
       setSelected([...selected, user])
     }
   }

@@ -87,7 +87,9 @@ export function LabelSelector({ id, allLabels, selected, setSelected, placeholde
   }
 
   const handleSelect = (label: Label) => {
-    if (!selected.some((s) => s.id === label.id)) {
+    if (selected.some((s) => s.id === label.id)) {
+      handleUnselect(label)
+    } else {
       setSelected([...selected, label])
     }
   }
