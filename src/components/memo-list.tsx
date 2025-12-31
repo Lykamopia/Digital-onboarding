@@ -192,84 +192,88 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         // Conditional rendering logic
         if (tab === 'drafts') {
             return (
-                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
-                                <Trash2 />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
+                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                     <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => handleActionClick(e, () => handleDeleteDraft(memo.id))}>
+                                    <Trash2 />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                    </div>
                  </div>
             )
         }
 
         return (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                 {memoStatus === 'unread' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
-                                <MailOpen />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Mark as Read</TooltipContent>
-                    </Tooltip>
-                )}
-                {canAcknowledge && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAcknowledge(memo.id))}>
-                                <CheckCircle />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Acknowledge</TooltipContent>
-                    </Tooltip>
-                )}
-                 {canReply && tab !== 'sent' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
-                                <Reply />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Reply</TooltipContent>
-                    </Tooltip>
-                )}
-                {canForward && (
-                    <div onClick={(e) => e.stopPropagation()}>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+                    {memoStatus === 'unread' && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <ForwardDialog memo={memo} onUpdate={onUpdate}>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
-                                        <Share2 />
-                                    </Button>
-                                </ForwardDialog>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
+                                    <MailOpen />
+                                </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Forward</TooltipContent>
+                            <TooltipContent>Mark as Read</TooltipContent>
                         </Tooltip>
-                    </div>
-                )}
-                {tab === 'archive' ? (
-                     <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
-                                <Undo2 />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Unarchive</TooltipContent>
-                    </Tooltip>
-                ) : (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
-                                <Archive />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Archive</TooltipContent>
-                    </Tooltip>
-                )}
+                    )}
+                    {canAcknowledge && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAcknowledge(memo.id))}>
+                                    <CheckCircle />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Acknowledge</TooltipContent>
+                        </Tooltip>
+                    )}
+                    {canReply && tab !== 'sent' && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
+                                    <Reply />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Reply</TooltipContent>
+                        </Tooltip>
+                    )}
+                    {canForward && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <ForwardDialog memo={memo} onUpdate={onUpdate}>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
+                                            <Share2 />
+                                        </Button>
+                                    </ForwardDialog>
+                                </TooltipTrigger>
+                                <TooltipContent>Forward</TooltipContent>
+                            </Tooltip>
+                        </div>
+                    )}
+                    {tab === 'archive' ? (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, false))}>
+                                    <Undo2 />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Unarchive</TooltipContent>
+                        </Tooltip>
+                    ) : (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleArchive(memo.id, true))}>
+                                    <Archive />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Archive</TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
             </div>
         )
     }
@@ -501,7 +505,3 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
-
-    
-
-    
