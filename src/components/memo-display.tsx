@@ -243,7 +243,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
-  const canAcknowledge = isRecipient && !isCC && !hasAcknowledged;
+  const canAcknowledge = (isRecipient || isCC) && !hasAcknowledged;
   const canReply = (isRecipient || isCC) && !isSender;
   const canForward = (isRecipient || isCC);
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
@@ -269,15 +269,27 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                     </MemoField>
                     <MemoField label="From" amharic="ከ">
                         <div className='font-semibold font-sans flex items-center gap-2'>
-                            <span>
-                                {(memo.from as UserWithRole).name}
-                                {(memo.from as UserWithRole).role && (
-                                    <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
-                                )}
-                            </span>
-                            {useSignature && senderSignatureUrl && (
-                                <SignaturePreview src={senderSignatureUrl} alt={`${(memo.from as UserWithRole).name}'s signature`} compact />
-                            )}
+                           <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2 cursor-help">
+                                            <span>
+                                                {(memo.from as UserWithRole).name}
+                                                {(memo.from as UserWithRole).role && (
+                                                    <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
+                                                )}
+                                            </span>
+                                            {useSignature && senderSignatureUrl && (
+                                                <SignaturePreview src={senderSignatureUrl} alt={`${(memo.from as UserWithRole).name}'s signature`} compact />
+                                            )}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Sent by {(memo.from as UserWithRole).name}</p>
+                                        <p className="text-xs text-muted-foreground">{formatTimestamp(memo.createdAt, false)}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </MemoField>
                     <MemoField label="To" amharic="ለ">
@@ -304,14 +316,20 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                     {memo.cc.length > 0 && (
                         <MemoField label="CC" amharic="ግልባጭ">
                             <div className="flex flex-col gap-2 font-sans">
-                                {memo.cc.map((user) => (
-                                    <div key={user.id}>
+                                {memo.cc.map((user) => {
+                                    const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
+                                    return (
+                                    <div key={user.id} className="flex items-center gap-2">
                                         {user.name}
                                         {(user as UserWithRole).role && (
                                             <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
                                         )}
+                                        {acknowledgement && (
+                                            <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
+                                        )}
                                     </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </MemoField>
                     )}
