@@ -2,10 +2,9 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { signOut } from 'next-auth/react';
 
-const SESSION_TIMEOUT_KEY = 'session-timeout';
 const DEFAULT_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const CHANNEL_NAME = 'session-timeout-channel';
 
 interface IdleTimerProps {
   onLogout: () => void;
@@ -13,6 +12,7 @@ interface IdleTimerProps {
 
 export const useIdleTimer = ({ onLogout }: IdleTimerProps) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   const getTimeoutDuration = () => {
     const configuredMinutes = process.env.NEXT_PUBLIC_SESSION_TIMEOUT_MINUTES;
@@ -21,49 +21,57 @@ export const useIdleTimer = ({ onLogout }: IdleTimerProps) => {
   };
 
   const logout = useCallback(() => {
+    // This function will be called by only one tab.
+    // It posts a 'logout' message to ensure all other tabs also log out.
+    channelRef.current?.postMessage('logout');
     onLogout();
-    localStorage.removeItem(SESSION_TIMEOUT_KEY);
   }, [onLogout]);
 
 
   const reset = useCallback(() => {
-    // Clear existing timers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     const timeoutDuration = getTimeoutDuration();
 
-    // Set new final logout timer
     timeoutRef.current = setTimeout(logout, timeoutDuration);
 
-    // Store the expiration time in local storage for cross-tab sync
-    const expiration = new Date().getTime() + timeoutDuration;
-    localStorage.setItem(SESSION_TIMEOUT_KEY, expiration.toString());
+    // Notify other tabs that activity has occurred.
+    channelRef.current?.postMessage('reset');
   }, [logout]);
 
-  const handleStorageChange = useCallback((event: StorageEvent) => {
-    if (event.key === SESSION_TIMEOUT_KEY && event.newValue) {
-      // Another tab has reset the timer, so we should reset ours too.
-      reset();
+  const handleChannelMessage = useCallback((event: MessageEvent) => {
+    if (event.data === 'reset') {
+       // Another tab was active, so we reset this tab's timer without broadcasting again.
+       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+       timeoutRef.current = setTimeout(logout, getTimeoutDuration());
+    } else if (event.data === 'logout') {
+      // The logout was initiated from another tab.
+      onLogout();
     }
-  }, [reset]);
+  }, [logout, onLogout]);
 
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    // Initialize the BroadcastChannel
+    channelRef.current = new BroadcastChannel(CHANNEL_NAME);
+    channelRef.current.onmessage = handleChannelMessage;
 
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    
     const handleActivity = () => reset();
 
     events.forEach(event => window.addEventListener(event, handleActivity));
-    window.addEventListener('storage', handleStorageChange);
-
+    
     // Initial setup
     reset();
 
     return () => {
       events.forEach(event => window.removeEventListener(event, handleActivity));
-      window.removeEventListener('storage', handleStorageChange);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (channelRef.current) {
+        channelRef.current.close();
+      }
     };
-  }, [reset, handleStorageChange]);
+  }, [reset, handleChannelMessage]);
 
   return { reset };
 };
