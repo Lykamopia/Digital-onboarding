@@ -64,7 +64,7 @@ export function Breadcrumb() {
   return (
     <motion.nav
       aria-label="Breadcrumb"
-      className="hidden md:flex items-center gap-2"
+      className="flex items-center gap-2"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
