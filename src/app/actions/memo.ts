@@ -81,11 +81,11 @@ export async function getDashboardData(tab: string, query: string, status: strin
     if (query) {
         where.AND.push({
              OR: [
-                { subject: { contains: query, mode: 'insensitive' } },
-                { body: { contains: query, mode: 'insensitive' } },
-                { memo_reference_number: { contains: query, mode: 'insensitive' } },
-                { from: { name: { contains: query, mode: 'insensitive' } } },
-                { to: { some: { name: { contains: query, mode: 'insensitive' } } } },
+                { subject: { contains: query } },
+                { body: { contains: query } },
+                { memo_reference_number: { contains: query } },
+                { from: { name: { contains: query } } },
+                { to: { some: { name: { contains: query } } } },
             ]
         })
     }
@@ -1167,6 +1167,8 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     revalidatePath('/dashboard/inbox');
     return { success: true };
 }
+
+    
 
     
 
