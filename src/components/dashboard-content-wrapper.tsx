@@ -48,9 +48,16 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     if (!user || user.mustChangePassword || !isMounted) return;
 
     // This function runs only once on initial load to populate the notification list
+    // Only fetch if we're not already on the inbox page (to avoid duplicate requests)
     const checkInitialMemos = async () => {
       if (!isInitialLoad.current) return;
       isInitialLoad.current = false;
+
+      // Skip if we're on the inbox page - the page component already loaded the data
+      // This prevents duplicate requests on initial load
+      if (pathname === '/dashboard/inbox') {
+        return;
+      }
 
       const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', { from: undefined, to: undefined }, [], '');
       
@@ -80,7 +87,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     // Initial check
     checkInitialMemos();
 
-  }, [user, addNotificationToList, isMounted]);
+  }, [user, addNotificationToList, isMounted, pathname]);
 
   useEffect(() => {
     if (!user) return;

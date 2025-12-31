@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Suspense, useState, useEffect, useCallback } from "react"
+import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from "next/navigation"
 import type { MemoWithActivity, User, Label as LabelType } from "@/lib/types"
@@ -37,7 +37,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const [loading, setLoading] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
-
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
+  const loadingRef = useRef(false);
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -56,9 +57,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   });
   const [show, setShow] = useState(searchParams.get('show') || '');
   
+  // Cache labels - only fetch once
   useEffect(() => {
-    getLabels().then(setAllLabels);
-  }, []);
+    if (allLabels.length === 0) {
+      getLabels().then(setAllLabels);
+    }
+  }, [allLabels.length]);
 
   // WebSocket connection for real-time memo updates
   useEffect(() => {
@@ -203,6 +207,30 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   const loadMemos = useCallback(async (forceReload = false) => {
     if (!user && !forceReload) return;
+    
+    // Prevent duplicate concurrent requests
+    if (loadingRef.current && !forceReload) {
+      return;
+    }
+    
+    // Skip initial load if we already have initialMemos and no filters are applied
+    if (!hasInitialLoad && !forceReload && initialMemos.length > 0 && 
+        !search && !status && !dateRange && selectedLabels.length === 0 && !show) {
+      setHasInitialLoad(true);
+      // Set selected memo from URL if present
+      if (memoIdFromUrl) {
+        const memoToSelect = initialMemos.find(m => m.id === memoIdFromUrl);
+        if (memoToSelect) {
+          setSelectedMemo(memoToSelect);
+          if (user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+            markAsRead(memoToSelect.id);
+          }
+        }
+      }
+      return;
+    }
+    
+    loadingRef.current = true;
     setLoading(true);
     const dateRangeParams = {
         from: dateRange?.from?.toISOString(),
@@ -211,35 +239,27 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     try {
       const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels, show);
       setMemos(data as MemoWithActivity[]);
+      setHasInitialLoad(true);
 
-      if (memoIdFromUrl) {
-          const memoToSelect = data.find(m => m.id === memoIdFromUrl);
-           if (memoToSelect) {
-              setSelectedMemo(memoToSelect);
-              if (user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
-                  markAsRead(memoToSelect.id);
-              }
-          } else {
-              setSelectedMemo(null);
-              // Clear the ID from URL if memo not found in the current list
-              const newParams = new URLSearchParams(searchParams.toString());
-              newParams.delete('id');
-              router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
-          }
-      } else {
-          // If no memoId in URL, ensure nothing is selected
-          setSelectedMemo(null);
-      }
+      // Memo selection is handled by the separate useEffect that watches memoIdFromUrl
+      // This prevents unnecessary reloads when just selecting a different memo
 
     } catch (error) {
       console.error("Failed to load memos:", error);
       setMemos([]);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [tab, search, status, dateRange, user, memoIdFromUrl, pathname, router, searchParams, selectedLabels, show]);
+  }, [tab, search, status, dateRange, user, pathname, router, searchParams, selectedLabels, show, hasInitialLoad, initialMemos]);
 
+  // Only load memos when filters change, not on initial mount if we have initialMemos
   useEffect(() => {
+    // Skip if we haven't done initial load yet and have initial data
+    if (!hasInitialLoad && initialMemos.length > 0 && 
+        !search && !status && !dateRange && selectedLabels.length === 0 && !show) {
+      return;
+    }
     loadMemos();
   }, [search, status, dateRange, selectedLabels, show]); // This effect ONLY runs when filters change
 
@@ -249,13 +269,25 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
           const memo = memos.find(m => m.id === memoIdFromUrl);
           if (memo && memo.id !== selectedMemo?.id) {
               setSelectedMemo(memo);
+              // Mark as read if needed (only once)
+              if (user && tab === 'inbox' && memo.status !== 'draft' && 
+                  !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+                  markAsRead(memo.id);
+                  markMemoAsReadInState(memo.id);
+              }
+          } else if (!memo && memos.length > 0 && hasInitialLoad) {
+              // Memo not in current list after initial load - clear from URL
+              // This happens when memo doesn't match current filters
+              const newParams = new URLSearchParams(searchParams.toString());
+              newParams.delete('id');
+              router.replace(`${pathname}?${newParams.toString()}`, { scroll: false });
           }
       } else if (selectedMemo) {
           // if there is a selected memo but no id in url, deselect it.
           setSelectedMemo(null);
       }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memoIdFromUrl, memos]);
+  }, [memoIdFromUrl, memos, hasInitialLoad]);
   
   const getEmptyState = () => {
       if (search || status || dateRange || selectedLabels.length > 0 || show) {
