@@ -697,6 +697,7 @@ export async function forwardMemo(memoId: string, forwardToIds: string[], remark
         },
     });
 
+    // Re-fetch the memo to get all the latest relations for the WebSocket payload
     const updatedMemo = await getMemo(memoId);
 
     // Send WebSocket notifications to new recipients

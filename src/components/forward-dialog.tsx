@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Share2 } from 'lucide-react';
+import { Share2, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isForwarding, setIsForwarding] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -91,6 +92,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
       });
       return;
     }
+    setIsForwarding(true);
     const forwardToIds = selectedUsers.map(u => u.id);
 
     const result = await forwardMemo(memo.id, forwardToIds, remark);
@@ -111,6 +113,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
             description: result.error,
         });
     }
+    setIsForwarding(false);
   };
 
   const closeDialog = (e?: React.MouseEvent) => {
@@ -172,9 +175,13 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={handleForward} disabled={selectedUsers.length === 0}>
-            <Share2 className="mr-2" />
-            Confirm Forward
+          <Button onClick={handleForward} disabled={selectedUsers.length === 0 || isForwarding}>
+            {isForwarding ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="mr-2" />
+            )}
+            {isForwarding ? 'Forwarding...' : 'Confirm Forward'}
           </Button>
         </DialogFooter>
       </DialogContent>
