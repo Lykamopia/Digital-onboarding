@@ -324,7 +324,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
       )}
     >
-      <Card className="no-print sticky top-0 self-start h-full min-h-0 flex flex-col transition-all duration-300 overflow-hidden">
+      <Card className="no-print sticky top-0 self-start h-full min-h-0 flex flex-col transition-all duration-300 overflow-hidden bg-card">
         <MemoFilters
             tab={tab}
             search={search}
@@ -364,7 +364,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
           )}
         </div>
       </Card>
-      <div className="h-full rounded-lg no-print min-h-0">
+      <div className={cn("h-full rounded-lg no-print min-h-0 transition-colors", !selectedMemo && "bg-gradient-to-br from-primary/5 to-accent/5")}>
         {loadingMemo ? (
              <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
         ) : (
