@@ -1,7 +1,7 @@
 
 
 import Link from "next/link"
-import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock, ShieldAlert } from "lucide-react"
+import { Archive, Inbox, Send, PanelLeft, FilePlus, Edit, Shield, User as UserIcon, Lock, ShieldAlert, Star } from "lucide-react"
 import { Suspense } from "react"
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -13,6 +13,7 @@ import { NotificationListener } from "@/components/notification-listener"
 import { getLoggedInUser } from "../actions/memo"
 import type { Permission, User } from "@/lib/types"
 import { DashboardContentWrapper } from "./dashboard-content-wrapper"
+import { HoneycombLoader } from "@/components/honeycomb-loader";
 
 export default async function DashboardLayout({
   children,
@@ -25,7 +26,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>}>
             <NotificationListener />
             <DashboardContentWrapper user={user as (User & { role: { permissions: Permission[]; }; }) | null}>
                 {children}
