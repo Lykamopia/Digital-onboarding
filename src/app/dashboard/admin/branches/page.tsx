@@ -152,14 +152,44 @@ export default function BranchesPage() {
     if (!open) {
       setEditingBranch(null);
       setSelectedDistrictId(undefined);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
   }
   
   const handleAlertChange = (open: boolean) => {
+    setIsAlertOpen(open);
     if (!open) {
       setDeletingBranch(null);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
-    setIsAlertOpen(open);
   }
 
   const getDistrictName = (districtId: string) => {

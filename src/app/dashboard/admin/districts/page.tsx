@@ -153,14 +153,44 @@ export default function DistrictsPage() {
     if (!open) {
       setEditingDistrict(null);
       setSelectedOfficeId(undefined);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
   }
   
   const handleAlertClose = (open: boolean) => {
+    setIsAlertOpen(open);
     if (!open) {
       setDeletingDistrict(null);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
-    setIsAlertOpen(open);
   }
 
 

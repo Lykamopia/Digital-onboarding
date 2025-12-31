@@ -137,6 +137,50 @@ export default function LabelsPage() {
         setDeletingLabel(null);
     };
 
+    const handleDialogClose = (open: boolean) => {
+        setIsDialogOpen(open);
+        if (!open) {
+            setEditingLabel(null);
+            // Force cleanup of any remaining overlay elements
+            setTimeout(() => {
+                const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+                allOverlays.forEach(overlay => {
+                    const state = overlay.getAttribute('data-state');
+                    if (!state || state === 'closed') {
+                        (overlay as HTMLElement).style.display = 'none';
+                        overlay.remove();
+                    }
+                });
+                // Ensure body styles are reset
+                document.body.style.pointerEvents = '';
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, 200);
+        }
+    };
+
+    const handleAlertClose = (open: boolean) => {
+        setIsAlertOpen(open);
+        if (!open) {
+            setDeletingLabel(null);
+            // Force cleanup of any remaining overlay elements
+            setTimeout(() => {
+                const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+                allOverlays.forEach(overlay => {
+                    const state = overlay.getAttribute('data-state');
+                    if (!state || state === 'closed') {
+                        (overlay as HTMLElement).style.display = 'none';
+                        overlay.remove();
+                    }
+                });
+                // Ensure body styles are reset
+                document.body.style.pointerEvents = '';
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, 200);
+        }
+    };
+
     if (loading) {
         return <LabelsLoadingSkeleton />;
     }
@@ -209,7 +253,7 @@ export default function LabelsPage() {
                 </CardContent>
             </Card>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingLabel?.id ? "Edit Label" : "Add New Label"}</DialogTitle>
@@ -256,7 +300,7 @@ export default function LabelsPage() {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+            <AlertDialog open={isAlertOpen} onOpenChange={handleAlertClose}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>

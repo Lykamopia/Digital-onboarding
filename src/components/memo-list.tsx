@@ -348,7 +348,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     }
 
     return (
-        <div className="flex flex-col gap-0.5 p-1">
+        <div className="flex flex-col gap-0.5 px-1 py-1">
             {memos.map((memo) => {
                 const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
                 return (
@@ -363,15 +363,15 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             )}
                             onClick={() => onSelectMemo(memo.id)}
                         >
-                            <div className="flex w-full items-start justify-between">
-                                <div className="flex items-center gap-2 truncate">
+                            <div className="flex w-full items-start justify-between gap-2">
+                                <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                                     <div className="font-semibold truncate">{getDisplayName(memo)}</div>
                                     {(tab === 'inbox' || tab === 'scheduled' || tab === 'favorites') && <StatusBadge status={getMemoStatus(memo)} />}
                                     {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
                                 </div>
                                 <div
                                 className={cn(
-                                    "ml-auto text-xs shrink-0 pl-2 transition-opacity duration-300",
+                                    "text-xs shrink-0 transition-opacity duration-300",
                                     "group-hover:opacity-0",
                                     selectedMemoId === memo.id
                                     ? "text-foreground"
@@ -382,7 +382,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                                 </div>
                             </div>
 
-                            <div className="w-full pr-24 overflow-hidden">
+                            <div className="w-full pr-20 overflow-hidden">
                                 <div className="text-sm font-medium truncate flex items-center gap-2">
                                      <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className="z-10 shrink-0">
                                         <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
@@ -476,7 +476,7 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
   }
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full [&>[data-radix-scroll-area-scrollbar]]:hidden">
         <TooltipProvider>
             {isExpanded ? (
                 <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={handleSelect} loggedInUser={loggedInUser} onUpdate={onUpdate} />

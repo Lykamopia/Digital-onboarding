@@ -170,12 +170,42 @@ export default function UsersPage() {
     if (!open) {
       setEditingUser(null);
       setFormState(initialFormState);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
   };
 
   const handlePasswordDialogClose = (open: boolean) => {
     if (!open) {
       setPasswordDialog({ open: false, password: "" });
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     } else {
       setPasswordDialog(prev => ({ ...prev, open: true }));
     }
@@ -185,6 +215,21 @@ export default function UsersPage() {
     if (!open) {
       setResetUser(null);
       setDeleteUserAlert(null);
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
     }
   };
 

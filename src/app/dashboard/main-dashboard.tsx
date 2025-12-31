@@ -343,7 +343,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             onRefresh={() => loadMemos(true)}
             loading={loading}
         />
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           {loading ? (
               <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
           ) : memos.length > 0 ? (

@@ -141,6 +141,27 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(false);
   }
 
+  const handleDeleteAlertClose = (open: boolean) => {
+    setIsDeleteAlertOpen(open);
+    if (!open) {
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
+    }
+  }
+
   if (loading) {
     return <ArchiveLoadingSkeleton />;
   }
@@ -271,7 +292,7 @@ export default function ArchiveSettingsPage() {
         </CardContent>
       </Card>
       
-       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+       <AlertDialog open={isDeleteAlertOpen} onOpenChange={handleDeleteAlertClose}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
