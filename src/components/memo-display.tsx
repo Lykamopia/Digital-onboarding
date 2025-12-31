@@ -449,9 +449,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
             <div className="flex items-center gap-2 overflow-hidden">
-                 <Button variant="ghost" size="icon" onClick={handleToggleFlag} className="group shrink-0 hover:bg-transparent">
-                    <Flag className={cn("h-4 w-4 transition-colors duration-200 group-hover:text-amber-500", memo.isFlagged ? "fill-amber-400 text-amber-500" : "text-muted-foreground")} />
-                </Button>
                 <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
             </div>
             {!isPreview && (
@@ -485,3 +482,6 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
 }
+
+
+    

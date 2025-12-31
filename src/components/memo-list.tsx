@@ -292,10 +292,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
                     <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
                 </ContextMenuItem>
-                <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
-                    <Flag className={cn("mr-2 h-4 w-4", memo.isFlagged && "fill-amber-400 text-amber-500")} />
-                    <span>{memo.isFlagged ? 'Unflag' : 'Flag'}</span>
-                </ContextMenuItem>
                 {canDuplicate && (
                     <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
                         <Copy className="mr-2 h-4 w-4" />
@@ -487,5 +483,7 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
+
+    
 
     
