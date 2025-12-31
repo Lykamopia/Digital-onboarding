@@ -47,7 +47,7 @@ export function MemoFilters({
     setSearchParams({ q: value });
   }, 300);
 
-  const handleDateChange = (range: DateRange | undefined, selectedDay: Date | undefined, modifiers: any, e: React.MouseEvent) => {
+  const handleDateChange = (range: DateRange | undefined) => {
       setDateRange(range);
       setSearchParams({ 
         from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
@@ -155,7 +155,7 @@ export function MemoFilters({
         </div>
       {isExpanded && (
         <div className="flex min-w-0 flex-col gap-2 mt-2">
-           <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2 flex-wrap">
             <Popover>
                 <PopoverTrigger asChild>
                     <Button
@@ -187,7 +187,7 @@ export function MemoFilters({
                         mode="range"
                         defaultMonth={dateRange?.from}
                         selected={dateRange}
-                        onSelect={handleDateChange as any}
+                        onSelect={handleDateChange}
                         numberOfMonths={1}
                     />
                      <div className="p-2 border-t grid grid-cols-2 gap-2">
