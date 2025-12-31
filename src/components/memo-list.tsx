@@ -143,6 +143,18 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     };
     
     const handleToggleFlag = async (memoId: string) => {
+        // Optimistic update
+        setMemos(prevMemos => prevMemos.map(m => {
+            if (m.id === memoId) {
+                const isFlagged = m.flaggedBy && m.flaggedBy.length > 0;
+                return {
+                    ...m,
+                    flaggedBy: isFlagged ? [] : [{ id: loggedInUser.id }]
+                };
+            }
+            return m;
+        }));
+
         const result = await toggleFlag(memoId);
         toast({
             title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
@@ -274,6 +286,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const canForward = isRecipient || isCC;
         const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
         const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
+        const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
         
         if (tab === 'drafts') {
             return (
@@ -291,6 +304,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                 <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
                     <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
                     <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
+                    <Flag className={cn("mr-2 h-4 w-4", isFlaggedByUser && "fill-red-500 text-red-500")} />
+                    <span>{isFlaggedByUser ? 'Unflag' : 'Flag'}</span>
                 </ContextMenuItem>
                 {canDuplicate && (
                     <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
@@ -347,6 +364,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         <div className="flex flex-col gap-0.5 px-1 py-1">
             {memos.map((memo) => {
                 const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
+                const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
                 return (
                 <ContextMenu key={memo.id}>
                     <ContextMenuTrigger>
@@ -355,7 +373,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
                             "hover:bg-primary/5",
                             selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : "",
-                            memo.isFlagged && "border-l-4 border-l-red-500/70"
+                            isFlaggedByUser && "border-l-4 border-l-red-500/70"
                             )}
                             onClick={() => onSelectMemo(memo.id)}
                         >

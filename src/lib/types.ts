@@ -63,6 +63,7 @@ export type Memo = PrismaMemo & {
     acknowledgedBy?: User[];
     archivedBy?: User[];
     favoritedBy?: { id: string }[];
+    flaggedBy?: { id: string }[];
     labels: Label[];
 };
 

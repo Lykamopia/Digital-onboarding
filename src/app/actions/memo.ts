@@ -130,7 +130,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
     if (show === 'favorites') {
         where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else if (show === 'flagged') {
-        where.AND.push({ isFlagged: true });
+        where.AND.push({ flaggedBy: { some: { id: user.id } } });
     }
 
     const memos = await prisma.memo.findMany({
@@ -150,7 +150,8 @@ export async function getDashboardData(tab: string, query: string, status: strin
             previous_holders: { include: { role: true } },
             acknowledgedBy: { include: { role: true } },
             archivedBy: { include: { role: true } },
-            favoritedBy: { where: { id: user.id }, select: { id: true } }, // check if favorited by current user
+            favoritedBy: { where: { id: user.id }, select: { id: true } },
+            flaggedBy: { where: { id: user.id }, select: { id: true } },
         },
         orderBy: [
             { favoritedBy: { _count: 'desc' } }, // favorited memos first
@@ -195,17 +196,19 @@ export async function toggleFlag(memoId: string) {
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
-        select: { isFlagged: true }
+        include: { flaggedBy: { where: { id: user.id } } }
     });
 
     if (!memo) throw new Error("Memo not found");
 
-    const newFlaggedState = !memo.isFlagged;
+    const isFlagged = memo.flaggedBy.length > 0;
 
     await prisma.memo.update({
         where: { id: memoId },
         data: {
-            isFlagged: newFlaggedState
+            flaggedBy: isFlagged
+                ? { disconnect: { id: user.id } }
+                : { connect: { id: user.id } }
         }
     });
 
@@ -213,7 +216,7 @@ export async function toggleFlag(memoId: string) {
     revalidatePath('/dashboard/sent');
     revalidatePath('/dashboard/drafts');
     revalidatePath('/dashboard/archive');
-    return { success: true, isFlagged: newFlaggedState };
+    return { success: true, isFlagged: !isFlagged };
 }
 
 export async function getMemo(id: string) {
@@ -244,6 +247,7 @@ export async function getMemo(id: string) {
       },
       replyTo: { include: { from: { include: { role: true } } } },
       favoritedBy: { where: { id: user?.id }, select: { id: true } },
+      flaggedBy: { where: { id: user?.id }, select: { id: true } },
     },
   });
   return memo;
@@ -437,6 +441,7 @@ export async function sendMemo(formData: FormData) {
             acknowledgedBy: { include: { role: true } },
             archivedBy: { include: { role: true } },
             favoritedBy: { where: { id: user.id }, select: { id: true } },
+            flaggedBy: { where: { id: user.id }, select: { id: true } },
         }
     });
 
