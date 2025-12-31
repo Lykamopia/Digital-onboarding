@@ -5,7 +5,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { CalendarIcon, Search, X, RefreshCw, Loader2 } from 'lucide-react';
+import { CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
@@ -202,10 +202,30 @@ export function MemoFilters({
                     <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="unread">Unread</SelectItem>
-                    <SelectItem value="read">Read</SelectItem>
-                    <SelectItem value="acknowledged">Acknowledged</SelectItem>
+                    <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                            <List className="h-4 w-4 text-muted-foreground" />
+                            All Statuses
+                        </div>
+                    </SelectItem>
+                    <SelectItem value="unread">
+                        <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-green-500" />
+                            Unread
+                        </div>
+                    </SelectItem>
+                    <SelectItem value="read">
+                        <div className="flex items-center gap-2">
+                            <MailOpen className="h-4 w-4 text-blue-500" />
+                            Read
+                        </div>
+                    </SelectItem>
+                    <SelectItem value="acknowledged">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-purple-500" />
+                            Acknowledged
+                        </div>
+                    </SelectItem>
                 </SelectContent>
                 </Select>
             )}
@@ -214,9 +234,24 @@ export function MemoFilters({
                     <SelectValue placeholder="Show" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">Show All</SelectItem>
-                    <SelectItem value="favorites">Favorites</SelectItem>
-                    <SelectItem value="flagged">Flagged</SelectItem>
+                    <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                           <Eye className="h-4 w-4 text-muted-foreground" />
+                            Show All
+                        </div>
+                    </SelectItem>
+                    <SelectItem value="favorites">
+                        <div className="flex items-center gap-2">
+                            <Star className="h-4 w-4 text-yellow-500" />
+                            Favorites
+                        </div>
+                    </SelectItem>
+                    <SelectItem value="flagged">
+                        <div className="flex items-center gap-2">
+                            <Flag className="h-4 w-4 text-red-500" />
+                            Flagged
+                        </div>
+                    </SelectItem>
                 </SelectContent>
             </Select>
             {hasActiveFilters && (
