@@ -13,8 +13,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,12 +29,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAllMemosForAdmin, getArchiveSettings, saveArchiveSettings, performBulkArchiveActions } from "@/app/actions/memo";
+import { getAllMemosForAdmin, performBulkArchiveActions } from "@/app/actions/memo";
 import type { Memo } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
-import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
+import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type MemoWithRelations = Memo & { from: { name: string }, to: { name: string }[], archivedBy: { id: string }[] };
@@ -46,7 +44,6 @@ const ITEMS_PER_PAGE = 10;
 function ArchiveLoadingSkeleton() {
     return (
         <div className="space-y-6">
-            <Skeleton className="h-48 w-full" />
             <Skeleton className="h-96 w-full" />
         </div>
     );
@@ -55,9 +52,7 @@ function ArchiveLoadingSkeleton() {
 export default function ArchiveSettingsPage() {
   const [memos, setMemos] = useState<MemoWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState({ autoArchiveDays: 90 });
   const [selectedMemos, setSelectedMemos] = useState<string[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,36 +70,17 @@ export default function ArchiveSettingsPage() {
 
   const totalPages = Math.ceil(filteredMemos.length / ITEMS_PER_PAGE);
 
-  const fetchMemosAndSettings = async () => {
+  const fetchMemos = async () => {
     setLoading(true);
-    const [memosData, settingsData] = await Promise.all([
-      getAllMemosForAdmin(),
-      getArchiveSettings(),
-    ]);
+    const memosData = await getAllMemosForAdmin();
     setMemos(memosData as MemoWithRelations[]);
-    setSettings(settingsData);
     setLoading(false);
   };
   
   useEffect(() => {
-    fetchMemosAndSettings();
+    fetchMemos();
   }, []);
 
-  const handleSaveSettings = async () => {
-    if (settings.autoArchiveDays < 1) {
-        toast({ title: "Error", description: "Auto-archive period must be at least 1 day.", variant: "destructive" });
-        return;
-    }
-    setIsSaving(true);
-    const result = await saveArchiveSettings(settings.autoArchiveDays);
-    if(result.success) {
-      toast({ title: "Settings Saved", description: "Auto-archive settings have been updated." });
-    } else {
-      toast({ title: "Error", description: result.error || "Could not save settings.", variant: "destructive" });
-    }
-    setIsSaving(false);
-  };
-  
   const handleBulkAction = async (action: 'restore' | 'delete') => {
       if (selectedMemos.length === 0) {
           toast({ title: "No Memos Selected", description: "Please select memos to perform this action.", variant: "destructive" });
@@ -121,7 +97,7 @@ export default function ArchiveSettingsPage() {
       if (result.success) {
           toast({ title: "Action Successful", description: `Selected memos have been restored.`});
           setSelectedMemos([]);
-          await fetchMemosAndSettings();
+          await fetchMemos();
       } else {
           toast({ title: "Action Failed", description: result.error, variant: "destructive" });
       }
@@ -135,7 +111,7 @@ export default function ArchiveSettingsPage() {
        if (result.success) {
           toast({ title: "Memos Deleted", description: "Selected memos have been permanently deleted."});
           setSelectedMemos([]);
-          await fetchMemosAndSettings();
+          await fetchMemos();
       } else {
           toast({ title: "Action Failed", description: result.error, variant: "destructive" });
       }
@@ -169,37 +145,6 @@ export default function ArchiveSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Auto-Archive Settings</CardTitle>
-          <CardDescription>
-            Define rules to automatically archive memos after a certain period.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Label htmlFor="archive-days" className="whitespace-nowrap">
-              Archive memos older than
-            </Label>
-            <Input
-              id="archive-days"
-              type="number"
-              value={settings.autoArchiveDays}
-              onChange={(e) => setSettings({ autoArchiveDays: Number(e.target.value) })}
-              className="w-24"
-              min="1"
-            />
-            <span className="text-sm text-muted-foreground">days</span>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleSaveSettings} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Settings
-          </Button>
-        </CardFooter>
-      </Card>
-      
       <Card>
         <CardHeader>
           <CardTitle>Archived Memos</CardTitle>

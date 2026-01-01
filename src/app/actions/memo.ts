@@ -1046,23 +1046,6 @@ export async function updateUserProfile(userId: string, data: { name: string, em
     return { success: true };
 }
 
-// SIMULATED SETTINGS - in a real app, this would be a separate `Settings` table
-let archiveSettings = { autoArchiveDays: 90 };
-export async function getArchiveSettings() {
-    // Simulate fetching from DB
-    return archiveSettings;
-}
-export async function saveArchiveSettings(days: number) {
-    if (days < 1) {
-        return { success: false, error: 'Auto-archive period must be at least 1 day.' };
-    }
-    // Simulate saving to DB
-    archiveSettings.autoArchiveDays = days;
-    // Here you might trigger a background job to enforce the new rule
-    console.log(`Auto-archive period set to ${days} days.`);
-    revalidatePath('/dashboard/admin/archive');
-    return { success: true };
-}
 
 let emailSettings = { 
     notificationsEnabled: true, 
@@ -1153,4 +1136,3 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     
 
     
-
