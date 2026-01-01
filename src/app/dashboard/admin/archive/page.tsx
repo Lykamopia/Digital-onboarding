@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getAllMemosForAdmin, getArchiveSettings, saveArchiveSettings, performBulkArchiveActions } from "@/app/actions/memo";
 import type { Memo } from "@/lib/types";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
 import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
@@ -61,6 +61,7 @@ export default function ArchiveSettingsPage() {
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const { toast } = useToast();
 
   const filteredMemos = useMemo(() => {
       return memos.filter(memo => memo.archivedBy.length > 0)
@@ -91,22 +92,22 @@ export default function ArchiveSettingsPage() {
 
   const handleSaveSettings = async () => {
     if (settings.autoArchiveDays < 1) {
-        toast.error("Invalid Value", { description: "Auto-archive period must be at least 1 day." });
+        toast({ title: "Error", description: "Auto-archive period must be at least 1 day.", variant: "destructive" });
         return;
     }
     setIsSaving(true);
     const result = await saveArchiveSettings(settings.autoArchiveDays);
     if(result.success) {
-      toast.success("Settings Saved", { description: "Auto-archive settings have been updated." });
+      toast({ title: "Settings Saved", description: "Auto-archive settings have been updated." });
     } else {
-      toast.error("Error", { description: result.error || "Could not save settings." });
+      toast({ title: "Error", description: result.error || "Could not save settings.", variant: "destructive" });
     }
     setIsSaving(false);
   };
   
   const handleBulkAction = async (action: 'restore' | 'delete') => {
       if (selectedMemos.length === 0) {
-          toast.warning("No Memos Selected", { description: "Please select memos to perform this action." });
+          toast({ title: "No Memos Selected", description: "Please select memos to perform this action.", variant: "destructive" });
           return;
       }
 
@@ -118,11 +119,11 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(true);
       const result = await performBulkArchiveActions(action, selectedMemos);
       if (result.success) {
-          toast.success("Action Successful", { description: `Selected memos have been restored.`});
+          toast({ title: "Action Successful", description: `Selected memos have been restored.`});
           setSelectedMemos([]);
           await fetchMemosAndSettings();
       } else {
-          toast.error("Action Failed", { description: result.error });
+          toast({ title: "Action Failed", description: result.error, variant: "destructive" });
       }
       setIsPerformingAction(false);
   }
@@ -132,11 +133,11 @@ export default function ArchiveSettingsPage() {
       setIsDeleteAlertOpen(false);
       const result = await performBulkArchiveActions('delete', selectedMemos);
        if (result.success) {
-          toast.success("Memos Deleted", { description: "Selected memos have been permanently deleted."});
+          toast({ title: "Memos Deleted", description: "Selected memos have been permanently deleted."});
           setSelectedMemos([]);
           await fetchMemosAndSettings();
       } else {
-          toast.error("Action Failed", { description: result.error });
+          toast({ title: "Action Failed", description: result.error, variant: "destructive" });
       }
       setIsPerformingAction(false);
   }
