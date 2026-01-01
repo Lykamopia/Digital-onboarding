@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -103,7 +104,10 @@ export default function NewMemoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const draftId = searchParams.get('id');
+  
+  // Use state for draft ID to prevent issues with stale closures in callbacks
+  const [draftId, setDraftId] = useState<string | null>(searchParams.get('id'));
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
@@ -211,6 +215,7 @@ export default function NewMemoPage() {
     const savedDraft = await saveDraft(draftData, draftId);
     
     if (savedDraft && !draftId) {
+      setDraftId(savedDraft.id); // Set the new draft ID in state
       const newParams = new URLSearchParams(window.location.search);
       newParams.set('id', savedDraft.id);
       router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
@@ -239,6 +244,8 @@ export default function NewMemoPage() {
       const currentDraftId = searchParams.get('id');
       const replyToId = searchParams.get('replyTo');
       const forwardFromId = searchParams.get('forwardFrom');
+
+      setDraftId(currentDraftId); // Keep state in sync with URL
 
       if (currentDraftId) {
         const draft = await getMemo(currentDraftId);
@@ -273,6 +280,7 @@ export default function NewMemoPage() {
               setTo([originalMemo.from]);
               setReplyTo(replyToId);
               setForwardFrom(undefined);
+              // Immediately flush the debounced save to get a draft ID
               debouncedSave.flush();
           }
       } else if (forwardFromId) {
@@ -285,6 +293,7 @@ export default function NewMemoPage() {
               setCc([]);
               setForwardFrom(forwardFromId);
               setReplyTo(undefined);
+              // Immediately flush the debounced save to get a draft ID
               debouncedSave.flush();
           }
       } else {
@@ -578,7 +587,7 @@ export default function NewMemoPage() {
                             {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
-                                    <Image src={`/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                    <Image src={att.url.startsWith('http') ? att.url : `/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
                                 ) : (
                                     <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
                                         <FileIcon className="h-10 w-10 text-muted-foreground" />
