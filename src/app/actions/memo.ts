@@ -570,11 +570,9 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             },
             status: 'draft' as const,
             replyToId: data.replyToId,
+            forwardFromId: data.forwardFromId,
         };
         
-        if (data.forwardFromId) {
-            payload.forwardFromId = data.forwardFromId;
-        }
 
         const updatedDraft = await prisma.memo.update({
             where: { id: draftId },
@@ -593,12 +591,9 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             status: 'draft' as const,
             memo_reference_number: `DRAFT-${Date.now()}`,
             replyToId: data.replyToId,
+            forwardFromId: data.forwardFromId,
         };
         
-        if (data.forwardFromId) {
-            payload.forwardFromId = data.forwardFromId;
-        }
-
         const newDraft = await prisma.memo.create({ data: payload });
         return newDraft;
     }
@@ -1158,3 +1153,4 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     
 
     
+
