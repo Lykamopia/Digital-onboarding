@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -136,7 +135,7 @@ const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { 
 };
 
 
-export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: MemoDisplayProps) {
+export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
@@ -152,13 +151,31 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   }
 
   const handleAcknowledge = async () => {
-    if (!memo) return;
+    if (!memo || !loggedInUser) return;
+
+    // Optimistic UI Update
+    const newActivity = {
+        id: `temp-ack-${Date.now()}`,
+        actorId: loggedInUser.id,
+        action: 'acknowledged' as const,
+        actor: loggedInUser,
+        details: 'Acknowledged receipt of the memo.',
+        timestamp: new Date().toISOString()
+    };
+    const updatedMemo = {
+        ...memo,
+        acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
+        activity: [...memo.activity, newActivity]
+    };
+    setMemo?.(updatedMemo);
+
+
     await acknowledgeMemo(memo.id);
     toast({
         title: "Memo Acknowledged",
         description: "You have acknowledged receipt of this memo."
     });
-    onUpdate();
+    // onUpdate(); // We don't need to force a full refresh anymore
   }
   
   const handleDuplicate = async () => {
@@ -501,6 +518,7 @@ interface MemoDisplayProps {
   memoCount: number;
   onUpdate: () => void;
   isPreview?: boolean;
+  setMemo?: (memo: MemoWithActivity) => void;
 }
 
 

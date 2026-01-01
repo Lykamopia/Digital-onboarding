@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -128,25 +127,24 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   const markMemoAsReadInState = useCallback((memoId: string) => {
     if (!user) return;
-    setMemos(prevMemos => prevMemos.map(m => {
-        if (m.id === memoId && !m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
-            const newActivity = {
-                id: `temp-view-${Date.now()}`,
-                actorId: user.id,
-                action: 'viewed' as const,
-                actor: user,
-                details: '',
-                timestamp: new Date().toISOString()
-            };
-            const updatedMemo = { ...m, activity: [...m.activity, newActivity] };
-            if (selectedMemo?.id === memoId) {
-                setSelectedMemo(updatedMemo);
-            }
-            return updatedMemo;
+    const updateUser = (m: MemoWithActivity | null) => {
+        if (!m || m.id !== memoId || m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+            return m;
         }
-        return m;
-    }));
-  }, [user, selectedMemo?.id]);
+        const newActivity = {
+            id: `temp-view-${Date.now()}`,
+            actorId: user.id,
+            action: 'viewed' as const,
+            actor: user,
+            details: '',
+            timestamp: new Date().toISOString()
+        };
+        return { ...m, activity: [...m.activity, newActivity] };
+    };
+
+    setMemos(prevMemos => prevMemos.map(updateUser) as MemoWithActivity[]);
+    setSelectedMemo(prevMemo => updateUser(prevMemo));
+  }, [user]);
 
 
   // Listener for client-side events like "mark all as read"
@@ -251,7 +249,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [tab, search, status, dateRange, user, pathname, router, searchParams, selectedLabels, show, hasInitialLoad, initialMemos]);
+  }, [tab, search, status, dateRange, user, selectedLabels, show, hasInitialLoad, initialMemos, memoIdFromUrl]);
 
   // Only load memos when filters change, not on initial mount if we have initialMemos
   useEffect(() => {
@@ -261,7 +259,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       return;
     }
     loadMemos();
-  }, [search, status, dateRange, selectedLabels, show]); // This effect ONLY runs when filters change
+  }, [search, status, dateRange, selectedLabels, show, loadMemos, hasInitialLoad, initialMemos]);
 
   useEffect(() => {
       // This effect syncs the selected memo with the URL id, but does NOT reload the list.
@@ -370,8 +368,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             setSelectedLabels={setSelectedLabels}
             show={show}
             setShow={setShow}
-            isExpanded={isListExpanded}
             toggle={memoListToggle}
+            isExpanded={isListExpanded}
             onRefresh={() => loadMemos(true)}
             loading={loading}
         />
@@ -401,7 +399,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
              <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
         ) : (
             <MemoDisplay 
-                memo={selectedMemo} 
+                memo={selectedMemo}
+                setMemo={setSelectedMemo}
                 memoCount={memos.length}
                 onUpdate={() => loadMemos(true)}
             />

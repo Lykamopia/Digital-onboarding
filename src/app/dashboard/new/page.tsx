@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -237,8 +236,12 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const initialize = async () => {
-      if (draftId) {
-        const draft = await getMemo(draftId);
+      const currentDraftId = searchParams.get('id');
+      const replyToId = searchParams.get('replyTo');
+      const forwardFromId = searchParams.get('forwardFrom');
+
+      if (currentDraftId) {
+        const draft = await getMemo(currentDraftId);
         if (draft) {
           let bodyContent = draft.body || '';
           let replyContent = '';
@@ -261,46 +264,39 @@ export default function NewMemoPage() {
           setForwardFrom(draft.forwardFromId || undefined);
           setIsDraft(true);
         }
+      } else if (replyToId) {
+          const originalMemo = await getMemo(replyToId);
+          if (originalMemo) {
+              const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
+              setBody(originalContent);
+              setSubject(`Re: ${originalMemo.subject}`);
+              setTo([originalMemo.from]);
+              setReplyTo(replyToId);
+              setForwardFrom(undefined);
+              debouncedSave.flush();
+          }
+      } else if (forwardFromId) {
+          const originalMemo = await getMemo(forwardFromId);
+          if (originalMemo) {
+              const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
+              setBody(originalContent);
+              setSubject(`Fw: ${originalMemo.subject}`);
+              setTo([]);
+              setCc([]);
+              setForwardFrom(forwardFromId);
+              setReplyTo(undefined);
+              debouncedSave.flush();
+          }
       } else {
-        const replyToId = searchParams.get('replyTo');
-        const forwardFromId = searchParams.get('forwardFrom');
-
-        if (replyToId) {
-            const originalMemo = await getMemo(replyToId);
-            if (originalMemo) {
-                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
-                setBody(originalContent);
-                setSubject(`Re: ${originalMemo.subject}`);
-                setTo([originalMemo.from]);
-                setReplyTo(replyToId);
-                setForwardFrom(undefined);
-                // Trigger a save for the new reply draft
-                debouncedSave.flush();
-            }
-        } else if (forwardFromId) {
-            const originalMemo = await getMemo(forwardFromId);
-            if (originalMemo) {
-                const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
-                setBody(originalContent);
-                setSubject(`Fw: ${originalMemo.subject}`);
-                setTo([]);
-                setCc([]);
-                setForwardFrom(forwardFromId);
-                setReplyTo(undefined);
-                // Trigger a save for the new forward draft
-                debouncedSave.flush();
-            }
-        } else {
-            // Reset for a completely new memo
-            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined);
-            setIsDraft(false); setLastSaved(null);
-        }
+          // Reset for a completely new memo
+          setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined);
+          setIsDraft(false); setLastSaved(null);
       }
     };
 
     initialize();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftId]);
+  }, [searchParams]);
 
   async function handleDeleteDraft() {
       if (draftId) {
@@ -582,7 +578,7 @@ export default function NewMemoPage() {
                             {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
-                                    <Image src={`/api/uploads${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                    <Image src={`/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
                                 ) : (
                                     <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
                                         <FileIcon className="h-10 w-10 text-muted-foreground" />
