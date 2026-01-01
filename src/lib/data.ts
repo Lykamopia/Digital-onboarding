@@ -5,7 +5,6 @@ import { format, formatDistanceToNow } from 'date-fns';
 export const permissions: { id: Permission, label: string, description: string }[] = [
     { id: 'view_dashboard', label: 'View Dashboard', description: 'Can view the main dashboard and memos' },
     { id: 'manage_memos', label: 'Manage Memos', description: 'Can create, edit, and send memos' },
-    { id: 'manage_scheduled', label: 'Manage Scheduled', description: 'Can view and manage scheduled memos' },
     { id: 'view_admin', label: 'View Admin Section', description: 'Can access the admin section' },
     { id: 'manage_general_settings', label: 'Manage General Settings', description: 'Can manage general application settings' },
     { id: 'manage_divisions', label: 'Manage Divisions', description: 'Can create, edit, and delete divisions' },

@@ -56,7 +56,6 @@ const roles = [
       'manage_users',
       'manage_roles',
       'manage_archive',
-      'manage_scheduled',
       'manage_labels'
     ].join(','),
   },

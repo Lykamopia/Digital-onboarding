@@ -13,7 +13,7 @@ import type {
     Label as PrismaLabel,
 } from '@prisma/client';
 
-export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_scheduled' | 'manage_labels' | 'manage_general_settings';
+export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_labels' | 'manage_general_settings';
 
 export type Role = PrismaRole;
 export type Office = PrismaOffice & {
