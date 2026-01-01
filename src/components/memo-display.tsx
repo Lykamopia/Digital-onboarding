@@ -36,9 +36,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, getGeneralSettings } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
-import { ForwardDialog } from './forward-dialog';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
 import { InboxEmptyIllustration } from './inbox-empty-illustration';
 import { cn } from '@/lib/utils';
@@ -194,6 +193,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
   const handleReply = () => {
     if(!memo) return;
     router.push(`/dashboard/new?replyTo=${memo.id}`);
+  }
+
+  const handleForward = () => {
+    if(!memo) return;
+    router.push(`/dashboard/new?forwardFrom=${memo.id}`);
   }
 
   const handleToggleFlag = async () => {
@@ -392,12 +396,10 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false }: Me
                             </Button>
                         )}
                         {canForward && (
-                            <ForwardDialog memo={memo} onUpdate={onUpdate}>
-                                <Button variant="outline" className='no-print'>
-                                    <Share2 className="mr-2 h-4 w-4" />
-                                    Forward
-                                </Button>
-                            </ForwardDialog>
+                            <Button variant="outline" onClick={handleForward}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Forward
+                            </Button>
                         )}
                          {canDuplicate && (
                             <Button variant="outline" onClick={handleDuplicate}>

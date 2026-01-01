@@ -121,10 +121,12 @@ export default function NewMemoPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
+  const [forwardFrom, setForwardFrom] = useState<string | undefined>(undefined);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
   const isReplying = !!replyTo;
-  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !body.trim()) || (isReplying && !replyBody.trim());
+  const isForwarding = !!forwardFrom;
+  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isForwarding && !body.trim()) || ((isReplying || isForwarding) && !replyBody.trim());
 
   useEffect(() => {
     async function fetchData() {
@@ -157,7 +159,7 @@ export default function NewMemoPage() {
       if (!loggedInUser) return;
 
       const getCombinedBody = () => {
-        if (replyTo && body) {
+        if ((replyTo || forwardFrom) && body) {
           return `${replyBody}<hr>${body}`;
         }
         return replyBody || body || '';
@@ -177,10 +179,11 @@ export default function NewMemoPage() {
         status: 'draft',
         activity: [],
         replyToId: replyTo,
+        forwardFromId: forwardFrom,
         labels,
       };
       setPreviewMemo(newPreview);
-  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo, labels]);
+  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo, forwardFrom, labels]);
   
   useEffect(() => {
     updatePreview();
@@ -189,8 +192,8 @@ export default function NewMemoPage() {
   const saveDraftCallback = useCallback(async () => {
     if (!loggedInUser) return;
     
-    let draftBody = replyTo ? replyBody : body;
-    if (replyTo && body) {
+    let draftBody = (isReplying || isForwarding) ? replyBody : body;
+    if ((isReplying || isForwarding) && body) {
         draftBody = `${replyBody}<hr>${body}`;
     }
 
@@ -201,14 +204,17 @@ export default function NewMemoPage() {
         subject: subject,
         body: draftBody,
         attachments: attachments,
-        replyToId: replyTo
+        replyToId: replyTo,
+        forwardFromId: forwardFrom,
     };
     
     setIsSaving(true);
     const savedDraft = await saveDraft(draftData, draftId);
     
     if (savedDraft && !draftId) {
-      router.replace(`/dashboard/new?id=${savedDraft.id}`, { scroll: false });
+      const newParams = new URLSearchParams(window.location.search);
+      newParams.set('id', savedDraft.id);
+      router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
     }
     
     setIsDraft(true);
@@ -217,7 +223,7 @@ export default function NewMemoPage() {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString());
     }, 500);
-  }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, router]);
+  }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, forwardFrom, router, isReplying, isForwarding]);
 
   const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
 
@@ -234,25 +240,31 @@ export default function NewMemoPage() {
       if (draftId) {
         const draft = await getMemo(draftId);
         if (draft) {
-          let body = draft.body || '';
-          let replyBody = '';
-          if (draft.replyToId && draft.body.includes('<hr>')) {
+          let bodyContent = draft.body || '';
+          let replyContent = '';
+          if ((draft.replyToId || draft.forwardFromId) && draft.body.includes('<hr>')) {
               const parts = draft.body.split('<hr>');
-              replyBody = parts[0];
-              body = parts.slice(1).join('<hr>');
+              replyContent = parts[0];
+              bodyContent = parts.slice(1).join('<hr>');
+          } else if (!draft.replyToId && !draft.forwardFromId) {
+            bodyContent = draft.body;
           }
+          
           setTo(draft.to);
           setCc(draft.cc);
           setLabels(draft.labels);
           setSubject(draft.subject);
-          setBody(draft.replyToId ? body : draft.body);
-          setReplyBody(draft.replyToId ? replyBody : '');
+          setBody(bodyContent);
+          setReplyBody(replyContent);
           setAttachments(draft.attachments);
           setReplyTo(draft.replyToId || undefined);
+          setForwardFrom(draft.forwardFromId || undefined);
           setIsDraft(true);
         }
       } else {
         const replyToId = searchParams.get('replyTo');
+        const forwardFromId = searchParams.get('forwardFrom');
+
         if (replyToId) {
             const originalMemo = await getMemo(replyToId);
             if (originalMemo) {
@@ -261,12 +273,26 @@ export default function NewMemoPage() {
                 setSubject(`Re: ${originalMemo.subject}`);
                 setTo([originalMemo.from]);
                 setReplyTo(replyToId);
+                setForwardFrom(undefined);
                 // Trigger a save for the new reply draft
+                debouncedSave.flush();
+            }
+        } else if (forwardFromId) {
+            const originalMemo = await getMemo(forwardFromId);
+            if (originalMemo) {
+                const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
+                setBody(originalContent);
+                setSubject(`Fw: ${originalMemo.subject}`);
+                setTo([]);
+                setCc([]);
+                setForwardFrom(forwardFromId);
+                setReplyTo(undefined);
+                // Trigger a save for the new forward draft
                 debouncedSave.flush();
             }
         } else {
             // Reset for a completely new memo
-            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined);
+            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined);
             setIsDraft(false); setLastSaved(null);
         }
       }
@@ -274,7 +300,7 @@ export default function NewMemoPage() {
 
     initialize();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftId, searchParams]);
+  }, [draftId]);
 
   async function handleDeleteDraft() {
       if (draftId) {
@@ -296,10 +322,10 @@ export default function NewMemoPage() {
           errorDescription = "Please select at least one recipient in the 'To' field.";
         } else if (!subject.trim()) {
           errorDescription = "Subject is required.";
-        } else if (!isReplying && !body.trim()) {
+        } else if (!isReplying && !isForwarding && !body.trim()) {
           errorDescription = "Body is required.";
-        } else if (isReplying && !replyBody.trim()) {
-          errorDescription = "Your reply message is required.";
+        } else if ((isReplying || isForwarding) && !replyBody.trim()) {
+          errorDescription = "Your message/remark is required.";
         }
         
         toast({ title: 'Cannot Send Memo', description: errorDescription, variant: 'destructive'});
@@ -314,10 +340,11 @@ export default function NewMemoPage() {
     labels.forEach(label => formData.append('labels[]', label.id));
     formData.append('subject', subject);
     
-    let finalBody = replyTo ? `${replyBody}<hr>${body}` : body;
+    let finalBody = (isReplying || isForwarding) ? `${replyBody}<hr>${body}` : body;
     formData.append('body', finalBody);
     formData.append('attachments', JSON.stringify(attachments));
     if (replyTo) formData.append('replyTo', replyTo);
+    if (forwardFrom) formData.append('forwardFrom', forwardFrom);
     if (draftId) formData.append('draftId', draftId);
     
     const result = await sendMemo(formData);
@@ -432,7 +459,7 @@ export default function NewMemoPage() {
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
-                    {isReplying ? 'Compose Reply' : 'Compose New Memo'}
+                    {isReplying ? 'Compose Reply' : isForwarding ? 'Forward Memo' : 'Compose New Memo'}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {isSaving && <Badge variant="secondary">Saving...</Badge>}
@@ -441,7 +468,7 @@ export default function NewMemoPage() {
             </CardHeader>
             <CardContent>
                 <form onSubmit={onSubmit} className="space-y-4">
-                    {!isReplying && (
+                    {!isReplying && !isForwarding && (
                         <div className="flex justify-end">
                             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
                                 <DialogTrigger asChild>
@@ -518,10 +545,10 @@ export default function NewMemoPage() {
                     </div>
                     
                     
-                    {isReplying ? (
+                    {isReplying || isForwarding ? (
                          <>
                          <div>
-                            <label>Reply</label>
+                            <label>{isReplying ? 'Reply' : 'Remark'}</label>
                             <Editor value={replyBody} onChange={setReplyBody} />
                          </div>
                          <div>

@@ -66,6 +66,7 @@ export type Memo = PrismaMemo & {
     favoritedBy?: { id: string }[];
     flaggedBy?: { id: string }[];
     labels: Label[];
+    forwardFromId?: string | null;
 };
 
 export type Activity = PrismaActivity & {

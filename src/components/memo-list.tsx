@@ -95,6 +95,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     const handleReply = (memoId: string) => {
         router.push(`/dashboard/new?replyTo=${memoId}`);
     }
+    
+    const handleForward = (memoId: string) => {
+        router.push(`/dashboard/new?forwardFrom=${memoId}`);
+    }
 
     const handleDuplicate = async (memoId: string) => {
         await duplicateMemo(memoId);
@@ -193,7 +197,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
         const canReply = (isRecipient || isCC) && !isSender;
         const canForward = isRecipient || isCC;
-        const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
 
         // Conditional rendering logic
         if (tab === 'drafts') {
@@ -247,18 +250,14 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                         </Tooltip>
                     )}
                     {canForward && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <ForwardDialog memo={memo} onUpdate={onUpdate}>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
-                                            <Share2 />
-                                        </Button>
-                                    </ForwardDialog>
-                                </TooltipTrigger>
-                                <TooltipContent>Forward</TooltipContent>
-                            </Tooltip>
-                        </div>
+                         <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleForward(memo.id))}>
+                                    <Share2 />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Forward</TooltipContent>
+                        </Tooltip>
                     )}
                     {tab === 'archive' ? (
                         <Tooltip>
@@ -345,14 +344,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </ContextMenuItem>
                 )}
                 {canForward && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <ForwardDialog memo={memo} onUpdate={onUpdate}>
-                            <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Share2 className="mr-2 h-4 w-4" />
-                                <span>Forward</span>
-                            </ContextMenuItem>
-                        </ForwardDialog>
-                    </div>
+                    <ContextMenuItem onSelect={() => handleForward(memo.id)}>
+                        <Share2 className="mr-2 h-4 w-4" />
+                        <span>Forward</span>
+                    </ContextMenuItem>
                 )}
                 <ContextMenuSeparator />
                 {tab === 'archive' ? (

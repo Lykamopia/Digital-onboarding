@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { RecipientSelector } from './recipient-selector';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { forwardMemo, getLoggedInUser, getUsers } from '@/app/actions/memo';
+import { getLoggedInUser, getUsers } from '@/app/actions/memo';
 import type { MemoWithActivity, User } from '@/lib/types';
 import Logo from './logo';
 import { Label } from './ui/label';
@@ -83,38 +83,6 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
     return allUsers.filter(u => !existingRecipientIds.has(u.id));
   }, [allUsers, currentUser, memo]);
 
-  const handleForward = async () => {
-    if (selectedUsers.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No users selected',
-        description: 'Please select at least one user to forward the memo to.',
-      });
-      return;
-    }
-    setIsForwarding(true);
-    const forwardToIds = selectedUsers.map(u => u.id);
-
-    const result = await forwardMemo(memo.id, forwardToIds, remark);
-    
-    if (result.success) {
-        toast({
-            title: 'Memo Forwarded',
-            description: `Successfully forwarded to ${selectedUsers.map(u => u.name).join(', ')}.`,
-        });
-        onUpdate();
-        setOpen(false);
-        setSelectedUsers([]);
-        setRemark('');
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Forward Failed',
-            description: result.error,
-        });
-    }
-    setIsForwarding(false);
-  };
 
   const closeDialog = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -175,7 +143,7 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={handleForward} disabled={selectedUsers.length === 0 || isForwarding}>
+          <Button onClick={() => {}} disabled={selectedUsers.length === 0 || isForwarding}>
             {isForwarding ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

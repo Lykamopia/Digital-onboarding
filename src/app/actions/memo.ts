@@ -22,6 +22,7 @@ const memoSchema = z.object({
   body: z.string().min(1, 'Body is required.'),
   attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
+  forwardFrom: z.string().optional(),
   scheduledFor: z.date().optional(),
 });
 
@@ -383,6 +384,7 @@ export async function sendMemo(formData: FormData) {
         body: formData.get('body') as string,
         attachments: JSON.parse(formData.get('attachments') as string || '[]'),
         replyTo: formData.get('replyTo') as string || undefined,
+        forwardFrom: formData.get('forwardFrom') as string || undefined,
         scheduledFor,
     };
     
@@ -444,6 +446,26 @@ export async function sendMemo(formData: FormData) {
             flaggedBy: { where: { id: user.id }, select: { id: true } },
         }
     });
+    
+    if (validatedData.forwardFrom) {
+        const recipients = validatedData.to.map(id => {
+            const recipientUser = newMemo.to.find(u => u.id === id);
+            return recipientUser?.name || 'Unknown';
+        }).join(', ');
+
+        await prisma.memo.update({
+            where: { id: validatedData.forwardFrom },
+            data: {
+                activity: {
+                    create: {
+                        actorId: user.id,
+                        action: 'forwarded',
+                        details: `Forwarded to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
+                    }
+                }
+            }
+        });
+    }
 
     if (validatedData.replyTo) {
         await prisma.memo.update({
@@ -472,7 +494,7 @@ export async function sendMemo(formData: FormData) {
 
     // Send to WebSocket server
     await sendToWebSocket({
-        type: 'new-memo',
+        type: validatedData.forwardFrom ? 'forwarded-memo' : 'new-memo',
         payload: newMemo,
     });
 
@@ -526,7 +548,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
         const ccToDisconnect = existingDraft?.cc.filter(u => !ccIds.includes(u.id)) || [];
         const labelsToDisconnect = existingDraft?.labels.filter(l => !labelIds.includes(l.id)) || [];
         
-        const payload = {
+        const payload: any = {
             fromId: user.id,
             subject: data.subject || '',
             body: data.body || '',
@@ -549,6 +571,10 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             status: 'draft' as const,
             replyToId: data.replyToId,
         };
+        
+        if (data.forwardFromId) {
+            payload.forwardFromId = data.forwardFromId;
+        }
 
         const updatedDraft = await prisma.memo.update({
             where: { id: draftId },
@@ -556,7 +582,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
         });
         return updatedDraft;
     } else {
-        const payload = {
+        const payload: any = {
             fromId: user.id,
             subject: data.subject || '',
             body: data.body || '',
@@ -568,6 +594,11 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             memo_reference_number: `DRAFT-${Date.now()}`,
             replyToId: data.replyToId,
         };
+        
+        if (data.forwardFromId) {
+            payload.forwardFromId = data.forwardFromId;
+        }
+
         const newDraft = await prisma.memo.create({ data: payload });
         return newDraft;
     }
@@ -653,65 +684,6 @@ export async function acknowledgeMemo(memoId: string) {
   revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
 }
-
-export async function forwardMemo(memoId: string, forwardToIds: string[], remark: string) {
-    const user = await getLoggedInUser();
-    if (!user) return { error: "Not authenticated." };
-
-    const memo = await getMemo(memoId);
-    if (!memo) return { error: 'Memo not found.' };
-
-    const forwardToUsers = await prisma.user.findMany({
-        where: { id: { in: forwardToIds } },
-    });
-
-    if (forwardToUsers.length !== forwardToIds.length) {
-        return { error: 'One or more users to forward to were not found.' };
-    }
-
-    const newCurrentHolderId = forwardToUsers[0].id;
-    const previousHolderId = memo.current_holderId;
-
-    const existingToIds = new Set(memo.to.map(u => u.id));
-    const usersToConnect = forwardToUsers.filter(u => !existingToIds.has(u.id));
-
-    const activityCreates = forwardToUsers.map(forwardToUser => ({
-        actorId: user.id,
-        action: 'forwarded' as const,
-        details: `Forwarded from ${user.name} to ${forwardToUser.name}.${remark ? `\n<b>Remark:</b> ${remark}` : ''}`,
-    }));
-
-    await prisma.memo.update({
-        where: { id: memoId },
-        data: {
-            current_holderId: newCurrentHolderId,
-            previous_holders: {
-                connect: previousHolderId ? { id: previousHolderId } : undefined
-            },
-            to: {
-                connect: usersToConnect.map(u => ({ id: u.id }))
-            },
-            activity: {
-                create: activityCreates,
-            },
-        },
-    });
-
-    // Re-fetch the memo to get all the latest relations for the WebSocket payload
-    const updatedMemo = await getMemo(memoId);
-
-    // Send WebSocket notifications to new recipients
-    await sendToWebSocket({
-        type: 'forwarded-memo',
-        payload: updatedMemo,
-    });
-
-
-    revalidatePath('/dashboard/inbox');
-    revalidatePath(`/dashboard?id=${memoId}`);
-    return { success: true };
-}
-
 
 export async function archiveMemo(memoId: string, archive: boolean) {
   const user = await getLoggedInUser();
