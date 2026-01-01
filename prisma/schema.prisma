@@ -1,11 +1,13 @@
-
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -19,139 +21,124 @@ model User {
   hashedPassword     String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
-  mustChangePassword Boolean   @default(true)
   status             String    @default("active") // active, inactive
+  mustChangePassword Boolean   @default(true)
 
-  roleId             String?
-  role               Role?     @relation(fields: [roleId], references: [id])
+  // Role
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
 
-  officeId           String?
-  office             Office?   @relation(fields: [officeId], references: [id])
-  
-  departmentId       String?
-  department         Department? @relation(fields: [departmentId], references: [id])
-  
-  divisionId         String?
-  division           Division? @relation(fields: [divisionId], references: [id])
-  
-  districtId         String?
-  district           District? @relation(fields: [districtId], references: [id])
-  
-  branchId           String?
-  branch             Branch?   @relation(fields: [branchId], references: [id])
+  // Org Structure
+  officeId     String
+  departmentId String?
+  divisionId   String?
+  districtId   String?
+  branchId     String?
 
-  sentMemos          Memo[]    @relation("SentMemos")
-  memosTo            Memo[]    @relation("MemosTo")
-  memosCc            Memo[]    @relation("MemosCc")
-  currentHolderOf    Memo[]    @relation("CurrentHolder")
-  previouslyHeldMemos Memo[]    @relation("PreviousHolders")
-  acknowledgedMemos  Memo[]    @relation("AcknowledgedBy")
-  archivedMemos      Memo[]    @relation("ArchivedBy")
-  favoritedMemos     Memo[]    @relation("FavoritedBy")
-  flaggedMemos       Memo[]    @relation("FlaggedBy")
-  activities         Activity[]
+  office     Office     @relation(fields: [officeId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  division   Division?   @relation(fields: [divisionId], references: [id])
+  district   District?  @relation(fields: [districtId], references: [id])
+  branch     Branch?    @relation(fields: [branchId], references: [id])
 
-  @@index([roleId])
-  @@index([officeId])
-  @@index([departmentId])
-  @@index([divisionId])
+  // Memo Relations
+  memosFrom           Memo[]         @relation("MemosFrom")
+  memosTo             Memo[]         @relation("MemosTo")
+  memosCc             Memo[]         @relation("MemosCc")
+  memosPreviouslyHeld Memo[]         @relation("MemosPreviouslyHeld")
+  memosAcknowledged   Memo[]         @relation("MemosAcknowledged")
+  memosArchived       Memo[]         @relation("MemosArchived")
+  memosFavorited      Memo[]         @relation("MemosFavorited")
+  memosFlagged        Memo[]         @relation("MemosFlagged")
+  currentMemos        Memo[]         @relation("CurrentHolder")
+  activities          Activity[]
 }
 
 model Memo {
-  id                    String      @id @default(cuid())
-  memo_reference_number String?     @unique
+  id                    String   @id @default(cuid())
+  memo_reference_number String?  @unique
   subject               String
-  body                  String
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  status                String      // draft, sent, completed
-  
-  fromId                String
-  from                  User        @relation("SentMemos", fields: [fromId], references: [id])
-  
-  to                    User[]      @relation("MemosTo")
-  cc                    User[]      @relation("MemosCc")
+  body                  String   @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  status                String // "draft", "sent", "scheduled"
 
-  current_holderId      String?
-  current_holder        User?       @relation("CurrentHolder", fields: [current_holderId], references: [id])
+  // Relations
+  fromId           String
+  current_holderId String?
+  from             User     @relation("MemosFrom", fields: [fromId], references: [id])
+  to               User[]   @relation("MemosTo")
+  cc               User[]   @relation("MemosCc")
+  current_holder   User?    @relation("CurrentHolder", fields: [current_holderId], references: [id])
+  previous_holders User[]   @relation("MemosPreviouslyHeld")
 
-  previous_holders      User[]      @relation("PreviousHolders")
-  acknowledgedBy        User[]      @relation("AcknowledgedBy")
-  archivedBy            User[]      @relation("ArchivedBy")
+  attachments    Attachment[]
+  activity       Activity[]
+  acknowledgedBy User[]       @relation("MemosAcknowledged")
+  archivedBy     User[]       @relation("MemosArchived")
+  favoritedBy    User[]       @relation("MemosFavorited")
+  flaggedBy      User[]       @relation("MemosFlagged")
 
-  attachments           Attachment[]
-  activity              Activity[]
-  labels                Label[]
+  labels Label[]
 
-  replyToId             String?
-  replyTo               Memo?       @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies               Memo[]      @relation("Replies")
+  // For replies
+  replyToId String?
+  replyTo   Memo?   @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Memo[]  @relation("Replies")
 
-  forwardFromId         String?
-  forwardFrom           Memo?       @relation("Forwards", fields: [forwardFromId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  forwards              Memo[]      @relation("Forwards")
+  // For forwarding
+  forwardFromId String?
+  forwardFrom   Memo?   @relation("Forwards", fields: [forwardFromId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  forwards      Memo[]  @relation("Forwards")
 
-  favoritedBy           User[]      @relation("FavoritedBy")
-  flaggedBy             User[]      @relation("FlaggedBy")
-
-  scheduledFor          DateTime?
-
-  @@index([fromId])
-  @@index([current_holderId])
+  // Scheduled memos
+  scheduledFor DateTime?
 }
 
-
 model Attachment {
-  id        String   @id @default(cuid())
-  memoId    String
-  memo      Memo     @relation(fields: [memoId], references: [id])
-  name      String
-  type      String
-  size      Int
-  url       String
-  createdAt DateTime @default(now())
-
-  @@index([memoId])
+  id     String @id @default(cuid())
+  name   String
+  type   String
+  size   Int
+  url    String
+  memoId String
+  memo   Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
 }
 
 model Activity {
   id        String   @id @default(cuid())
-  memoId    String
-  memo      Memo     @relation(fields: [memoId], references: [id])
   actorId   String
-  actor     User     @relation(fields: [actorId], references: [id])
-  action    String   // sent, viewed, commented, forwarded, acknowledged, etc.
+  memoId    String
+  action    String
   details   String?
   timestamp DateTime @default(now())
+  actor     User     @relation(fields: [actorId], references: [id])
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
+}
 
-  @@index([memoId])
-  @@index([actorId])
+model Label {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  color   String
+  type    String   @default("USER") // SYSTEM or USER
+  memos   Memo[]
 }
 
 model Role {
   id          String @id @default(cuid())
   name        String @unique
-  permissions String // comma-separated list of permissions
+  permissions String
   users       User[]
 }
 
-model Label {
-    id      String @id @default(cuid())
-    name    String @unique
-    color   String
-    type    String @default("USER") // SYSTEM or USER
-    memos   Memo[]
-}
-
-// Organizational Structure
 model Office {
-  id            String    @id @default(cuid())
-  name          String    @unique
-  code          String    @unique
-  type          String    // division_office, branch_office
-  users         User[]
-  departments   Department[]
-  districts     District[]
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  type        String // e.g. 'division_office', 'branch_office'
+  departments Department[]
+  districts   District[]
+  users       User[]
 }
 
 model Department {
@@ -162,45 +149,32 @@ model Department {
   office    Office    @relation(fields: [officeId], references: [id])
   divisions Division[]
   users     User[]
+}
 
-  @@unique([name, officeId])
-  @@index([officeId])
+model District {
+  id       String   @id @default(cuid())
+  name     String
+  code     String
+  officeId String
+  office   Office   @relation(fields: [officeId], references: [id])
+  branches Branch[]
+  users    User[]
 }
 
 model Division {
-  id            String    @id @default(cuid())
-  name          String
-  code          String
-  departmentId  String
-  department    Department @relation(fields: [departmentId], references: [id])
-  users         User[]
-
-  @@unique([name, departmentId])
-  @@index([departmentId])
-}
-
-
-model District {
-  id        String   @id @default(cuid())
-  name      String
-  code      String
-  officeId  String
-  office    Office   @relation(fields: [officeId], references: [id])
-  branches  Branch[]
-  users     User[]
-  
-  @@unique([name, officeId])
-  @@index([officeId])
+  id           String     @id @default(cuid())
+  name         String
+  code         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  users        User[]
 }
 
 model Branch {
-  id          String   @id @default(cuid())
-  name        String
-  code        String
-  districtId  String
-  district    District @relation(fields: [districtId], references: [id])
-  users       User[]
-  
-  @@unique([name, districtId])
-  @@index([districtId])
+  id         String   @id @default(cuid())
+  name       String
+  code       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+  users      User[]
 }
