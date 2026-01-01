@@ -7,6 +7,11 @@ const secret = process.env.NEXTAUTH_SECRET;
 export default async function middleware(req: NextRequest) {
     const token = await getToken({ req, secret });
     const { pathname } = req.nextUrl;
+    // If authenticated user tries to access login, redirect to inbox
+    if (token && pathname === '/login') {
+      const inboxUrl = new URL('/dashboard/inbox', req.url);
+      return NextResponse.redirect(inboxUrl);
+    }
     
     // If no token, and not trying to access login, redirect to login
     if (!token && pathname !== '/login') {
@@ -38,6 +43,6 @@ export default async function middleware(req: NextRequest) {
 export const config = {
   // Matcher protecting all routes except login, api, and static files
   matcher: [
-    "/((?!api|_next/static|_next/image|.*\\..*|login|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|.*\\..*|favicon.ico).*)",
   ],
 }
