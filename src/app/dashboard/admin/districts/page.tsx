@@ -37,7 +37,7 @@ import type { District } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDistricts, useOffices } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 const ITEMS_PER_PAGE = 10;
@@ -72,6 +72,8 @@ export default function DistrictsPage() {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const paginatedDistricts = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -107,14 +109,19 @@ export default function DistrictsPage() {
         officeId: selectedOfficeId,
     }
 
-    await saveDistrict(districtData);
-    await mutateDistricts();
-    
-    toast({ title: "Success", description: `District ${editingDistrict ? 'updated' : 'created'} successfully.` });
-    
-    setIsDialogOpen(false);
-    setEditingDistrict(null);
-    setSelectedOfficeId(undefined);
+    setIsSaving(true);
+    try {
+      await saveDistrict(districtData);
+      await mutateDistricts();
+      toast({ title: "Success", description: `District ${editingDistrict ? 'updated' : 'created'} successfully.` });
+      setIsDialogOpen(false);
+      setEditingDistrict(null);
+      setSelectedOfficeId(undefined);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to save district.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (district: District) => {
@@ -135,17 +142,22 @@ export default function DistrictsPage() {
   const handleConfirmDelete = async () => {
     if (!deletingDistrict) return;
 
-    const result = await deleteDistrict(deletingDistrict.id);
-
-    if (result.error) {
+    setIsDeleting(true);
+    try {
+      const result = await deleteDistrict(deletingDistrict.id);
+      if (result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+      } else {
         toast({ title: "Success", description: "District deleted successfully." });
         await mutateDistricts();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to delete district.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setDeletingDistrict(null);
     }
-    
-    setIsAlertOpen(false);
-    setDeletingDistrict(null);
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -292,8 +304,11 @@ export default function DistrictsPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
             </DialogFooter>
         </form>
         </DialogContent>
@@ -307,16 +322,19 @@ export default function DistrictsPage() {
                     This action cannot be undone. This will permanently delete the district '{deletingDistrict?.name}'.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+                <AlertDialogFooter>
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
                     handleAlertClose(false);
                   }}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

@@ -36,7 +36,7 @@ import type { Division } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDivisions, useDepartments } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -71,6 +71,8 @@ export default function DivisionsPage() {
   const [deletingDivision, setDeletingDivision] = useState<Division | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(undefined);
 
@@ -108,13 +110,18 @@ export default function DivisionsPage() {
         departmentId: selectedDepartmentId,
     }
 
-    await saveDivision(divisionData);
-    await mutate();
-
-    toast({ title: "Success", description: `Division ${editingDivision?.id ? 'updated' : 'created'} successfully.` });
-    
-    setIsDialogOpen(false);
-    setEditingDivision(null);
+    setIsSaving(true);
+    try {
+      await saveDivision(divisionData);
+      await mutate();
+      toast({ title: "Success", description: `Division ${editingDivision?.id ? 'updated' : 'created'} successfully.` });
+      setIsDialogOpen(false);
+      setEditingDivision(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || 'Failed to save division.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleEdit = (division: Division) => {
@@ -134,17 +141,22 @@ export default function DivisionsPage() {
 
   const handleConfirmDelete = async () => {
     if (!deletingDivision) return;
-
-    const result = await deleteDivision(deletingDivision.id);
-    if (result && result.error) {
+    setIsDeleting(true);
+    try {
+      const result = await deleteDivision(deletingDivision.id);
+      if (result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+      } else {
         toast({ title: "Success", description: "Division deleted successfully." });
         await mutate();
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || 'Failed to delete division.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setDeletingDivision(null);
     }
-    
-    setIsAlertOpen(false);
-    setDeletingDivision(null);
   };
 
   const handleDialogChange = (open: boolean) => {
@@ -290,8 +302,11 @@ export default function DivisionsPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)}>Cancel</Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
             </DialogFooter>
         </form>
         </DialogContent>
@@ -305,16 +320,19 @@ export default function DivisionsPage() {
                     This action cannot be undone. This will permanently delete the division '{deletingDivision?.name}'.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+                <AlertDialogFooter>
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
                     handleAlertChange(false);
                   }}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

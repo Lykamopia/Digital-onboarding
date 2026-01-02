@@ -47,7 +47,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
@@ -100,12 +100,14 @@ export default function UsersPage() {
   const { data: branches, loading: loadingBranches } = useBranches();
   
   const { toast } = useToast();
-
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+    const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
   
   const [formState, setFormState] = useState(initialFormState);
 
@@ -137,20 +139,23 @@ export default function UsersPage() {
         status: editingUser?.status ?? 'active',
     };
 
-    const result = await saveUser(userData);
-
-    if (result.error) {
-        toast({ title: 'Error Saving User', description: result.error, variant: 'destructive'});
-        return;
-    }
-    
-    await mutateUsers();
-    
-    toast({ title: "Success", description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
-    
-    setIsFormDialogOpen(false);
-    setEditingUser(null);
-    setFormState(initialFormState);
+        setIsSaving(true);
+        try {
+            const result = await saveUser(userData);
+            if (result.error) {
+                    toast({ title: 'Error Saving User', description: result.error, variant: 'destructive'});
+                    return;
+            }
+            await mutateUsers();
+            toast({ title: "Success", description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
+            setIsFormDialogOpen(false);
+            setEditingUser(null);
+            setFormState(initialFormState);
+        } catch (error: any) {
+            toast({ title: 'Error', description: error?.message || 'Failed to save user.', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
   };
   
   const handleDialogClose = (open: boolean) => {
@@ -223,45 +228,67 @@ export default function UsersPage() {
   
   const handleResetPassword = async () => {
     if (!resetUser) return;
-    const result = await resetUserPassword(resetUser.id);
-    setResetUser(null); // Close the alert dialog
-    if(result.success) {
-        toast({ title: "Success", description: `A password reset email has been sent to ${resetUser.email}.` });
-    } else {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
-    }
+        setIsResetting(true);
+        try {
+            const result = await resetUserPassword(resetUser.id);
+            setResetUser(null); // Close the alert dialog
+            if(result.success) {
+                    toast({ title: "Success", description: `A password reset email has been sent to ${resetUser.email}.` });
+            } else {
+                    toast({ title: "Error", description: result.error, variant: "destructive" });
+            }
+        } catch (error: any) {
+            toast({ title: 'Error', description: error?.message || 'Failed to reset password.', variant: 'destructive' });
+        } finally {
+            setIsResetting(false);
+        }
   }
 
     const handleDelete = async () => {
         if (!deleteUserAlert) return;
-        const result = await deleteUser(deleteUserAlert.id);
-        setDeleteUserAlert(null);
-        if (result.success) {
-            await mutateUsers();
-            toast({ title: "Success", description: "User has been deleted." });
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
+                setIsDeleting(true);
+                try {
+                    const result = await deleteUser(deleteUserAlert.id);
+                    setDeleteUserAlert(null);
+                    if (result.success) {
+                            await mutateUsers();
+                            toast({ title: "Success", description: "User has been deleted." });
+                    } else {
+                            toast({ title: "Error", description: result.error, variant: "destructive" });
+                    }
+                } catch (error: any) {
+                    toast({ title: 'Error', description: error?.message || 'Failed to delete user.', variant: 'destructive' });
+                } finally {
+                    setIsDeleting(false);
+                }
     }
 
   const handleStatusChange = async (user: UserWithRelations) => {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
-      await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
-      await mutateUsers();
-      toast({ title: "Success", description: `User has been ${newStatus}.` });
+            try {
+                await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
+                await mutateUsers();
+                toast({ title: "Success", description: `User has been ${newStatus}.` });
+            } catch (error: any) {
+                toast({ title: 'Error', description: error?.message || 'Failed to change status.', variant: 'destructive' });
+            }
   }
 
   const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
-      await Promise.all(selectedUsers.map(id => {
-          const user = users.find(u => u.id === id) as UserWithRelations | undefined;
-          if (user) {
-            return saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status });
-          }
-          return Promise.resolve();
-      }));
-      await mutateUsers();
-      setSelectedUsers([]);
-      toast({ title: "Success", description: `Selected users have been ${status}.`});
+            try {
+                await Promise.all(selectedUsers.map(id => {
+                        const user = users.find(u => u.id === id) as UserWithRelations | undefined;
+                        if (user) {
+                            return saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status });
+                        }
+                        return Promise.resolve();
+                }));
+                await mutateUsers();
+                setSelectedUsers([]);
+                toast({ title: "Success", description: `Selected users have been ${status}.`});
+            } catch (error: any) {
+                toast({ title: 'Error', description: error?.message || 'Failed to update selected users.', variant: 'destructive' });
+            }
   }
 
   const handleExport = () => {
@@ -516,8 +543,11 @@ export default function UsersPage() {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
-                    <Button type="submit">Save User</Button>
+                    <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSaving}>Cancel</Button>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save User
+                    </Button>
                 </DialogFooter>
             </form>
         </DialogContent>

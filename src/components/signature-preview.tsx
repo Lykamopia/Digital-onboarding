@@ -34,14 +34,32 @@ export function SignaturePreview({
 
   return (
     <div className={cn(wrapperClass, className)}>
-      <Image
-        src={src}
-        alt={alt}
-        width={compactWidth}
-        height={compactHeight}
-        className="object-contain animate-in fade-in duration-300"
-        priority={priority}
-      />
+      {
+        // Use native <img> for data URLs or internal upload/API paths to avoid next/image optimization/validation issues.
+        (src.startsWith('data:') || src.startsWith('/uploads') || src.startsWith('/api') || src.startsWith('uploads')) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={alt}
+            width={compactWidth}
+            height={compactHeight}
+            className="object-contain animate-in fade-in duration-300"
+            onError={(e) => {
+              // Hide broken image so alt/fallback is visible
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={alt}
+            width={compactWidth}
+            height={compactHeight}
+            className="object-contain animate-in fade-in duration-300"
+            priority={priority}
+          />
+        )
+      }
     </div>
   );
 }

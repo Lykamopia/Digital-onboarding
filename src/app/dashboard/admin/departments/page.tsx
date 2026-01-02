@@ -37,7 +37,7 @@ import type { Department } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDepartments, useOffices } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 const ITEMS_PER_PAGE = 10;
@@ -70,6 +70,8 @@ export default function DepartmentsPage() {
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -107,14 +109,19 @@ export default function DepartmentsPage() {
         officeId: selectedOfficeId,
     }
 
-    await saveDepartment(departmentData);
-    await mutateDepts();
-    
-    toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
-    
-    setIsDialogOpen(false);
-    setEditingDepartment(null);
-    setSelectedOfficeId(undefined);
+    setIsSaving(true);
+    try {
+      await saveDepartment(departmentData);
+      await mutateDepts();
+      toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
+      setIsDialogOpen(false);
+      setEditingDepartment(null);
+      setSelectedOfficeId(undefined);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to save department.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (department: Department) => {
@@ -135,17 +142,22 @@ export default function DepartmentsPage() {
   const handleConfirmDelete = async () => {
     if (!deletingDepartment) return;
 
-    const result = await deleteDepartment(deletingDepartment.id);
-
-    if (result.error) {
+    setIsDeleting(true);
+    try {
+      const result = await deleteDepartment(deletingDepartment.id);
+      if (result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+      } else {
         toast({ title: "Success", description: "Department deleted successfully." });
         await mutateDepts();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to delete department.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setDeletingDepartment(null);
     }
-    
-    setIsAlertOpen(false);
-    setDeletingDepartment(null);
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -292,8 +304,11 @@ export default function DepartmentsPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>Cancel</Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
             </DialogFooter>
         </form>
         </DialogContent>
@@ -307,16 +322,19 @@ export default function DepartmentsPage() {
                     This action cannot be undone. This will permanently delete the department '{deletingDepartment?.name}'.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+                <AlertDialogFooter>
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
                     handleAlertClose(false);
                   }}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

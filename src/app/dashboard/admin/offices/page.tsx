@@ -36,7 +36,7 @@ import type { Office } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 
@@ -69,6 +69,8 @@ export default function OfficesPage() {
   const [deletingOffice, setDeletingOffice] = useState<Office | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const paginatedOffices = useMemo(() => {
@@ -96,13 +98,18 @@ export default function OfficesPage() {
         code,
     }
 
-    await saveOffice(officeData);
-    await mutate();
-
-    toast({ title: "Success", description: `Office ${editingOffice?.id ? 'updated' : 'created'} successfully.` });
-    
-    setIsDialogOpen(false);
-    setEditingOffice(null);
+    setIsSaving(true);
+    try {
+      await saveOffice(officeData);
+      await mutate();
+      toast({ title: "Success", description: `Office ${editingOffice?.id ? 'updated' : 'created'} successfully.` });
+      setIsDialogOpen(false);
+      setEditingOffice(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to save office.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleEdit = (office: Office) => {
@@ -122,17 +129,22 @@ export default function OfficesPage() {
 
   const handleConfirmDelete = async () => {
     if (!deletingOffice) return;
-
-    const result = await deleteOffice(deletingOffice.id);
-    if (result.error) {
+    setIsDeleting(true);
+    try {
+      const result = await deleteOffice(deletingOffice.id);
+      if (result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+      } else {
         toast({ title: "Success", description: "Office deleted successfully." });
         await mutate();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to delete office.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setDeletingOffice(null);
     }
-    
-    setIsAlertOpen(false);
-    setDeletingOffice(null);
   };
 
   const handleDialogChange = (open: boolean) => {
@@ -258,8 +270,11 @@ export default function OfficesPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)}>Cancel</Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
             </DialogFooter>
         </form>
         </DialogContent>
@@ -273,16 +288,19 @@ export default function OfficesPage() {
                     This action cannot be undone. This will permanently delete the office '{deletingOffice?.name}'.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+                <AlertDialogFooter>
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
                     handleAlertChange(false);
                   }}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

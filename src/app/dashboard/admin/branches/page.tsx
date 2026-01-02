@@ -36,7 +36,7 @@ import type { Branch } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBranches, useDistricts } from "../hooks";
-import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -73,6 +73,8 @@ export default function BranchesPage() {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const paginatedBranches = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -108,13 +110,18 @@ export default function BranchesPage() {
         districtId: selectedDistrictId,
     }
 
-    await saveBranch(branchData);
-    await mutate();
-
-    toast({ title: "Success", description: `Branch ${editingBranch?.id ? 'updated' : 'created'} successfully.` });
-    
-    setIsDialogOpen(false);
-    setEditingBranch(null);
+    setIsSaving(true);
+    try {
+      await saveBranch(branchData);
+      await mutate();
+      toast({ title: "Success", description: `Branch ${editingBranch?.id ? 'updated' : 'created'} successfully.` });
+      setIsDialogOpen(false);
+      setEditingBranch(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to save branch.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleEdit = (branch: Branch) => {
@@ -135,16 +142,22 @@ export default function BranchesPage() {
   const handleConfirmDelete = async () => {
     if (!deletingBranch) return;
 
-    const result = await deleteBranch(deletingBranch.id);
-    if (result && result.error) {
+    setIsDeleting(true);
+    try {
+      const result = await deleteBranch(deletingBranch.id);
+      if (result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+      } else {
         toast({ title: "Success", description: "Branch deleted successfully." });
         await mutate();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to delete branch.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setDeletingBranch(null);
     }
-    
-    setIsAlertOpen(false);
-    setDeletingBranch(null);
   };
 
   const handleDialogChange = (open: boolean) => {
@@ -290,8 +303,11 @@ export default function BranchesPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)}>Cancel</Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
             </DialogFooter>
         </form>
         </DialogContent>
@@ -305,16 +321,19 @@ export default function BranchesPage() {
                     This action cannot be undone. This will permanently delete the branch '{deletingBranch?.name}'.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+                <AlertDialogFooter>
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
                     handleAlertChange(false);
                   }}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

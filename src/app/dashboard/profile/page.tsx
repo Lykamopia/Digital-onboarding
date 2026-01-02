@@ -86,7 +86,22 @@ export default function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
-      await loadUser();
+            // Reload local user data
+            await loadUser();
+
+            // Notify other parts of the app (header, memo views) about the update so they can refresh immediately.
+            // Append a cache-busting query param to avatar/signature URLs so browsers refetch the new images.
+            try {
+                const fresh = await getLoggedInUser();
+                if (fresh) {
+                    const detail: any = { ...fresh };
+                    if (detail.avatar) detail.avatar = `${detail.avatar}${detail.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`;
+                    if (detail.signature) detail.signature = `${detail.signature}${detail.signature.includes('?') ? '&' : '?'}t=${Date.now()}`;
+                    window.dispatchEvent(new CustomEvent('profile-updated', { detail }));
+                }
+            } catch (e) {
+                // no-op
+            }
     } else {
         toast({
             variant: 'destructive',

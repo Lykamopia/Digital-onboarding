@@ -140,6 +140,17 @@ export default function DashboardLayout({
     });
   }, []);
 
+  // Listen for profile updates from child pages (avatar/signature/name/email)
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const detail = e?.detail;
+      if (!detail) return;
+      setUser(prev => prev ? ({ ...prev, ...detail }) : detail);
+    };
+    window.addEventListener('profile-updated', handler as EventListener);
+    return () => window.removeEventListener('profile-updated', handler as EventListener);
+  }, []);
+
   if (loading) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }

@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Palette, Tag } from "lucide-react";
+import { Check, ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Palette, Tag, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useLabels } from "../hooks";
 import { saveLabel, deleteLabel } from "@/app/actions/memo";
@@ -76,6 +76,8 @@ export default function LabelsPage() {
     const [deletingLabel, setDeletingLabel] = useState<LabelType | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
@@ -112,29 +114,42 @@ export default function LabelsPage() {
             type: editingLabel?.type || 'USER',
         };
 
-        const result = await saveLabel(labelData);
-        if (result.error) {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        } else {
-            await mutate();
-            toast({ title: "Success", description: `Label ${editingLabel?.id ? 'updated' : 'created'} successfully.` });
-            setIsDialogOpen(false);
-            setEditingLabel(null);
+        setIsSaving(true);
+        try {
+            const result = await saveLabel(labelData);
+            if (result.error) {
+                toast({ title: "Error", description: result.error, variant: "destructive" });
+            } else {
+                await mutate();
+                toast({ title: "Success", description: `Label ${editingLabel?.id ? 'updated' : 'created'} successfully.` });
+                setIsDialogOpen(false);
+                setEditingLabel(null);
+            }
+        } catch (error: any) {
+            toast({ title: "Error", description: error?.message || 'Failed to save label.', variant: "destructive" });
+        } finally {
+            setIsSaving(false);
         }
     };
     
     const handleDelete = async () => {
         if (!deletingLabel) return;
-
-        const result = await deleteLabel(deletingLabel.id);
-        if (result.error) {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        } else {
-            await mutate();
-            toast({ title: "Success", description: "Label deleted successfully." });
+        setIsDeleting(true);
+        try {
+            const result = await deleteLabel(deletingLabel.id);
+            if (result.error) {
+                toast({ title: "Error", description: result.error, variant: "destructive" });
+            } else {
+                await mutate();
+                toast({ title: "Success", description: "Label deleted successfully." });
+            }
+        } catch (error: any) {
+            toast({ title: "Error", description: error?.message || 'Failed to delete label.', variant: "destructive" });
+        } finally {
+            setIsAlertOpen(false);
+            setDeletingLabel(null);
+            setIsDeleting(false);
         }
-        setIsAlertOpen(false);
-        setDeletingLabel(null);
     };
 
     const handleDialogClose = (open: boolean) => {
@@ -293,8 +308,11 @@ export default function LabelsPage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                            <Button type="submit">Save</Button>
+                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -308,9 +326,11 @@ export default function LabelsPage() {
                             This action cannot be undone. This will permanently delete the label '{deletingLabel?.name}'.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingLabel(null)}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setDeletingLabel(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

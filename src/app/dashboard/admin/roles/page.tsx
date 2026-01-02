@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles, useUsers } from "../hooks";
-import { ChevronsLeft, ChevronsRight, PlusCircle, Trash2, Edit } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, PlusCircle, Trash2, Edit, Loader2 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -68,6 +68,7 @@ export default function RoleManagementPage() {
 
   const [editingRole, setEditingRole] = useState<Partial<Role> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,21 +104,20 @@ export default function RoleManagementPage() {
 
   const handleDelete = async (roleId: string) => {
     if (!roleId) return;
-    const result = await deleteRole(roleId);
-    if(result?.error) {
-        toast({
-            variant: "destructive",
-            title: "Cannot delete role",
-            description: result.error,
-        });
-        return;
+    setIsSaving(true);
+    try {
+      const result = await deleteRole(roleId);
+      if(result?.error) {
+          toast({ variant: "destructive", title: "Cannot delete role", description: result.error, });
+          return;
+      }
+      await mutateRoles();
+      toast({ title: "Role Deleted", description: "The role has been successfully deleted.", });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'Failed to delete role.' });
+    } finally {
+      setIsSaving(false);
     }
-    
-    await mutateRoles();
-    toast({
-      title: "Role Deleted",
-      description: "The role has been successfully deleted.",
-    });
   };
 
   const handleSave = async () => {
@@ -136,13 +136,18 @@ export default function RoleManagementPage() {
         permissions: selectedPermissions,
     }
 
-    await saveRole(roleData);
-    await mutateRoles();
-    
-    toast({ title: "Success", description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
-
-    setIsDialogOpen(false);
-    setEditingRole(null);
+    setIsSaving(true);
+    try {
+      await saveRole(roleData);
+      await mutateRoles();
+      toast({ title: "Success", description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
+      setIsDialogOpen(false);
+      setEditingRole(null);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'Failed to save role.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const onPermissionChange = (permission: Permission, checked: boolean) => {
@@ -283,9 +288,12 @@ export default function RoleManagementPage() {
             </div>
             <DialogFooter>
                 <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
+                    <Button variant="outline" disabled={isSaving}>Cancel</Button>
                 </DialogClose>
-                <Button onClick={handleSave}>Save Role</Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Role
+                </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
