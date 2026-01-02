@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next/auth';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -13,6 +13,24 @@ import { sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from '@/lib/email
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
+
+async function hasPermission(permission: Permission | Permission[]): Promise<User> {
+    const user = await getLoggedInUser();
+    if (!user) {
+        throw new Error("Not authenticated");
+    }
+
+    const userPermissions = user.role?.permissions ? user.role.permissions.split(',') : [];
+    const requiredPermissions = Array.isArray(permission) ? permission : [permission];
+    
+    const hasRequiredPermission = requiredPermissions.every(p => userPermissions.includes(p));
+
+    if (!hasRequiredPermission) {
+        throw new Error("Access Denied: You do not have the required permissions.");
+    }
+    
+    return user;
+}
 
 
 const memoSchema = z.object({
@@ -43,8 +61,7 @@ async function sendToWebSocket(data: any) {
 }
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('view_dashboard');
 
     if (user.mustChangePassword) {
       // If user must change password, they should only see the change password page.
@@ -164,8 +181,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
 }
 
 export async function toggleFavorite(memoId: string) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_memos');
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
@@ -193,8 +209,7 @@ export async function toggleFavorite(memoId: string) {
 }
 
 export async function toggleFlag(memoId: string) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_memos');
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
@@ -368,8 +383,7 @@ export async function toggleMemoReadStatus(memoId: string) {
 }
 
 export async function sendMemo(formData: FormData) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_memos');
 
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
@@ -522,8 +536,7 @@ export async function sendMemo(formData: FormData) {
 }
 
 export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_memos');
 
     const attachmentsData = {
         create: (data.attachments || []).map((att: any) => ({
@@ -602,14 +615,14 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
 
 
 export async function deleteDraft(draftId: string) {
+    await hasPermission('manage_memos');
     await prisma.memo.delete({ where: { id: draftId }});
     revalidatePath('/dashboard/drafts');
     return { success: true };
 }
 
 export async function duplicateMemo(memoId: string) {
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_memos');
 
     const originalMemo = await prisma.memo.findUnique({
         where: { id: memoId },
@@ -725,6 +738,7 @@ export async function getUsers() {
 }
 
 export async function getAllMemosForAdmin() {
+    await hasPermission('manage_archive');
     return await prisma.memo.findMany({
         include: {
             from: true,
@@ -794,6 +808,7 @@ export async function getUserLockoutStatus(email: string) {
 
 // Admin actions
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
+    await hasPermission('manage_divisions');
     if (data.id) {
         await prisma.division.update({ where: { id: data.id }, data });
     } else {
@@ -803,6 +818,7 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDivision(id: string) {
+    await hasPermission('manage_divisions');
     const users = await prisma.user.count({ where: { divisionId: id }});
     if (users > 0) {
         return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
@@ -815,6 +831,7 @@ export async function deleteDivision(id: string) {
 
 
 export async function saveDepartment(data: { id?: string, name: string, code: string, officeId: string }) {
+    await hasPermission('manage_departments');
     if (data.id) {
         await prisma.department.update({ where: { id: data.id }, data });
     } else {
@@ -824,6 +841,7 @@ export async function saveDepartment(data: { id?: string, name: string, code: st
 }
 
 export async function deleteDepartment(id: string) {
+    await hasPermission('manage_departments');
     const divisions = await prisma.division.count({ where: { departmentId: id } });
     if (divisions > 0) {
         return { error: 'Cannot delete department. It has associated divisions. Please delete them first.' };
@@ -834,6 +852,7 @@ export async function deleteDepartment(id: string) {
 }
 
 export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
+    await hasPermission('manage_branches');
     if (data.id) {
         await prisma.branch.update({ where: { id: data.id }, data });
     } else {
@@ -843,6 +862,7 @@ export async function saveBranch(data: { id?: string, name: string, code: string
 }
 
 export async function deleteBranch(id: string) {
+    await hasPermission('manage_branches');
     const users = await prisma.user.count({ where: { branchId: id }});
     if (users > 0) {
         return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
@@ -853,6 +873,7 @@ export async function deleteBranch(id: string) {
 }
 
 export async function saveDistrict(data: { id?: string, name: string, code: string, officeId: string }) {
+    await hasPermission('manage_districts');
     if (data.id) {
         await prisma.district.update({ where: { id: data.id }, data });
     } else {
@@ -862,6 +883,7 @@ export async function saveDistrict(data: { id?: string, name: string, code: stri
 }
 
 export async function deleteDistrict(id: string) {
+    await hasPermission('manage_districts');
     const branches = await prisma.branch.count({ where: { districtId: id } });
     if (branches > 0) {
         return { error: 'Cannot delete district. It has associated branches. Please delete them first.' };
@@ -872,6 +894,7 @@ export async function deleteDistrict(id: string) {
 }
 
 export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division_office' | 'branch_office' | 'head_office' }) {
+    await hasPermission('manage_offices');
     if (data.id) {
         await prisma.office.update({ where: { id: data.id }, data });
     } else {
@@ -881,6 +904,7 @@ export async function saveOffice(data: { id?: string, name: string, code: string
 }
 
 export async function deleteOffice(id: string) {
+    await hasPermission('manage_offices');
     const districts = await prisma.district.count({ where: { officeId: id } });
     if (districts > 0) {
         return { error: 'Cannot delete office. It has associated districts. Please delete them first.' };
@@ -915,6 +939,7 @@ export async function saveUser(data: {
     districtId?: string,
     branchId?: string,
 }) {
+    await hasPermission('manage_users');
     const payload: any = {
         name: data.name,
         email: data.email,
@@ -969,6 +994,7 @@ export async function saveUser(data: {
 }
 
 export async function deleteUser(userId: string) {
+    await hasPermission('manage_users');
     // Safety check: prevent deleting a user who has authored memos.
     // In a real-world scenario, you might want to reassign memos or soft-delete the user.
     const memoCount = await prisma.memo.count({ where: { fromId: userId } });
@@ -990,6 +1016,7 @@ export async function deleteUser(userId: string) {
 
 
 export async function resetUserPassword(userId: string) {
+    await hasPermission('manage_users');
     try {
         const user = await prisma.user.findUnique({ where: { id: userId }});
         if (!user) {
@@ -1052,7 +1079,8 @@ export async function changeUserPassword(password: string) {
 
 
 export async function saveRole(data: { id?: string, name: string, permissions: any }) {
-     if (data.id) {
+    await hasPermission('manage_roles');
+    if (data.id) {
         await prisma.role.update({ where: { id: data.id }, data: { ...data, permissions: data.permissions.join(',') } });
     } else {
         await prisma.role.create({ data: { ...data, permissions: data.permissions.join(',') } });
@@ -1061,6 +1089,7 @@ export async function saveRole(data: { id?: string, name: string, permissions: a
 }
 
 export async function deleteRole(roleId: string) {
+    await hasPermission('manage_roles');
     const usersInRole = await prisma.user.count({ where: { roleId }});
     if (usersInRole > 0) {
         return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
@@ -1071,6 +1100,7 @@ export async function deleteRole(roleId: string) {
 }
 
 export async function saveLabel(data: { id?: string, name: string, color: string, type: 'SYSTEM' | 'USER' }) {
+    await hasPermission('manage_labels');
     if (data.id) {
         await prisma.label.update({ where: { id: data.id }, data });
     } else {
@@ -1081,6 +1111,7 @@ export async function saveLabel(data: { id?: string, name: string, color: string
 }
 
 export async function deleteLabel(id: string) {
+    await hasPermission('manage_labels');
     const label = await prisma.label.findUnique({ where: { id }});
     if (!label) {
         return { error: "Label not found." };
@@ -1094,6 +1125,7 @@ export async function deleteLabel(id: string) {
 }
 
 export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
+    await getLoggedInUser();
     await prisma.user.update({
         where: { id: userId },
         data: data
@@ -1117,6 +1149,7 @@ export async function getEmailSettings() {
 }
 
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
+    await hasPermission('manage_general_settings');
     emailSettings = settings;
     revalidatePath('/dashboard/admin/email');
     return { success: true };
@@ -1131,6 +1164,7 @@ export async function getGeneralSettings() {
 }
 
 export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType }) {
+    await hasPermission('manage_general_settings');
     generalSettings = settings;
     revalidatePath('/dashboard/admin/general');
     return { success: true };
@@ -1142,8 +1176,7 @@ export async function saveGeneralSettings(settings: { acknowledgementType: Ackno
 export async function performBulkArchiveActions(action: 'archive' | 'restore' | 'delete', memoIds: string[]) {
     if (memoIds.length === 0) return { error: 'No memos selected.' };
 
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    const user = await hasPermission('manage_archive');
 
     if (action === 'delete') {
         // This is a hard delete. Ensure compliance with data retention policies.
@@ -1194,3 +1227,4 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     
 
     
+
