@@ -189,7 +189,7 @@ export default function LoginClientPage() {
             </Alert>
           )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <fieldset disabled={isLocked || loading}>
+            <fieldset disabled={isLocked || loading} className="flex flex-col gap-4">
                 <div className="space-y-2">
                 <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
