@@ -283,12 +283,15 @@ export default function NewMemoPage() {
               setForwardFrom(undefined);
 
               if (replyAllToId) {
-                  setTo([originalMemo.from]);
-                  const ccRecipients = [...originalMemo.to, ...originalMemo.cc].filter(
-                      user => user.id !== loggedInUser.id && user.id !== originalMemo.from.id
-                  );
-                  const uniqueCcIds = new Set(ccRecipients.map(u => u.id));
-                  setCc(Array.from(uniqueCcIds).map(id => ccRecipients.find(u => u.id === id)!));
+                  const toRecipients = new Set([originalMemo.from.id]);
+                  const ccRecipients = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
+                  
+                  // Exclude current user and original sender from CC
+                  ccRecipients.delete(loggedInUser.id);
+                  ccRecipients.delete(originalMemo.from.id);
+                  
+                  setTo(Array.from(toRecipients).map(id => users.find(u => u.id === id)).filter(Boolean) as User[]);
+                  setCc(Array.from(ccRecipients).map(id => users.find(u => u.id === id)).filter(Boolean) as User[]);
               } else {
                   setTo([originalMemo.from]);
                   setCc([]);
@@ -316,11 +319,11 @@ export default function NewMemoPage() {
       }
     };
 
-    if(loggedInUser) {
+    if(loggedInUser && users.length > 0) {
         initialize();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, loggedInUser]);
+  }, [searchParams, loggedInUser, users]);
 
   async function handleDeleteDraft() {
       if (draftId) {

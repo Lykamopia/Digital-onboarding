@@ -266,15 +266,15 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     );
   }
   
+  const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
   const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
-  const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
   const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
-  const canAcknowledge = (isRecipient || isCC) && !hasAcknowledged;
-  const canReply = (isRecipient || isCC) && !isSender;
+  const canAcknowledge = (isDirectRecipient || isCC) && !hasAcknowledged;
+  const canReply = isDirectRecipient && !isSender;
   const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
-  const canForward = (isRecipient || isCC);
+  const canForward = isDirectRecipient;
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);

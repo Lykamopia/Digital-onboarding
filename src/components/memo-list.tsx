@@ -190,13 +190,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
         const memoStatus = getMemoStatus(memo);
         
-        const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
-        const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
-
-        const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = (isRecipient || isCC) && !isSender;
-        const canForward = isRecipient || isCC;
+        const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
+        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
+        const canForward = isDirectRecipient;
 
         // Conditional rendering logic
         if (tab === 'drafts') {
@@ -286,13 +283,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     const MemoContextMenu = ({ memo }: { memo: MemoWithActivity }) => {
         const memoStatus = getMemoStatus(memo);
         
-        const isCC = loggedInUser && memo.cc.some(u => u.id === loggedInUser.id);
-        const isRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const isSender = loggedInUser && memo.fromId === loggedInUser.id;
-        
-        const canAcknowledge = isRecipient && !isCC && memoStatus !== 'acknowledged';
-        const canReply = (isRecipient || isCC) && !isSender;
-        const canForward = isRecipient || isCC;
+        const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
+        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
+        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
+        const canForward = isDirectRecipient;
         const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
         const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
         const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
