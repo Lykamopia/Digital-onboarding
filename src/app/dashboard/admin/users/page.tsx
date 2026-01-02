@@ -52,8 +52,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { passwordRules } from "@/lib/password-policy";
-import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
 
 type UserWithRelations = User & {
     office: Office;
@@ -86,7 +84,7 @@ function UsersLoadingSkeleton() {
 const ITEMS_PER_PAGE = 10;
 
 const initialFormState = { 
-    name: '', email: '', password: '', roleId: '',
+    name: '', email: '', roleId: '',
     officeId: '', departmentId: '', divisionId: '', districtId: '', branchId: ''
 };
 
@@ -135,7 +133,6 @@ export default function UsersPage() {
     const userData = {
         id: editingUser?.id,
         ...formState,
-        password: formState.password || undefined,
         status: editingUser?.status ?? 'active',
     };
 
@@ -215,7 +212,6 @@ export default function UsersPage() {
         divisionId: user.divisionId || '',
         districtId: user.districtId || '',
         branchId: user.branchId || '',
-        password: '',
     });
     setIsFormDialogOpen(true);
   }
@@ -489,15 +485,6 @@ export default function UsersPage() {
                             searchPlaceholder="Search roles..."
                         />
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input id="password" name="password" type="password" placeholder={editingUser ? "Leave blank to keep current" : "Leave blank to auto-generate"} value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
-                    </div>
-                     {formState.password && (
-                        <div className="md:col-span-2">
-                           <PasswordStrengthIndicator password={formState.password} rules={passwordRules} />
-                        </div>
-                    )}
                     
                     <Separator className="md:col-span-2" />
 
@@ -602,5 +589,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    

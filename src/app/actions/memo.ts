@@ -937,7 +937,6 @@ export async function saveUser(data: {
     name: string, 
     email: string, 
     roleId: string, 
-    password?: string, 
     status?: string,
     officeId?: string,
     departmentId?: string,
@@ -958,22 +957,10 @@ export async function saveUser(data: {
         branchId: data.branchId || null,
     };
 
-    let password = data.password;
     if (data.id) { // Existing user
-        if (password) {
-            const validation = await passwordSchema.safeParseAsync(password);
-            if (!validation.success) {
-                return { error: validation.error.issues.map(i => i.message).join(' ') };
-            }
-            payload.hashedPassword = await bcrypt.hash(password, 10);
-            payload.mustChangePassword = true;
-            payload.tokenVersion = { increment: 1 };
-        }
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else { // New user
-        if (!password) {
-            password = generateStrongPassword();
-        }
+        const password = generateStrongPassword();
         const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
             // This case should ideally not be hit if auto-generating, but as a safeguard.
