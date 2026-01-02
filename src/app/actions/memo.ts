@@ -12,6 +12,7 @@ import { cookies } from 'next/headers';
 import { sendEmail } from '@/lib/email';
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
+import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
 
 
 const memoSchema = z.object({
@@ -494,7 +495,7 @@ export async function sendMemo(formData: FormData) {
 
     // Send to WebSocket server
     await sendToWebSocket({
-        type: validatedData.forwardFrom ? 'forwarded-memo' : (validatedData.replyTo ? 'reply-memo' : 'new-memo'),
+        type: validatedData.forwardFrom ? 'forward-memo' : (validatedData.replyTo ? 'reply-memo' : 'new-memo'),
         payload: newMemo,
     });
 
@@ -927,6 +928,10 @@ export async function saveUser(data: {
     };
 
     if (data.password) {
+        const validation = passwordSchema.safeParse(data.password);
+        if (!validation.success) {
+            return { error: validation.error.issues.map(i => i.message).join(' ') };
+        }
         payload.hashedPassword = await bcrypt.hash(data.password, 10);
         payload.mustChangePassword = true;
     }
@@ -935,9 +940,14 @@ export async function saveUser(data: {
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else {
         payload.mustChangePassword = true;
+        if (!payload.hashedPassword) {
+            // Generate a strong password if one isn't provided for a new user
+            payload.hashedPassword = await bcrypt.hash(generateStrongPassword(), 10);
+        }
         await prisma.user.create({ data: payload });
     }
     revalidatePath('/dashboard/admin/users');
+    return { success: true };
 }
 
 export async function deleteUser(userId: string) {
@@ -963,7 +973,11 @@ export async function deleteUser(userId: string) {
 
 export async function resetUserPassword(userId: string, newPassword?: string) {
     try {
-        const password = newPassword || (Math.random().toString(36).slice(-8) + 'A1!');
+        const password = newPassword || generateStrongPassword();
+        const validation = passwordSchema.safeParse(password);
+        if (!validation.success) {
+            return { success: false, error: validation.error.issues.map(i => i.message).join(' ') };
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({
             where: { id: userId },
@@ -983,6 +997,11 @@ export async function changeUserPassword(password: string) {
     try {
         const user = await getLoggedInUser();
         if (!user) return { success: false, error: 'Not authenticated.' };
+
+        const validation = passwordSchema.safeParse(password);
+        if (!validation.success) {
+            return { success: false, error: validation.error.issues.map(i => i.message).join(' ') };
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({

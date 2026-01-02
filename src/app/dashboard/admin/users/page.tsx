@@ -52,6 +52,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { passwordRules } from "@/lib/password-policy";
+import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
 
 type UserWithRelations = User & {
     office: Office;
@@ -130,18 +132,9 @@ export default function UsersPage() {
     const isNewUser = !editingUser?.id;
     let passwordToSend = formState.password;
 
-    if (isNewUser) {
-        const length = 12;
-        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
-        let password = "";
-        for (let i = 0, n = charset.length; i < length; ++i) {
-            password += charset.charAt(Math.floor(Math.random() * n));
-        }
-        if (!/\d/.test(password)) password += '1';
-        if (!/[a-z]/.test(password)) password += 'a';
-        if (!/[A-Z]/.test(password)) password += 'A';
-        if (!/[!@#$%^&*()]/.test(password)) password += '!';
-        passwordToSend = password.slice(0, length);
+    if (isNewUser && !passwordToSend) {
+        const { generateStrongPassword } = await import('@/lib/password-policy');
+        passwordToSend = generateStrongPassword();
     }
 
     const userData = {
@@ -151,7 +144,13 @@ export default function UsersPage() {
         status: editingUser?.status ?? 'active',
     };
 
-    await saveUser(userData);
+    const result = await saveUser(userData);
+
+    if (result.error) {
+        toast({ title: 'Error Saving User', description: result.error, variant: 'destructive'});
+        return;
+    }
+    
     await mutateUsers();
     
     toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
@@ -478,7 +477,7 @@ export default function UsersPage() {
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
                 <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated for the new user.'}
+                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated for the new user if not provided.'}
                 </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave}>
@@ -501,10 +500,13 @@ export default function UsersPage() {
                             searchPlaceholder="Search roles..."
                         />
                     </div>
-                    {editingUser && (
-                        <div className="space-y-2">
-                            <Label htmlFor="password">New Password</Label>
-                            <Input id="password" name="password" type="password" placeholder="Leave blank to keep current password" value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
+                    <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input id="password" name="password" type="password" placeholder={editingUser ? "Leave blank to keep current" : "Leave blank to auto-generate"} value={formState.password} onChange={e => handleFormChange('password', e.target.value)} />
+                    </div>
+                     {formState.password && (
+                        <div className="md:col-span-2">
+                           <PasswordStrengthIndicator password={formState.password} rules={passwordRules} />
                         </div>
                     )}
                     

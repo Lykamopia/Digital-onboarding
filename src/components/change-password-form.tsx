@@ -12,9 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { changeUserPassword } from '@/app/actions/memo';
 import { useSession } from 'next-auth/react';
+import { passwordSchema, passwordRules } from '@/lib/password-policy';
+import { PasswordStrengthIndicator } from './password-strength-indicator';
 
 const changePasswordSchema = z.object({
-    newPassword: z.string().min(8, 'Password must be at least 8 characters long.'),
+    newPassword: passwordSchema,
     confirmPassword: z.string(),
 }).refine(data => data.newPassword === data.confirmPassword, {
     message: "Passwords don't match",
@@ -40,10 +42,14 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
         register,
         handleSubmit,
         reset,
+        watch,
         formState: { errors },
     } = useForm<ChangePasswordFormData>({
         resolver: zodResolver(changePasswordSchema),
+        mode: 'onTouched'
     });
+    
+    const newPassword = watch('newPassword');
 
     const onSubmit = async (data: ChangePasswordFormData) => {
         setLoading(true);
@@ -100,7 +106,7 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
                 </div>
                 {errors.newPassword && <p className="text-sm text-destructive">{errors.newPassword.message}</p>}
             </div>
-            <div className="space-y-2">
+             <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <div className="relative">
                     <Input
@@ -121,6 +127,9 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
                 </div>
                 {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
+
+            <PasswordStrengthIndicator password={newPassword} rules={passwordRules} />
+            
             <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Update Password
