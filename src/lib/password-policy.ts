@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import { isPasswordPwned } from './pwned-password';
 
 export const passwordRules = [
     { text: "At least 8 characters", regex: /.{8,}/ },
@@ -15,7 +16,22 @@ export const passwordSchema = z.string()
     .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter." })
     .regex(/[a-z]/, { message: "Password must contain at least one lowercase letter." })
     .regex(/[0-9]/, { message: "Password must contain at least one number." })
-    .regex(/[!@#$%^&*]/, { message: "Password must contain at least one special character (!@#$%^&*)." });
+    .regex(/[!@#$%^&*]/, { message: "Password must contain at least one special character (!@#$%^&*)." })
+    .superRefine(async (password, ctx) => {
+        try {
+            const isPwned = await isPasswordPwned(password);
+            if (isPwned) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "This password has been exposed in a data breach and is not safe to use. Please choose a different password.",
+                });
+            }
+        } catch (error) {
+            // In case of an API error, we fail open (allow the password)
+            // to avoid blocking users if the HIBP service is down.
+            console.error("Pwned password check failed:", error);
+        }
+    });
 
 // Function to generate a random password that meets the policy
 export function generateStrongPassword(length = 12): string {

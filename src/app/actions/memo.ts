@@ -961,7 +961,7 @@ export async function saveUser(data: {
     let password = data.password;
     if (data.id) { // Existing user
         if (password) {
-            const validation = passwordSchema.safeParse(password);
+            const validation = await passwordSchema.safeParseAsync(password);
             if (!validation.success) {
                 return { error: validation.error.issues.map(i => i.message).join(' ') };
             }
@@ -974,8 +974,9 @@ export async function saveUser(data: {
         if (!password) {
             password = generateStrongPassword();
         }
-        const validation = passwordSchema.safeParse(password);
+        const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
+            // This case should ideally not be hit if auto-generating, but as a safeguard.
             return { error: validation.error.issues.map(i => i.message).join(' ') };
         }
         payload.hashedPassword = await bcrypt.hash(password, 10);
@@ -1063,7 +1064,7 @@ export async function changeUserPassword(password: string) {
         const user = await getLoggedInUser();
         if (!user) return { success: false, error: 'Not authenticated.' };
 
-        const validation = passwordSchema.safeParse(password);
+        const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
             return { success: false, error: validation.error.issues.map(i => i.message).join(' ') };
         }
