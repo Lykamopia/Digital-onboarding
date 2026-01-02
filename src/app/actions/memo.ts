@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next/auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType, Permission } from '@/lib/types';
 import { z } from 'zod';
@@ -1228,3 +1228,6 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
 
     
 
+
+
+    
