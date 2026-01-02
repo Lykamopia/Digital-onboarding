@@ -106,7 +106,6 @@ export default function UsersPage() {
   
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
-  const [passwordDialog, setPasswordDialog] = useState({ open: false, password: "" });
   
   const [formState, setFormState] = useState(initialFormState);
 
@@ -130,17 +129,11 @@ export default function UsersPage() {
     }
     
     const isNewUser = !editingUser?.id;
-    let passwordToSend = formState.password;
-
-    if (isNewUser && !passwordToSend) {
-        const { generateStrongPassword } = await import('@/lib/password-policy');
-        passwordToSend = generateStrongPassword();
-    }
 
     const userData = {
         id: editingUser?.id,
         ...formState,
-        password: passwordToSend || undefined,
+        password: formState.password || undefined,
         status: editingUser?.status ?? 'active',
     };
 
@@ -153,15 +146,11 @@ export default function UsersPage() {
     
     await mutateUsers();
     
-    toast({ title: "Success", description: `User ${editingUser?.id ? 'updated' : 'created'}.` });
+    toast({ title: "Success", description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
     
     setIsFormDialogOpen(false);
     setEditingUser(null);
     setFormState(initialFormState);
-    
-    if (isNewUser && passwordToSend) {
-        setPasswordDialog({ open: true, password: passwordToSend });
-    }
   };
   
   const handleDialogClose = (open: boolean) => {
@@ -184,29 +173,6 @@ export default function UsersPage() {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
       }, 200);
-    }
-  };
-
-  const handlePasswordDialogClose = (open: boolean) => {
-    if (!open) {
-      setPasswordDialog({ open: false, password: "" });
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
-    } else {
-      setPasswordDialog(prev => ({ ...prev, open: true }));
     }
   };
 
@@ -258,15 +224,11 @@ export default function UsersPage() {
   const handleResetPassword = async () => {
     if (!resetUser) return;
     const result = await resetUserPassword(resetUser.id);
-    setResetUser(null); // Close the alert dialog first
-    if(result.success && result.newPassword) {
-      // Small delay to ensure alert dialog is fully closed before opening password dialog
-      setTimeout(() => {
-        setPasswordDialog({ open: true, password: result.newPassword! });
-        toast({ title: "Success", description: "Password has been reset." });
-      }, 100);
+    setResetUser(null); // Close the alert dialog
+    if(result.success) {
+        toast({ title: "Success", description: `A password reset email has been sent to ${resetUser.email}.` });
     } else {
-      toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast({ title: "Error", description: result.error, variant: "destructive" });
     }
   }
 
@@ -477,7 +439,7 @@ export default function UsersPage() {
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
                 <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'A secure password will be generated for the new user if not provided.'}
+                    {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
                 </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSave}>
@@ -566,7 +528,7 @@ export default function UsersPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                This will reset the password for {resetUser?.name}. A new temporary password will be generated. This action cannot be undone.
+                This will reset the password for {resetUser?.name}. A new temporary password will be emailed to the user. This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -607,32 +569,6 @@ export default function UsersPage() {
         </AlertDialogContent>
     </AlertDialog>
 
-    <Dialog open={passwordDialog.open} onOpenChange={handlePasswordDialogClose}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Generated Password</DialogTitle>
-                <DialogDescription>
-                    A new password has been generated for the user. Please copy and share it securely.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="flex items-center space-x-2">
-                <div className="grid flex-1 gap-2">
-                    <Label htmlFor="link" className="sr-only">Password</Label>
-                    <Input id="link" value={passwordDialog.password} readOnly />
-                </div>
-                <Button type="submit" size="sm" className="px-3" onClick={() => {
-                    navigator.clipboard.writeText(passwordDialog.password);
-                    toast({ title: 'Copied!', description: 'Password copied to clipboard.'});
-                }}>
-                    <span className="sr-only">Copy</span>
-                    <Copy className="h-4 w-4" />
-                </Button>
-            </div>
-            <DialogFooter>
-                <Button onClick={() => handlePasswordDialogClose(false)}>Done</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
     </>
   );
 }

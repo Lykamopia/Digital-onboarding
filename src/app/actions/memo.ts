@@ -3,13 +3,13 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next/auth';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from '@/lib/email';
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
@@ -927,25 +927,43 @@ export async function saveUser(data: {
         branchId: data.branchId || null,
     };
 
-    if (data.password) {
-        const validation = passwordSchema.safeParse(data.password);
+    let password = data.password;
+    if (data.id) { // Existing user
+        if (password) {
+            const validation = passwordSchema.safeParse(password);
+            if (!validation.success) {
+                return { error: validation.error.issues.map(i => i.message).join(' ') };
+            }
+            payload.hashedPassword = await bcrypt.hash(password, 10);
+            payload.mustChangePassword = true;
+        }
+        await prisma.user.update({ where: { id: data.id }, data: payload });
+    } else { // New user
+        if (!password) {
+            password = generateStrongPassword();
+        }
+        const validation = passwordSchema.safeParse(password);
         if (!validation.success) {
             return { error: validation.error.issues.map(i => i.message).join(' ') };
         }
-        payload.hashedPassword = await bcrypt.hash(data.password, 10);
+        payload.hashedPassword = await bcrypt.hash(password, 10);
         payload.mustChangePassword = true;
+        
+        const newUser = await prisma.user.create({ data: payload });
+        
+        // Send welcome email
+        try {
+            await sendWelcomeEmail({
+                to: newUser.email,
+                name: newUser.name,
+                password: password,
+            });
+        } catch (error) {
+            console.error(`Failed to send welcome email to ${newUser.email}:`, error);
+            // Don't block the user creation, but maybe log this for admin attention
+        }
     }
     
-    if (data.id) {
-        await prisma.user.update({ where: { id: data.id }, data: payload });
-    } else {
-        payload.mustChangePassword = true;
-        if (!payload.hashedPassword) {
-            // Generate a strong password if one isn't provided for a new user
-            payload.hashedPassword = await bcrypt.hash(generateStrongPassword(), 10);
-        }
-        await prisma.user.create({ data: payload });
-    }
     revalidatePath('/dashboard/admin/users');
     return { success: true };
 }
@@ -971,13 +989,14 @@ export async function deleteUser(userId: string) {
 }
 
 
-export async function resetUserPassword(userId: string, newPassword?: string) {
+export async function resetUserPassword(userId: string) {
     try {
-        const password = newPassword || generateStrongPassword();
-        const validation = passwordSchema.safeParse(password);
-        if (!validation.success) {
-            return { success: false, error: validation.error.issues.map(i => i.message).join(' ') };
+        const user = await prisma.user.findUnique({ where: { id: userId }});
+        if (!user) {
+            return { success: false, error: 'User not found.' };
         }
+
+        const password = generateStrongPassword();
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({
             where: { id: userId },
@@ -986,8 +1005,19 @@ export async function resetUserPassword(userId: string, newPassword?: string) {
                 mustChangePassword: true,
             }
         });
+        
+        try {
+            await sendPasswordResetEmail({
+                to: user.email,
+                name: user.name,
+                password: password,
+            });
+        } catch (error) {
+             console.error(`Failed to send password reset email to ${user.email}:`, error);
+        }
+
         revalidatePath('/dashboard/admin/users');
-        return { success: true, newPassword: password };
+        return { success: true };
     } catch (error) {
         return { success: false, error: 'Failed to reset password.' };
     }
