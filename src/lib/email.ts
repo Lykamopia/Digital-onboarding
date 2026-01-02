@@ -54,7 +54,7 @@ async function generateEmailBody(memo: Memo, sender: User & { role: Role | null 
         .replace(/{{memoUrl}}/g, memoUrl)
         .replace(/\n/g, '<br>');
 
-    const logoUrl = `${baseUrl}/Wide - LOGO.png`;
+    const logoUrl = `https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612`;
     
     const signatureBlock = useSignature && sender.signature
         ? `<div><img src="${baseUrl}/api/uploads${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
