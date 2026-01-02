@@ -36,7 +36,7 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { addNotificationToList, showNotification } = useNotification();
+  const { addNotificationToList } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
   const isInitialLoad = useRef(true);
 
@@ -88,51 +88,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     checkInitialMemos();
 
   }, [user, addNotificationToList, isMounted, pathname]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080';
-    const socket = new WebSocket(WS_URL);
-
-    socket.onopen = () => console.log('WebSocket connection established');
-    socket.onclose = () => console.log('WebSocket connection closed');
-    socket.onerror = (error) => console.error('WebSocket error:', error);
-
-    socket.onmessage = (event) => {
-        try {
-            const eventData = JSON.parse(event.data);
-            const memo: MemoWithActivity = eventData.payload;
-
-            if (!memo) return;
-
-            const isRecipient = memo.to.some(u => u.id === user.id) || memo.cc.some(u => u.id === user.id) || memo.current_holderId === user.id;
-            
-            if (isRecipient) {
-                let title = '';
-                let description = '';
-
-                if (eventData.type === 'new-memo') {
-                    title = 'New Memo Received';
-                    description = `From: ${memo.from.name} - ${memo.subject}`;
-                } else if (eventData.type === 'forwarded-memo') {
-                    const lastActivity = memo.activity.find(a => a.action === 'forwarded');
-                    const forwarderName = lastActivity?.actor?.name || 'Someone';
-                    title = 'Memo Delegated to You';
-                    description = `From: ${forwarderName} - ${memo.subject}`;
-                }
-                
-                if (title) {
-                    showNotification({ title, description, memoId: memo.id });
-                }
-            }
-        } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-        }
-    };
-
-    return () => socket.close();
-  }, [user, showNotification]);
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;

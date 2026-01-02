@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -15,7 +16,6 @@ import { PanelLeft, PanelRight, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDashboardData, getLabels, markAsRead } from "../actions/memo"
 import { HoneycombLoader } from "@/components/honeycomb-loader"
-import { useNotification } from "@/components/notification-provider"
 import { InboxEmptyIllustration } from "@/components/inbox-empty-illustration"
 import { SentEmptyIllustration } from "@/components/sent-empty-illustration"
 import { DraftEmptyIllustration } from "@/components/draft-empty-illustration"
@@ -29,7 +29,6 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const searchParams = useSearchParams();
   const memoIdFromUrl = searchParams.get('id');
 
-  const { showNotification } = useNotification();
   const [memos, setMemos] = useState<MemoWithActivity[]>(initialMemos);
   const [selectedMemo, setSelectedMemo] = useState<MemoWithActivity | null>(null);
   const [isListExpanded, setIsListExpanded] = useState(true);
@@ -63,66 +62,30 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     }
   }, [allLabels.length]);
 
-  // WebSocket connection for real-time memo updates
+  // Client-side real-time memo updates
   useEffect(() => {
-    if (!user) return;
-    
-    // In a real application, the WebSocket URL would come from environment variables.
-    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080';
-    const socket = new WebSocket(WS_URL);
+    const handleNewMemo = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const newMemo: MemoWithActivity = customEvent.detail.memo;
 
-    socket.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-
-    socket.onmessage = (event) => {
-        try {
-            const eventData = JSON.parse(event.data);
-            
-            // Assuming server sends messages with a 'type' and 'payload'
-            if (eventData.type === 'new-memo' && eventData.payload) {
-                const newMemo: MemoWithActivity = eventData.payload;
-
-                // Check if the memo is relevant to the current user
-                const isRecipient = newMemo.to.some(u => u.id === user.id) || newMemo.cc.some(u => u.id === user.id);
-                
-                if (tab === 'inbox' && isRecipient) {
-                     setMemos(prevMemos => {
-                        // Prevent duplicate entries
-                        if (prevMemos.some(m => m.id === newMemo.id)) {
-                            return prevMemos;
-                        }
-                        return [newMemo, ...prevMemos];
-                    });
+        // If we're on the inbox page, add it to the top of the list
+        if (tab === 'inbox') {
+            setMemos(prevMemos => {
+                // Prevent duplicates
+                if (prevMemos.some(m => m.id === newMemo.id)) {
+                    return prevMemos;
                 }
-                
-                if (isRecipient) {
-                    // Trigger a toast notification
-                    showNotification({
-                        title: 'New Memo Received',
-                        description: `From: ${newMemo.from.name} - ${newMemo.subject}`,
-                        memoId: newMemo.id,
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+                return [newMemo, ...prevMemos];
+            });
         }
     };
+    
+    window.addEventListener('new-memo-received', handleNewMemo);
 
-    socket.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    // Clean up the connection when the component unmounts
     return () => {
-      socket.close();
+      window.removeEventListener('new-memo-received', handleNewMemo);
     };
-  }, [tab, user, showNotification]);
+  }, [tab]);
 
 
   const markMemoAsReadInState = useCallback((memoId: string) => {
