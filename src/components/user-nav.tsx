@@ -17,10 +17,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { User } from "@/lib/types";
+import { revokeUserTokens } from "@/app/actions/memo";
 
 export function UserNav({ user }: { user: User }) {
   
   if (!user) return null;
+
+  const handleSignOut = async () => {
+    await revokeUserTokens(user.id);
+    signOut({ callbackUrl: '/login' });
+  }
 
   const getAvatarUrl = () => {
     const p = user.avatar?.toString().trim();
@@ -61,7 +67,7 @@ export function UserNav({ user }: { user: User }) {
             </Link>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
+          <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
           </DropdownMenuItem>

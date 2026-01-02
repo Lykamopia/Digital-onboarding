@@ -675,6 +675,12 @@ export async function acknowledgeMemo(memoId: string) {
 
   const memo = await getMemo(memoId);
   if (!memo) return;
+  
+  const isRecipient = memo.to.some(u => u.id === user.id) || memo.cc.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
+  if (!isRecipient) {
+    throw new Error("You are not a recipient of this memo and cannot acknowledge it.");
+  }
+
 
   await prisma.memo.update({
     where: { id: memoId },
@@ -961,6 +967,7 @@ export async function saveUser(data: {
             }
             payload.hashedPassword = await bcrypt.hash(password, 10);
             payload.mustChangePassword = true;
+            payload.tokenVersion = { increment: 1 };
         }
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else { // New user
@@ -1030,6 +1037,7 @@ export async function resetUserPassword(userId: string) {
             data: { 
                 hashedPassword,
                 mustChangePassword: true,
+                tokenVersion: { increment: 1 },
             }
         });
         
@@ -1065,7 +1073,8 @@ export async function changeUserPassword(password: string) {
             where: { id: user.id },
             data: {
                 hashedPassword,
-                mustChangePassword: false
+                mustChangePassword: false,
+                tokenVersion: { increment: 1 },
             }
         });
         
@@ -1220,14 +1229,20 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     return { success: true };
 }
 
+export async function revokeUserTokens(userId: string) {
+    const user = await getLoggedInUser();
+    // Ensure user is revoking their own token or is an admin
+    if (!user || (user.id !== userId && !user.role?.permissions.includes('manage_users'))) {
+        throw new Error("Unauthorized");
+    }
     
-
-    
-
-    
-
-    
-
-
-
-    
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            tokenVersion: {
+                increment: 1
+            }
+        }
+    });
+    return { success: true };
+}

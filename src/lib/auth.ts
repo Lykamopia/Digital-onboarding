@@ -75,7 +75,10 @@ export const authOptions: NextAuthOptions = {
                 where: { id: user.id },
                 data: {
                     failedLoginAttempts: 0,
-                    lockoutUntil: null
+                    lockoutUntil: null,
+                    tokenVersion: {
+                        increment: 1
+                    }
                 }
             });
         }
@@ -115,15 +118,29 @@ export const authOptions: NextAuthOptions = {
         if (trigger === "update" && session?.mustChangePassword === false) {
           token.mustChangePassword = false;
         }
+
+        // On successful sign-in, add user data to the token
         if (user) {
             const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
             token.id = user.id;
             token.mustChangePassword = dbUser?.mustChangePassword;
+            token.tokenVersion = dbUser?.tokenVersion; // Add token version
         }
+        
+        // On subsequent requests, validate the token version
+        if (token.id && token.tokenVersion !== undefined) {
+            const dbUser = await prisma.user.findUnique({ where: { id: token.id as string }});
+            // If user doesn't exist or token versions mismatch, invalidate token
+            if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
+                return null;
+            }
+        }
+
+
         return token;
     },
     async session({ session, token }) {
-        if (session.user) {
+        if (session.user && token) {
             (session.user as any).id = token.id;
             (session.user as any).mustChangePassword = token.mustChangePassword;
         }
