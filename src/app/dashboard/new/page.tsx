@@ -243,6 +243,7 @@ export default function NewMemoPage() {
     const initialize = async () => {
       const currentDraftId = searchParams.get('id');
       const replyToId = searchParams.get('replyTo');
+      const replyAllToId = searchParams.get('replyAllTo');
       const forwardFromId = searchParams.get('forwardFrom');
 
       setDraftId(currentDraftId); // Keep state in sync with URL
@@ -271,15 +272,27 @@ export default function NewMemoPage() {
           setForwardFrom(draft.forwardFromId || undefined);
           setIsDraft(true);
         }
-      } else if (replyToId) {
-          const originalMemo = await getMemo(replyToId);
-          if (originalMemo) {
+      } else if (replyToId || replyAllToId) {
+          const originalMemoId = replyToId || replyAllToId;
+          const originalMemo = await getMemo(originalMemoId!);
+          if (originalMemo && loggedInUser) {
               const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
               setBody(originalContent);
               setSubject(`Re: ${originalMemo.subject}`);
-              setTo([originalMemo.from]);
-              setReplyTo(replyToId);
+              setReplyTo(originalMemoId);
               setForwardFrom(undefined);
+
+              if (replyAllToId) {
+                  setTo([originalMemo.from]);
+                  const ccRecipients = [...originalMemo.to, ...originalMemo.cc].filter(
+                      user => user.id !== loggedInUser.id && user.id !== originalMemo.from.id
+                  );
+                  const uniqueCcIds = new Set(ccRecipients.map(u => u.id));
+                  setCc(Array.from(uniqueCcIds).map(id => ccRecipients.find(u => u.id === id)!));
+              } else {
+                  setTo([originalMemo.from]);
+                  setCc([]);
+              }
               // Immediately flush the debounced save to get a draft ID
               debouncedSave.flush();
           }
@@ -303,9 +316,11 @@ export default function NewMemoPage() {
       }
     };
 
-    initialize();
+    if(loggedInUser) {
+        initialize();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, loggedInUser]);
 
   async function handleDeleteDraft() {
       if (draftId) {

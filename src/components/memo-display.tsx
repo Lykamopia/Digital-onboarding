@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,6 +14,7 @@ import {
   Undo2,
   Copy,
   Flag,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -212,6 +214,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     router.push(`/dashboard/new?replyTo=${memo.id}`);
   }
 
+  const handleReplyAll = () => {
+    if(!memo) return;
+    router.push(`/dashboard/new?replyAllTo=${memo.id}`);
+  }
+
   const handleForward = () => {
     if(!memo) return;
     router.push(`/dashboard/new?forwardFrom=${memo.id}`);
@@ -266,6 +273,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   
   const canAcknowledge = (isRecipient || isCC) && !hasAcknowledged;
   const canReply = (isRecipient || isCC) && !isSender;
+  const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
   const canForward = (isRecipient || isCC);
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
@@ -412,6 +420,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 Reply
                             </Button>
                         )}
+                        {canReplyAll && (
+                            <Button variant="outline" onClick={handleReplyAll}>
+                                <Users className="mr-2 h-4 w-4" />
+                                Reply All
+                            </Button>
+                        )}
                         {canForward && (
                             <Button variant="outline" onClick={handleForward}>
                                 <Share2 className="mr-2 h-4 w-4" />
@@ -520,8 +534,3 @@ interface MemoDisplayProps {
   isPreview?: boolean;
   setMemo?: (memo: MemoWithActivity) => void;
 }
-
-
-    
-
-    
