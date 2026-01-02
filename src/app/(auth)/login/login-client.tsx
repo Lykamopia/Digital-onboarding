@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from "sonner";
 import Logo from '@/components/logo';
-import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getUserLockoutStatus } from '@/app/actions/memo';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -26,6 +28,63 @@ export default function LoginClientPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isDirty },
+    watch,
+    trigger
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: searchParams.get('email') || 'admin@example.com',
+      password: 'Admin@123',
+    }
+  });
+
+  const email = watch('email');
+
+  const checkLockout = useCallback(async (currentEmail: string) => {
+    if (!currentEmail) return;
+    const lockoutStatus = await getUserLockoutStatus(currentEmail);
+    if (lockoutStatus?.lockoutUntil) {
+        const lockoutDate = new Date(lockoutStatus.lockoutUntil);
+        const now = new Date();
+        if (now < lockoutDate) {
+            const timeLeft = Math.ceil((lockoutDate.getTime() - now.getTime()) / 1000);
+            setLockoutTimeLeft(timeLeft);
+        } else {
+            setLockoutTimeLeft(null);
+        }
+    } else {
+        setLockoutTimeLeft(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (email && isDirty) {
+        trigger('email').then(isValid => {
+            if(isValid) checkLockout(email);
+        });
+    } else if (email) {
+        checkLockout(email);
+    }
+  }, [email, checkLockout, isDirty, trigger]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
+    if (lockoutTimeLeft !== null && lockoutTimeLeft > 0) {
+      timer = setInterval(() => {
+        setLockoutTimeLeft(prev => (prev ? prev - 1 : 0));
+      }, 1000);
+    } else if (lockoutTimeLeft === 0) {
+        setLockoutTimeLeft(null); // Unlock
+    }
+    return () => clearInterval(timer);
+  }, [lockoutTimeLeft]);
+  
 
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/inbox';
 
@@ -35,29 +94,20 @@ export default function LoginClientPage() {
         toast.warning('Session Expired', {
             description: 'You have been logged out due to inactivity. Please log in again.',
         });
-        // Remove the error from the URL without reloading the page
         router.replace('/login', {scroll: false});
-    } else if (error) {
+    } else if (error && error !== 'CredentialsSignin') { // Handle NextAuth's generic error
         toast.error('Login Failed', {
-            description: 'Invalid credentials or another authentication error occurred.',
+            description: error,
         });
         router.replace('/login', {scroll: false});
     }
   }, [searchParams, router]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: 'admin@example.com',
-      password: 'Admin@123',
-    }
-  });
 
   const onSubmit = async (data: LoginFormData) => {
+    await checkLockout(data.email);
+    if (lockoutTimeLeft && lockoutTimeLeft > 0) return;
+
     setLoading(true);
     const result = await signIn('credentials', {
       redirect: false,
@@ -69,8 +119,10 @@ export default function LoginClientPage() {
     setLoading(false);
 
     if (result?.error) {
+      // Check for lockout again after a failed attempt
+      await checkLockout(data.email);
       toast.error('Login Failed', {
-          description: 'Invalid email or password. Please try again.',
+          description: result.error,
       });
     } else if (result?.ok) {
       toast.success('Login Successful', {
@@ -79,6 +131,11 @@ export default function LoginClientPage() {
       router.push(result.url || callbackUrl);
     }
   };
+  
+  const isLocked = lockoutTimeLeft !== null && lockoutTimeLeft > 0;
+  const minutes = Math.floor(lockoutTimeLeft! / 60);
+  const seconds = lockoutTimeLeft! % 60;
+
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/20">
@@ -118,61 +175,75 @@ export default function LoginClientPage() {
           <CardDescription>Enter your credentials to access your account.</CardDescription>
         </CardHeader>
         <CardContent>
+          {isLocked && (
+            <Alert variant="destructive" className="mb-4">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Account Locked</AlertTitle>
+              <AlertDescription>
+                Too many failed login attempts. Please try again in 
+                <span className="font-bold ml-1">
+                    {minutes > 0 && `${minutes}m `}{seconds > 0 && `${seconds}s`}
+                </span>.
+              </AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="email">Email</Label>
-              </div>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                {...register('email')}
-              />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="password">Password</Label>
-              </div>
-              <div className="relative">
+            <fieldset disabled={isLocked || loading}>
+                <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="email">Email</Label>
+                </div>
                 <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="********"
-                  {...register('password')}
+                    id="email"
+                    type="email"
+                    placeholder="admin@example.com"
+                    {...register('email')}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+                </div>
+                <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="password">Password</Label>
+                </div>
+                <div className="relative">
+                    <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="********"
+                    {...register('password')}
+                    />
+                    <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute inset-y-0 right-0 h-full px-3"
+                    onClick={() => setShowPassword(!showPassword)}
+                    >
+                    {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                    ) : (
+                        <Eye className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+                    </Button>
+                </div>
+                {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password.message}</p>
+                )}
+                </div>
+                <Button type="submit" className="w-full" disabled={isLocked || loading}>
+                {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <>
+                    Sign In
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                )}
                 </Button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                Sign In
-                <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
+            </fieldset>
           </form>
         </CardContent>
       </Card>

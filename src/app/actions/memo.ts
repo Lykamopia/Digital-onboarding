@@ -494,7 +494,7 @@ export async function sendMemo(formData: FormData) {
 
     // Send to WebSocket server
     await sendToWebSocket({
-        type: validatedData.forwardFrom ? 'forwarded-memo' : 'new-memo',
+        type: validatedData.forwardFrom ? 'forwarded-memo' : (validatedData.replyTo ? 'reply-memo' : 'new-memo'),
         payload: newMemo,
     });
 
@@ -778,6 +778,15 @@ export async function getLoggedInUser() {
         }
     });
     if (!user) return null;
+    return user;
+}
+
+export async function getUserLockoutStatus(email: string) {
+    if (!email) return null;
+    const user = await prisma.user.findUnique({
+        where: { email },
+        select: { lockoutUntil: true }
+    });
     return user;
 }
 
