@@ -10,7 +10,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
         redirect('/dashboard/access-denied');
     }
 
-    const show = typeof searchParams.show === 'string' ? searchParams.show : '';
+    const show = searchParams.show as string || '';
     const initialMemos = await getDashboardData('favorites', '', '', { from: undefined, to: undefined }, [], show);
 
     return <MainDashboard 
