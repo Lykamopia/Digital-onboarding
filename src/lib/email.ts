@@ -97,7 +97,7 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${logoUrl}" alt="Nib Memo Logo">
+                           <img src="${logoUrl}" alt="Nib Memo Logo" style="max-width:80px;height:auto;display:block;margin:0 auto;">
                         </div>
                         <div class="content">
                             <h2>${headerText}</h2>
@@ -162,7 +162,7 @@ function generateAuthEmailBody(title: string, content: string): string {
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${logoUrl}" alt="Nib Memo Logo">
+                           <img src="${logoUrl}" alt="Nib Memo Logo" style="max-width:80px;height:auto;display:block;margin:0 auto;">
                         </div>
                         <div class="content">
                             <h2>${title}</h2>

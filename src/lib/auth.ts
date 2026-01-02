@@ -9,8 +9,6 @@ import { User } from "./types";
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -86,17 +84,23 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  cookies: {
-    sessionToken: {
-      name: `${isProduction ? '__Secure-' : ''}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'strict',
-        path: '/',
-        secure: isProduction,
+  cookies: (() => {
+    const nextAuthUrl = (process.env.NEXTAUTH_URL || '').trim();
+    const usesHttps = nextAuthUrl.toLowerCase().startsWith('https://');
+    const namePrefix = usesHttps ? '__Secure-' : '';
+
+    return {
+      sessionToken: {
+        name: `${namePrefix}next-auth.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: 'strict',
+          path: '/',
+          secure: usesHttps,
+        },
       },
-    },
-  },
+    };
+  })(),
   session: {
     strategy: "jwt",
     maxAge: 60 * 60, // 1 hour of inactivity
