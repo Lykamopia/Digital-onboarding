@@ -128,7 +128,8 @@ export default function LoginClientPage() {
       toast.success('Login Successful', {
         description: 'Welcome back!',
       });
-      router.push(result.url || callbackUrl);
+      // Use window.location.href for a more forceful redirect.
+      window.location.href = result.url || callbackUrl;
     }
   };
   
