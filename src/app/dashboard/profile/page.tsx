@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { SignaturePad } from '@/components/signature-pad';
 import { SignaturePreview } from '@/components/signature-preview';
+import { UserProfileLoader } from '@/components/user-profile-loader';
 
 
 type UserWithRelations = User & {
@@ -169,12 +170,8 @@ export default function ProfilePage() {
   
   if (!user) {
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold">Account Settings</h1>
-                <p className="text-muted-foreground">Manage your profile and account settings.</p>
-            </div>
-            <Skeleton className="h-[500px] w-full" />
+        <div className="max-w-4xl mx-auto h-full flex items-center justify-center">
+            <UserProfileLoader />
         </div>
     );
   }

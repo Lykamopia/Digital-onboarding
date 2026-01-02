@@ -13,6 +13,7 @@ import type { Permission, User, MemoWithActivity } from "@/lib/types"
 import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { HoneycombLoader } from "@/components/honeycomb-loader";
 import { usePathname } from "next/navigation";
+import { UserProfileLoader } from "@/components/user-profile-loader";
 
 
 function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
@@ -152,7 +153,7 @@ export default function DashboardLayout({
   }, []);
 
   if (loading) {
-    return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
+    return <div className="h-screen w-full flex items-center justify-center bg-background"><UserProfileLoader /></div>;
   }
 
   return (

@@ -40,6 +40,7 @@ import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
 import { LabelSelector } from '@/components/label-selector';
+import { UserProfileLoader } from '@/components/user-profile-loader';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -473,7 +474,7 @@ export default function NewMemoPage() {
 
 
   if (!loggedInUser) {
-      return <div className="flex justify-center items-center h-full"><p>Loading user data...</p></div>;
+      return <div className="flex justify-center items-center h-full"><UserProfileLoader /></div>;
   }
 
   return (
