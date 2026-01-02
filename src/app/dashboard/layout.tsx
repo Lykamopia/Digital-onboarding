@@ -1,7 +1,7 @@
 
-'use client';
+"use client";
 
-import { Suspense, useEffect } from "react"
+import React, { Suspense, useEffect } from "react"
 import type { Session } from "next-auth";
 
 import {

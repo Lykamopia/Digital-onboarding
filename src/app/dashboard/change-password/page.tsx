@@ -1,5 +1,6 @@
 
-'use client';
+"use client";
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { KeyRound } from 'lucide-react';
 import { ChangePasswordForm } from '@/components/change-password-form';
