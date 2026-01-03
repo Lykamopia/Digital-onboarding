@@ -251,16 +251,20 @@ export default function NewMemoPage() {
         const replyAllToId = searchParams.get('replyAllTo');
         const forwardFromId = searchParams.get('forwardFrom');
 
-        if (currentDraftId && currentDraftId !== draftId) {
+        // Always prioritize loading an existing draft by its ID
+        if (currentDraftId) {
             const draft = await getMemo(currentDraftId);
             if (draft) {
                 let bodyContent = draft.body || '';
                 let replyContent = '';
+
+                // Correctly parse the body for replies/forwards
                 if ((draft.replyToId || draft.forwardFromId) && draft.body.includes('<hr>')) {
                     const parts = draft.body.split('<hr>');
                     replyContent = parts[0];
                     bodyContent = parts.slice(1).join('<hr>');
-                } else if (!draft.replyToId && !draft.forwardFromId) {
+                } else {
+                    replyContent = '';
                     bodyContent = draft.body;
                 }
                 
@@ -275,8 +279,15 @@ export default function NewMemoPage() {
                 setForwardFrom(draft.forwardFromId || undefined);
                 setIsDraft(true);
                 setDraftId(currentDraftId);
+
+                // Exit early to prevent being overwritten by reply/forward logic
+                isInitializingRef.current = false;
+                return; 
             }
-        } else if (replyToId || replyAllToId) {
+        }
+        
+        // Handle creating a *new* draft for a reply or forward
+        if (replyToId || replyAllToId) {
             const originalMemoId = replyToId || replyAllToId;
             const originalMemo = await getMemo(originalMemoId!);
             if (originalMemo && loggedInUser) {
@@ -292,7 +303,7 @@ export default function NewMemoPage() {
                     const toSet = new Set([originalMemo.from.id]);
                     const ccSet = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
                     ccSet.delete(loggedInUser.id);
-ccSet.delete(originalMemo.from.id);
+                    ccSet.delete(originalMemo.from.id);
                     toRecipients = Array.from(toSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
                     ccRecipients = Array.from(ccSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
                 } else {
