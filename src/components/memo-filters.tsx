@@ -191,12 +191,12 @@ export function MemoFilters({
                         numberOfMonths={1}
                     />
                      <div className="p-2 border-t grid grid-cols-2 gap-2">
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
                     </div>
                 </PopoverContent>
             </Popover>
