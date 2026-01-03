@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -251,12 +252,6 @@ export default function NewMemoPage() {
         const replyToId = searchParams.get('replyTo');
         const replyAllToId = searchParams.get('replyAllTo');
         const forwardFromId = searchParams.get('forwardFrom');
-
-        // This prevents re-initialization if a draft ID already exists and no new action is being taken
-        if (draftId && !replyToId && !replyAllToId && !forwardFromId) {
-            isInitializingRef.current = false;
-            return;
-        }
 
         if (currentDraftId) {
             const draft = await getMemo(currentDraftId);
