@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -13,7 +14,7 @@ import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknow
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
 import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Pin, PinOff } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
@@ -43,7 +44,6 @@ interface MemoListProps {
 
 const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser, onUpdate }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null, onUpdate: () => void }) => {
     
-    const { toast } = useToast();
     const router = useRouter();
     if (!loggedInUser) return null;
 
@@ -82,13 +82,13 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     
     const handleArchive = async (memoId: string, archive: boolean) => {
         await archiveMemo(memoId, archive);
-        toast({ title: archive ? "Memo Archived" : "Memo Restored" });
+        toast.success(archive ? "Memo Archived" : "Memo Restored");
         onUpdate();
     }
     
     const handleDeleteDraft = async (memoId: string) => {
         await deleteDraft(memoId);
-        toast({ title: "Draft Deleted" });
+        toast.success("Draft Deleted");
         onUpdate();
     }
 
@@ -102,12 +102,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
     const handleDuplicate = async (memoId: string) => {
         await duplicateMemo(memoId);
-        toast({ title: "Memo Duplicated", description: "A new draft has been created." });
+        toast.success("Memo Duplicated", { description: "A new draft has been created." });
     }
 
     const handleAcknowledge = async (memoId: string) => {
         await acknowledgeMemo(memoId);
-        toast({ title: "Memo Acknowledged" });
+        toast.success("Memo Acknowledged");
         onUpdate();
     }
     
@@ -121,7 +121,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
             return m;
         }));
 
-        toast({ title: "Marked as Read" });
+        toast.info("Marked as Read");
         await toggleMemoReadStatus(memo.id);
     }
     
@@ -148,7 +148,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         });
 
         const result = await toggleFavorite(memoId);
-        toast({ title: result.isFavorited ? "Memo favorited" : "Memo unfavorited" });
+        toast.success(result.isFavorited ? "Memo favorited" : "Memo unfavorited");
         onUpdate();
     };
     
@@ -166,9 +166,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         }));
 
         const result = await toggleFlag(memoId);
-        toast({
-            title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
-        });
+        toast.success(result.isFlagged ? "Memo Flagged" : "Memo Unflagged");
         onUpdate();
     }
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -7,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User, Office, Department, Division, District, Branch } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit } from 'lucide-react';
@@ -48,7 +49,6 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
-  const { toast } = useToast();
 
   const isChanged = 
     name !== user?.name || 
@@ -83,8 +83,7 @@ export default function ProfilePage() {
         signature: signatureUrl 
     });
     if (result.success) {
-      toast({
-        title: 'Profile Updated',
+      toast.success('Profile Updated', {
         description: 'Your profile has been successfully updated.',
       });
             // Reload local user data
@@ -104,9 +103,7 @@ export default function ProfilePage() {
                 // no-op
             }
     } else {
-        toast({
-            variant: 'destructive',
-            title: 'Update Failed',
+        toast.error('Update Failed', {
             description: 'Could not update your profile.',
         });
     }
@@ -118,7 +115,7 @@ export default function ProfilePage() {
     if (!file) return;
 
     if (file.size > MAX_AVATAR_SIZE) {
-        toast({ variant: 'destructive', title: 'File too large', description: 'Profile picture must be less than 5MB.' });
+        toast.error('File too large', { description: 'Profile picture must be less than 5MB.' });
         return;
     }
 
@@ -137,7 +134,7 @@ export default function ProfilePage() {
     if (!dataUrl) {
       setSignaturePreview('');
       setSignatureUrl('');
-      toast({ title: "Signature Cleared", description: "Click 'Save All Changes' to apply." });
+      toast.info("Signature Cleared", { description: "Click 'Save All Changes' to apply." });
       return;
     }
     
@@ -158,9 +155,9 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
       const result = await response.json();
       setUrl(result.path);
-      toast({ title: `${fieldName} Updated`, description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
+      toast.success(`${fieldName} Updated`, { description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
     } catch (error: any) {
-       toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+       toast.error('Upload Failed', { description: error.message });
        if(fieldName === 'Avatar') setAvatarPreview(user?.avatar || null);
        if(fieldName === 'Signature') setSignaturePreview(user?.signature || null);
     } finally {

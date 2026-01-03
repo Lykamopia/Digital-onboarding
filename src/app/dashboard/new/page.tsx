@@ -13,7 +13,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { RecipientSelector } from '@/components/recipient-selector';
 import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,7 +105,6 @@ export default function NewMemoPage() {
   const [isDraft, setIsDraft] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   
   // Use state for draft ID to prevent issues with stale closures in callbacks
   const [draftId, setDraftId] = useState<string | null>(searchParams.get('id'));
@@ -253,7 +252,7 @@ export default function NewMemoPage() {
         const replyAllToId = searchParams.get('replyAllTo');
         const forwardFromId = searchParams.get('forwardFrom');
 
-        if (currentDraftId) {
+        if (currentDraftId && currentDraftId !== draftId) {
             const draft = await getMemo(currentDraftId);
             if (draft) {
                 let bodyContent = draft.body || '';
@@ -331,7 +330,7 @@ ccSet.delete(originalMemo.from.id);
                   router.replace(`/dashboard/new?id=${draft.id}`);
                 }
             }
-        } else {
+        } else if (!currentDraftId) {
             // Reset for a completely new memo
             setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined); setLabels([]);
             setIsDraft(false); setLastSaved(null);
@@ -348,8 +347,7 @@ ccSet.delete(originalMemo.from.id);
   async function handleDeleteDraft() {
       if (draftId) {
           await deleteDraft(draftId);
-          toast({
-              title: 'Draft Deleted',
+          toast.success('Draft Deleted', {
               description: 'The draft has been permanently deleted.',
           });
           router.push('/dashboard/inbox');
@@ -371,7 +369,7 @@ ccSet.delete(originalMemo.from.id);
           errorDescription = "Your message/remark is required.";
         }
         
-        toast({ title: 'Cannot Send Memo', description: errorDescription, variant: 'destructive'});
+        toast.error('Cannot Send Memo', { description: errorDescription });
         return;
     }
 
@@ -395,10 +393,9 @@ ccSet.delete(originalMemo.from.id);
     setIsSending(false);
 
     if (result.error) {
-        toast({ title: 'Error sending memo', description: result.error, variant: 'destructive' });
+        toast.error('Error sending memo', { description: result.error });
     } else {
-        toast({
-          title: 'Memo Sent!',
+        toast.success('Memo Sent!', {
           description: 'Your memo has been successfully sent.',
         });
         router.push('/dashboard/sent');
@@ -411,9 +408,7 @@ ccSet.delete(originalMemo.from.id);
 
     const filesToUpload = Array.from(files).filter(file => {
       if (file.size > MAX_FILE_SIZE) {
-        toast({
-          variant: 'destructive',
-          title: 'File too large',
+        toast.error('File too large', {
           description: `${file.name} exceeds the 5MB size limit.`,
         });
         return false;
@@ -450,9 +445,7 @@ ccSet.delete(originalMemo.from.id);
                 url: result.path,
             };
         } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: `Upload failed for ${file.name}`,
+            toast.error(`Upload failed for ${file.name}`, {
                 description: error.message,
             });
             return null;
