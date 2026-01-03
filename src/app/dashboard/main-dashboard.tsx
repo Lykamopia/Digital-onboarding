@@ -22,12 +22,14 @@ import { DraftEmptyIllustration } from "@/components/draft-empty-illustration"
 import { ArchiveEmptyIllustration } from "@/components/archive-empty-illustration"
 import { SearchEmptyIllustration } from "@/components/search-empty-illustration"
 import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const memoIdFromUrl = searchParams.get('id');
+  const isMobile = useIsMobile();
 
   const [memos, setMemos] = useState<MemoWithActivity[]>(initialMemos);
   const [selectedMemo, setSelectedMemo] = useState<MemoWithActivity | null>(null);
@@ -165,6 +167,13 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     newParams.set('id', id);
     router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
   }, [memos, user, router, pathname, searchParams, tab, markMemoAsReadInState]);
+
+  const handleDeselectMemo = useCallback(() => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.delete('id');
+    router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
+
 
   const loadMemos = useCallback(async (forceReload = false) => {
     if (!user && !forceReload) return;
@@ -310,6 +319,10 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
      return <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>;
   }
 
+  const showMemoList = !isMobile || (isMobile && !selectedMemo);
+  const showMemoDisplay = !isMobile || (isMobile && selectedMemo);
+
+
   return (
     <div 
       className={cn(
@@ -317,58 +330,64 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
       )}
     >
-      <Card className="no-print sticky top-0 self-start h-full min-h-0 flex flex-col transition-all duration-300 overflow-hidden bg-card">
-        <MemoFilters
-            tab={tab}
-            search={search}
-            setSearch={setSearch}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            status={status}
-            setStatus={setStatus}
-            allLabels={allLabels}
-            selectedLabels={selectedLabels}
-            setSelectedLabels={setSelectedLabels}
-            show={show}
-            setShow={setShow}
-            toggle={memoListToggle}
-            isExpanded={isListExpanded}
-            onRefresh={() => loadMemos(true)}
-            loading={loading}
-        />
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-          {loading ? (
-              <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
-          ) : memos.length > 0 ? (
-            <MemoList 
-              memos={memos}
-              setMemos={setMemos}
-              selectedMemoId={selectedMemo?.id || null} 
-              onSelectMemo={handleSelectMemo}
-              isExpanded={isListExpanded}
+      {showMemoList && (
+        <Card className="no-print sticky top-0 self-start h-full min-h-0 flex flex-col transition-all duration-300 overflow-hidden bg-card">
+          <MemoFilters
               tab={tab}
-              onUpdate={() => loadMemos(true)}
-              user={user}
-              />
+              search={search}
+              setSearch={setSearch}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              status={status}
+              setStatus={setStatus}
+              allLabels={allLabels}
+              selectedLabels={selectedLabels}
+              setSelectedLabels={setSelectedLabels}
+              show={show}
+              setShow={setShow}
+              toggle={memoListToggle}
+              isExpanded={isListExpanded}
+              onRefresh={() => loadMemos(true)}
+              loading={loading}
+          />
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            {loading ? (
+                <div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>
+            ) : memos.length > 0 ? (
+              <MemoList 
+                memos={memos}
+                setMemos={setMemos}
+                selectedMemoId={selectedMemo?.id || null} 
+                onSelectMemo={handleSelectMemo}
+                isExpanded={isListExpanded}
+                tab={tab}
+                onUpdate={() => loadMemos(true)}
+                user={user}
+                />
+            ) : (
+              <div className="h-full p-2">
+                <EmptyState icon={emptyState.icon} title={emptyState.title} description={emptyState.description} action={emptyState.action} />
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+      {showMemoDisplay && (
+        <div className={cn("h-full rounded-lg no-print min-h-0 transition-colors", !selectedMemo && "bg-gradient-to-br from-primary/5 to-accent/5")}>
+          {loadingMemo ? (
+              <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
           ) : (
-            <div className="h-full p-2">
-              <EmptyState icon={emptyState.icon} title={emptyState.title} description={emptyState.description} action={emptyState.action} />
-            </div>
+              <MemoDisplay 
+                  memo={selectedMemo}
+                  setMemo={setSelectedMemo}
+                  memoCount={memos.length}
+                  onUpdate={() => loadMemos(true)}
+                  onBack={isMobile ? handleDeselectMemo : undefined}
+              />
           )}
         </div>
-      </Card>
-      <div className={cn("h-full rounded-lg no-print min-h-0 transition-colors", !selectedMemo && "bg-gradient-to-br from-primary/5 to-accent/5")}>
-        {loadingMemo ? (
-             <div className="h-full w-full flex items-center justify-center bg-card rounded-lg"><HoneycombLoader /></div>
-        ) : (
-            <MemoDisplay 
-                memo={selectedMemo}
-                setMemo={setSelectedMemo}
-                memoCount={memos.length}
-                onUpdate={() => loadMemos(true)}
-            />
-        )}
-      </div>
+      )}
+
       <div className="hidden print:block col-span-2">
          <MemoDisplay memo={selectedMemo} memoCount={memos.length} onUpdate={() => loadMemos(true)} />
       </div>

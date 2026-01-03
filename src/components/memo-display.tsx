@@ -16,6 +16,7 @@ import {
   Flag,
   Users,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -150,7 +151,7 @@ const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { 
 };
 
 
-export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo }: MemoDisplayProps) {
+export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo, onBack }: MemoDisplayProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
@@ -538,6 +539,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
             <div className="flex items-center gap-2 overflow-hidden">
+                {onBack && (
+                  <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
                 <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
             </div>
             {!isPreview && (
@@ -571,6 +577,7 @@ interface MemoDisplayProps {
   onUpdate: () => void;
   isPreview?: boolean;
   setMemo?: (memo: MemoWithActivity) => void;
+  onBack?: () => void;
 }
 
     
