@@ -15,6 +15,7 @@ import {
   Copy,
   Flag,
   Users,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -35,6 +36,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from './empty-state';
 import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, getGeneralSettings } from '@/app/actions/memo';
@@ -142,6 +154,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
   const [acknowledgementType, setAcknowledgementType] = React.useState<AcknowledgementType>('BADGE');
+  const [isAcknowledging, setIsAcknowledging] = React.useState(false);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
@@ -154,6 +167,8 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
 
   const handleAcknowledge = async () => {
     if (!memo || !loggedInUser) return;
+
+    setIsAcknowledging(true);
 
     // Optimistic UI Update
     const newActivity = {
@@ -177,6 +192,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
         title: "Memo Acknowledged",
         description: "You have acknowledged receipt of this memo."
     });
+    setIsAcknowledging(false);
     // onUpdate(); // We don't need to force a full refresh anymore
   }
   
@@ -409,10 +425,31 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         <Separator className="my-6 no-print" />
                         <div className="flex items-center gap-2 font-sans no-print flex-wrap">
                         {canAcknowledge && 
-                            <Button variant="outline" onClick={handleAcknowledge}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Acknowledge
-                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" disabled={isAcknowledging}>
+                                        {isAcknowledging ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                        )}
+                                        Acknowledge
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirm Acknowledgement</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Are you sure you want to acknowledge this memo? This action is final and will be recorded.
+                                            {useSignature && loggedInUser?.signature && " Your digital signature will be applied."}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleAcknowledge}>Confirm</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         }
                         {canReply && (
                             <Button variant="outline" onClick={handleReply}>
