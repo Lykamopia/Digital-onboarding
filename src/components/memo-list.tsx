@@ -226,6 +226,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                  </div>
             )
         }
+        
+        if (tab === 'favorites') {
+            return null; // No actions on favorites page hover
+        }
 
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -366,10 +370,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
         return (
             <ContextMenuContent>
-                <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
-                    <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                    <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
-                </ContextMenuItem>
+                 {tab !== 'favorites' && (
+                    <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
+                        <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                        <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
+                    </ContextMenuItem>
+                 )}
                 <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
                     <Flag className={cn("mr-2 h-4 w-4", isFlaggedByUser && "fill-red-500 text-red-500")} />
                     <span>{isFlaggedByUser ? 'Unflag' : 'Flag'}</span>
@@ -435,7 +441,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     return (
         <div className="flex flex-col gap-0.5 px-1 py-1">
             {memos.map((memo) => {
-                const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
+                const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
                 const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
                 return (
                 <ContextMenu key={memo.id}>
@@ -470,7 +476,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
                             <div className="w-full pr-20 overflow-hidden">
                                 <div className="text-sm font-medium truncate flex items-center gap-2">
-                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className="z-10 shrink-0">
+                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0", tab === 'favorites' && 'pointer-events-none')}>
                                         <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
                                     </button>
                                     <span className="truncate">{memo.subject || "No Subject"}</span>

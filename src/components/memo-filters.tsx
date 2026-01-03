@@ -122,7 +122,7 @@ export function MemoFilters({
     setSearchParams({ q: null, from: null, to: null, status: null, labels: null, show: null });
   }
 
-  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0 || show;
+  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0 || (show && tab !== 'favorites');
   
   const selectedLabelObjects = selectedLabels.map(id => {
       return allLabels.find(l => l.id === id);
@@ -163,7 +163,8 @@ export function MemoFilters({
                     variant={"outline"}
                     className={cn(
                         "w-full sm:w-auto flex-1 justify-start text-left font-normal",
-                        !dateRange && "text-muted-foreground"
+                        !dateRange && "text-muted-foreground",
+                        "border-muted-foreground/50 hover:border-muted-foreground"
                     )}
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -191,12 +192,12 @@ export function MemoFilters({
                         numberOfMonths={1}
                     />
                      <div className="p-2 border-t grid grid-cols-2 gap-2">
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
                     </div>
                 </PopoverContent>
             </Popover>
@@ -233,31 +234,33 @@ export function MemoFilters({
                 </SelectContent>
                 </Select>
             )}
-            <Select value={show} onValueChange={handleShowChange}>
-                <SelectTrigger className="w-full sm:w-auto flex-1">
-                    <SelectValue placeholder="Show" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">
-                        <div className="flex items-center gap-2">
-                           <Eye className="h-4 w-4 text-muted-foreground" />
-                            Show All
-                        </div>
-                    </SelectItem>
-                    <SelectItem value="favorites">
-                        <div className="flex items-center gap-2">
-                            <Star className="h-4 w-4 text-yellow-500" />
-                            Favorites
-                        </div>
-                    </SelectItem>
-                    <SelectItem value="flagged">
-                        <div className="flex items-center gap-2">
-                            <Flag className="h-4 w-4 text-red-500" />
-                            Flagged
-                        </div>
-                    </SelectItem>
-                </SelectContent>
-            </Select>
+            {tab !== 'favorites' && (
+                <Select value={show} onValueChange={handleShowChange}>
+                    <SelectTrigger className="w-full sm:w-auto flex-1">
+                        <SelectValue placeholder="Show" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                               <Eye className="h-4 w-4 text-muted-foreground" />
+                                Show All
+                            </div>
+                        </SelectItem>
+                        <SelectItem value="favorites">
+                            <div className="flex items-center gap-2">
+                                <Star className="h-4 w-4 text-yellow-500" />
+                                Favorites
+                            </div>
+                        </SelectItem>
+                        <SelectItem value="flagged">
+                            <div className="flex items-center gap-2">
+                                <Flag className="h-4 w-4 text-red-500" />
+                                Flagged
+                            </div>
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+            )}
             {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
                     <X className="mr-1 h-4 w-4" />
