@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getEmailSettings, saveEmailSettings } from "@/app/actions/memo";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Save } from "lucide-react";
 import Image from "next/image";
@@ -26,7 +26,6 @@ export default function EmailSettingsPage() {
   const [settings, setSettings] = useState({ notificationsEnabled: true, headerText: '', bodyText: '', footerText: '' });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchSettings() {
@@ -42,9 +41,9 @@ export default function EmailSettingsPage() {
     setIsSaving(true);
     const result = await saveEmailSettings(settings);
     if (result.success) {
-      toast({ title: "Settings Saved", description: "Email settings have been updated." });
+      toast.success("Settings Saved", { description: "Email settings have been updated." });
     } else {
-      toast({ title: "Error", description: "Could not save settings.", variant: "destructive" });
+      toast.error("Error", { description: "Could not save settings." });
     }
     setIsSaving(false);
   };

@@ -37,7 +37,7 @@ import { Check, ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusC
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useLabels } from "../hooks";
 import { saveLabel, deleteLabel } from "@/app/actions/memo";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Label as LabelType } from "@/lib/types";
 
@@ -70,7 +70,6 @@ function LabelsLoadingSkeleton() {
 
 export default function LabelsPage() {
     const { data: labels, loading, mutate } = useLabels();
-    const { toast } = useToast();
 
     const [editingLabel, setEditingLabel] = useState<Partial<LabelType> | null>(null);
     const [deletingLabel, setDeletingLabel] = useState<LabelType | null>(null);
@@ -103,7 +102,7 @@ export default function LabelsPage() {
         const name = formData.get('name') as string;
 
         if (!name) {
-            toast({ title: "Error", description: "Label name is required.", variant: "destructive" });
+            toast.error("Error", { description: "Label name is required." });
             return;
         }
 
@@ -118,15 +117,15 @@ export default function LabelsPage() {
         try {
             const result = await saveLabel(labelData);
             if (result.error) {
-                toast({ title: "Error", description: result.error, variant: "destructive" });
+                toast.error("Error", { description: result.error });
             } else {
                 await mutate();
-                toast({ title: "Success", description: `Label ${editingLabel?.id ? 'updated' : 'created'} successfully.` });
+                toast.success("Success", { description: `Label ${editingLabel?.id ? 'updated' : 'created'} successfully.` });
                 setIsDialogOpen(false);
                 setEditingLabel(null);
             }
         } catch (error: any) {
-            toast({ title: "Error", description: error?.message || 'Failed to save label.', variant: "destructive" });
+            toast.error("Error", { description: error?.message || 'Failed to save label.' });
         } finally {
             setIsSaving(false);
         }
@@ -138,13 +137,13 @@ export default function LabelsPage() {
         try {
             const result = await deleteLabel(deletingLabel.id);
             if (result.error) {
-                toast({ title: "Error", description: result.error, variant: "destructive" });
+                toast.error("Error", { description: result.error });
             } else {
                 await mutate();
-                toast({ title: "Success", description: "Label deleted successfully." });
+                toast.success("Success", { description: "Label deleted successfully." });
             }
         } catch (error: any) {
-            toast({ title: "Error", description: error?.message || 'Failed to delete label.', variant: "destructive" });
+            toast.error("Error", { description: error?.message || 'Failed to delete label.' });
         } finally {
             setIsAlertOpen(false);
             setDeletingLabel(null);

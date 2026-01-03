@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveBranch, deleteBranch } from "@/app/actions/memo";
 import type { Branch } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBranches, useDistricts } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
@@ -65,7 +65,6 @@ function BranchesLoadingSkeleton() {
 export default function BranchesPage() {
   const { data: branches, loading, mutate } = useBranches();
   const { data: districts, loading: loadingDistricts } = useDistricts();
-  const { toast } = useToast();
   
   const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
   const [deletingBranch, setDeletingBranch] = useState<Branch | null>(null);
@@ -99,7 +98,7 @@ export default function BranchesPage() {
     const code = formData.get('code') as string;
     
     if (!name || !code || !selectedDistrictId) {
-        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        toast.error("Error", { description: "All fields are required." });
         return;
     }
 
@@ -114,11 +113,11 @@ export default function BranchesPage() {
     try {
       await saveBranch(branchData);
       await mutate();
-      toast({ title: "Success", description: `Branch ${editingBranch?.id ? 'updated' : 'created'} successfully.` });
+      toast.success("Success", { description: `Branch ${editingBranch?.id ? 'updated' : 'created'} successfully.` });
       setIsDialogOpen(false);
       setEditingBranch(null);
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to save branch.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to save branch.' });
     } finally {
       setIsSaving(false);
     }
@@ -146,13 +145,13 @@ export default function BranchesPage() {
     try {
       const result = await deleteBranch(deletingBranch.id);
       if (result && result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast.error("Error", { description: result.error });
       } else {
-        toast({ title: "Success", description: "Branch deleted successfully." });
+        toast.success("Success", { description: "Branch deleted successfully." });
         await mutate();
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to delete branch.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to delete branch.' });
     } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);

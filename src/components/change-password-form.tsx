@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { changeUserPassword } from '@/app/actions/memo';
 import { useSession } from 'next-auth/react';
@@ -31,7 +31,6 @@ interface ChangePasswordFormProps {
 
 export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProps) {
     const router = useRouter();
-    const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -59,8 +58,7 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
             // This is the key change: update the session client-side
             await update({ mustChangePassword: false });
             
-            toast({
-                title: 'Password Changed',
+            toast.success('Password Changed', {
                 description: 'Your password has been successfully updated.',
             });
             
@@ -75,9 +73,7 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
 
         } else {
             setLoading(false);
-            toast({
-                variant: 'destructive',
-                title: 'Update Failed',
+            toast.error('Update Failed', {
                 description: result.error || 'An unknown error occurred.',
             });
         }

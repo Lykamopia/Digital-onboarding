@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteRole, saveRole } from "@/app/actions/memo";
 import type { Role, Permission } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { permissions } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles, useUsers } from "../hooks";
@@ -64,7 +64,6 @@ function RolesLoadingSkeleton() {
 export default function RoleManagementPage() {
   const { data: roles, loading: loadingRoles, mutate: mutateRoles } = useRoles();
   const { data: users, loading: loadingUsers } = useUsers();
-  const { toast } = useToast();
 
   const [editingRole, setEditingRole] = useState<Partial<Role> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -108,13 +107,13 @@ export default function RoleManagementPage() {
     try {
       const result = await deleteRole(roleId);
       if(result?.error) {
-          toast({ variant: "destructive", title: "Cannot delete role", description: result.error, });
+          toast.error("Cannot delete role", { description: result.error });
           return;
       }
       await mutateRoles();
-      toast({ title: "Role Deleted", description: "The role has been successfully deleted.", });
+      toast.success("Role Deleted", { description: "The role has been successfully deleted." });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'Failed to delete role.' });
+      toast.error('Error', { description: error?.message || 'Failed to delete role.' });
     } finally {
       setIsSaving(false);
     }
@@ -122,9 +121,7 @@ export default function RoleManagementPage() {
 
   const handleSave = async () => {
     if (!roleName.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Invalid name",
+      toast.error("Invalid name", {
         description: "Role name cannot be empty.",
       });
       return;
@@ -140,11 +137,11 @@ export default function RoleManagementPage() {
     try {
       await saveRole(roleData);
       await mutateRoles();
-      toast({ title: "Success", description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
+      toast.success("Success", { description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
       setIsDialogOpen(false);
       setEditingRole(null);
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'Failed to save role.' });
+      toast.error('Error', { description: error?.message || 'Failed to save role.' });
     } finally {
       setIsSaving(false);
     }

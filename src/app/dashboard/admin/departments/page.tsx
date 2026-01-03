@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveDepartment, deleteDepartment } from "@/app/actions/memo";
 import type { Department } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDepartments, useOffices } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
@@ -64,7 +64,6 @@ function DepartmentsLoadingSkeleton() {
 export default function DepartmentsPage() {
   const { data: departments, loading: loadingDepts, mutate: mutateDepts } = useDepartments();
   const { data: offices, loading: loadingOffices } = useOffices();
-  const { toast } = useToast();
 
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
@@ -98,7 +97,7 @@ export default function DepartmentsPage() {
     const code = formData.get('code') as string;
 
     if (!name || !code || !selectedOfficeId) {
-        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        toast.error("Error", { description: "All fields are required." });
         return;
     }
 
@@ -113,12 +112,12 @@ export default function DepartmentsPage() {
     try {
       await saveDepartment(departmentData);
       await mutateDepts();
-      toast({ title: "Success", description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
+      toast.success("Success", { description: `Department ${editingDepartment ? 'updated' : 'created'} successfully.` });
       setIsDialogOpen(false);
       setEditingDepartment(null);
       setSelectedOfficeId(undefined);
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to save department.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to save department.' });
     } finally {
       setIsSaving(false);
     }
@@ -146,13 +145,13 @@ export default function DepartmentsPage() {
     try {
       const result = await deleteDepartment(deletingDepartment.id);
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast.error("Error", { description: result.error });
       } else {
-        toast({ title: "Success", description: "Department deleted successfully." });
+        toast.success("Success", { description: "Department deleted successfully." });
         await mutateDepts();
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to delete department.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to delete department.' });
     } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);

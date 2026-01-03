@@ -48,7 +48,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { EmptyState } from './empty-state';
 import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, getGeneralSettings } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
@@ -153,7 +153,6 @@ const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { 
 
 export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo, onBack }: MemoDisplayProps) {
   const router = useRouter();
-  const { toast } = useToast();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
   const [acknowledgementType, setAcknowledgementType] = React.useState<AcknowledgementType>('BADGE');
   const [isAcknowledging, setIsAcknowledging] = React.useState(false);
@@ -190,8 +189,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
 
 
     await acknowledgeMemo(memo.id);
-    toast({
-        title: "Memo Acknowledged",
+    toast.success("Memo Acknowledged", {
         description: "You have acknowledged receipt of this memo."
     });
     setIsAcknowledging(false);
@@ -201,8 +199,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const handleDuplicate = async () => {
     if (!memo) return;
     await duplicateMemo(memo.id);
-    toast({
-        title: "Memo Duplicated",
+    toast.success("Memo Duplicated", {
         description: "A new draft has been created from this memo."
     });
   }
@@ -210,8 +207,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const handleArchive = async () => {
     if (!memo) return;
     await archiveMemo(memo.id, true);
-    toast({
-        title: "Memo Archived",
+    toast.success("Memo Archived", {
         description: "The memo has been moved to your archive."
     });
     onUpdate();
@@ -220,8 +216,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const handleUnarchive = async () => {
     if (!memo) return;
     await archiveMemo(memo.id, false);
-    toast({
-        title: "Memo Unarchived",
+    toast.success("Memo Unarchived", {
         description: "The memo has been restored from your archive."
     });
     onUpdate();
@@ -245,9 +240,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const handleToggleFlag = async () => {
       if (!memo) return;
       const result = await toggleFlag(memo.id);
-      toast({
-          title: result.isFlagged ? "Memo Flagged" : "Memo Unflagged",
-      });
+      toast.success(result.isFlagged ? "Memo Flagged" : "Memo Unflagged");
       onUpdate();
   }
 

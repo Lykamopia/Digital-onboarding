@@ -36,7 +36,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
 import type { User, Role, Office, Department, Division, District, Branch } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUsers, useOffices, useRoles, useDepartments, useDivisions, useDistricts, useBranches } from "../hooks";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +97,6 @@ export default function UsersPage() {
   const { data: districts, loading: loadingDistricts } = useDistricts();
   const { data: branches, loading: loadingBranches } = useBranches();
   
-  const { toast } = useToast();
     const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   
@@ -124,7 +123,7 @@ export default function UsersPage() {
     e.preventDefault();
     
     if (!formState.name || !formState.email || !formState.officeId || !formState.roleId) {
-        toast({ title: "Error", description: "Name, Email, Office and Role are required.", variant: "destructive" });
+        toast.error("Error", { description: "Name, Email, Office and Role are required." });
         return;
     }
     
@@ -140,16 +139,16 @@ export default function UsersPage() {
         try {
             const result = await saveUser(userData);
             if (result.error) {
-                    toast({ title: 'Error Saving User', description: result.error, variant: 'destructive'});
+                    toast.error('Error Saving User', { description: result.error });
                     return;
             }
             await mutateUsers();
-            toast({ title: "Success", description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
+            toast.success("Success", { description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
             setIsFormDialogOpen(false);
             setEditingUser(null);
             setFormState(initialFormState);
         } catch (error: any) {
-            toast({ title: 'Error', description: error?.message || 'Failed to save user.', variant: 'destructive' });
+            toast.error('Error', { description: error?.message || 'Failed to save user.' });
         } finally {
             setIsSaving(false);
         }
@@ -229,12 +228,12 @@ export default function UsersPage() {
             const result = await resetUserPassword(resetUser.id);
             setResetUser(null); // Close the alert dialog
             if(result.success) {
-                    toast({ title: "Success", description: `A password reset email has been sent to ${resetUser.email}.` });
+                    toast.success("Success", { description: `A password reset email has been sent to ${resetUser.email}.` });
             } else {
-                    toast({ title: "Error", description: result.error, variant: "destructive" });
+                    toast.error("Error", { description: result.error });
             }
         } catch (error: any) {
-            toast({ title: 'Error', description: error?.message || 'Failed to reset password.', variant: 'destructive' });
+            toast.error('Error', { description: error?.message || 'Failed to reset password.' });
         } finally {
             setIsResetting(false);
         }
@@ -248,12 +247,12 @@ export default function UsersPage() {
                     setDeleteUserAlert(null);
                     if (result.success) {
                             await mutateUsers();
-                            toast({ title: "Success", description: "User has been deleted." });
+                            toast.success("Success", { description: "User has been deleted." });
                     } else {
-                            toast({ title: "Error", description: result.error, variant: "destructive" });
+                            toast.error("Error", { description: result.error });
                     }
                 } catch (error: any) {
-                    toast({ title: 'Error', description: error?.message || 'Failed to delete user.', variant: 'destructive' });
+                    toast.error('Error', { description: error?.message || 'Failed to delete user.' });
                 } finally {
                     setIsDeleting(false);
                 }
@@ -264,9 +263,9 @@ export default function UsersPage() {
             try {
                 await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
                 await mutateUsers();
-                toast({ title: "Success", description: `User has been ${newStatus}.` });
+                toast.success("Success", { description: `User has been ${newStatus}.` });
             } catch (error: any) {
-                toast({ title: 'Error', description: error?.message || 'Failed to change status.', variant: 'destructive' });
+                toast.error('Error', { description: error?.message || 'Failed to change status.' });
             }
   }
 
@@ -281,9 +280,9 @@ export default function UsersPage() {
                 }));
                 await mutateUsers();
                 setSelectedUsers([]);
-                toast({ title: "Success", description: `Selected users have been ${status}.`});
+                toast.success("Success", { description: `Selected users have been ${status}.`});
             } catch (error: any) {
-                toast({ title: 'Error', description: error?.message || 'Failed to update selected users.', variant: 'destructive' });
+                toast.error('Error', { description: error?.message || 'Failed to update selected users.' });
             }
   }
 

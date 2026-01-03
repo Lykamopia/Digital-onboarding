@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { saveDistrict, deleteDistrict } from "@/app/actions/memo";
 import type { District } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDistricts, useOffices } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
@@ -64,7 +64,6 @@ function DistrictsLoadingSkeleton() {
 export default function DistrictsPage() {
   const { data: districts, loading: loadingDistricts, mutate: mutateDistricts } = useDistricts();
   const { data: offices, loading: loadingOffices } = useOffices();
-  const { toast } = useToast();
 
   const [editingDistrict, setEditingDistrict] = useState<District | null>(null);
   const [deletingDistrict, setDeletingDistrict] = useState<District | null>(null);
@@ -98,7 +97,7 @@ export default function DistrictsPage() {
     const code = formData.get('code') as string;
 
     if (!name || !code || !selectedOfficeId) {
-        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        toast.error("Error", { description: "All fields are required." });
         return;
     }
 
@@ -113,12 +112,12 @@ export default function DistrictsPage() {
     try {
       await saveDistrict(districtData);
       await mutateDistricts();
-      toast({ title: "Success", description: `District ${editingDistrict ? 'updated' : 'created'} successfully.` });
+      toast.success("Success", { description: `District ${editingDistrict ? 'updated' : 'created'} successfully.` });
       setIsDialogOpen(false);
       setEditingDistrict(null);
       setSelectedOfficeId(undefined);
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to save district.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to save district.' });
     } finally {
       setIsSaving(false);
     }
@@ -146,13 +145,13 @@ export default function DistrictsPage() {
     try {
       const result = await deleteDistrict(deletingDistrict.id);
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast.error("Error", { description: result.error });
       } else {
-        toast({ title: "Success", description: "District deleted successfully." });
+        toast.success("Success", { description: "District deleted successfully." });
         await mutateDistricts();
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to delete district.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to delete district.' });
     } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);

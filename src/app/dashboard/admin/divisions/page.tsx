@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveDivision, deleteDivision } from "@/app/actions/memo";
 import type { Division } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDivisions, useDepartments } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
@@ -65,7 +65,6 @@ function DivisionsLoadingSkeleton() {
 export default function DivisionsPage() {
   const { data: divisions, loading, mutate } = useDivisions();
   const { data: departments, loading: loadingDepts } = useDepartments();
-  const { toast } = useToast();
   
   const [editingDivision, setEditingDivision] = useState<Partial<Division> | null>(null);
   const [deletingDivision, setDeletingDivision] = useState<Division | null>(null);
@@ -99,7 +98,7 @@ export default function DivisionsPage() {
     const code = formData.get('code') as string;
     
     if (!name || !code || !selectedDepartmentId) {
-        toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        toast.error("Error", { description: "All fields are required." });
         return;
     }
 
@@ -114,11 +113,11 @@ export default function DivisionsPage() {
     try {
       await saveDivision(divisionData);
       await mutate();
-      toast({ title: "Success", description: `Division ${editingDivision?.id ? 'updated' : 'created'} successfully.` });
+      toast.success("Success", { description: `Division ${editingDivision?.id ? 'updated' : 'created'} successfully.` });
       setIsDialogOpen(false);
       setEditingDivision(null);
     } catch (error: any) {
-      toast({ title: "Error", description: error?.message || 'Failed to save division.', variant: 'destructive' });
+      toast.error("Error", { description: error?.message || 'Failed to save division.' });
     } finally {
       setIsSaving(false);
     }
@@ -145,13 +144,13 @@ export default function DivisionsPage() {
     try {
       const result = await deleteDivision(deletingDivision.id);
       if (result && result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast.error("Error", { description: result.error });
       } else {
-        toast({ title: "Success", description: "Division deleted successfully." });
+        toast.success("Success", { description: "Division deleted successfully." });
         await mutate();
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error?.message || 'Failed to delete division.', variant: 'destructive' });
+      toast.error("Error", { description: error?.message || 'Failed to delete division.' });
     } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);

@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveOffice, deleteOffice } from "@/app/actions/memo";
 import type { Office } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOffices } from "../hooks";
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Trash2, Edit, PlusCircle, Loader2 } from "lucide-react";
@@ -63,7 +63,6 @@ function OfficesLoadingSkeleton() {
 
 export default function OfficesPage() {
   const { data: offices, loading, mutate } = useOffices();
-  const { toast } = useToast();
   
   const [editingOffice, setEditingOffice] = useState<Partial<Office> | null>(null);
   const [deletingOffice, setDeletingOffice] = useState<Office | null>(null);
@@ -88,7 +87,7 @@ export default function OfficesPage() {
     const code = formData.get('code') as string;
     
     if (!name || !code) {
-        toast({ title: "Error", description: "Name and code are required.", variant: "destructive" });
+        toast.error("Error", { description: "Name and code are required." });
         return;
     }
 
@@ -102,11 +101,11 @@ export default function OfficesPage() {
     try {
       await saveOffice(officeData);
       await mutate();
-      toast({ title: "Success", description: `Office ${editingOffice?.id ? 'updated' : 'created'} successfully.` });
+      toast.success("Success", { description: `Office ${editingOffice?.id ? 'updated' : 'created'} successfully.` });
       setIsDialogOpen(false);
       setEditingOffice(null);
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to save office.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to save office.' });
     } finally {
       setIsSaving(false);
     }
@@ -133,13 +132,13 @@ export default function OfficesPage() {
     try {
       const result = await deleteOffice(deletingOffice.id);
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast.error("Error", { description: result.error });
       } else {
-        toast({ title: "Success", description: "Office deleted successfully." });
+        toast.success("Success", { description: "Office deleted successfully." });
         await mutate();
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to delete office.', variant: 'destructive' });
+      toast.error('Error', { description: error?.message || 'Failed to delete office.' });
     } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);

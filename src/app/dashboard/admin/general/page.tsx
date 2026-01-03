@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getGeneralSettings, saveGeneralSettings } from "@/app/actions/memo";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Save } from "lucide-react";
 import type { AcknowledgementType } from "@/lib/types";
@@ -23,7 +24,6 @@ export default function GeneralSettingsPage() {
   const [settings, setSettings] = useState({ acknowledgementType: 'SIGNATURE' as AcknowledgementType });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchSettings() {
@@ -39,9 +39,9 @@ export default function GeneralSettingsPage() {
     setIsSaving(true);
     const result = await saveGeneralSettings(settings);
     if(result.success) {
-      toast({ title: "Settings Saved", description: "General settings have been updated." });
+      toast.success("Settings Saved", { description: "General settings have been updated." });
     } else {
-      toast({ title: "Error", description: "Could not save settings." });
+      toast.error("Error", { description: "Could not save settings." });
     }
     setIsSaving(false);
   };
