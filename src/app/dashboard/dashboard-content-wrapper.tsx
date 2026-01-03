@@ -1,14 +1,12 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star } from 'lucide-react';
 
 import type { User, Permission, MemoWithActivity } from '@/lib/types';
-import { useNotification } from '@/components/notification-provider';
-import { getDashboardData } from '@/app/actions/memo';
 
 import {
   Sidebar,
@@ -27,7 +25,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Breadcrumb } from '../components/breadcrumb';
+import { Breadcrumb } from '@/components/breadcrumb';
 
 interface DashboardContentWrapperProps {
   user: (User & { role: { permissions: Permission[] } }) | null;
@@ -36,58 +34,12 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { addNotificationToList } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
-  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!user || user.mustChangePassword || !isMounted) return;
-
-    // This function runs only once on initial load to populate the notification list
-    // Only fetch if we're not already on the inbox page (to avoid duplicate requests)
-    const checkInitialMemos = async () => {
-      if (!isInitialLoad.current) return;
-      isInitialLoad.current = false;
-
-      // Skip if we're on the inbox page - the page component already loaded the data
-      // This prevents duplicate requests on initial load
-      if (pathname === '/dashboard/inbox') {
-        return;
-      }
-
-      const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', { from: undefined, to: undefined }, [], '');
-      
-      const unreadMemos = inboxMemos.filter(memo => 
-          !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
-          !memo.acknowledgedBy?.some(ackUser => ackUser.id === user.id)
-      );
-
-      if (unreadMemos.length > 0) {
-        unreadMemos.forEach(memo => {
-          const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-          const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
-          
-          const notificationPayload = {
-            title: isForward ? 'Memo Delegated to You' : 'New Memo Received',
-            description: `From: ${isForward && lastActivity.actor ? lastActivity.actor.name : memo.from.name} - ${memo.subject}`,
-            memoId: memo.id,
-          };
-          
-          // On initial load, just add to the list without a toast.
-          addNotificationToList(notificationPayload);
-        });
-      }
-      
-    };
-
-    // Initial check
-    checkInitialMemos();
-
-  }, [user, addNotificationToList, isMounted, pathname]);
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
