@@ -68,7 +68,7 @@ export function ChangePasswordForm({ onPasswordChanged }: ChangePasswordFormProp
             
             reset();
             
-            // This refresh will now re-run middleware with the updated token
+            // This refresh will now re-run middleware and layouts with the updated token
             router.refresh();
 
         } else {

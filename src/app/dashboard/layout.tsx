@@ -84,6 +84,16 @@ interface DashboardLayoutProps {
 }
 
 function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
+  if (user && user.mustChangePassword) {
+    // If user must change password, only render the child page (change-password page)
+    // inside a minimal layout, without the full dashboard shell.
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider>
         <WebSocketHandler user={user} />
@@ -108,7 +118,9 @@ export default function DashboardLayout({
     getLoggedInUser().then(async (userData) => {
       if (userData) {
         setUser(userData as any);
-        await initializeNotifications(userData);
+        if (!userData.mustChangePassword) {
+            await initializeNotifications(userData);
+        }
       }
       setLoading(false);
     });

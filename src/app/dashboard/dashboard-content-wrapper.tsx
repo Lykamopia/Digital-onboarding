@@ -1,10 +1,10 @@
 
-"use client";
+'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star } from 'lucide-react';
 
 import type { User, Permission, MemoWithActivity } from '@/lib/types';
 import { useNotification } from '@/components/notification-provider';
@@ -21,12 +21,13 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/logo';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { UserNav } from '@/components/user-nav';
 import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Breadcrumb } from '../components/breadcrumb';
 
 interface DashboardContentWrapperProps {
   user: (User & { role: { permissions: Permission[] } }) | null;
@@ -35,7 +36,7 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const { addNotificationToList, showNotification } = useNotification();
+  const { addNotificationToList } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
   const isInitialLoad = useRef(true);
 
@@ -100,6 +101,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         ]
       : [
           { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
           { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
           { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
           { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
@@ -146,11 +148,13 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="sm:max-w-xs">
-                <nav className="grid gap-6 text-lg font-medium">
-                  <Link href="#" className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base">
-                    <Logo hideText />
-                    <span className="sr-only">Nib Memo</span>
+                <SheetHeader className="p-4">
+                  <SheetTitle className="sr-only">Main Menu</SheetTitle>
+                   <Link href="/dashboard/inbox" className="flex items-center gap-2">
+                      <Logo />
                   </Link>
+                </SheetHeader>
+                <nav className="grid gap-4 p-4 text-lg font-medium">
                   {navItems.filter(item => item.visible && !item.className?.includes('hidden')).map(item => (
                     <Link key={item.label} href={item.href} className={`flex items-center gap-4 px-2.5 ${item.active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                       {item.icon}
@@ -161,6 +165,9 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
               </SheetContent>
             </Sheet>
             <SidebarTrigger className="hidden md:flex" />
+            <div className="md:flex items-center">
+              <Breadcrumb />
+            </div>
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
