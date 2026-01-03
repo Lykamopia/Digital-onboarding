@@ -110,6 +110,7 @@ export default function NewMemoPage() {
   const [draftId, setDraftId] = useState<string | null>(searchParams.get('id'));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isInitializingRef = useRef(false);
 
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -194,7 +195,7 @@ export default function NewMemoPage() {
   }, [updatePreview]);
 
   const saveDraftCallback = useCallback(async () => {
-    if (!loggedInUser) return;
+    if (!loggedInUser || isInitializingRef.current) return;
     
     let draftBody = (isReplying || isForwarding) ? replyBody : body;
     if ((isReplying || isForwarding) && body) {
@@ -213,28 +214,32 @@ export default function NewMemoPage() {
     };
     
     setIsSaving(true);
-    const savedDraft = await saveDraft(draftData, draftId);
-    
-    if (savedDraft && !draftId) {
-      setDraftId(savedDraft.id); // Set the new draft ID in state
-      const newParams = new URLSearchParams(window.location.search);
-      newParams.set('id', savedDraft.id);
-      router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
-    }
-    
-    setIsDraft(true);
-    
-    setTimeout(() => {
-        setIsSaving(false);
+    try {
+        const savedDraft = await saveDraft(draftData, draftId);
+        
+        if (savedDraft && !draftId) {
+            setDraftId(savedDraft.id); // Set the new draft ID in state
+            const newParams = new URLSearchParams(window.location.search);
+            newParams.set('id', savedDraft.id);
+            router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
+        }
+        
+        setIsDraft(true);
         setLastSaved(new Date().toLocaleTimeString());
-    }, 500);
+    } catch (error) {
+        console.error("Failed to save draft:", error);
+    } finally {
+        // Use a timeout to give a visual "saving" feedback
+        setTimeout(() => setIsSaving(false), 500);
+    }
   }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, forwardFrom, router, isReplying, isForwarding]);
 
   const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
 
   useEffect(() => {
     const hasContent = subject || body || replyBody || to.length || cc.length || attachments.length || labels.length;
-    if (hasContent) {
+    // Don't auto-save while initializing from a reply/forward to prevent race conditions.
+    if (hasContent && !isInitializingRef.current) {
         debouncedSave();
     }
   }, [subject, body, replyBody, to, cc, attachments, labels, debouncedSave]);
@@ -242,89 +247,107 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const initialize = async () => {
-      const currentDraftId = searchParams.get('id');
-      const replyToId = searchParams.get('replyTo');
-      const replyAllToId = searchParams.get('replyAllTo');
-      const forwardFromId = searchParams.get('forwardFrom');
+        isInitializingRef.current = true;
+        const currentDraftId = searchParams.get('id');
+        const replyToId = searchParams.get('replyTo');
+        const replyAllToId = searchParams.get('replyAllTo');
+        const forwardFromId = searchParams.get('forwardFrom');
 
-      setDraftId(currentDraftId); // Keep state in sync with URL
-
-      if (currentDraftId) {
-        const draft = await getMemo(currentDraftId);
-        if (draft) {
-          let bodyContent = draft.body || '';
-          let replyContent = '';
-          if ((draft.replyToId || draft.forwardFromId) && draft.body.includes('<hr>')) {
-              const parts = draft.body.split('<hr>');
-              replyContent = parts[0];
-              bodyContent = parts.slice(1).join('<hr>');
-          } else if (!draft.replyToId && !draft.forwardFromId) {
-            bodyContent = draft.body;
-          }
-          
-          setTo(draft.to);
-          setCc(draft.cc);
-          setLabels(draft.labels);
-          setSubject(draft.subject);
-          setBody(bodyContent);
-          setReplyBody(replyContent);
-          setAttachments(draft.attachments);
-          setReplyTo(draft.replyToId || undefined);
-          setForwardFrom(draft.forwardFromId || undefined);
-          setIsDraft(true);
+        // Prevent re-initialization if the draft ID from URL already matches state
+        if (currentDraftId && currentDraftId === draftId && !replyToId && !replyAllToId && !forwardFromId) {
+            isInitializingRef.current = false;
+            return;
         }
-      } else if (replyToId || replyAllToId) {
-          const originalMemoId = replyToId || replyAllToId;
-          const originalMemo = await getMemo(originalMemoId!);
-          if (originalMemo && loggedInUser) {
-              const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
-              setBody(originalContent);
-              setSubject(`Re: ${originalMemo.subject}`);
-              setReplyTo(originalMemoId);
-              setForwardFrom(undefined);
 
-              if (replyAllToId) {
-                  const toRecipients = new Set([originalMemo.from.id]);
-                  const ccRecipients = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
-                  
-                  // Exclude current user and original sender from CC
-                  ccRecipients.delete(loggedInUser.id);
-                  ccRecipients.delete(originalMemo.from.id);
-                  
-                  setTo(Array.from(toRecipients).map(id => users.find(u => u.id === id)).filter(Boolean) as User[]);
-                  setCc(Array.from(ccRecipients).map(id => users.find(u => u.id === id)).filter(Boolean) as User[]);
-              } else {
-                  setTo([originalMemo.from]);
-                  setCc([]);
-              }
-              // Immediately flush the debounced save to get a draft ID
-              debouncedSave.flush();
-          }
-      } else if (forwardFromId) {
-          const originalMemo = await getMemo(forwardFromId);
-          if (originalMemo) {
-              const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
-              setBody(originalContent);
-              setSubject(`Fw: ${originalMemo.subject}`);
-              setTo([]);
-              setCc([]);
-              setForwardFrom(forwardFromId);
-              setReplyTo(undefined);
-              // Immediately flush the debounced save to get a draft ID
-              debouncedSave.flush();
-          }
-      } else {
-          // Reset for a completely new memo
-          setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined);
-          setIsDraft(false); setLastSaved(null);
-      }
+        setDraftId(currentDraftId);
+
+        if (currentDraftId) {
+            const draft = await getMemo(currentDraftId);
+            if (draft) {
+                let bodyContent = draft.body || '';
+                let replyContent = '';
+                if ((draft.replyToId || draft.forwardFromId) && draft.body.includes('<hr>')) {
+                    const parts = draft.body.split('<hr>');
+                    replyContent = parts[0];
+                    bodyContent = parts.slice(1).join('<hr>');
+                } else if (!draft.replyToId && !draft.forwardFromId) {
+                    bodyContent = draft.body;
+                }
+                
+                setTo(draft.to);
+                setCc(draft.cc);
+                setLabels(draft.labels);
+                setSubject(draft.subject);
+                setBody(bodyContent);
+                setReplyBody(replyContent);
+                setAttachments(draft.attachments);
+                setReplyTo(draft.replyToId || undefined);
+                setForwardFrom(draft.forwardFromId || undefined);
+                setIsDraft(true);
+            }
+        } else if (replyToId || replyAllToId) {
+            const originalMemoId = replyToId || replyAllToId;
+            const originalMemo = await getMemo(originalMemoId!);
+            if (originalMemo && loggedInUser) {
+                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
+                setBody(originalContent);
+                const newSubject = `Re: ${originalMemo.subject}`;
+                setSubject(newSubject);
+                setReplyTo(originalMemoId);
+                setForwardFrom(undefined);
+
+                let toRecipients: User[], ccRecipients: User[];
+                if (replyAllToId) {
+                    const toSet = new Set([originalMemo.from.id]);
+                    const ccSet = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
+                    ccSet.delete(loggedInUser.id);
+                    ccSet.delete(originalMemo.from.id);
+                    toRecipients = Array.from(toSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
+                    ccRecipients = Array.from(ccSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
+                } else {
+                    toRecipients = [originalMemo.from];
+                    ccRecipients = [];
+                }
+                setTo(toRecipients);
+                setCc(ccRecipients);
+
+                const newDraft = await saveDraft({
+                    to: toRecipients, cc: ccRecipients, subject: newSubject, body: originalContent, replyToId: originalMemoId
+                });
+                if(newDraft) {
+                    router.replace(`/dashboard/new?id=${newDraft.id}`);
+                }
+            }
+        } else if (forwardFromId) {
+            const originalMemo = await getMemo(forwardFromId);
+            if (originalMemo) {
+                const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
+                const newSubject = `Fw: ${originalMemo.subject}`;
+                setBody(originalContent);
+                setSubject(newSubject);
+                setTo([]);
+                setCc([]);
+                setForwardFrom(forwardFromId);
+                setReplyTo(undefined);
+                
+                const newDraft = await saveDraft({ subject: newSubject, body: originalContent, forwardFromId: forwardFromId });
+                if(newDraft) {
+                     router.replace(`/dashboard/new?id=${newDraft.id}`);
+                }
+            }
+        } else {
+            // Reset for a completely new memo
+            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined); setLabels([]);
+            setIsDraft(false); setLastSaved(null);
+        }
+        isInitializingRef.current = false;
     };
 
     if(loggedInUser && users.length > 0) {
         initialize();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, loggedInUser, users]);
+  }, [searchParams, loggedInUser, users, router]);
 
   async function handleDeleteDraft() {
       if (draftId) {
