@@ -34,11 +34,6 @@ const itemVariants = {
   visible: { opacity: 1, x: 0 },
 };
 
-const iconVariants = {
-  rest: { scale: 1, rotate: 0 },
-  hover: { scale: 1.2, rotate: 5 },
-};
-
 export function Breadcrumb() {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
@@ -73,20 +68,17 @@ export function Breadcrumb() {
         <Fragment key={crumb.href}>
           <motion.div variants={itemVariants}>
             <Link href={crumb.href}>
-              <motion.div
+              <div
                 className={cn(
                   "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                   index === breadcrumbs.length - 1
                     ? 'bg-primary/10 text-primary pointer-events-none'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
-                variants={iconVariants}
-                whileHover="hover"
-                transition={{ type: 'spring', stiffness: 300 }}
               >
                 {crumb.icon}
                 <span className="whitespace-nowrap">{crumb.label}</span>
-              </motion.div>
+              </div>
             </Link>
           </motion.div>
           {index < breadcrumbs.length - 1 && (
