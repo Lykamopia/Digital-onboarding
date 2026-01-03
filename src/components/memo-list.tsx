@@ -15,7 +15,7 @@ import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
 import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Pin, PinOff } from "lucide-react"
 import { toast } from "sonner"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator, AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/context-menu"
 import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
 
@@ -292,10 +292,26 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         if (tab === 'drafts') {
             return (
                 <ContextMenuContent>
-                    <ContextMenuItem onSelect={() => handleDeleteDraft(memo.id)} className="text-destructive" data-destructive>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete Draft</span>
-                    </ContextMenuItem>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <ContextMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive data-[highlighted]:bg-destructive/10" data-destructive>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete Draft</span>
+                            </ContextMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete this draft.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDraft(memo.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </ContextMenuContent>
             );
         }
@@ -342,17 +358,28 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     </ContextMenuItem>
                 )}
                 <ContextMenuSeparator />
-                {tab === 'archive' ? (
-                    <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
-                        <Undo2 className="mr-2 h-4 w-4" />
-                        <span>Unarchive</span>
-                    </ContextMenuItem>
-                ) : (
-                    <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        <span>Archive</span>
-                    </ContextMenuItem>
-                )}
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                             {tab === 'archive' ? <Undo2 className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
+                             <span>{tab === 'archive' ? 'Unarchive' : 'Archive'}</span>
+                        </ContextMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {tab === 'archive' ? 'This memo will be moved back to your inbox.' : 'This will move the memo to your personal archive.'}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleArchive(memo.id, tab !== 'archive')}>
+                                {tab === 'archive' ? 'Unarchive' : 'Archive'}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </ContextMenuContent>
         )
     }

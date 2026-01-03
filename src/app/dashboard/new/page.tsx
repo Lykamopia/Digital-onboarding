@@ -1,6 +1,5 @@
 
-
-"use client";
+'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -87,7 +86,7 @@ const memoTemplates = [
       label: 'Meeting / Agenda Memo',
       icon: <CalendarDays className="h-10 w-10 text-primary" />,
       subject: 'Meeting Agenda: [Meeting Title]',
-      body: `<p>This memo is to announce an upcoming meeting and outline the agenda.</p><p><strong>Meeting Details:</strong></p><ul><li><strong>Date:</strong> [Date of meeting].</li><li><strong>Time:</strong> [Time of meeting].</li><li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li><li><strong>Attendees:</strong> [List key attendees or teams].</li></ul><p><strong>Agenda:</strong></p><ol><li><strong>Call to Order & Welcome</strong></li><li><strong>Review of Previous Minutes</strong></li><li><strong>[Agenda Item 1]:</strong> [Brief description].</li><li><strong>[Agenda Item 2]:</strong> [Brief description].</li><li><strong>Open Discussion / Q&A</strong></li><li><strong>Action Items & Next Steps</strong></li><li><strong>Adjournment</strong></li></ol><p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>`,
+      body: `<p>This memo is to announce an upcoming meeting and outline the agenda.</p><p><strong>Meeting Details:</strong></p><ul><li><strong>Date:</strong> [Date of meeting].</li><li><strong>Time:</strong> [Time of meeting].</li><li><strong>Location:</strong> [Location, e.g., Board Room, or specify if virtual].</li><li><strong>Attendees:</strong> [List key attendees or teams].</li></ul><p><strong>Agenda:</strong></p><ol><li><strong>Call to Order & Welcome</strong></li><li><strong>Review of Previous Minutes</strong></li><li><strong>[Agenda Item 1]:</strong> [Briefly describe].</li><li><strong>[Agenda Item 2]:</strong> [Briefly describe].</li><li><strong>Open Discussion / Q&A</strong></li><li><strong>Action Items & Next Steps</strong></li><li><strong>Adjournment</strong></li></ol><p>Please come prepared to discuss the items listed above. If you have anything to add to the agenda, please submit it by [Date/Time].</p>`,
     },
     {
         value: 'policy_procedure',
@@ -662,13 +661,12 @@ ccSet.delete(originalMemo.from.id);
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your
-                                draft.
+                                This action cannot be undone. This will permanently delete this draft.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteDraft}>Continue</AlertDialogAction>
+                                <AlertDialogAction onClick={handleDeleteDraft} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                             </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>

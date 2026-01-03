@@ -17,6 +17,7 @@ import {
   Users,
   Loader2,
   ArrowLeft,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -429,14 +430,14 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-xl">Confirm Acknowledgement</AlertDialogTitle>
+                                        <AlertDialogTitle>Confirm Acknowledgement</AlertDialogTitle>
                                         <AlertDialogDescription>
                                             By confirming, you are officially acknowledging receipt of this memo. 
                                             {useSignature && loggedInUser?.signature ? " Your saved digital signature will be applied. " : " This action will be recorded. "}
                                             This action is final and cannot be undone.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
-                                    <AlertDialogFooter className="mt-4">
+                                    <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         <AlertDialogAction onClick={handleAcknowledge} disabled={isAcknowledging}>
                                             {isAcknowledging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -474,15 +475,29 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         <Button variant="ghost" size="icon" onClick={handlePrint}>
                             <Printer className="h-4 w-4" />
                         </Button>
-                        {isArchived ? (
-                            <Button variant="ghost" size="icon" onClick={handleUnarchive} title="Unarchive">
-                                <Undo2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                        ) : (
-                            <Button variant="ghost" size="icon" onClick={handleArchive} title="Archive">
-                                <Archive className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                        )}
+                        
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    {isArchived ? <Undo2 className="h-4 w-4 text-muted-foreground" /> : <Archive className="h-4 w-4 text-muted-foreground" />}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure you want to {isArchived ? 'unarchive' : 'archive'} this memo?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {isArchived ? "This memo will be moved back to your inbox." : "This will move the memo to your personal archive. You can access it later from the Archive folder."}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={isArchived ? handleUnarchive : handleArchive}>
+                                        {isArchived ? 'Unarchive' : 'Archive'}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
                         </div>
                         <Separator className="my-6 no-print" />
 
