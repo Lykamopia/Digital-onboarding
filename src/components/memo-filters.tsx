@@ -163,8 +163,7 @@ export function MemoFilters({
                     variant={"outline"}
                     className={cn(
                         "w-full sm:w-auto flex-1 justify-start text-left font-normal",
-                        !dateRange && "text-muted-foreground",
-                        "border-muted-foreground/50 hover:border-muted-foreground"
+                        !dateRange && "text-muted-foreground"
                     )}
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -192,12 +191,12 @@ export function MemoFilters({
                         numberOfMonths={1}
                     />
                      <div className="p-2 border-t grid grid-cols-2 gap-2">
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="outline" size="sm" className="justify-start border-muted-foreground/50 hover:border-muted-foreground" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="outline" size="sm" className="justify-start border-input" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
                     </div>
                 </PopoverContent>
             </Popover>
