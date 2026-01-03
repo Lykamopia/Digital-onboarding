@@ -61,7 +61,9 @@ async function sendToWebSocket(data: any) {
 }
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
-    const user = await hasPermission('view_dashboard');
+    const requiredPermission = tab === 'drafts' ? 'manage_memos' : 'view_dashboard';
+    const user = await hasPermission(requiredPermission);
+
 
     if (user.mustChangePassword) {
       // If user must change password, they should only see the change password page.
