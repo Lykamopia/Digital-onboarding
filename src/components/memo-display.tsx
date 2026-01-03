@@ -54,6 +54,7 @@ import { StatusBadge } from './status-badge';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
 import { InboxEmptyIllustration } from './inbox-empty-illustration';
 import { cn } from '@/lib/utils';
+import { AcknowledgeIllustration } from './acknowledge-illustration';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -428,26 +429,28 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" disabled={isAcknowledging}>
-                                        {isAcknowledging ? (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                        )}
+                                        <CheckCircle className="mr-2 h-4 w-4" />
                                         Acknowledge
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirm Acknowledgement</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Are you sure you want to acknowledge this memo? This action is final and will be recorded.
-                                            {useSignature && loggedInUser?.signature && " Your digital signature will be applied."}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleAcknowledge}>Confirm</AlertDialogAction>
-                                    </AlertDialogFooter>
+                                    <div className="flex flex-col items-center text-center p-6">
+                                        <AcknowledgeIllustration />
+                                        <AlertDialogHeader className="mt-4">
+                                            <AlertDialogTitle className="text-xl">Confirm Acknowledgement</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action is final and confirms your receipt of this memo.
+                                                {useSignature && loggedInUser?.signature && " Your digital signature will be applied."}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter className="mt-6 w-full flex-row gap-2">
+                                            <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction className="flex-1" onClick={handleAcknowledge} disabled={isAcknowledging}>
+                                                {isAcknowledging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                Confirm
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </div>
                                 </AlertDialogContent>
                             </AlertDialog>
                         }
