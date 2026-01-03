@@ -15,6 +15,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { cn } from '@/lib/utils';
 import { LabelSelector } from '@/components/label-selector';
 import type { Label as LabelType } from '@/lib/types';
+import { Separator } from './ui/separator';
 
 
 interface MemoFiltersProps {
@@ -181,7 +182,16 @@ export function MemoFilters({
                     )}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 flex" align="start">
+                    <div className="flex flex-col space-y-2 border-r p-4">
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                    </div>
+                    <Separator orientation="vertical" />
                     <Calendar
                         initialFocus
                         mode="range"
@@ -190,14 +200,6 @@ export function MemoFilters({
                         onSelect={handleDateChange}
                         numberOfMonths={1}
                     />
-                     <div className="p-2 border-t grid grid-cols-2 gap-2">
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="outline" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
-                    </div>
                 </PopoverContent>
             </Popover>
             {tab === 'inbox' && (
