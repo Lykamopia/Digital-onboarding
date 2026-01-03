@@ -3,15 +3,15 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
-
-const READ_NOTIFICATIONS_KEY = 'read-notifications';
+import { getDashboardData } from '@/app/actions/memo';
+import type { MemoWithActivity, User } from '@/lib/types';
 
 type Notification = {
   id: string;
   title: React.ReactNode;
   description?: React.ReactNode;
   createdAt: Date;
-  read: boolean;
+  read: boolean; // This will now represent if it's in the dropdown, not DB status
   memoId?: string;
 };
 
@@ -24,11 +24,12 @@ type NotificationContextType = {
   settings: NotificationSettings;
   setSettings: (settings: Partial<NotificationSettings>) => void;
   showNotification: (props: ShowNotificationProps) => void;
-  addNotificationToList: (props: ShowNotificationProps) => void;
+  addNotification: (memo: MemoWithActivity) => void;
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  initializeNotifications: (user: User) => Promise<void>;
 };
 
 type NotificationSettings = {
@@ -41,21 +42,6 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
-
-  // Load read notifications from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const audioInstance = new Audio('/ring.mp3');
-        audioInstance.load();
-        setAudio(audioInstance);
-
-        const storedReadIds = localStorage.getItem(READ_NOTIFICATIONS_KEY);
-        if (storedReadIds) {
-            setReadIds(new Set(JSON.parse(storedReadIds)));
-        }
-    }
-  }, []);
   
   const [settings, setSettingsState] = useState<NotificationSettings>(() => {
     if (typeof window === 'undefined') {
@@ -69,6 +55,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return { notificationsEnabled: true, soundEnabled: true };
     }
   });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const audioInstance = new Audio('/ring.mp3');
+        audioInstance.load();
+        setAudio(audioInstance);
+    }
+  }, []);
 
   const setSettings = (newSettings: Partial<NotificationSettings>) => {
     setSettingsState(prev => {
@@ -86,75 +80,80 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   };
   
-  const addNotificationToList = useCallback((props: ShowNotificationProps) => {
+  const initializeNotifications = useCallback(async (user: User) => {
+    const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {}, [], '');
+    const unreadMemos = inboxMemos.filter(memo => 
+        !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
+        !memo.acknowledgedBy?.some(ackUser => ackUser.id === user.id)
+    );
+    
+    const initialNotifications = unreadMemos.map(memo => {
+        const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        const isForward = lastActivity?.action === 'forwarded' && memo.current_holderId === user.id;
+
+        return {
+            id: memo.id,
+            memoId: memo.id,
+            title: isForward ? 'Memo Delegated to You' : 'New Memo Received',
+            description: `From: ${isForward && lastActivity.actor ? lastActivity.actor.name : memo.from.name} - ${memo.subject}`,
+            createdAt: new Date(memo.createdAt),
+            read: false,
+        };
+    });
+    setNotifications(initialNotifications);
+  }, []);
+
+  const addNotification = useCallback((memo: MemoWithActivity) => {
     if (!settings.notificationsEnabled) return;
     
-    const newNotif = {
-        id: props.memoId || `notif-${Date.now()}-${Math.random()}`,
-        title: props.title,
-        description: props.description,
-        createdAt: new Date(),
-        read: false,
-        memoId: props.memoId,
-    };
-    
-    // Do not add if it's already been read
-    if (readIds.has(newNotif.id)) {
-        return;
-    }
-
     setNotifications(prev => {
-        // Prevent duplicate entries
-        if (prev.some(n => n.id === newNotif.id)) {
+        if (prev.some(n => n.id === memo.id)) {
             return prev;
         }
+        
+        const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        const isForward = lastActivity?.action === 'forwarded';
+
+        const newNotif = {
+            id: memo.id,
+            memoId: memo.id,
+            title: isForward ? 'Memo Delegated to You' : 'New Memo Received',
+            description: `From: ${isForward && lastActivity.actor ? lastActivity.actor.name : memo.from.name} - ${memo.subject}`,
+            createdAt: new Date(memo.createdAt),
+            read: false,
+        };
+
+        if (settings.soundEnabled && audio) {
+          audio.play().catch(error => console.error("Audio playback failed:", error));
+        }
+        toast(newNotif.title, { description: newNotif.description });
+
         return [newNotif, ...prev];
     });
-  }, [settings.notificationsEnabled, readIds]);
+  }, [settings.notificationsEnabled, settings.soundEnabled, audio]);
 
   const showNotification = useCallback((props: ShowNotificationProps) => {
-    // Play sound if enabled
+    // This function is now mostly for generic, non-memo related toasts, but can be kept for that purpose.
     if (settings.soundEnabled && audio) {
       audio.play().catch(error => console.error("Audio playback failed:", error));
     }
-    
-    // Add to list and show toast if visual notifications are enabled
     if (settings.notificationsEnabled) {
       toast(props.title, { description: props.description });
-      addNotificationToList(props);
     }
-  }, [settings, audio, addNotificationToList]);
-
+  }, [settings, audio]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-    
-    if (typeof window !== 'undefined') {
-      setReadIds(prevReadIds => {
-          const newReadIds = new Set(prevReadIds);
-          newReadIds.add(id);
-          localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(Array.from(newReadIds)));
-          return newReadIds;
-      });
-    }
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    if (typeof window !== 'undefined') {
-        const allIds = notifications.map(n => n.id);
-        setReadIds(prevReadIds => {
-            const newReadIds = new Set([...prevReadIds, ...allIds]);
-            localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(Array.from(newReadIds)));
-            return newReadIds;
-        });
-    }
     setNotifications([]);
-  }, [notifications]);
+  }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.length;
 
   return (
-    <NotificationContext.Provider value={{ settings, setSettings, showNotification, addNotificationToList, notifications, unreadCount, markAsRead, markAllAsRead }}>
+    <NotificationContext.Provider value={{ settings, setSettings, showNotification, addNotification, notifications, unreadCount, markAsRead, markAllAsRead, initializeNotifications }}>
       {children}
     </NotificationContext.Provider>
   );

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { Suspense, useEffect } from "react"
+import React, { Suspense, useEffect, useState } from "react"
 import type { Session } from "next-auth";
 
 import {
@@ -12,13 +12,11 @@ import { getLoggedInUser } from "../actions/memo"
 import type { Permission, User, MemoWithActivity } from "@/lib/types"
 import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { HoneycombLoader } from "@/components/honeycomb-loader";
-import { usePathname } from "next/navigation";
 import { UserProfileLoader } from "@/components/user-profile-loader";
 
 
 function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
-    const { showNotification } = useNotification();
-    const pathname = usePathname();
+    const { addNotification } = useNotification();
 
     useEffect(() => {
         if (!user) return;
@@ -32,19 +30,16 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
 
             socket.onopen = () => {
                 console.log('WebSocket connection established');
-                // Reset reconnect timer on successful connection
                 if (reconnectTimeout) clearTimeout(reconnectTimeout);
             };
 
             socket.onclose = () => {
                 console.log('WebSocket connection closed. Reconnecting in 3s...');
-                // Schedule a reconnect
                 reconnectTimeout = setTimeout(connect, 3000);
             };
 
             socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                // The onclose event will fire next, which will handle the reconnect.
             };
 
             socket.onmessage = (event) => {
@@ -57,32 +52,8 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
                     
                     if (!isRecipient) return;
 
-                    // Trigger client-side event for UI updates (e.g., memo list)
                     window.dispatchEvent(new CustomEvent('new-memo-received', { detail: { memo } }));
-
-                    let title = '';
-                    let description = '';
-
-                    switch (eventData.type) {
-                        case 'new-memo':
-                            title = 'New Memo Received';
-                            description = `From: ${memo.from.name} - ${memo.subject}`;
-                            break;
-                        case 'reply-memo':
-                             title = 'New Reply Received';
-                             description = `From: ${memo.from.name} - ${memo.subject}`;
-                             break;
-                        case 'forwarded-memo':
-                            const lastActivity = memo.activity.find(a => a.action === 'forwarded');
-                            const forwarderName = lastActivity?.actor?.name || 'Someone';
-                            title = 'Memo Delegated to You';
-                            description = `From: ${forwarderName} - ${memo.subject}`;
-                            break;
-                    }
-                    
-                    if (title) {
-                        showNotification({ title, description, memoId: memo.id });
-                    }
+                    addNotification(memo);
 
                 } catch (error) {
                     console.error('Error parsing WebSocket message:', error);
@@ -93,16 +64,14 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
         connect();
 
         return () => {
-            // Cleanup on component unmount
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
             if (socket) {
-                // Remove the onclose handler before closing to prevent reconnect attempts
                 socket.onclose = null;
                 socket.close();
             }
         };
 
-    }, [user, showNotification, pathname]);
+    }, [user, addNotification]);
 
     return null;
 }
@@ -133,15 +102,18 @@ export default function DashboardLayout({
 }) {
   const [user, setUser] = React.useState<(User & { role: { permissions: Permission[] } }) | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const { initializeNotifications } = useNotification();
 
-  React.useEffect(() => {
-    getLoggedInUser().then(userData => {
-      setUser(userData as any);
+  useEffect(() => {
+    getLoggedInUser().then(async (userData) => {
+      if (userData) {
+        setUser(userData as any);
+        await initializeNotifications(userData);
+      }
       setLoading(false);
     });
-  }, []);
+  }, [initializeNotifications]);
 
-  // Listen for profile updates from child pages (avatar/signature/name/email)
   React.useEffect(() => {
     const handler = (e: any) => {
       const detail = e?.detail;
