@@ -48,7 +48,7 @@ const memoSchema = z.object({
 // Function to send data to WebSocket server via HTTP
 async function sendToWebSocket(data: any) {
     try {
-        await fetch('http://localhost:8080/broadcast', {
+        await fetch(`http://localhost:${process.env.WEBSOCKET_PORT || 3011}/broadcast`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

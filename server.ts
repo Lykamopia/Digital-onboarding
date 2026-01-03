@@ -2,14 +2,24 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '.env.production' });
-dotenv.config(); // Also load .env for development
+dotenv.config(); // Load .env file
 
 const PORT = parseInt(process.env.WEBSOCKET_PORT || '3011', 10);
 
 console.log('Starting WebSocket and HTTP server...');
 
 const server = createServer((req, res) => {
+    // Set CORS headers for all responses
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Adjust this in a real production environment
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
     if (req.method === 'POST' && req.url === '/broadcast') {
         let body = '';
         req.on('data', chunk => {
@@ -24,15 +34,15 @@ const server = createServer((req, res) => {
                         client.send(JSON.stringify(data));
                     }
                 });
-                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ message: 'Broadcast successful' }));
             } catch (error) {
-                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Invalid JSON' }));
             }
         });
     } else {
-        res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not Found' }));
     }
 });
