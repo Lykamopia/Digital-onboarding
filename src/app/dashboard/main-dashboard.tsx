@@ -207,7 +207,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         to: dateRange?.to?.toISOString(),
     };
     try {
-      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels, show);
+      const currentShow = tab === 'favorites' ? '' : show;
+      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels, currentShow);
       setMemos(data as MemoWithActivity[]);
       setHasInitialLoad(true);
 
@@ -260,7 +261,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [memoIdFromUrl, memos, hasInitialLoad]);
   
   const getEmptyState = () => {
-      if (search || status || dateRange || selectedLabels.length > 0 || show) {
+      if (search || status || dateRange || selectedLabels.length > 0 || (show && tab !== 'favorites')) {
         return { 
             icon: <SearchEmptyIllustration />,
             title: "No Memos Found", 

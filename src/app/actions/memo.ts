@@ -96,6 +96,8 @@ export async function getDashboardData(tab: string, query: string, status: strin
             where.AND.push({ fromId: user.id, status: 'draft' });
         } else if (tab === 'scheduled') {
              where.AND.push({ fromId: user.id, status: 'scheduled' });
+        } else if (tab === 'favorites') {
+            where.AND.push({ favoritedBy: { some: { id: user.id } } });
         }
     }
     
@@ -148,7 +150,7 @@ export async function getDashboardData(tab: string, query: string, status: strin
         where.AND.push({ createdAt: { lte: new Date(dateRange.to) } });
     }
     
-    if (show === 'favorites') {
+    if (show === 'favorites' && tab !== 'favorites') {
         where.AND.push({ favoritedBy: { some: { id: user.id } } });
     } else if (show === 'flagged') {
         where.AND.push({ flaggedBy: { some: { id: user.id } } });
