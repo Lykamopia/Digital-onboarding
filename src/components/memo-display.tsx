@@ -434,23 +434,21 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <div className="flex flex-col items-center text-center p-6">
-                                        <AcknowledgeIllustration />
-                                        <AlertDialogHeader className="mt-4">
-                                            <AlertDialogTitle className="text-xl">Confirm Acknowledgement</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This action is final and confirms your receipt of this memo.
-                                                {useSignature && loggedInUser?.signature && " Your digital signature will be applied."}
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter className="mt-6 w-full flex-row gap-2">
-                                            <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
-                                            <AlertDialogAction className="flex-1" onClick={handleAcknowledge} disabled={isAcknowledging}>
-                                                {isAcknowledging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                Confirm
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </div>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-xl">Confirm Acknowledgement</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            By confirming, you are officially acknowledging receipt of this memo. 
+                                            {useSignature && loggedInUser?.signature ? " Your saved digital signature will be applied. " : " This action will be recorded. "}
+                                            This action is final and cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="mt-4">
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleAcknowledge} disabled={isAcknowledging}>
+                                            {isAcknowledging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Confirm & Acknowledge
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                         }
@@ -574,3 +572,5 @@ interface MemoDisplayProps {
   isPreview?: boolean;
   setMemo?: (memo: MemoWithActivity) => void;
 }
+
+    
