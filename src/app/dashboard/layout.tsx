@@ -21,7 +21,7 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
     useEffect(() => {
         if (!user) return;
 
-        const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080';
+        const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3011';
         let socket: WebSocket;
         let reconnectTimeout: NodeJS.Timeout;
 

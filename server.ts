@@ -1,9 +1,11 @@
-
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import dotenv from 'dotenv';
 
-// In a real production app, you'd want to compile this to JS and run with node.
-// For simplicity in this dev environment, we'll use ts-node.
+dotenv.config({ path: '.env.production' });
+dotenv.config(); // Also load .env for development
+
+const PORT = parseInt(process.env.WEBSOCKET_PORT || '3011', 10);
 
 console.log('Starting WebSocket and HTTP server...');
 
@@ -22,15 +24,15 @@ const server = createServer((req, res) => {
                         client.send(JSON.stringify(data));
                     }
                 });
-                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end(JSON.stringify({ message: 'Broadcast successful' }));
             } catch (error) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end(JSON.stringify({ error: 'Invalid JSON' }));
             }
         });
     } else {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: 'Not Found' }));
     }
 });
@@ -45,8 +47,6 @@ wss.on('connection', function connection(ws) {
   ws.on('message', function message(data) {
     console.log('received: %s', data);
     
-    // This server now primarily broadcasts data received via HTTP POST
-    // You could add more complex logic here if needed, but for now we just echo
     ws.send(`You sent: ${data}`);
   });
   
@@ -55,6 +55,6 @@ wss.on('connection', function connection(ws) {
   });
 });
 
-server.listen(8080, () => {
-    console.log('HTTP and WebSocket server is listening on http/ws://localhost:8080');
+server.listen(PORT, () => {
+    console.log(`HTTP and WebSocket server is listening on http/ws://localhost:${PORT}`);
 });
