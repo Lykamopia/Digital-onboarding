@@ -110,7 +110,7 @@ export default function NewMemoPage() {
   const [draftId, setDraftId] = useState<string | null>(searchParams.get('id'));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isInitializingRef = useRef(false);
+  const isInitializingRef = useRef(true);
 
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -238,7 +238,6 @@ export default function NewMemoPage() {
 
   useEffect(() => {
     const hasContent = subject || body || replyBody || to.length || cc.length || attachments.length || labels.length;
-    // Don't auto-save while initializing from a reply/forward to prevent race conditions.
     if (hasContent && !isInitializingRef.current) {
         debouncedSave();
     }
@@ -253,13 +252,11 @@ export default function NewMemoPage() {
         const replyAllToId = searchParams.get('replyAllTo');
         const forwardFromId = searchParams.get('forwardFrom');
 
-        // Prevent re-initialization if the draft ID from URL already matches state
-        if (currentDraftId && currentDraftId === draftId && !replyToId && !replyAllToId && !forwardFromId) {
+        // This prevents re-initialization if a draft ID already exists and no new action is being taken
+        if (draftId && !replyToId && !replyAllToId && !forwardFromId) {
             isInitializingRef.current = false;
             return;
         }
-
-        setDraftId(currentDraftId);
 
         if (currentDraftId) {
             const draft = await getMemo(currentDraftId);
@@ -284,6 +281,7 @@ export default function NewMemoPage() {
                 setReplyTo(draft.replyToId || undefined);
                 setForwardFrom(draft.forwardFromId || undefined);
                 setIsDraft(true);
+                setDraftId(currentDraftId);
             }
         } else if (replyToId || replyAllToId) {
             const originalMemoId = replyToId || replyAllToId;
@@ -301,7 +299,7 @@ export default function NewMemoPage() {
                     const toSet = new Set([originalMemo.from.id]);
                     const ccSet = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
                     ccSet.delete(loggedInUser.id);
-                    ccSet.delete(originalMemo.from.id);
+ccSet.delete(originalMemo.from.id);
                     toRecipients = Array.from(toSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
                     ccRecipients = Array.from(ccSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
                 } else {
@@ -315,6 +313,7 @@ export default function NewMemoPage() {
                     to: toRecipients, cc: ccRecipients, subject: newSubject, body: originalContent, replyToId: originalMemoId
                 });
                 if(newDraft) {
+                    setDraftId(newDraft.id);
                     router.replace(`/dashboard/new?id=${newDraft.id}`);
                 }
             }
@@ -325,6 +324,7 @@ export default function NewMemoPage() {
                 const newSubject = `Fw: ${originalMemo.subject}`;
                 setBody(originalContent);
                 setSubject(newSubject);
+                setReplyBody(''); // Ensure remark is clean
                 setTo([]);
                 setCc([]);
                 setForwardFrom(forwardFromId);
@@ -332,7 +332,8 @@ export default function NewMemoPage() {
                 
                 const newDraft = await saveDraft({ subject: newSubject, body: originalContent, forwardFromId: forwardFromId });
                 if(newDraft) {
-                     router.replace(`/dashboard/new?id=${newDraft.id}`);
+                    setDraftId(newDraft.id);
+                    router.replace(`/dashboard/new?id=${newDraft.id}`);
                 }
             }
         } else {
@@ -347,7 +348,7 @@ export default function NewMemoPage() {
         initialize();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, loggedInUser, users, router]);
+  }, [searchParams, loggedInUser, users]);
 
   async function handleDeleteDraft() {
       if (draftId) {
