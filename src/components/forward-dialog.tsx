@@ -20,6 +20,7 @@ import { getLoggedInUser, getUsers } from '@/app/actions/memo';
 import type { MemoWithActivity, User } from '@/lib/types';
 import Logo from './logo';
 import { Label } from './ui/label';
+import { useRouter } from 'next/navigation';
 
 interface ForwardDialogProps {
   memo: MemoWithActivity;
@@ -58,6 +59,8 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isForwarding, setIsForwarding] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
+
 
   useEffect(() => {
     if (open) {
@@ -91,6 +94,25 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
     setRemark('');
   }
 
+  const handleForward = () => {
+    setIsForwarding(true);
+    // Create query params for the new memo page
+    const params = new URLSearchParams();
+    params.set('forwardFrom', memo.id);
+    selectedUsers.forEach(user => params.append('to[]', user.id));
+    if (remark) {
+        params.set('remark', remark);
+    }
+    
+    // Navigate to the compose page
+    router.push(`/dashboard/new?${params.toString()}`);
+
+    // Close the dialog and show toast
+    toast({ title: "Forwarding Memo", description: "You are now composing a forward." });
+    closeDialog();
+    setIsForwarding(false);
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -106,13 +128,14 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         }}
       >
         <DialogHeader>
+          <DialogTitle className="sr-only">Forward Memo</DialogTitle>
           <div className='relative pr-24'>
             <div className="mb-4">
               <Logo hideText />
             </div>
-            <DialogTitle className="text-2xl flex items-center gap-2">
+            <div className="text-2xl font-bold flex items-center gap-2">
                 <Share2 /> Forward Memo
-            </DialogTitle>
+            </div>
             <DialogDescription className="mt-2">
                 Delegate or share this memo with other users.
             </DialogDescription>
@@ -143,13 +166,13 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={() => {}} disabled={selectedUsers.length === 0 || isForwarding}>
+          <Button onClick={handleForward} disabled={selectedUsers.length === 0 || isForwarding}>
             {isForwarding ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Share2 className="mr-2" />
             )}
-            {isForwarding ? 'Forwarding...' : 'Confirm Forward'}
+            {isForwarding ? 'Preparing...' : 'Forward'}
           </Button>
         </DialogFooter>
       </DialogContent>
