@@ -613,6 +613,49 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
+export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'forward', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
+    const user = await hasPermission('manage_memos');
+
+    const whereClause: any = { fromId: user.id, status: 'draft' };
+    if (action === 'reply') whereClause.replyToId = originalMemoId;
+    if (action === 'forward') whereClause.forwardFromId = originalMemoId;
+
+    // Find existing drafts for this action, newest first
+    const existingDrafts = await prisma.memo.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        include: { to: true, cc: true, labels: true, attachments: true }
+    });
+
+    if (existingDrafts.length > 0) {
+        // If multiple exist, keep the most recent and remove duplicates
+        if (existingDrafts.length > 1) {
+            const toDelete = existingDrafts.slice(1).map(d => d.id);
+            await prisma.memo.deleteMany({ where: { id: { in: toDelete } } });
+        }
+        return existingDrafts[0];
+    }
+
+    // No existing draft: create one using provided initial data
+    const payload: any = {
+        fromId: user.id,
+        subject: initialData.subject || '',
+        body: initialData.body || '',
+        to: { connect: (initialData.to || []).map((u: any) => ({ id: u.id })) },
+        cc: { connect: (initialData.cc || []).map((u: any) => ({ id: u.id })) },
+        labels: { connect: (initialData.labels || []).map((l: any) => ({ id: l.id })) },
+        attachments: { create: (initialData.attachments || []).map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
+        status: 'draft' as const,
+        memo_reference_number: `DRAFT-${Date.now()}`,
+    };
+
+    if (action === 'reply') payload.replyToId = originalMemoId;
+    if (action === 'forward') payload.forwardFromId = originalMemoId;
+
+    const newDraft = await prisma.memo.create({ data: payload, include: { to: true, cc: true, labels: true, attachments: true } });
+    return newDraft;
+}
+
 
 export async function deleteDraft(draftId: string) {
     await hasPermission('manage_memos');

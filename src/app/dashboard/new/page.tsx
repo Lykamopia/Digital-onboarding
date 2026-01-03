@@ -38,7 +38,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { MemoDisplay } from '@/components/memo-display';
-import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels } from '@/app/actions/memo';
+import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels, getOrCreateActionDraft } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
 import { LabelSelector } from '@/components/label-selector';
 import { UserProfileLoader } from '@/components/user-profile-loader';
@@ -304,12 +304,12 @@ ccSet.delete(originalMemo.from.id);
                 setTo(toRecipients);
                 setCc(ccRecipients);
 
-                const newDraft = await saveDraft({
-                    to: toRecipients, cc: ccRecipients, subject: newSubject, body: originalContent, replyToId: originalMemoId
+                const draft = await getOrCreateActionDraft(originalMemoId, 'reply', {
+                  to: toRecipients, cc: ccRecipients, subject: newSubject, body: originalContent, replyToId: originalMemoId
                 });
-                if(newDraft) {
-                    setDraftId(newDraft.id);
-                    router.replace(`/dashboard/new?id=${newDraft.id}`);
+                if (draft) {
+                  setDraftId(draft.id);
+                  router.replace(`/dashboard/new?id=${draft.id}`);
                 }
             }
         } else if (forwardFromId) {
@@ -325,10 +325,10 @@ ccSet.delete(originalMemo.from.id);
                 setForwardFrom(forwardFromId);
                 setReplyTo(undefined);
                 
-                const newDraft = await saveDraft({ subject: newSubject, body: originalContent, forwardFromId: forwardFromId });
-                if(newDraft) {
-                    setDraftId(newDraft.id);
-                    router.replace(`/dashboard/new?id=${newDraft.id}`);
+                const draft = await getOrCreateActionDraft(forwardFromId, 'forward', { subject: newSubject, body: originalContent, forwardFromId: forwardFromId });
+                if (draft) {
+                  setDraftId(draft.id);
+                  router.replace(`/dashboard/new?id=${draft.id}`);
                 }
             }
         } else {
