@@ -15,6 +15,11 @@ import type {
 
 export type Permission = 'view_dashboard' | 'manage_memos' | 'view_admin' | 'manage_divisions' | 'manage_departments' | 'manage_offices' | 'manage_users' | 'manage_roles' | 'manage_archive' | 'manage_branches' | 'manage_districts' | 'manage_labels' | 'manage_general_settings';
 
+export type DateRange = {
+    from?: Date;
+    to?: Date;
+};
+
 export type Role = PrismaRole;
 export type Office = PrismaOffice & {
     departments?: Department[];

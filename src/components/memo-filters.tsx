@@ -7,14 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { DateRange } from 'react-day-picker';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSearchParams } from '@/hooks/use-search-params';
 import { useDebouncedCallback } from 'use-debounce';
 import { cn } from '@/lib/utils';
 import { LabelSelector } from '@/components/label-selector';
-import type { Label as LabelType } from '@/lib/types';
+import type { DateRange, Label as LabelType } from '@/lib/types';
 import { Separator } from './ui/separator';
 
 
@@ -163,8 +162,9 @@ export function MemoFilters({
                     id="date"
                     variant={"outline"}
                     className={cn(
-                        "w-full sm:w-auto flex-1 justify-start text-left font-normal",
-                        !dateRange && "text-muted-foreground"
+                        "w-full sm:w-auto flex-1 justify-start text-left font-medium transition-colors",
+                        !dateRange && "text-muted-foreground",
+                        dateRange && "border-primary/70 dark:border-primary/80 text-primary dark:text-primary-foreground bg-primary/10 dark:bg-primary/25 shadow-sm"
                     )}
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -182,14 +182,14 @@ export function MemoFilters({
                     )}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 flex" align="start">
-                    <div className="flex flex-col space-y-1 border-r p-2">
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                <PopoverContent className="w-auto p-0 flex bg-card text-foreground" align="start">
+                    <div className="flex flex-col space-y-1 border-r border-border bg-muted/30 dark:bg-muted/10 p-2">
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('today')}>Today</Button>
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisYear')}>This Year</Button>
+                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
                     </div>
                     <Calendar
                         initialFocus

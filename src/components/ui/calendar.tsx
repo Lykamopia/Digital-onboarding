@@ -2,106 +2,188 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DropdownProps } from "react-day-picker"
+import {
+  Calendar as RDRCalendar,
+  DateRange as RDRDateRange,
+  type Range,
+  type RangeKeyDict,
+} from "react-date-range"
+
+import "react-date-range/dist/styles.css"
+import "react-date-range/dist/theme/default.css"
+import "./calendar.css"
 
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select"
-import { ScrollArea } from "./scroll-area"
+import type { DateRange } from "@/lib/types"
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>
-
-function Calendar({
-  className,
-  classNames,
-  showOutsideDays = true,
-  ...props
-}: CalendarProps) {
-  return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
-      classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium hidden",
-        caption_dropdowns: "flex justify-center gap-1",
-        nav: "space-x-1 flex items-center",
-        nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-        ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-y-1",
-        head_row: "hidden",
-        head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex-1",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-        day: cn(
-          buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
-        ),
-        day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
-        day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-        day_disabled: "text-muted-foreground opacity-50",
-        day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
-        day_hidden: "invisible",
-        day_range_start: "aria-selected:bg-primary aria-selected:text-primary-foreground",
-        day_range_end: "aria-selected:bg-primary aria-selected:text-primary-foreground",
-        ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
-          const options = React.Children.toArray(
-            children
-          ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>[]
-          const selected = options.find((child) => child.props.value === value)
-          const handleChange = (value: string) => {
-            const changeEvent = {
-              target: { value },
-            } as React.ChangeEvent<HTMLSelectElement>
-            onChange?.(changeEvent)
-          }
-          return (
-            <Select
-              value={value?.toString()}
-              onValueChange={(value) => {
-                handleChange(value)
-              }}
-            >
-              <SelectTrigger className="pr-1.5 focus:ring-0">
-                <SelectValue>{selected?.props?.children}</SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <ScrollArea className="h-48">
-                  {options.map((option, id: number) => (
-                    <SelectItem
-                      key={`${option.props.value}-${id}`}
-                      value={option.props.value?.toString() ?? ""}
-                    >
-                      {option.props.children}
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          )
-        },
-      }}
-      {...props}
-    />
-  )
+type CalendarSharedProps = {
+  className?: string
+  numberOfMonths?: number
+  fromYear?: number
+  toYear?: number
+  defaultMonth?: Date
+  captionLayout?: "buttons" | "dropdown" | "dropdown-buttons"
+  initialFocus?: boolean
 }
+
+type CalendarRangeProps = CalendarSharedProps & {
+  mode: "range"
+  selected?: DateRange
+  onSelect?: (value: DateRange | undefined) => void
+}
+
+type CalendarSingleProps = CalendarSharedProps & {
+  mode?: "single"
+  selected?: Date
+  onSelect?: (value: Date | undefined) => void
+}
+
+export type CalendarProps = CalendarRangeProps | CalendarSingleProps
+
+const RANGE_KEY = "selection"
+
+const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>((props, forwardedRef) => {
+  const {
+    className,
+    numberOfMonths = 1,
+    fromYear,
+    toYear,
+    defaultMonth,
+    captionLayout = "dropdown-buttons",
+    initialFocus,
+  } = props
+
+  const mode = props.mode ?? "single"
+  const isRange = mode === "range"
+
+  const rangeSelected = isRange ? (props.selected as DateRange | undefined) : undefined
+  const singleSelected = !isRange ? (props.selected as Date | undefined) : undefined
+
+  const onRangeSelect = isRange ? (props.onSelect as CalendarRangeProps["onSelect"]) : undefined
+  const onSingleSelect = !isRange ? (props.onSelect as CalendarSingleProps["onSelect"]) : undefined
+
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useImperativeHandle(forwardedRef, () => containerRef.current)
+
+  const todayRef = React.useRef(new Date())
+
+  const minDate = React.useMemo(() => (fromYear ? new Date(fromYear, 0, 1) : undefined), [fromYear])
+  const maxDate = React.useMemo(() => (toYear ? new Date(toYear, 11, 31) : undefined), [toYear])
+
+  const monthsToShow = Math.max(1, numberOfMonths)
+
+  const shownDate = React.useMemo(() => {
+    return defaultMonth ?? rangeSelected?.from ?? singleSelected ?? todayRef.current
+  }, [defaultMonth, rangeSelected?.from, singleSelected])
+
+  const rangeSelection = React.useMemo<Range>(() => {
+    const start = rangeSelected?.from ?? shownDate
+    const end = rangeSelected?.to ?? rangeSelected?.from ?? shownDate
+
+    return {
+      startDate: start,
+      endDate: end,
+      key: RANGE_KEY,
+    }
+  }, [rangeSelected?.from, rangeSelected?.to, shownDate])
+
+  const hasRangeSelection = Boolean(rangeSelected?.from)
+
+  const rangeColors = React.useMemo(
+    () => [hasRangeSelection ? "hsl(var(--primary))" : "transparent"],
+    [hasRangeSelection]
+  )
+
+  const handleRangeChange = React.useCallback(
+    (ranges: RangeKeyDict) => {
+      if (!onRangeSelect) {
+        return
+      }
+
+      const selection = ranges[RANGE_KEY] ?? ranges.selection
+
+      if (!selection) {
+        onRangeSelect(undefined)
+        return
+      }
+
+      const startDate = selection.startDate ? new Date(selection.startDate) : undefined
+      const endDate = selection.endDate ? new Date(selection.endDate) : undefined
+
+      if (!startDate) {
+        onRangeSelect(undefined)
+        return
+      }
+
+      onRangeSelect({ from: startDate, to: endDate ?? undefined })
+    },
+    [onRangeSelect]
+  )
+
+  const handleSingleChange = React.useCallback(
+    (date: Date) => {
+      onSingleSelect?.(date)
+    },
+    [onSingleSelect]
+  )
+
+  React.useEffect(() => {
+    if (!initialFocus || !containerRef.current) {
+      return
+    }
+
+    const target =
+      containerRef.current.querySelector<HTMLButtonElement>(".rdrDay.rdrDaySelected") ??
+      containerRef.current.querySelector<HTMLButtonElement>(".rdrDay.rdrDayToday")
+
+    target?.focus()
+  }, [initialFocus, hasRangeSelection, rangeSelection, singleSelected])
+
+  return (
+    <div
+      className={cn("calendar-surface", className)}
+      ref={containerRef}
+      data-range-selected={hasRangeSelection ? "true" : "false"}
+    >
+      {isRange ? (
+        <RDRDateRange
+          key={hasRangeSelection ? "range-active" : "range-empty"}
+          ranges={[rangeSelection]}
+          onChange={handleRangeChange}
+          months={monthsToShow}
+          direction="horizontal"
+          showDateDisplay={false}
+          showPreview={false}
+          dragSelectionEnabled={false}
+          moveRangeOnFirstSelection={false}
+          retainEndDateOnFirstSelection={false}
+          minDate={minDate}
+          maxDate={maxDate}
+          shownDate={shownDate}
+          showMonthAndYearPickers={captionLayout !== "buttons"}
+          rangeColors={rangeColors}
+          weekdayDisplayFormat=" "
+        />
+      ) : (
+        <RDRCalendar
+          key={singleSelected ? singleSelected.getTime() : shownDate.getTime()}
+          date={singleSelected ?? shownDate}
+          onChange={handleSingleChange}
+          months={monthsToShow}
+          direction="horizontal"
+          minDate={minDate}
+          maxDate={maxDate}
+          shownDate={shownDate}
+          showMonthAndYearPickers={captionLayout !== "buttons"}
+          weekdayDisplayFormat=" "
+          color="hsl(var(--primary))"
+        />
+      )}
+    </div>
+  )
+})
+
 Calendar.displayName = "Calendar"
 
 export { Calendar }
