@@ -1,13 +1,13 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Bot, BookCopy, Book } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, isSameDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSearchParams } from '@/hooks/use-search-params';
 import { useDebouncedCallback } from 'use-debounce';
@@ -36,18 +36,22 @@ interface MemoFiltersProps {
   loading: boolean;
 }
 
+type QuickDateRange = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'lastYear';
+
 export function MemoFilters({ 
     tab, search, setSearch, dateRange, setDateRange, 
     status, setStatus, allLabels, selectedLabels, 
     setSelectedLabels, show, setShow, toggle, isExpanded, onRefresh, loading 
 }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
+  const [activeQuickDate, setActiveQuickDate] = useState<QuickDateRange | null>(null);
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
     setSearchParams({ q: value });
   }, 300);
 
   const handleDateChange = (range: DateRange | undefined) => {
+      setActiveQuickDate(null);
       setDateRange(range);
       setSearchParams({ 
         from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
@@ -55,7 +59,9 @@ export function MemoFilters({
        });
   }
 
-  const setQuickDate = (range: 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'lastYear') => {
+  const setQuickDate = (range: QuickDateRange) => {
+    if (activeQuickDate === range) return;
+
     const now = new Date();
     let from: Date;
     let to: Date | undefined = undefined;
@@ -66,8 +72,7 @@ export function MemoFilters({
             to = endOfDay(now);
             break;
         case 'yesterday':
-            const yesterday = subYears(now, 0);
-            yesterday.setDate(now.getDate() - 1);
+            const yesterday = subDays(now, 1);
             from = startOfDay(yesterday);
             to = endOfDay(yesterday);
             break;
@@ -90,6 +95,7 @@ export function MemoFilters({
             break;
     }
     setDateRange({ from, to });
+    setActiveQuickDate(range);
     setSearchParams({ 
       from: from.toISOString(),
       to: to?.toISOString() ?? from.toISOString()
@@ -119,6 +125,7 @@ export function MemoFilters({
     setStatus('');
     setSelectedLabels([]);
     setShow('');
+    setActiveQuickDate(null);
     setSearchParams({ q: null, from: null, to: null, status: null, labels: null, show: null });
   }
 
@@ -127,6 +134,15 @@ export function MemoFilters({
   const selectedLabelObjects = selectedLabels.map(id => {
       return allLabels.find(l => l.id === id);
   }).filter(Boolean) as LabelType[];
+
+  const quickDateButtons: { value: QuickDateRange; label: string; icon: React.ReactNode }[] = [
+    { value: 'today', label: 'Today', icon: <CalendarDays className="h-4 w-4" /> },
+    { value: 'yesterday', label: 'Yesterday', icon: <Rewind className="h-4 w-4" /> },
+    { value: 'thisWeek', label: 'This Week', icon: <CornerDownLeft className="h-4 w-4" /> },
+    { value: 'thisMonth', label: 'This Month', icon: <ChevronsRight className="h-4 w-4" /> },
+    { value: 'thisYear', label: 'This Year', icon: <Book className="h-4 w-4" /> },
+    { value: 'lastYear', label: 'Last Year', icon: <BookCopy className="h-4 w-4" /> },
+  ];
 
 
   return (
@@ -169,7 +185,7 @@ export function MemoFilters({
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateRange?.from ? (
-                        dateRange.to ? (
+                        dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? (
                         <>
                             {format(dateRange.from, "LLL dd, y")} -{" "}
                             {format(dateRange.to, "LLL dd, y")}
@@ -184,12 +200,17 @@ export function MemoFilters({
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 flex bg-card text-foreground" align="start">
                     <div className="flex flex-col space-y-1 border-r border-border bg-muted/30 dark:bg-muted/10 p-2">
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('today')}>Today</Button>
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisMonth')}>This Month</Button>
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('thisYear')}>This Year</Button>
-                        <Button variant="ghost" size="sm" className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
+                        {quickDateButtons.map((item) => (
+                           <Button
+                                key={item.value}
+                                variant={activeQuickDate === item.value ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className="justify-start text-foreground hover:bg-muted/60 dark:hover:bg-muted/30 gap-2"
+                                onClick={() => setQuickDate(item.value)}
+                           >
+                                {item.icon} {item.label}
+                           </Button>
+                        ))}
                     </div>
                     <Calendar
                         initialFocus
