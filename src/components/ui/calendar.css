@@ -112,7 +112,7 @@
 .calendar-surface .rdrDay.rdrInRange,
 .calendar-surface .rdrDay.rdrStartEdge,
 .calendar-surface .rdrDay.rdrEndEdge {
-  background-color: hsl(var(--primary) / 0.15);
+  background-color: hsl(var(--primary) / 0.25);
 }
 
 .calendar-surface .rdrDay.rdrDaySelected,
@@ -145,4 +145,18 @@
 
 .calendar-surface[data-range-selected="false"] .rdrDay.rdrDaySelected .rdrDayNumber span {
   color: hsl(var(--foreground));
+}
+
+.dark .calendar-surface .rdrDay.rdrInRange:not(.rdrStartEdge):not(.rdrEndEdge) .rdrDayNumber span {
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .calendar-surface .rdrDay.rdrDaySelected .rdrDayNumber span,
+.dark .calendar-surface .rdrDay.rdrStartEdge .rdrDayNumber span,
+.dark .calendar-surface .rdrDay.rdrEndEdge .rdrDayNumber span {
+    color: hsl(var(--background));
+}
+
+.dark .calendar-surface .rdrDayToday .rdrDayNumber span {
+  color: hsl(var(--primary-foreground));
 }

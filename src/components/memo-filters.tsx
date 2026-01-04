@@ -164,7 +164,7 @@ export function MemoFilters({
                     className={cn(
                         "w-full sm:w-auto flex-1 justify-start text-left font-medium transition-colors",
                         !dateRange && "text-muted-foreground",
-                        dateRange && "border-primary/70 dark:border-primary/80 text-primary dark:text-primary-foreground bg-primary/10 dark:bg-primary/25 shadow-sm"
+                        dateRange && "border-primary/70 dark:border-primary/80 text-primary bg-primary/10 dark:bg-primary/25 shadow-sm"
                     )}
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
