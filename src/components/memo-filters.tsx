@@ -183,7 +183,7 @@ export function MemoFilters({
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 flex" align="start">
-                    <div className="flex flex-col space-y-2 border-r p-4">
+                    <div className="flex flex-col space-y-1 border-r p-2">
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('today')}>Today</Button>
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('yesterday')}>Yesterday</Button>
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisWeek')}>This Week</Button>
@@ -191,7 +191,6 @@ export function MemoFilters({
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('thisYear')}>This Year</Button>
                         <Button variant="ghost" size="sm" className="justify-start" onClick={() => setQuickDate('lastYear')}>Last Year</Button>
                     </div>
-                    <Separator orientation="vertical" />
                     <Calendar
                         initialFocus
                         mode="range"
@@ -199,6 +198,9 @@ export function MemoFilters({
                         selected={dateRange}
                         onSelect={handleDateChange}
                         numberOfMonths={1}
+                        captionLayout="dropdown-buttons"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear() + 10}
                     />
                 </PopoverContent>
             </Popover>
@@ -280,3 +282,5 @@ export function MemoFilters({
     </div>
   );
 }
+
+    

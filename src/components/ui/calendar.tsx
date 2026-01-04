@@ -8,6 +8,7 @@ import { DayPicker, DropdownProps } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select"
+import { ScrollArea } from "./scroll-area"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -25,7 +26,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-sm font-medium hidden",
         caption_dropdowns: "flex justify-center gap-1",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
@@ -37,7 +38,7 @@ function Calendar({
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex-1",
+          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -80,7 +81,7 @@ function Calendar({
                 <SelectValue>{selected?.props?.children}</SelectValue>
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectContent className="max-h-60">
+                <ScrollArea className="h-48">
                   {options.map((option, id: number) => (
                     <SelectItem
                       key={`${option.props.value}-${id}`}
@@ -89,7 +90,7 @@ function Calendar({
                       {option.props.children}
                     </SelectItem>
                   ))}
-                </SelectContent>
+                </ScrollArea>
               </SelectContent>
             </Select>
           )
@@ -102,3 +103,5 @@ function Calendar({
 Calendar.displayName = "Calendar"
 
 export { Calendar }
+
+    
