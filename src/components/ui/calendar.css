@@ -21,10 +21,7 @@
 
 .calendar-surface .rdrMonth {
   padding: 0 0.65rem 0.75rem;
-}
-
-.calendar-surface .rdrWeekDays {
-  display: none;
+  width: auto !important;
 }
 
 .calendar-surface .rdrMonthAndYearWrapper {
@@ -67,6 +64,20 @@
   color: hsl(var(--foreground));
 }
 
+.calendar-surface .rdrMonth .rdrWeekDays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(2.35rem, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-surface .rdrMonth .rdrWeekDay {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
 .calendar-surface .rdrMonth .rdrWeek {
   display: grid;
   grid-template-columns: repeat(7, minmax(2.35rem, 1fr));
@@ -104,6 +115,7 @@
 
 .calendar-surface .rdrDayToday .rdrDayNumber span {
   border: 1px solid hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
   border-radius: 0.6rem;
   color: hsl(var(--primary));
 }
