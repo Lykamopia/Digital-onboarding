@@ -3,6 +3,7 @@
 
 import React, { Suspense, useEffect, useState } from "react"
 import type { Session } from "next-auth";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   SidebarProvider,
@@ -85,6 +86,15 @@ interface DashboardLayoutProps {
 }
 
 function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (user?.mustChangePassword && pathname !== '/dashboard/change-password') {
+        router.replace('/dashboard/change-password');
+    }
+  }, [user, pathname, router]);
+
   if (user && user.mustChangePassword) {
     // If user must change password, only render the child page (change-password page)
     // inside a minimal layout, without the full dashboard shell.
