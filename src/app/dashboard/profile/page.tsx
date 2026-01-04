@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -125,7 +124,7 @@ export default function ProfilePage() {
     };
     reader.readAsDataURL(file);
 
-    await handleFileUpload(file, setAvatarUrl, "Avatar");
+    await handleFileUpload(file, setAvatarUrl, "profile", "Avatar");
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
@@ -142,13 +141,14 @@ export default function ProfilePage() {
     
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-    await handleFileUpload(file, setSignatureUrl, "Signature");
+    await handleFileUpload(file, setSignatureUrl, "signature", "Signature");
   };
 
-  const handleFileUpload = async (file: File, setUrl: (url: string) => void, fieldName: string) => {
+  const handleFileUpload = async (file: File, setUrl: (url: string) => void, type: 'profile' | 'signature' | 'attachments', fieldName: string) => {
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('type', type);
     
     try {
       const response = await fetch('/api/upload', { method: 'POST', body: formData });
