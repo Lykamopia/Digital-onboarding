@@ -51,12 +51,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, getGeneralSettings } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
 import { InboxEmptyIllustration } from './inbox-empty-illustration';
 import { cn } from '@/lib/utils';
 import { AcknowledgeIllustration } from './acknowledge-illustration';
+import { useSettings } from './settings-provider';
 
 const actionIcons: { [key: string]: React.ReactNode } = {
   sent: <CheckCircle className="h-4 w-4 text-green-500" />,
@@ -155,12 +156,11 @@ const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { 
 export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo, onBack }: MemoDisplayProps) {
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
-  const [acknowledgementType, setAcknowledgementType] = React.useState<AcknowledgementType>('BADGE');
+  const { settings } = useSettings();
   const [isAcknowledging, setIsAcknowledging] = React.useState(false);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
-    getGeneralSettings().then(settings => setAcknowledgementType(settings.acknowledgementType));
   }, []);
   
   const handlePrint = () => {
@@ -178,7 +178,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
         actorId: loggedInUser.id,
         action: 'acknowledged' as const,
         actor: loggedInUser,
-        details: 'Acknowledged receipt of the memo.',
+        details: 'Acknowledged receipt of this memo.',
         timestamp: new Date().toISOString()
     };
     const updatedMemo = {
@@ -290,7 +290,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
-  const useSignature = acknowledgementType === 'SIGNATURE';
+  const useSignature = settings.acknowledgementType === 'SIGNATURE';
 
   const senderSignatureUrl = getImageUrl((memo.from as UserWithRole).signature);
 
@@ -587,5 +587,3 @@ interface MemoDisplayProps {
   setMemo?: (memo: MemoWithActivity) => void;
   onBack?: () => void;
 }
-
-    

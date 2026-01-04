@@ -6,11 +6,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getGeneralSettings, saveGeneralSettings } from "@/app/actions/memo";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Save } from "lucide-react";
 import type { AcknowledgementType } from "@/lib/types";
+import { useSettings } from "@/components/settings-provider";
 
 function GeneralSettingsSkeleton() {
     return (
@@ -21,33 +21,28 @@ function GeneralSettingsSkeleton() {
 }
 
 export default function GeneralSettingsPage() {
-  const [settings, setSettings] = useState({ acknowledgementType: 'SIGNATURE' as AcknowledgementType });
-  const [loading, setLoading] = useState(true);
+  const { settings, loading, updateSettings } = useSettings();
+  const [localSettings, setLocalSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    async function fetchSettings() {
-      setLoading(true);
-      const data = await getGeneralSettings();
-      setSettings(data);
-      setLoading(false);
-    }
-    fetchSettings();
-  }, []);
+    setLocalSettings(settings);
+  }, [settings]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    const result = await saveGeneralSettings(settings);
-    if(result.success) {
-      toast.success("Settings Saved", { description: "General settings have been updated." });
-    } else {
-      toast.error("Error", { description: "Could not save settings." });
+    try {
+        await updateSettings(localSettings);
+        toast.success("Settings Saved", { description: "General settings have been updated." });
+    } catch {
+        toast.error("Error", { description: "Could not save settings." });
+    } finally {
+        setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const handleAcknowledgementChange = (checked: boolean) => {
-    setSettings(prev => ({ ...prev, acknowledgementType: checked ? 'SIGNATURE' : 'BADGE' }));
+    setLocalSettings(prev => ({ ...prev, acknowledgementType: checked ? 'SIGNATURE' : 'BADGE' }));
   }
 
   if (loading) {
@@ -75,7 +70,7 @@ export default function GeneralSettingsPage() {
             </div>
             <Switch
                 id="ack-type"
-                checked={settings.acknowledgementType === 'SIGNATURE'}
+                checked={localSettings.acknowledgementType === 'SIGNATURE'}
                 onCheckedChange={handleAcknowledgementChange}
             />
             </div>

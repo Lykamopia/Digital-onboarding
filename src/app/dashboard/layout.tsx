@@ -13,6 +13,7 @@ import type { Permission, User, MemoWithActivity } from "@/lib/types"
 import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { HoneycombLoader } from "@/components/honeycomb-loader";
 import { UserProfileLoader } from "@/components/user-profile-loader";
+import { SettingsProvider } from "@/components/settings-provider";
 
 
 function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
@@ -142,9 +143,11 @@ export default function DashboardLayout({
 
   return (
     <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>}>
-        <DashboardLayoutClient user={user}>
-            {children}
-        </DashboardLayoutClient>
+        <SettingsProvider>
+            <DashboardLayoutClient user={user}>
+                {children}
+            </DashboardLayoutClient>
+        </SettingsProvider>
     </Suspense>
   )
 }

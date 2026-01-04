@@ -43,7 +43,7 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
     const { acknowledgementType } = await getGeneralSettings();
     const useSignature = acknowledgementType === 'SIGNATURE';
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const memoUrl = `${baseUrl}/dashboard/inbox?id=${memo.id}`;
     
     const senderNameWithRole = sender.role 
@@ -65,7 +65,7 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
     const logoUrl = `https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612`;
     
     const signatureBlock = useSignature && sender.signature
-        ? `<div><img src="${baseUrl}/api/uploads${sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
+        ? `<div><img src="${baseUrl}${sender.signature.startsWith('/') ? sender.signature : '/' + sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
         : '';
 
 
@@ -181,7 +181,7 @@ function generateAuthEmailBody(title: string, content: string): string {
 }
 
 export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptions) {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const loginUrl = `${baseUrl}/login`;
 
     const title = "Welcome to Nib Memo!";
@@ -219,7 +219,7 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
 }
 
 export async function sendPasswordResetEmail({ to, name, password }: PasswordResetEmailOptions) {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const loginUrl = `${baseUrl}/login`;
 
     const title = "Your Password Has Been Reset";
