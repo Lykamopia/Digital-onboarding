@@ -127,29 +127,38 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     
     const handleToggleFavorite = async (memoId: string) => {
         // Optimistic update
-        setMemos(prevMemos => {
-            const newMemos = prevMemos.map(m => {
-                if (m.id === memoId) {
-                    const isFavorited = m.favoritedBy && m.favoritedBy.length > 0;
-                    return {
-                        ...m,
-                        favoritedBy: isFavorited ? [] : [{ id: loggedInUser.id }]
-                    };
-                }
-                return m;
+        if (tab === 'favorites') {
+            setMemos(prevMemos => prevMemos.filter(m => m.id !== memoId));
+        } else {
+            setMemos(prevMemos => {
+                const newMemos = prevMemos.map(m => {
+                    if (m.id === memoId) {
+                        const isFavorited = m.favoritedBy && m.favoritedBy.length > 0;
+                        return {
+                            ...m,
+                            favoritedBy: isFavorited ? [] : [{ id: loggedInUser.id }]
+                        };
+                    }
+                    return m;
+                });
+                // Re-sort based on new favorite status
+                return newMemos.sort((a, b) => {
+                    const aIsFav = (a.favoritedBy?.length ?? 0) > 0;
+                    const bIsFav = (b.favoritedBy?.length ?? 0) > 0;
+                    if (aIsFav !== bIsFav) return aIsFav ? -1 : 1;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
             });
-            // Re-sort based on new favorite status
-            return newMemos.sort((a, b) => {
-                const aIsFav = (a.favoritedBy?.length ?? 0) > 0;
-                const bIsFav = (b.favoritedBy?.length ?? 0) > 0;
-                if (aIsFav !== bIsFav) return aIsFav ? -1 : 1;
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            });
-        });
+        }
 
         const result = await toggleFavorite(memoId);
         toast.success(result.isFavorited ? "Memo favorited" : "Memo unfavorited");
-        onUpdate();
+        
+        // We only need to call onUpdate if we are not on the favorites tab
+        // to handle sorting or other potential full-list reloads.
+        if (tab !== 'favorites') {
+            onUpdate();
+        }
     };
     
     const handleToggleFlag = async (memoId: string) => {
@@ -228,7 +237,20 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         }
         
         if (tab === 'favorites') {
-            return null; // No actions on favorites page hover
+             return (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-yellow-500 hover:text-yellow-600" onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))}>
+                                    <Star className="fill-current" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Unfavorite</TooltipContent>
+                        </Tooltip>
+                    </div>
+                </div>
+            )
         }
 
         return (
@@ -370,12 +392,10 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
         return (
             <ContextMenuContent>
-                 {tab !== 'favorites' && (
-                    <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
-                        <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                        <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
-                    </ContextMenuItem>
-                 )}
+                <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
+                    <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                    <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
+                </ContextMenuItem>
                 <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
                     <Flag className={cn("mr-2 h-4 w-4", isFlaggedByUser && "fill-red-500 text-red-500")} />
                     <span>{isFlaggedByUser ? 'Unflag' : 'Flag'}</span>
@@ -458,7 +478,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                             <div className="flex w-full items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                                     <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                    {(tab === 'inbox' || tab === 'scheduled' || tab === 'favorites') && <StatusBadge status={getMemoStatus(memo)} />}
+                                    {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && <StatusBadge status={getMemoStatus(memo)} />}
                                     {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
                                 </div>
                                 <div
@@ -476,7 +496,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
 
                             <div className="w-full pr-20 overflow-hidden">
                                 <div className="text-sm font-medium truncate flex items-center gap-2">
-                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0", tab === 'favorites' && 'pointer-events-none')}>
+                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
                                         <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
                                     </button>
                                     <span className="truncate">{memo.subject || "No Subject"}</span>
