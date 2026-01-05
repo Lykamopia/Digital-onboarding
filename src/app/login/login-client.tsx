@@ -197,7 +197,7 @@ export default function LoginClientPage() {
                 <Input
                     id="email"
                     type="email"
-                    placeholder="admin@example.com"
+                    placeholder="yourEmail@example.com"
                     {...register('email')}
                 />
                 {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
