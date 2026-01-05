@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next/auth/next';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office } from '@/lib/types';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<User> {
     const user = await getLoggedInUser();
@@ -1230,7 +1231,32 @@ export type BulkImportResult = {
     errors: { rowIndex: number; email: string; error: string }[];
 };
 
-export async function bulkImportUsers(csvData: string): Promise<BulkImportResult> {
+type UserDataRow = { name?: string; email?: string; role?: string; office?: string };
+
+async function parseFileData(fileData: string, fileType: string): Promise<UserDataRow[]> {
+    if (fileType.includes('csv')) {
+        return new Promise((resolve) => {
+            Papa.parse(fileData, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (result) => resolve(result.data as UserDataRow[]),
+            });
+        });
+    } else if (fileType.includes('spreadsheetml') || fileType.includes('excel')) {
+        const workbook = XLSX.read(fileData, { type: 'string', cellFormula: false, cellHTML: false });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        return XLSX.utils.sheet_to_json(worksheet, { header: 1 }).map((row: any) => ({
+            name: row[0],
+            email: row[1],
+            role: row[2],
+            office: row[3],
+        })).slice(1); // Skip header row
+    }
+    throw new Error('Unsupported file type.');
+}
+
+export async function bulkImportUsers(fileData: string, fileType: string): Promise<BulkImportResult> {
     await hasPermission('manage_users');
 
     const result: BulkImportResult = { successCount: 0, errorCount: 0, errors: [] };
@@ -1240,94 +1266,94 @@ export async function bulkImportUsers(csvData: string): Promise<BulkImportResult
 
     const roleMap = new Map(allRoles.map(role => [role.name.toLowerCase(), role.id]));
     const officeMap = new Map(allOffices.map(office => [office.name.toLowerCase(), office.id]));
+    
+    let rows: UserDataRow[];
+    try {
+        rows = await parseFileData(fileData, fileType);
+    } catch(e: any) {
+        result.errorCount++;
+        result.errors.push({ rowIndex: 1, email: 'File Level', error: e.message || "Failed to parse file." });
+        return result;
+    }
 
-    return new Promise((resolve) => {
-        Papa.parse(csvData, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (parseResult) => {
-                const rows = parseResult.data as { name?: string; email?: string; role?: string; office?: string }[];
 
-                for (let i = 0; i < rows.length; i++) {
-                    const row = rows[i];
-                    const rowIndex = i + 2; // 1 for header, 1 for 0-indexing
-                    const { name, email, role: roleName, office: officeName } = row;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowIndex = i + 2; // 1 for header, 1 for 0-indexing
+        const { name, email, role: roleName, office: officeName } = row;
 
-                    // 1. Validation
-                    if (!name || !email || !roleName || !officeName) {
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email: email || `Row ${rowIndex}`, error: "Missing required fields (name, email, role, office)." });
-                        continue;
-                    }
-                    
-                    const emailValidation = z.string().email().safeParse(email);
-                    if (!emailValidation.success) {
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email, error: "Invalid email format." });
-                        continue;
-                    }
+        // 1. Validation
+        if (!name || !email || !roleName || !officeName) {
+            result.errorCount++;
+            result.errors.push({ rowIndex, email: email || `Row ${rowIndex}`, error: "Missing required fields (name, email, role, office)." });
+            continue;
+        }
+        
+        const emailValidation = z.string().email().safeParse(email);
+        if (!emailValidation.success) {
+            result.errorCount++;
+            result.errors.push({ rowIndex, email, error: "Invalid email format." });
+            continue;
+        }
 
-                    if (existingEmails.has(email)) {
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email, error: "Email already exists in the system." });
-                        continue;
-                    }
+        if (existingEmails.has(email)) {
+            result.errorCount++;
+            result.errors.push({ rowIndex, email, error: "Email already exists in the system." });
+            continue;
+        }
 
-                    const roleId = roleMap.get(roleName.toLowerCase());
-                    if (!roleId) {
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email, error: `Role '${roleName}' not found.` });
-                        continue;
-                    }
+        const roleId = roleMap.get(roleName.toLowerCase());
+        if (!roleId) {
+            result.errorCount++;
+            result.errors.push({ rowIndex, email, error: `Role '${roleName}' not found.` });
+            continue;
+        }
 
-                    const officeId = officeMap.get(officeName.toLowerCase());
-                    if (!officeId) {
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email, error: `Office '${officeName}' not found.` });
-                        continue;
-                    }
+        const officeId = officeMap.get(officeName.toLowerCase());
+        if (!officeId) {
+            result.errorCount++;
+            result.errors.push({ rowIndex, email, error: `Office '${officeName}' not found.` });
+            continue;
+        }
 
-                    // 2. User Creation (if valid)
-                    const password = generateStrongPassword();
-                    const hashedPassword = await bcrypt.hash(password, 10);
-                    
-                    try {
-                        const newUser = await prisma.user.create({
-                            data: {
-                                name,
-                                email,
-                                roleId,
-                                officeId,
-                                hashedPassword,
-                                mustChangePassword: true,
-                                status: 'active',
-                            },
-                        });
+        // 2. User Creation (if valid)
+        const password = generateStrongPassword();
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        try {
+            const newUser = await prisma.user.create({
+                data: {
+                    name,
+                    email,
+                    roleId,
+                    officeId,
+                    hashedPassword,
+                    mustChangePassword: true,
+                    status: 'active',
+                },
+            });
 
-                        // Avoid sending emails in a tight loop to prevent being rate-limited.
-                        // In a production app, this should be offloaded to a background job queue.
-                        try {
-                            await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password });
-                        } catch (emailError) {
-                            console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
-                            // Log the error but don't fail the import for this user
-                        }
-
-                        existingEmails.add(email); // Add to set to prevent duplicates within the same file
-                        result.successCount++;
-
-                    } catch (dbError) {
-                        console.error('Database error during bulk import:', dbError);
-                        result.errorCount++;
-                        result.errors.push({ rowIndex, email, error: "Database error during user creation." });
-                    }
-                }
-                
-                revalidatePath('/dashboard/admin/users');
-                resolve(result);
+            // Avoid sending emails in a tight loop to prevent being rate-limited.
+            // In a production app, this should be offloaded to a background job queue.
+            try {
+                await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password });
+            } catch (emailError) {
+                console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
+                // Log the error but don't fail the import for this user
             }
-        });
-    });
+
+            existingEmails.add(email); // Add to set to prevent duplicates within the same file
+            result.successCount++;
+
+        } catch (dbError) {
+            console.error('Database error during bulk import:', dbError);
+            result.errorCount++;
+            result.errors.push({ rowIndex, email, error: "Database error during user creation." });
+        }
+    }
+    
+    revalidatePath('/dashboard/admin/users');
+    return result;
 }
 
 
@@ -1339,6 +1365,7 @@ let emailSettings = {
 };
 
 export async function getEmailSettings() {
+    await hasPermission('manage_email_settings');
     return emailSettings;
 }
 

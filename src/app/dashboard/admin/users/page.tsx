@@ -74,8 +74,8 @@ function UserImportDialog() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
-        toast.error("Invalid File Type", { description: "Please upload a CSV file." });
+      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv') && !selectedFile.type.includes('spreadsheetml')) {
+        toast.error("Invalid File Type", { description: "Please upload a CSV or XLSX file." });
         return;
       }
       setFile(selectedFile);
@@ -101,9 +101,9 @@ function UserImportDialog() {
     
     const reader = new FileReader();
     reader.onload = async (e) => {
-        const csvData = e.target?.result as string;
+        const fileData = e.target?.result as string;
         try {
-            const importResult = await bulkImportUsers(csvData);
+            const importResult = await bulkImportUsers(fileData, file.type);
             setResult(importResult);
             if (importResult.successCount > 0) {
               await mutateUsers();
@@ -135,7 +135,7 @@ function UserImportDialog() {
         <DialogHeader>
           <DialogTitle>Bulk Import Users</DialogTitle>
           <DialogDescription>
-            Import multiple users at once by uploading a CSV file.
+            Import multiple users at once by uploading a CSV or XLSX file.
           </DialogDescription>
         </DialogHeader>
         {!result ? (
@@ -146,20 +146,20 @@ function UserImportDialog() {
                     Start by downloading the CSV template. Use a spreadsheet program like Excel or Google Sheets to fill it out.
                 </p>
                 <Button variant="secondary" size="sm" className="mt-4" onClick={handleDownloadTemplate}>
-                    <Download className="mr-2" /> Download Template
+                    <Download className="mr-2" /> Download CSV Template
                 </Button>
             </div>
 
             <div className="p-4 rounded-md border border-dashed bg-muted/50 text-center">
                 <h3 className="font-semibold text-lg">2. Upload File</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Once you've filled out the template, upload the saved CSV file here.
+                    Once you've filled out the template, upload the saved CSV or XLSX file here.
                 </p>
                 <div 
                     className="mt-4 flex justify-center items-center h-24 border-2 border-dashed rounded-md cursor-pointer hover:border-primary"
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden"/>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" className="hidden"/>
                     {file ? (
                         <div className="text-center">
                             <FileSpreadsheet className="h-6 w-6 mx-auto text-green-500" />
@@ -759,5 +759,3 @@ export default function UsersPage() {
     </>
   );
 }
-
-    
