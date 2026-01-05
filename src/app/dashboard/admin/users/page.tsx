@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveUser, resetUserPassword, deleteUser } from "@/app/actions/memo";
+import { saveUser, resetUserPassword, deleteUser, bulkImportUsers, type BulkImportResult } from "@/app/actions/memo";
 import type { User, Role, Office, Department, Division, District, Branch } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
@@ -47,7 +47,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2 } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,174 @@ type UserWithRelations = User & {
     district?: District;
     branch?: Branch;
 };
+
+function UserImportDialog() {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<BulkImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { mutate: mutateUsers } = useUsers();
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type !== 'text/csv') {
+        toast.error("Invalid File Type", { description: "Please upload a CSV file." });
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const csv = Papa.unparse([
+        { name: "John Doe", email: "john.doe@example.com", role: "Member", office: "Head Office" }
+    ]);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'user_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  const handleImport = async () => {
+    if (!file) return;
+    setProcessing(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const csvData = e.target?.result as string;
+        try {
+            const importResult = await bulkImportUsers(csvData);
+            setResult(importResult);
+            if (importResult.successCount > 0) {
+              await mutateUsers();
+            }
+        } catch (error: any) {
+            toast.error("Import Failed", { description: error.message });
+        } finally {
+            setProcessing(false);
+        }
+    };
+    reader.readAsText(file);
+  };
+  
+  const resetState = () => {
+    setFile(null);
+    setProcessing(false);
+    setResult(null);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) resetState();
+    }}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><UploadCloud className="mr-2"/> Import</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Bulk Import Users</DialogTitle>
+          <DialogDescription>
+            Import multiple users at once by uploading a CSV file.
+          </DialogDescription>
+        </DialogHeader>
+        {!result ? (
+          <div className="py-4 space-y-6">
+            <div className="p-4 rounded-md border border-dashed bg-muted/50 text-center">
+                <h3 className="font-semibold text-lg">1. Download Template</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Start by downloading the CSV template. Use a spreadsheet program like Excel or Google Sheets to fill it out.
+                </p>
+                <Button variant="secondary" size="sm" className="mt-4" onClick={handleDownloadTemplate}>
+                    <Download className="mr-2" /> Download Template
+                </Button>
+            </div>
+
+            <div className="p-4 rounded-md border border-dashed bg-muted/50 text-center">
+                <h3 className="font-semibold text-lg">2. Upload File</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Once you've filled out the template, upload the saved CSV file here.
+                </p>
+                <div 
+                    className="mt-4 flex justify-center items-center h-24 border-2 border-dashed rounded-md cursor-pointer hover:border-primary"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden"/>
+                    {file ? (
+                        <div className="text-center">
+                            <FileSpreadsheet className="h-6 w-6 mx-auto text-green-500" />
+                            <p className="text-sm font-medium">{file.name}</p>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground">Click to select a file</div>
+                    )}
+                </div>
+            </div>
+            
+            <DialogFooter>
+              <Button onClick={handleImport} disabled={!file || processing}>
+                {processing ? <Loader2 className="mr-2 animate-spin"/> : <UploadCloud className="mr-2"/>}
+                {processing ? "Importing..." : "Start Import"}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="py-4 space-y-4">
+              <div className="text-center">
+                  <h3 className="text-xl font-bold">Import Complete</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-green-100/60 dark:bg-green-900/40 rounded-lg text-center">
+                      <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-3xl font-bold">{result.successCount}</p>
+                      <p className="text-sm text-muted-foreground">Users Imported</p>
+                  </div>
+                  <div className="p-4 bg-red-100/60 dark:bg-red-900/40 rounded-lg text-center">
+                      <XCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                      <p className="text-3xl font-bold">{result.errorCount}</p>
+                      <p className="text-sm text-muted-foreground">Rows Failed</p>
+                  </div>
+              </div>
+              {result.errorCount > 0 && (
+                  <div className="space-y-2">
+                      <h4 className="font-semibold">Failure Details:</h4>
+                      <div className="max-h-48 overflow-y-auto border rounded-md p-2 bg-muted/50 text-sm">
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead>Row</TableHead>
+                                      <TableHead>Email</TableHead>
+                                      <TableHead>Error</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {result.errors.map((err, i) => (
+                                      <TableRow key={i}>
+                                          <TableCell>{err.rowIndex}</TableCell>
+                                          <TableCell>{err.email}</TableCell>
+                                          <TableCell>{err.error}</TableCell>
+                                      </TableRow>
+                                  ))}
+                              </TableBody>
+                          </Table>
+                      </div>
+                  </div>
+              )}
+              <DialogFooter>
+                  <Button onClick={() => setOpen(false)}>Close</Button>
+              </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function UsersLoadingSkeleton() {
     return (
@@ -97,14 +265,14 @@ export default function UsersPage() {
   const { data: districts, loading: loadingDistricts } = useDistricts();
   const { data: branches, loading: loadingBranches } = useBranches();
   
-    const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isResetting, setIsResetting] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [formState, setFormState] = useState(initialFormState);
 
@@ -140,6 +308,7 @@ export default function UsersPage() {
             const result = await saveUser(userData);
             if (result.error) {
                 toast.error(isNewUser ? 'Error Creating User' : 'Error Updating User', { description: result.error });
+                // We don't close the dialog on error so the user can fix it
                 return;
             }
             await mutateUsers();
@@ -344,6 +513,7 @@ export default function UsersPage() {
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Users</CardTitle>
         <div className="flex gap-2">
+            <UserImportDialog />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={selectedUsers.length === 0}>

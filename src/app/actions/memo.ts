@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -13,6 +13,7 @@ import { sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from '@/lib/email
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
+import Papa from 'papaparse';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<User> {
     const user = await getLoggedInUser();
@@ -61,9 +62,12 @@ async function sendToWebSocket(data: any) {
 }
 
 export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
-    const requiredPermission = tab === 'drafts' ? 'manage_memos' : 'view_dashboard';
-    const user = await hasPermission(requiredPermission);
-
+    const user = await getLoggedInUser();
+    if (!user) {
+        // If user is not logged in for any reason, return empty.
+        // This can happen if the session expires or is invalid.
+        return [];
+    }
 
     if (user.mustChangePassword) {
       // If user must change password, they should only see the change password page.
@@ -209,6 +213,7 @@ export async function toggleFavorite(memoId: string) {
     revalidatePath('/dashboard/sent');
     revalidatePath('/dashboard/drafts');
     revalidatePath('/dashboard/archive');
+    revalidatePath('/dashboard/favorites');
     return { success: true, isFavorited: !isFavorited };
 }
 
@@ -846,11 +851,9 @@ export async function getLoggedInUser() {
         }
     });
     if (!user) return null;
-    if (user.mustChangePassword) {
-        return user;
-    }
-
-    if (user.status === 'inactive') {
+    
+    // Do not return user if they are inactive, unless they need to change their password
+    if (user.status === 'inactive' && !user.mustChangePassword) {
         return null;
     }
 
@@ -954,12 +957,17 @@ export async function deleteDistrict(id: string) {
     return { success: true };
 }
 
-export async function saveOffice(data: { id?: string, name: string, code: string, type: 'division_office' | 'branch_office' | 'head_office' }) {
+export async function saveOffice(data: { id?: string, name: string, code: string, type?: 'division_office' | 'branch_office' | 'head_office' }) {
     await hasPermission('manage_offices');
+    const payload = {
+        name: data.name,
+        code: data.code,
+        type: data.type || 'branch_office' // Default type if not provided
+    };
     if (data.id) {
-        await prisma.office.update({ where: { id: data.id }, data });
+        await prisma.office.update({ where: { id: data.id }, data: payload });
     } else {
-        await prisma.office.create({ data });
+        await prisma.office.create({ data: payload });
     }
     revalidatePath('/dashboard/admin/offices');
 }
@@ -1194,6 +1202,18 @@ export async function deleteLabel(id: string) {
 
 export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
     await getLoggedInUser();
+    
+    // Check if email is being changed and if it's already taken
+    if (data.email) {
+        const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (currentUser && currentUser.email !== data.email) {
+            const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+            if (existingUser) {
+                return { success: false, error: "Email is already in use by another account." };
+            }
+        }
+    }
+
     await prisma.user.update({
         where: { id: userId },
         data: data
@@ -1202,6 +1222,112 @@ export async function updateUserProfile(userId: string, data: { name: string, em
     revalidatePath('/dashboard/profile');
     revalidatePath('/dashboard');
     return { success: true };
+}
+
+export type BulkImportResult = {
+    successCount: number;
+    errorCount: number;
+    errors: { rowIndex: number; email: string; error: string }[];
+};
+
+export async function bulkImportUsers(csvData: string): Promise<BulkImportResult> {
+    await hasPermission('manage_users');
+
+    const result: BulkImportResult = { successCount: 0, errorCount: 0, errors: [] };
+    const allRoles = await prisma.role.findMany();
+    const allOffices = await prisma.office.findMany();
+    const existingEmails = new Set((await prisma.user.findMany({ select: { email: true } })).map(u => u.email));
+
+    const roleMap = new Map(allRoles.map(role => [role.name.toLowerCase(), role.id]));
+    const officeMap = new Map(allOffices.map(office => [office.name.toLowerCase(), office.id]));
+
+    return new Promise((resolve) => {
+        Papa.parse(csvData, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (parseResult) => {
+                const rows = parseResult.data as { name?: string; email?: string; role?: string; office?: string }[];
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const rowIndex = i + 2; // 1 for header, 1 for 0-indexing
+                    const { name, email, role: roleName, office: officeName } = row;
+
+                    // 1. Validation
+                    if (!name || !email || !roleName || !officeName) {
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email: email || `Row ${rowIndex}`, error: "Missing required fields (name, email, role, office)." });
+                        continue;
+                    }
+                    
+                    const emailValidation = z.string().email().safeParse(email);
+                    if (!emailValidation.success) {
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email, error: "Invalid email format." });
+                        continue;
+                    }
+
+                    if (existingEmails.has(email)) {
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email, error: "Email already exists in the system." });
+                        continue;
+                    }
+
+                    const roleId = roleMap.get(roleName.toLowerCase());
+                    if (!roleId) {
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email, error: `Role '${roleName}' not found.` });
+                        continue;
+                    }
+
+                    const officeId = officeMap.get(officeName.toLowerCase());
+                    if (!officeId) {
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email, error: `Office '${officeName}' not found.` });
+                        continue;
+                    }
+
+                    // 2. User Creation (if valid)
+                    const password = generateStrongPassword();
+                    const hashedPassword = await bcrypt.hash(password, 10);
+                    
+                    try {
+                        const newUser = await prisma.user.create({
+                            data: {
+                                name,
+                                email,
+                                roleId,
+                                officeId,
+                                hashedPassword,
+                                mustChangePassword: true,
+                                status: 'active',
+                            },
+                        });
+
+                        // Avoid sending emails in a tight loop to prevent being rate-limited.
+                        // In a production app, this should be offloaded to a background job queue.
+                        try {
+                            await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password });
+                        } catch (emailError) {
+                            console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
+                            // Log the error but don't fail the import for this user
+                        }
+
+                        existingEmails.add(email); // Add to set to prevent duplicates within the same file
+                        result.successCount++;
+
+                    } catch (dbError) {
+                        console.error('Database error during bulk import:', dbError);
+                        result.errorCount++;
+                        result.errors.push({ rowIndex, email, error: "Database error during user creation." });
+                    }
+                }
+                
+                revalidatePath('/dashboard/admin/users');
+                resolve(result);
+            }
+        });
+    });
 }
 
 
