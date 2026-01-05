@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -51,6 +50,7 @@ import {
 import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
@@ -74,7 +74,8 @@ function UserImportDialog() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv') && !selectedFile.type.includes('spreadsheetml')) {
+      const allowedTypes = ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+      if (!allowedTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.csv') && !selectedFile.name.endsWith('.xlsx')) {
         toast.error("Invalid File Type", { description: "Please upload a CSV or XLSX file." });
         return;
       }
@@ -83,9 +84,17 @@ function UserImportDialog() {
   };
 
   const handleDownloadTemplate = () => {
-    const csv = Papa.unparse([
-        { name: "John Doe", email: "john.doe@example.com", role: "Member", office: "Head Office" }
-    ]);
+    const templateData = [{ 
+        name: "Jane Doe", 
+        email: "jane.doe@example.com", 
+        role: "Member", 
+        office: "Head Office",
+        department: "Retail Banking",
+        division: "Client Services",
+        district: "", // Can be empty if office is not branch-based
+        branch: "" // Can be empty if office is not branch-based
+    }];
+    const csv = Papa.unparse(templateData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -101,7 +110,12 @@ function UserImportDialog() {
     
     const reader = new FileReader();
     reader.onload = async (e) => {
-        const fileData = e.target?.result as string;
+        const fileData = e.target?.result;
+        if (typeof fileData !== 'string') {
+            toast.error("File Read Error", { description: "Could not read the file." });
+            setProcessing(false);
+            return;
+        }
         try {
             const importResult = await bulkImportUsers(fileData, file.type);
             setResult(importResult);
@@ -114,7 +128,11 @@ function UserImportDialog() {
             setProcessing(false);
         }
     };
-    reader.readAsText(file);
+    if (file.type.includes('csv')) {
+        reader.readAsText(file);
+    } else {
+        reader.readAsBinaryString(file);
+    }
   };
   
   const resetState = () => {

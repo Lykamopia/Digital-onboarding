@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next/auth/next';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office } from '@/lib/types';
 import { z } from 'zod';
@@ -1231,7 +1231,16 @@ export type BulkImportResult = {
     errors: { rowIndex: number; email: string; error: string }[];
 };
 
-type UserDataRow = { name?: string; email?: string; role?: string; office?: string };
+type UserDataRow = { 
+    name?: string; 
+    email?: string; 
+    role?: string; 
+    office?: string;
+    department?: string;
+    division?: string;
+    district?: string;
+    branch?: string;
+};
 
 async function parseFileData(fileData: string, fileType: string): Promise<UserDataRow[]> {
     if (fileType.includes('csv')) {
@@ -1243,15 +1252,10 @@ async function parseFileData(fileData: string, fileType: string): Promise<UserDa
             });
         });
     } else if (fileType.includes('spreadsheetml') || fileType.includes('excel')) {
-        const workbook = XLSX.read(fileData, { type: 'string', cellFormula: false, cellHTML: false });
+        const workbook = XLSX.read(fileData, { type: 'binary', cellFormula: false, cellHTML: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        return XLSX.utils.sheet_to_json(worksheet, { header: 1 }).map((row: any) => ({
-            name: row[0],
-            email: row[1],
-            role: row[2],
-            office: row[3],
-        })).slice(1); // Skip header row
+        return XLSX.utils.sheet_to_json<UserDataRow>(worksheet);
     }
     throw new Error('Unsupported file type.');
 }
@@ -1260,13 +1264,26 @@ export async function bulkImportUsers(fileData: string, fileType: string): Promi
     await hasPermission('manage_users');
 
     const result: BulkImportResult = { successCount: 0, errorCount: 0, errors: [] };
-    const allRoles = await prisma.role.findMany();
-    const allOffices = await prisma.office.findMany();
-    const existingEmails = new Set((await prisma.user.findMany({ select: { email: true } })).map(u => u.email));
-
-    const roleMap = new Map(allRoles.map(role => [role.name.toLowerCase(), role.id]));
-    const officeMap = new Map(allOffices.map(office => [office.name.toLowerCase(), office.id]));
     
+    const [allRoles, allOffices, allDepartments, allDivisions, allDistricts, allBranches, existingUsers] = await Promise.all([
+        prisma.role.findMany(),
+        prisma.office.findMany(),
+        prisma.department.findMany(),
+        prisma.division.findMany(),
+        prisma.district.findMany(),
+        prisma.branch.findMany(),
+        prisma.user.findMany({ select: { email: true } })
+    ]);
+
+    const existingEmails = new Set(existingUsers.map(u => u.email));
+    
+    const roleMap = new Map(allRoles.map(r => [r.name.toLowerCase(), r.id]));
+    const officeMap = new Map(allOffices.map(o => [o.name.toLowerCase(), o.id]));
+    const departmentMap = new Map(allDepartments.map(d => [d.name.toLowerCase(), { id: d.id, officeId: d.officeId }]));
+    const divisionMap = new Map(allDivisions.map(d => [d.name.toLowerCase(), { id: d.id, departmentId: d.departmentId }]));
+    const districtMap = new Map(allDistricts.map(d => [d.name.toLowerCase(), { id: d.id, officeId: d.officeId }]));
+    const branchMap = new Map(allBranches.map(b => [b.name.toLowerCase(), { id: b.id, districtId: b.districtId }]));
+
     let rows: UserDataRow[];
     try {
         rows = await parseFileData(fileData, fileType);
@@ -1276,13 +1293,11 @@ export async function bulkImportUsers(fileData: string, fileType: string): Promi
         return result;
     }
 
-
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowIndex = i + 2; // 1 for header, 1 for 0-indexing
-        const { name, email, role: roleName, office: officeName } = row;
+        const { name, email, role: roleName, office: officeName, department: deptName, division: divName, district: distName, branch: branchName } = row;
 
-        // 1. Validation
         if (!name || !email || !roleName || !officeName) {
             result.errorCount++;
             result.errors.push({ rowIndex, email: email || `Row ${rowIndex}`, error: "Missing required fields (name, email, role, office)." });
@@ -1315,8 +1330,45 @@ export async function bulkImportUsers(fileData: string, fileType: string): Promi
             result.errors.push({ rowIndex, email, error: `Office '${officeName}' not found.` });
             continue;
         }
+        
+        let departmentId, divisionId, districtId, branchId;
+        if(deptName) {
+            const dept = departmentMap.get(deptName.toLowerCase());
+            if (!dept || dept.officeId !== officeId) {
+                result.errorCount++;
+                result.errors.push({ rowIndex, email, error: `Department '${deptName}' not found or doesn't belong to office '${officeName}'.` });
+                continue;
+            }
+            departmentId = dept.id;
+        }
+        if(divName) {
+            const div = divisionMap.get(divName.toLowerCase());
+            if (!div || !departmentId || div.departmentId !== departmentId) {
+                result.errorCount++;
+                result.errors.push({ rowIndex, email, error: `Division '${divName}' not found or doesn't belong to department '${deptName}'.` });
+                continue;
+            }
+            divisionId = div.id;
+        }
+        if(distName) {
+            const dist = districtMap.get(distName.toLowerCase());
+            if (!dist || dist.officeId !== officeId) {
+                result.errorCount++;
+                result.errors.push({ rowIndex, email, error: `District '${distName}' not found or doesn't belong to office '${officeName}'.` });
+                continue;
+            }
+            districtId = dist.id;
+        }
+        if(branchName) {
+            const branch = branchMap.get(branchName.toLowerCase());
+            if (!branch || !districtId || branch.districtId !== districtId) {
+                result.errorCount++;
+                result.errors.push({ rowIndex, email, error: `Branch '${branchName}' not found or doesn't belong to district '${distName}'.` });
+                continue;
+            }
+            branchId = branch.id;
+        }
 
-        // 2. User Creation (if valid)
         const password = generateStrongPassword();
         const hashedPassword = await bcrypt.hash(password, 10);
         
@@ -1327,22 +1379,23 @@ export async function bulkImportUsers(fileData: string, fileType: string): Promi
                     email,
                     roleId,
                     officeId,
+                    departmentId: departmentId || null,
+                    divisionId: divisionId || null,
+                    districtId: districtId || null,
+                    branchId: branchId || null,
                     hashedPassword,
                     mustChangePassword: true,
                     status: 'active',
                 },
             });
 
-            // Avoid sending emails in a tight loop to prevent being rate-limited.
-            // In a production app, this should be offloaded to a background job queue.
             try {
                 await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password });
             } catch (emailError) {
                 console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
-                // Log the error but don't fail the import for this user
             }
 
-            existingEmails.add(email); // Add to set to prevent duplicates within the same file
+            existingEmails.add(email);
             result.successCount++;
 
         } catch (dbError) {
