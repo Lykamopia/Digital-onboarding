@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -22,7 +23,7 @@ const navItemsConfig = [
   { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles' },
   { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels' },
   { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
-  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_archive' }, // Assuming same permission as archive
+  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_email_settings' },
 ];
 
 function useAdminNavigation(user: (User & { role: { permissions: Permission[] } }) | null) {

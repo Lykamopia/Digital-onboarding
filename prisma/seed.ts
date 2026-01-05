@@ -48,6 +48,7 @@ const roles = [
       'manage_memos',
       'view_admin',
       'manage_general_settings',
+      'manage_email_settings',
       'manage_divisions',
       'manage_departments',
       'manage_branches',
@@ -413,5 +414,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    

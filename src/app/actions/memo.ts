@@ -1343,7 +1343,7 @@ export async function getEmailSettings() {
 }
 
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
-    await hasPermission('manage_general_settings');
+    await hasPermission('manage_email_settings');
     emailSettings = settings;
     revalidatePath('/dashboard/admin/email');
     return { success: true };
