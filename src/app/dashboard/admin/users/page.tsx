@@ -139,8 +139,8 @@ export default function UsersPage() {
         try {
             const result = await saveUser(userData);
             if (result.error) {
-                    toast.error('Error Saving User', { description: result.error });
-                    return;
+                toast.error(isNewUser ? 'Error Creating User' : 'Error Updating User', { description: result.error });
+                return;
             }
             await mutateUsers();
             toast.success("Success", { description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });

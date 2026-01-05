@@ -846,6 +846,14 @@ export async function getLoggedInUser() {
         }
     });
     if (!user) return null;
+    if (user.mustChangePassword) {
+        return user;
+    }
+
+    if (user.status === 'inactive') {
+        return null;
+    }
+
     return user;
 }
 
@@ -1005,8 +1013,24 @@ export async function saveUser(data: {
     };
 
     if (data.id) { // Existing user
+        const existingUser = await prisma.user.findUnique({ where: { id: data.id } });
+        // If email is being changed, check if the new email is already taken by another user
+        if (existingUser && existingUser.email !== data.email) {
+            const emailInUse = await prisma.user.findUnique({ where: { email: data.email } });
+            if (emailInUse) {
+                return { error: `The email ${data.email} is already in use by another user.` };
+            }
+        }
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else { // New user
+        // Check if email already exists
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email },
+        });
+        if (existingUser) {
+            return { error: `A user with the email ${data.email} already exists.` };
+        }
+
         const password = generateStrongPassword();
         const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
