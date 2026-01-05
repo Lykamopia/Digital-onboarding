@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -73,9 +74,9 @@ function UserImportDialog() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      const allowedTypes = ['text/csv'];
-      if (!allowedTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.csv')) {
-        toast.error("Invalid File Type", { description: "Please upload a CSV file." });
+      const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+      if (!allowedTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.csv') && !selectedFile.name.endsWith('.xlsx')) {
+        toast.error("Invalid File Type", { description: "Please upload a CSV or XLSX file." });
         return;
       }
       setFile(selectedFile);
@@ -148,7 +149,7 @@ function UserImportDialog() {
         <DialogHeader>
           <DialogTitle>Bulk Import Users</DialogTitle>
           <DialogDescription>
-            Import multiple users at once by uploading a CSV file.
+            Import multiple users at once by uploading a CSV or XLSX file.
           </DialogDescription>
         </DialogHeader>
         {!result ? (
@@ -166,20 +167,20 @@ function UserImportDialog() {
             <div className="p-4 rounded-md border border-dashed bg-muted/50 text-center">
                 <h3 className="font-semibold text-lg">2. Upload File</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Once you've filled out the template, upload the saved CSV file here.
+                    Once you've filled out the template, upload the saved CSV or XLSX file here.
                 </p>
                 <div 
                     className="mt-4 flex justify-center items-center h-24 border-2 border-dashed rounded-md cursor-pointer hover:border-primary"
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv, text/csv" className="hidden"/>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv, text/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden"/>
                     {file ? (
                         <div className="text-center">
                             <FileSpreadsheet className="h-6 w-6 mx-auto text-green-500" />
                             <p className="text-sm font-medium">{file.name}</p>
                         </div>
                     ) : (
-                        <div className="text-sm text-muted-foreground">Click to select a CSV file</div>
+                        <div className="text-sm text-muted-foreground">Click to select a CSV or XLSX file</div>
                     )}
                 </div>
             </div>
