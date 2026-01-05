@@ -22,6 +22,7 @@ import { ArchiveEmptyIllustration } from "@/components/archive-empty-illustratio
 import { SearchEmptyIllustration } from "@/components/search-empty-illustration"
 import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { FavoritesEmptyIllustration } from "@/components/favorites-empty-illustration"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
   const router = useRouter();
@@ -295,7 +296,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               };
           case 'favorites':
               return {
-                icon: <Star className="h-20 w-20 text-yellow-400/30" />,
+                icon: <FavoritesEmptyIllustration />,
                 title: "No Favorites",
                 description: "Mark memos as favorite to see them here."
               }
