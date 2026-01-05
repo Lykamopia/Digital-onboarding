@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/sonner"
 import { NotificationProvider } from '@/components/notification-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import AuthProvider from '@/components/auth-provider';
+import { headers } from 'next/headers';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'Nib Memo',
@@ -15,6 +17,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = headers().get('x-nonce') || '';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -36,6 +40,10 @@ export default function RootLayout({
                 </NotificationProvider>
             </ThemeProvider>
         </AuthProvider>
+        <Script id="nonce-setter" nonce={nonce}>
+          {/* This script is intentionally left empty. 
+              Next.js will use its nonce for its own internal scripts. */}
+        </Script>
       </body>
     </html>
   );
