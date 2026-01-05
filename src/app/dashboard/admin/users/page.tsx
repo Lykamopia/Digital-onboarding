@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -73,7 +74,7 @@ function UserImportDialog() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'text/csv') {
+      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
         toast.error("Invalid File Type", { description: "Please upload a CSV file." });
         return;
       }
