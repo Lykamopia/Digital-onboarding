@@ -1030,6 +1030,12 @@ export async function saveUser(data: {
                 return { error: `The email ${data.email} is already in use by another user.` };
             }
         }
+        
+        // Invalidate sessions if role or status changes
+        if (existingUser && (existingUser.roleId !== data.roleId || existingUser.status !== data.status)) {
+            payload.tokenVersion = { increment: 1 };
+        }
+        
         await prisma.user.update({ where: { id: data.id }, data: payload });
     } else { // New user
         // Check if email already exists

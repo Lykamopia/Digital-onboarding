@@ -69,18 +69,17 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid credentials");
         }
         
-        // Reset failed attempts on successful login
-        if (user.failedLoginAttempts > 0 || user.lockoutUntil) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    failedLoginAttempts: 0,
-                    lockoutUntil: null,
-                }
-            });
-        }
+        // On successful login, invalidate all other sessions by incrementing the token version.
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                failedLoginAttempts: 0,
+                lockoutUntil: null,
+                tokenVersion: { increment: 1 },
+            }
+        });
 
-        return user;
+        return updatedUser;
       },
     }),
   ],
