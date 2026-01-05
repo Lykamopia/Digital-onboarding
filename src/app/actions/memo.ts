@@ -14,7 +14,6 @@ import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<User> {
     const user = await getLoggedInUser();
@@ -1248,25 +1247,17 @@ type UserDataRow = {
     branch?: string;
 };
 
-async function parseFileData(fileData: string, fileType: string): Promise<UserDataRow[]> {
-    if (fileType.includes('csv')) {
-        return new Promise((resolve) => {
-            Papa.parse(fileData, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (result) => resolve(result.data as UserDataRow[]),
-            });
+async function parseFileData(fileData: string): Promise<UserDataRow[]> {
+    return new Promise((resolve) => {
+        Papa.parse(fileData, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (result) => resolve(result.data as UserDataRow[]),
         });
-    } else if (fileType.includes('spreadsheetml') || fileType.includes('excel')) {
-        const workbook = XLSX.read(fileData, { type: 'binary', cellFormula: false, cellHTML: false });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        return XLSX.utils.sheet_to_json<UserDataRow>(worksheet);
-    }
-    throw new Error('Unsupported file type.');
+    });
 }
 
-export async function bulkImportUsers(fileData: string, fileType: string): Promise<BulkImportResult> {
+export async function bulkImportUsers(fileData: string): Promise<BulkImportResult> {
     await hasPermission('manage_users');
 
     const result: BulkImportResult = { successCount: 0, errorCount: 0, errors: [] };
@@ -1292,7 +1283,7 @@ export async function bulkImportUsers(fileData: string, fileType: string): Promi
 
     let rows: UserDataRow[];
     try {
-        rows = await parseFileData(fileData, fileType);
+        rows = await parseFileData(fileData);
     } catch(e: any) {
         result.errorCount++;
         result.errors.push({ rowIndex: 1, email: 'File Level', error: e.message || "Failed to parse file." });
