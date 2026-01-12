@@ -728,8 +728,8 @@ export async function acknowledgeMemo(memoId: string) {
   const memo = await getMemo(memoId);
   if (!memo) return;
   
-  const isRecipient = memo.to.some(u => u.id === user.id) || memo.cc.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
-  if (!isRecipient) {
+  const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
+  if (!isDirectRecipient) {
     throw new Error("You are not a recipient of this memo and cannot acknowledge it.");
   }
 
@@ -1508,3 +1508,5 @@ export async function revokeUserTokens(userId: string) {
     });
     return { success: true };
 }
+
+    
