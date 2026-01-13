@@ -15,6 +15,8 @@ import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { HoneycombLoader } from "@/components/honeycomb-loader";
 import { UserProfileLoader } from "@/components/user-profile-loader";
 import { SettingsProvider } from "@/components/settings-provider";
+import { BottomNavigation } from "@/components/bottom-navigation";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 
 function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
@@ -47,15 +49,14 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
             socket.onmessage = (event) => {
                 try {
                     const eventData = JSON.parse(event.data);
-                    if (!eventData.payload) return;
-
-                    const memo: MemoWithActivity = eventData.payload;
-                    const isRecipient = memo.to.some(u => u.id === user.id) || memo.cc.some(u => u.id === user.id) || memo.current_holderId === user.id;
+                    const { payload, recipientIds } = eventData;
+                    if (!payload || !recipientIds) return;
                     
+                    const isRecipient = recipientIds.includes(user.id);
                     if (!isRecipient) return;
 
-                    window.dispatchEvent(new CustomEvent('new-memo-received', { detail: { memo } }));
-                    addNotification(memo);
+                    window.dispatchEvent(new CustomEvent('new-memo-received', { detail: { memo: payload } }));
+                    addNotification(payload);
 
                 } catch (error) {
                     console.error('Error parsing WebSocket message:', error);
@@ -88,6 +89,7 @@ interface DashboardLayoutProps {
 function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (user?.mustChangePassword && pathname !== '/dashboard/change-password') {
@@ -96,11 +98,26 @@ function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
   }, [user, pathname, router]);
 
   if (user && user.mustChangePassword) {
-    // If user must change password, only render the child page (change-password page)
-    // inside a minimal layout, without the full dashboard shell.
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
-        {children}
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/20">
+        <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full" />
+        <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-accent/5 rounded-full" />
+        <svg
+            viewBox="0 0 1024 1024"
+            className="absolute left-1/3 top-1/2 -z-10 h-[64rem] w-[64rem] -translate-y-1/2 [mask-image:radial-gradient(closest-side,white,transparent)] sm:left-full sm:-ml-80 lg:left-1/2 lg:ml-0 lg:-translate-x-1/2 lg:translate-y-0"
+            aria-hidden="true"
+        >
+            <circle cx={512} cy={512} r={512} fill="url(#9a759170-4320-4e94-a7de-180a42ebb9e1)" fillOpacity="0.7" />
+            <defs>
+            <radialGradient id="9a759170-4320-4e94-a7de-180a42ebb9e1">
+                <stop stopColor="hsl(var(--primary))" />
+                <stop offset={1} stopColor="hsl(var(--accent))" />
+            </radialGradient>
+            </defs>
+        </svg>
+        <div className="z-10">
+          {children}
+        </div>
       </div>
     );
   }
@@ -111,6 +128,7 @@ function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
         <DashboardContentWrapper user={user}>
             {children}
         </DashboardContentWrapper>
+        {isMobile && user && <BottomNavigation user={user} />}
     </SidebarProvider>
   );
 }

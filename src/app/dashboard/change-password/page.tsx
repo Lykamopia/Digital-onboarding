@@ -10,8 +10,7 @@ export default function ChangePasswordPage() {
   const router = useRouter();
 
   return (
-    <div className="flex items-center justify-center h-full">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md backdrop-blur-sm bg-card/60">
         <CardHeader className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <KeyRound className="h-6 w-6 text-primary" />
@@ -21,12 +20,9 @@ export default function ChangePasswordPage() {
         </CardHeader>
         <CardContent>
           <ChangePasswordForm onPasswordChanged={() => {
-            // The router refresh is handled by the form itself,
-            // but we can also explicitly push to the dashboard as a fallback.
             router.push('/dashboard/inbox');
           }} />
         </CardContent>
       </Card>
-    </div>
   );
 }
