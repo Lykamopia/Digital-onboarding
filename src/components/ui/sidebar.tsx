@@ -20,8 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+const SIDEBAR_STORAGE_KEY = "sidebar_state"
 const SIDEBAR_WIDTH_EXPANDED = "240px"
 const SIDEBAR_WIDTH_COLLAPSED = "64px"
 const SIDEBAR_WIDTH_MOBILE = "16rem"
@@ -73,8 +72,16 @@ const SidebarProvider = React.forwardRef<
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
-    const [_open, _setOpen] = React.useState(defaultOpen)
+    const [_open, _setOpen] = React.useState(() => {
+      if (typeof window === 'undefined') {
+        return defaultOpen;
+      }
+      const savedState = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      return savedState !== null ? JSON.parse(savedState) : defaultOpen;
+    });
+
     const open = openProp ?? _open
+    
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
         const openState = typeof value === "function" ? value(open) : value
@@ -83,9 +90,10 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(openState));
+        }
       },
       [setOpenProp, open]
     )
@@ -94,7 +102,7 @@ const SidebarProvider = React.forwardRef<
     const toggleSidebar = React.useCallback(() => {
       return isMobile
         ? setOpenMobile((open) => !open)
-        : setOpen((open) => !open)
+        : setOpen((open: any) => !open)
     }, [isMobile, setOpen, setOpenMobile])
 
     // Adds a keyboard shortcut to toggle the sidebar.
@@ -123,7 +131,7 @@ const SidebarProvider = React.forwardRef<
       () => ({
         state,
         open,
-        setOpen,
+        setOpen: setOpen as (open: boolean) => void,
         isMobile,
         openMobile,
         setOpenMobile,
