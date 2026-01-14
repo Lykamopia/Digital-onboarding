@@ -1,7 +1,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLoggedInUser } from '@/app/actions/memo';
-import { navItemsConfig } from './layout'; // Assuming you export it
+import { navItemsConfig } from './config';
 import type { Permission, User } from '@/lib/types';
 
 
