@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AnimatePresence } from 'framer-motion';
 import { AnimatedContent } from '@/components/animated-content';
 
-const navItemsConfig = [
+export const navItemsConfig = [
   { value: '/dashboard/admin/general', label: 'General', permission: 'manage_general_settings' },
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users' },
   { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles' },
