@@ -1,5 +1,22 @@
-import { redirect } from 'next/navigation';
 
-export default function AdminPage() {
-  redirect('/dashboard/admin/general');
+import { redirect } from 'next/navigation';
+import { getLoggedInUser } from '@/app/actions/memo';
+import { navItemsConfig } from './layout'; // Assuming you export it
+import type { Permission, User } from '@/lib/types';
+
+
+export default async function AdminPage() {
+    const user = await getLoggedInUser();
+    
+    // Find the first accessible admin tab for the user
+    const firstAccessibleTab = navItemsConfig.find(item => 
+        user?.role?.permissions.includes(item.permission as Permission)
+    );
+
+    if (firstAccessibleTab) {
+        redirect(firstAccessibleTab.value);
+    } else {
+        // Fallback or deny access if no admin tabs are accessible
+        redirect('/dashboard/access-denied');
+    }
 }

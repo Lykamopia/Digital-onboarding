@@ -193,6 +193,44 @@ export async function getDashboardData(tab: string, query: string, status: strin
     return memos;
 }
 
+export async function getAuditMemos() {
+    await hasPermission('manage_audit_log');
+    return await prisma.memo.findMany({
+        where: {
+            status: { not: 'draft' }
+        },
+        include: {
+            from: { include: { role: true } },
+            to: { include: { role: true } },
+            cc: { include: { role: true } },
+            labels: true,
+            attachments: true,
+            activity: {
+                include: {
+                    actor: true
+                },
+                orderBy: { timestamp: 'asc' }
+            },
+            current_holder: { include: { role: true } },
+            previous_holders: { include: { role: true } },
+            acknowledgedBy: { include: { role: true } },
+            replies: {
+                include: {
+                  from: {
+                    include: {
+                      role: true,
+                    },
+                  },
+                },
+              },
+            replyTo: { include: { from: { include: { role: true } } } },
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+}
+
 export async function toggleFavorite(memoId: string) {
     const user = await hasPermission('manage_memos');
 

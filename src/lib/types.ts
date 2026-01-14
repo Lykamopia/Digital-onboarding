@@ -23,6 +23,7 @@ export type Permission =
     | 'manage_users' 
     | 'manage_roles' 
     | 'manage_archive' 
+    | 'manage_audit_log'
     | 'manage_branches' 
     | 'manage_districts' 
     | 'manage_labels' 
@@ -95,6 +96,11 @@ export type Activity = PrismaActivity & {
 // Composite type for memos with all their relations
 export type MemoWithActivity = Memo & {
   activity: Activity[];
+};
+
+export type FullMemo = MemoWithActivity & {
+    replies: Memo[];
+    replyTo: Memo | null;
 };
 
 // Add status to User type for better type safety
