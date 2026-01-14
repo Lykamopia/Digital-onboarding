@@ -59,6 +59,9 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser!.id;
         if (!isRecipient) return memo.status;
 
+        const hasReplied = memo.activity.some(act => act.action === 'replied' && act.actorId === loggedInUser!.id);
+        if (hasReplied) return 'replied';
+
         const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser!.id);
         if (hasAcknowledged) return 'acknowledged';
         
