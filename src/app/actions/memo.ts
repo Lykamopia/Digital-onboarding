@@ -49,12 +49,17 @@ const memoSchema = z.object({
 // Function to send data to WebSocket server via HTTP
 async function sendToWebSocket(data: any) {
     try {
+        const payload = {
+            ...data,
+            recipientIds: [...new Set([...data.payload.to.map((u: User) => u.id), ...data.payload.cc.map((u: User) => u.id)])],
+        }
+
         await fetch(`http://localhost:${process.env.WEBSOCKET_PORT || 3011}/broadcast`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify(payload),
         });
     } catch (error) {
         console.error('Failed to send message to WebSocket server:', error);
@@ -480,12 +485,22 @@ export async function sendMemo(formData: FormData) {
         await prisma.memo.update({
             where: { id: validatedData.forwardFrom },
             data: {
+                acknowledgedBy: {
+                    connect: { id: user.id }
+                },
                 activity: {
-                    create: {
-                        actorId: user.id,
-                        action: 'forwarded',
-                        details: `Forwarded to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
-                    }
+                    create: [
+                        {
+                            actorId: user.id,
+                            action: 'forwarded',
+                            details: `Forwarded to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
+                        },
+                        {
+                            actorId: user.id,
+                            action: 'acknowledged',
+                            details: 'Acknowledged receipt of the memo by forwarding it.'
+                        }
+                    ]
                 }
             }
         });
@@ -729,23 +744,36 @@ export async function acknowledgeMemo(memoId: string) {
   if (!memo) return;
   
   const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
-  if (!isDirectRecipient) {
+  const isCcRecipient = memo.cc.some(u => u.id === user.id);
+
+  if (!isDirectRecipient && !isCcRecipient) {
     throw new Error("You are not a recipient of this memo and cannot acknowledge it.");
   }
 
+  const updateData: any = {
+    acknowledgedBy: { connect: { id: user.id } },
+    activity: {
+      create: {
+        actorId: user.id,
+        action: 'acknowledged',
+        details: 'Acknowledged receipt of the memo.',
+      },
+    },
+  };
+  
+  // This is the fix for the Prisma Client Error.
+  // The error occurs because we are trying to connect a current_holder
+  // when the user is only a CC recipient, which is not a valid
+  // one-to-one relation in this context.
+  if (isDirectRecipient) {
+      updateData.current_holder = {
+          connect: { id: user.id }
+      };
+  }
 
   await prisma.memo.update({
     where: { id: memoId },
-    data: {
-      acknowledgedBy: { connect: { id: user.id } },
-      activity: {
-        create: {
-          actorId: user.id,
-          action: 'acknowledged',
-          details: 'Acknowledged receipt of the memo.',
-        },
-      },
-    },
+    data: updateData,
   });
 
   revalidatePath('/dashboard/inbox');
