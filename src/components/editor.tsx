@@ -1,9 +1,11 @@
+
 'use client';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
-import { Table } from 'lucide-react';
+import { Table, Undo2, Redo2 } from 'lucide-react';
+import { Separator } from './ui/separator';
 
 interface EditorProps {
   value: string;
@@ -107,9 +109,17 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
     <div className={cn("rounded-md border border-input", readOnly && "bg-muted/50")}>
       {!readOnly && (
         <div className="flex items-center gap-1 border-b p-2">
+            <button onClick={handleCommand('undo')} className={cn(toolbarButtonClass)} title="Undo (Ctrl+Z)">
+                <Undo2 className="h-4 w-4" />
+            </button>
+            <button onClick={handleCommand('redo')} className={cn(toolbarButtonClass)} title="Redo (Ctrl+Y)">
+                <Redo2 className="h-4 w-4" />
+            </button>
+            <Separator orientation="vertical" className="h-6 mx-1" />
             <button onClick={handleCommand('bold')} className={cn(toolbarButtonClass, "font-bold", { [activeToolbarButtonClass]: activeCommands.bold })}>B</button>
             <button onClick={handleCommand('italic')} className={cn(toolbarButtonClass, "italic", { [activeToolbarButtonClass]: activeCommands.italic })}>I</button>
             <button onClick={handleCommand('underline')} className={cn(toolbarButtonClass, "underline", { [activeToolbarButtonClass]: activeCommands.underline })}>U</button>
+            <Separator orientation="vertical" className="h-6 mx-1" />
             <button onClick={handleCommand('insertUnorderedList')} className={cn(toolbarButtonClass, { [activeToolbarButtonClass]: activeCommands.insertUnorderedList })}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 4H3V5H2V4ZM5 4H14V5H5V4ZM2 7.5H3V8.5H2V7.5ZM5 7.5H14V8.5H5V7.5ZM2 11H3V12H2V11ZM5 11H14V12H5V11Z" fill="currentColor"></path></svg>
             </button>
