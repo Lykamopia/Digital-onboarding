@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Share2, CornerUpLeft, MessageSquare, Mail, User, Edit } from 'lucide-react';
+import { CheckCircle, Share2, CornerUpLeft, MessageSquare, Mail, User, Edit, Fingerprint, Monitor } from 'lucide-react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import type { Activity, User as UserType } from '@/lib/types';
@@ -16,7 +16,7 @@ interface TimelineProps {
 const actionDetails = {
   sent: { icon: Mail, color: 'text-blue-500', bgColor: 'bg-blue-100' },
   viewed: { icon: CheckCircle, color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  acknowledged: { icon: CheckCircle, color: 'text-green-500', bgColor: 'bg-green-100' },
+  acknowledged: { icon: Fingerprint, color: 'text-green-500', bgColor: 'bg-green-100' },
   replied: { icon: CornerUpLeft, color: 'text-indigo-500', bgColor: 'bg-indigo-100' },
   forwarded: { icon: Share2, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   commented: { icon: MessageSquare, color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
@@ -27,7 +27,7 @@ const actionDetails = {
 };
 
 const TimelineItem = ({ activity, isLast }: { activity: Activity; isLast: boolean }) => {
-  const { actor, action, timestamp, details } = activity;
+  const { actor, action, timestamp, details, ipAddress, userAgent } = activity;
   const { icon: Icon, color, bgColor } = actionDetails[action as keyof typeof actionDetails] || { icon: User, color: 'text-gray-500', bgColor: 'bg-gray-100' };
 
   return (
@@ -69,7 +69,22 @@ const TimelineItem = ({ activity, isLast }: { activity: Activity; isLast: boolea
                 <div dangerouslySetInnerHTML={{ __html: details.replace(/\n/g, '<br/>') }} />
             </div>
         )}
-        <p className="mt-1.5 text-xs text-muted-foreground">{format(new Date(timestamp), "MMM d, yyyy 'at' h:mm a")}</p>
+        <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
+            <span>{format(new Date(timestamp), "MMM d, yyyy 'at' h:mm a")}</span>
+            {(ipAddress || userAgent) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Monitor className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {ipAddress && <p><strong>IP:</strong> {ipAddress}</p>}
+                    {userAgent && <p className="truncate"><strong>Device:</strong> {userAgent}</p>}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+        </div>
       </div>
     </motion.div>
   );
@@ -80,11 +95,15 @@ export const AnimatedTimeline: React.FC<TimelineProps> = ({ activities }) => {
     return <p>No activity history available for this memo.</p>;
   }
 
+  const sortedActivities = [...activities].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
   return (
     <div className="space-y-6">
-      {activities.map((activity, index) => (
-        <TimelineItem key={activity.id} activity={activity} isLast={index === activities.length - 1} />
+      {sortedActivities.map((activity, index) => (
+        <TimelineItem key={activity.id} activity={activity} isLast={index === sortedActivities.length - 1} />
       ))}
     </div>
   );
 };
+
+    

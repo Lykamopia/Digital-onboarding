@@ -251,18 +251,24 @@ async function main() {
             action: 'sent',
             timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             details: 'Sent to Alice Johnson, Charlie Brown. CC: Diana Prince',
+            ipAddress: '203.0.113.1',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           {
             id: 'act-1-2',
             actorId: 'user-1',
             action: 'viewed',
             timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+            ipAddress: '198.51.100.25',
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
           },
           {
             id: 'act-1-3',
             actorId: 'user-3',
             action: 'viewed',
             timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            ipAddress: '192.0.2.88',
+            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1'
           },
         ],
       },
@@ -303,18 +309,24 @@ async function main() {
             action: 'sent',
             timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
             details: 'Sent to Alice Johnson.',
+            ipAddress: '203.0.113.10',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           {
             id: 'act-2-2',
             actorId: 'user-1',
             action: 'viewed',
             timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+            ipAddress: '198.51.100.25',
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
           },
           {
             id: 'act-2-3',
             actorId: 'user-1',
             action: 'acknowledged',
             timestamp: new Date(Date.now() - 21 * 60 * 60 * 1000).toISOString(),
+            ipAddress: '198.51.100.25',
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
           },
         ],
       },
@@ -344,6 +356,8 @@ async function main() {
             action: 'sent',
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
             details: 'Sent to Ethan Hunt. CC: Bob Williams',
+            ipAddress: '203.0.113.15',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
         ],
       },
@@ -377,12 +391,16 @@ async function main() {
             action: 'sent',
             timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
             details: 'Sent to Alice Johnson, Bob Williams, Diana Prince, Ethan Hunt.',
+            ipAddress: '192.0.2.88',
+            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1'
           },
           {
             id: 'act-4-2',
             actorId: adminUser.id,
             action: 'viewed',
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            ipAddress: '203.0.113.15',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           {
             id: 'act-4-3',
@@ -390,6 +408,8 @@ async function main() {
             action: 'forwarded',
             details: `Forwarded from ${adminUser.name} to Bob Williams.\n<b>Remark:</b> Bob, can you handle this?`,
             timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 10000).toISOString(),
+            ipAddress: '203.0.113.15',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           {
             id: 'act-4-4',
@@ -397,6 +417,8 @@ async function main() {
             action: 'commented',
             details: 'Will there be a remote option?',
             timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            ipAddress: '198.51.100.12',
+            userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
           },
         ],
       },
@@ -415,3 +437,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    

@@ -91,6 +91,8 @@ export type Memo = PrismaMemo & {
 
 export type Activity = PrismaActivity & {
     actor: User;
+    ipAddress?: string | null;
+    userAgent?: string | null;
 };
 
 // Composite type for memos with all their relations
@@ -107,3 +109,5 @@ export type FullMemo = MemoWithActivity & {
 export type UserWithStatus = User & {
     status: 'active' | 'inactive';
 }
+
+    
