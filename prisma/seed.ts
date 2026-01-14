@@ -57,7 +57,8 @@ const roles = [
       'manage_users',
       'manage_roles',
       'manage_archive',
-      'manage_labels'
+      'manage_labels',
+      'manage_audit_log'
     ].join(','),
   },
   { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'].join(',') },
