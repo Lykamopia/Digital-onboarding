@@ -301,8 +301,8 @@ export default function ProfilePage() {
                                                         </DialogHeader>
                                                         <Tabs defaultValue="draw">
                                                             <TabsList className="grid w-full grid-cols-2">
-                                                                <TabsTrigger value="draw">Draw</TabsTrigger>
-                                                                <TabsTrigger value="upload">Upload</TabsTrigger>
+                                                                <TabsTrigger value="draw" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Draw</TabsTrigger>
+                                                                <TabsTrigger value="upload" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Upload</TabsTrigger>
                                                             </TabsList>
                                                             <TabsContent value="draw" className="p-4">
                                                                 <SignaturePad onSave={handleSignatureSave} initialSignature={signatureUrl} />
