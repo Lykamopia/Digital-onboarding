@@ -25,7 +25,8 @@ function generateCsp(nonce: string) {
     return csp;
 }
 
-export default function middleware(req: NextRequest) {
+export default withAuth(
+  function middleware(req: NextRequest) {
     const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
     const csp = generateCsp(nonce);
 
@@ -33,6 +34,7 @@ export default function middleware(req: NextRequest) {
     requestHeaders.set('x-nonce', nonce);
     requestHeaders.set('Content-Security-Policy', csp);
     
+    // Return a new response with the updated headers, allowing NextAuth to handle the rest
     const response = NextResponse.next({
         request: {
             headers: requestHeaders,
@@ -40,22 +42,18 @@ export default function middleware(req: NextRequest) {
     });
 
     response.headers.set('Content-Security-Policy', csp);
-
-    // Now, run the NextAuth middleware
-    const authMiddleware = withAuth(
-      function middleware(req) {
-        // You can add logic here if you need to perform additional checks
-      },
-      {
-        callbacks: {
-          authorized: ({ token }) => !!token,
-        },
-      }
-    );
-    // withAuth returns a function that expects a request and an event object
-    // We need to pass our enhanced request to it.
-    return authMiddleware(req, {} as any);
-}
+    
+    return response;
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
+    pages: {
+        signIn: '/login',
+    }
+  }
+);
 
 export const config = {
   // Matcher protecting all routes except login, api, and static files

@@ -31,13 +31,17 @@ export function UserNav({ user }: { user: User }) {
   const getAvatarUrl = () => {
     const p = user.avatar?.toString().trim();
     if (!p) return user.image || undefined;
+    
+    // If it's already a full URL, use it directly.
     if (p.startsWith('http')) return p;
-    // Append a timestamp to bust the cache if the URL doesn't already have one
-    const cacheBuster = p.includes('?') ? `&v=${Date.now()}` : `?v=${Date.now()}`;
-    if (p.startsWith('/uploads')) return `${p}${cacheBuster}`;
-    if (p.startsWith('uploads')) return `/${p}${cacheBuster}`;
-    // fallback to existing API-backed avatars
-    return p.startsWith('/') ? `/api${p}${cacheBuster}` : `/api/${p}${cacheBuster}`;
+    
+    // If it's a path starting with /uploads, it's a public file, no need for /api prefix
+    if (p.startsWith('/uploads')) {
+      return p;
+    }
+    
+    // Fallback for any other relative paths that might need the API prefix
+    return p.startsWith('/') ? `/api${p}` : `/api/${p}`;
   }
 
   return (

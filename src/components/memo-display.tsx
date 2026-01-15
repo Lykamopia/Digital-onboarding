@@ -119,15 +119,14 @@ const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     const trimmed = path.trim();
     if (trimmed.startsWith('http')) return trimmed;
-    // Normalize uploads path: accept both '/uploads/...' and 'uploads/...'
+    // For public files, just use the path directly.
     if (trimmed.startsWith('/uploads')) return trimmed;
-    if (trimmed.startsWith('uploads')) return '/' + trimmed;
-    // fallback for other API-backed images (e.g., '/users/avatar')
+    // Fallback for other potential API paths, though uploads should be the main use case.
     return trimmed.startsWith('/') ? `/api${trimmed}` : `/api/${trimmed}`;
 }
 
 const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {
-    const signatureUrl = getImageUrl(user.signature);
+    const signatureUrl = getImageUrl((user as User).signature);
     
     const content = useSignature && signatureUrl ? (
         <SignaturePreview src={signatureUrl} alt={`${user.name}'s signature`} compact />
@@ -396,7 +395,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                          {memo.attachments.length > 0 ? (
                             <div className="flex flex-col gap-1 font-sans">
                                 {memo.attachments.map(att => (
-                                <a key={att.id} href={`/api${att.url}`} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
+                                <a key={att.id} href={att.url} download={att.name} className="flex items-center gap-2 text-blue-600 hover:underline">
                                     <Paperclip className='h-4 w-4' />
                                     {att.name} ({formatFileSize(att.size)})
                                 </a>

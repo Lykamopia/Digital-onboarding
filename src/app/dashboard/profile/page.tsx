@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
 import type { User, Office, Department, Division, District, Branch } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit } from 'lucide-react';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
@@ -47,6 +47,7 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const signatureUploadInputRef = useRef<HTMLInputElement>(null);
   const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
 
   const isChanged = 
@@ -103,7 +104,7 @@ export default function ProfilePage() {
             }
     } else {
         toast.error('Update Failed', {
-            description: 'Could not update your profile.',
+            description: result.error || 'Could not update your profile.',
         });
     }
     setIsSaving(false);
@@ -141,10 +142,34 @@ export default function ProfilePage() {
     
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-    await handleFileUpload(file, setSignatureUrl, "signature", "Signature");
+    await handleFileUpload(file, setSignatureUrl, "signatures", "Signature");
   };
 
-  const handleFileUpload = async (file: File, setUrl: (url: string) => void, type: 'profile' | 'signature' | 'attachments', fieldName: string) => {
+  const handleSignatureUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        toast.error('Invalid File Type', { description: 'Please upload a PNG, JPG, or WEBP file.' });
+        return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) { // Reuse avatar size limit for now
+        toast.error('File too large', { description: 'Signature image must be less than 5MB.' });
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSignaturePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    await handleFileUpload(file, setSignatureUrl, "signatures", "Signature");
+  };
+
+  const handleFileUpload = async (file: File, setUrl: (url: string) => void, type: 'profile' | 'signatures' | 'attachments', fieldName: string) => {
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
@@ -274,11 +299,50 @@ export default function ProfilePage() {
                                                         <DialogHeader>
                                                         <DialogTitle>Create Your Digital Signature</DialogTitle>
                                                         </DialogHeader>
-                                                        <SignaturePad onSave={handleSignatureSave} initialSignature={signatureUrl} />
+                                                        <Tabs defaultValue="draw">
+                                                            <TabsList className="grid w-full grid-cols-2">
+                                                                <TabsTrigger value="draw">Draw</TabsTrigger>
+                                                                <TabsTrigger value="upload">Upload</TabsTrigger>
+                                                            </TabsList>
+                                                            <TabsContent value="draw" className="p-4">
+                                                                <SignaturePad onSave={handleSignatureSave} initialSignature={signatureUrl} />
+                                                            </TabsContent>
+                                                            <TabsContent value="upload" className="p-4">
+                                                                <div className="flex flex-col items-center gap-4">
+                                                                    <div 
+                                                                        className="w-full h-48 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 cursor-pointer hover:border-primary"
+                                                                        onClick={() => signatureUploadInputRef.current?.click()}
+                                                                    >
+                                                                        <input
+                                                                            type="file"
+                                                                            ref={signatureUploadInputRef}
+                                                                            onChange={handleSignatureUploadChange}
+                                                                            className="hidden"
+                                                                            accept="image/png, image/jpeg, image/webp"
+                                                                            disabled={isUploading}
+                                                                        />
+                                                                        {signaturePreview && !isUploading ? (
+                                                                            <Image src={signaturePreview} alt="Signature preview" width={200} height={100} className="max-w-full max-h-full object-contain" />
+                                                                        ) : isUploading ? (
+                                                                            <Loader2 className="h-8 w-8 animate-spin" />
+                                                                        ) : (
+                                                                            <div className="text-center text-muted-foreground">
+                                                                                <UploadCloud className="mx-auto h-8 w-8" />
+                                                                                <p className="mt-2 text-sm">Click to upload an image</p>
+                                                                                <p className="text-xs">(PNG, JPG, WEBP up to 5MB)</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <Button onClick={() => setIsSignatureDialogOpen(false)} disabled={isUploading}>
+                                                                        {isUploading ? 'Uploading...' : 'Done'}
+                                                                    </Button>
+                                                                </div>
+                                                            </TabsContent>
+                                                        </Tabs>
                                                     </DialogContent>
                                                 </Dialog>
                                                 <p className="text-xs text-muted-foreground mt-2">
-                                                    Draw your signature. This will be used for memo acknowledgements if enabled by an admin.
+                                                    Draw your signature or upload an image. This will be used for acknowledgements if enabled by an admin.
                                                 </p>
                                             </div>
                                         </div>
