@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -43,6 +44,7 @@ export default function ProfilePage() {
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [pendingSignature, setPendingSignature] = useState<File | null>(null);
   const [signatureCleared, setSignatureCleared] = useState(false);
+  
   const [signatureModified, setSignatureModified] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -171,10 +173,10 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSignatureSave = async (dataUrl: string) => {
+  const handleSignatureSave = (dataUrl: string) => {
     setIsSignatureDialogOpen(false);
     setSignatureModified(true);
-    
+
     if (!dataUrl) { // Handle clearing
       setSignatureCleared(true);
       setPendingSignature(null);
@@ -186,10 +188,29 @@ export default function ProfilePage() {
     setSignaturePreview(dataUrl);
     setSignatureCleared(false);
     
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-    setPendingSignature(file);
-    toast.info("Signature Updated", { description: "Click 'Save All Changes' to apply." });
+    // Convert data URL to Blob
+    const parts = dataUrl.split(',');
+    if (parts.length < 2) {
+      toast.error('Invalid signature data');
+      return;
+    }
+    const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/webp';
+    try {
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mimeType });
+      
+      const file = new File([blob], 'signature.webp', { type: 'image/webp' });
+      setPendingSignature(file);
+      toast.info("Signature Updated", { description: "Click 'Save All Changes' to apply." });
+    } catch (e) {
+      console.error("Error converting signature dataURL to blob:", e);
+      toast.error("Could not process signature", { description: "There was an error converting the drawn signature. Please try again." });
+    }
   };
 
   const handleSignatureUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
