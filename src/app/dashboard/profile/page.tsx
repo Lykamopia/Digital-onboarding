@@ -43,6 +43,7 @@ export default function ProfilePage() {
   
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [signatureModified, setSignatureModified] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -54,7 +55,8 @@ export default function ProfilePage() {
     name !== user?.name || 
     email !== user?.email || 
     avatarUrl !== (user?.avatar || '') || 
-    signatureUrl !== (user?.signature || '');
+    signatureUrl !== (user?.signature || '') ||
+    signatureModified;
 
   const loadUser = useCallback(async () => {
     const initialUser = await getLoggedInUser();
@@ -66,6 +68,7 @@ export default function ProfilePage() {
         setSignatureUrl(initialUser.signature || '');
         setAvatarPreview(null);
         setSignaturePreview(null);
+        setSignatureModified(false);
     }
   }, []);
 
@@ -130,6 +133,7 @@ export default function ProfilePage() {
 
   const handleSignatureSave = async (dataUrl: string) => {
     setIsSignatureDialogOpen(false);
+    setSignatureModified(true);
     
     if (!dataUrl) {
       setSignaturePreview('');
@@ -148,6 +152,8 @@ export default function ProfilePage() {
   const handleSignatureUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setSignatureModified(true);
 
     const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
