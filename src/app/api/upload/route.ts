@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  // Define the upload directory path at the root level
-  const uploadDir = join(process.cwd(), 'uploads', type);
+  // Define the upload directory path at the root level, now with subdirectories
+  const uploadDir = join(process.cwd(), 'public', 'uploads', type);
 
   // Ensure the upload directory exists
   try {
@@ -45,14 +45,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to save file' }, { status: 500 });
   }
   
-  // Return the path relative to the uploads directory
-  const relativePath = `/uploads/${type}/${uniqueFilename}`;
+  // Return the public path relative to the root
+  const publicPath = `/uploads/${type}/${uniqueFilename}`;
 
   return NextResponse.json({ 
     success: true, 
-    path: relativePath,
+    path: publicPath,
     name: file.name,
     size: file.size,
     type: file.type
   });
+}
+
+
+// DELETE handler for removing uploaded files
+export async function DELETE(req: NextRequest) {
+  const data = await req.json();
+  const relativePath = data.path as string;
+
+  if (!relativePath) {
+    return NextResponse.json({ success: false, error: 'No file path provided' }, { status: 400 });
+  }
+
+  // Path received will be like "/uploads/profile/some-file.png"
+  // We need to map it to "public/uploads/profile/some-file.png"
+  const basePath = join(process.cwd(), 'public');
+  const absolutePath = join(basePath, relativePath);
+
+  // Security check: ensure the resolved path is within the 'public/uploads' directory
+  const publicUploadsDir = join(process.cwd(), 'public', 'uploads');
+  if (!absolutePath.startsWith(publicUploadsDir)) {
+    return NextResponse.json({ success: false, error: 'Invalid file path' }, { status: 403 });
+  }
+  
+  try {
+    await rm(absolutePath);
+    return NextResponse.json({ success: true, message: 'File deleted successfully.' });
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      // File not found is not an error in this context.
+      return NextResponse.json({ success: true, message: 'File not found, but operation is successful.' });
+    }
+    console.error('Error deleting file:', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete file' }, { status: 500 });
+  }
 }

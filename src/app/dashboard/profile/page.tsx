@@ -102,56 +102,81 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    
-    try {
-        let finalAvatarUrl = user.avatar || '';
-        if (pendingAvatar) {
-            finalAvatarUrl = await uploadFile(pendingAvatar, 'profile');
-        }
 
-        let finalSignatureUrl = user.signature || '';
-        if (signatureCleared) {
-            finalSignatureUrl = '';
-        } else if (pendingSignature) {
-            finalSignatureUrl = await uploadFile(pendingSignature, 'signatures');
-        }
-        
-        const result = await updateUserProfile(user.id, { 
-            name, 
-            email, 
-            avatar: finalAvatarUrl, 
-            signature: finalSignatureUrl 
+    try {
+      const oldAvatar = user.avatar;
+      const oldSignature = user.signature;
+
+      let finalAvatarUrl = oldAvatar || '';
+      let finalSignatureUrl = oldSignature || '';
+
+      if (pendingAvatar) {
+        finalAvatarUrl = await uploadFile(pendingAvatar, 'profile');
+      }
+
+      if (signatureCleared) {
+        finalSignatureUrl = '';
+      } else if (pendingSignature) {
+        finalSignatureUrl = await uploadFile(pendingSignature, 'signatures');
+      }
+
+      const result = await updateUserProfile(user.id, {
+        name,
+        email,
+        avatar: finalAvatarUrl,
+        signature: finalSignatureUrl,
+      });
+
+      if (result.success) {
+        toast.success('Profile Updated', {
+          description: 'Your profile has been successfully updated.',
         });
 
-        if (result.success) {
-            toast.success('Profile Updated', {
-                description: 'Your profile has been successfully updated.',
+        // Now delete old files if they were replaced
+        const deleteOldFile = async (path: string | null | undefined) => {
+          if (!path || path.startsWith('http')) return;
+          try {
+            await fetch('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path }),
             });
-            
-            // Reload local user data and reset pending states
-            await loadUser();
-
-            // Notify other parts of the app
-            try {
-                const fresh = await getLoggedInUser();
-                if (fresh) {
-                    const detail: any = { ...fresh };
-                    if (detail.avatar) detail.avatar = `${detail.avatar}${detail.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`;
-                    if (detail.signature) detail.signature = `${detail.signature}${detail.signature.includes('?') ? '&' : '?'}t=${Date.now()}`;
-                    window.dispatchEvent(new CustomEvent('profile-updated', { detail }));
-                }
-            } catch (e) {
-                // no-op
-            }
-        } else {
-            toast.error('Update Failed', {
-                description: result.error || 'Could not update your profile.',
-            });
+          } catch (e) {
+            console.error("Failed to delete old file:", path, e); // Log and continue
+          }
+        };
+        
+        if (pendingAvatar && oldAvatar) {
+          await deleteOldFile(oldAvatar);
         }
+        if ((signatureCleared || pendingSignature) && oldSignature) {
+          await deleteOldFile(oldSignature);
+        }
+
+        // Reload local user data and reset pending states
+        await loadUser();
+
+        // Notify other parts of the app
+        try {
+          const fresh = await getLoggedInUser();
+          if (fresh) {
+            const detail: any = { ...fresh };
+            if (detail.avatar) detail.avatar = `${detail.avatar.split('?')[0]}?t=${Date.now()}`;
+            if (detail.signature) detail.signature = `${detail.signature.split('?')[0]}?t=${Date.now()}`;
+            window.dispatchEvent(new CustomEvent('profile-updated', { detail }));
+          }
+        } catch (e) {
+          // no-op
+        }
+      } else {
+        toast.error('Update Failed', {
+          description: result.error || 'Could not update your profile.',
+        });
+      }
     } catch (error) {
-        console.error("Save failed:", error);
+      console.error("Save failed:", error);
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
   
@@ -188,25 +213,25 @@ export default function ProfilePage() {
     setSignaturePreview(dataUrl);
     setSignatureCleared(false);
     
-    // Convert data URL to Blob
+    // Convert data URL to File
     const parts = dataUrl.split(',');
     if (parts.length < 2) {
       toast.error('Invalid signature data');
       return;
     }
-    const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/webp';
+
     try {
-      const bstr = atob(parts[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-      }
-      const blob = new Blob([u8arr], { type: mimeType });
-      
-      const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-      setPendingSignature(file);
-      toast.info("Signature Updated", { description: "Click 'Save All Changes' to apply." });
+        const byteString = atob(parts[1]);
+        const mimeString = parts[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mimeString });
+        const file = new File([blob], 'signature.webp', { type: 'image/webp' });
+        setPendingSignature(file);
+        toast.info("Signature Updated", { description: "Click 'Save All Changes' to apply." });
     } catch (e) {
       console.error("Error converting signature dataURL to blob:", e);
       toast.error("Could not process signature", { description: "There was an error converting the drawn signature. Please try again." });
@@ -439,3 +464,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
