@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  // Define the upload directory path at the root level, now with subdirectories
-  const uploadDir = join(process.cwd(), 'public', 'uploads', type);
+  // Define the upload directory path at the root level
+  const uploadDir = join(process.cwd(), 'uploads', type);
 
   // Ensure the upload directory exists
   try {
@@ -68,13 +68,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   // Path received will be like "/uploads/profile/some-file.png"
-  // We need to map it to "public/uploads/profile/some-file.png"
-  const basePath = join(process.cwd(), 'public');
+  // We need to map it to the root "uploads" folder
+  const basePath = process.cwd();
   const absolutePath = join(basePath, relativePath);
 
-  // Security check: ensure the resolved path is within the 'public/uploads' directory
-  const publicUploadsDir = join(process.cwd(), 'public', 'uploads');
-  if (!absolutePath.startsWith(publicUploadsDir)) {
+  // Security check: ensure the resolved path is within the root 'uploads' directory
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!absolutePath.startsWith(uploadsDir)) {
     return NextResponse.json({ success: false, error: 'Invalid file path' }, { status: 403 });
   }
   
