@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -44,6 +43,7 @@ export default function ProfilePage() {
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [pendingSignature, setPendingSignature] = useState<File | null>(null);
   const [signatureCleared, setSignatureCleared] = useState(false);
+  const [signatureModified, setSignatureModified] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -55,8 +55,7 @@ export default function ProfilePage() {
     name !== (user?.name || '') || 
     email !== (user?.email || '') || 
     pendingAvatar !== null ||
-    pendingSignature !== null ||
-    signatureCleared;
+    signatureModified;
 
   const loadUser = useCallback(async () => {
     const initialUser = await getLoggedInUser();
@@ -69,6 +68,7 @@ export default function ProfilePage() {
         setPendingAvatar(null);
         setPendingSignature(null);
         setSignatureCleared(false);
+        setSignatureModified(false);
     }
   }, []);
 
@@ -173,6 +173,7 @@ export default function ProfilePage() {
 
   const handleSignatureSave = async (dataUrl: string) => {
     setIsSignatureDialogOpen(false);
+    setSignatureModified(true);
     
     if (!dataUrl) { // Handle clearing
       setSignatureCleared(true);
@@ -206,6 +207,7 @@ export default function ProfilePage() {
         return;
     }
     
+    setSignatureModified(true);
     setSignatureCleared(false);
     setPendingSignature(file);
     
