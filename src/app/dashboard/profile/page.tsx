@@ -38,12 +38,12 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [signatureUrl, setSignatureUrl] = useState('');
-  
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
-  const [signatureModified, setSignatureModified] = useState(false);
+
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+  const [pendingSignature, setPendingSignature] = useState<File | null>(null);
+  const [signatureCleared, setSignatureCleared] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,11 +52,11 @@ export default function ProfilePage() {
   const [isSignatureDialogOpen, setIsSignatureDialogOpen] = useState(false);
 
   const isChanged = 
-    name !== user?.name || 
-    email !== user?.email || 
-    avatarUrl !== (user?.avatar || '') || 
-    signatureUrl !== (user?.signature || '') ||
-    signatureModified;
+    name !== (user?.name || '') || 
+    email !== (user?.email || '') || 
+    pendingAvatar !== null ||
+    pendingSignature !== null ||
+    signatureCleared;
 
   const loadUser = useCallback(async () => {
     const initialUser = await getLoggedInUser();
@@ -64,11 +64,11 @@ export default function ProfilePage() {
     if (initialUser) {
         setName(initialUser.name);
         setEmail(initialUser.email);
-        setAvatarUrl(initialUser.avatar || '');
-        setSignatureUrl(initialUser.signature || '');
         setAvatarPreview(null);
         setSignaturePreview(null);
-        setSignatureModified(false);
+        setPendingAvatar(null);
+        setPendingSignature(null);
+        setSignatureCleared(false);
     }
   }, []);
 
@@ -76,24 +76,60 @@ export default function ProfilePage() {
     loadUser();
   }, [loadUser]);
 
+  const uploadFile = async (file: File, type: 'profile' | 'signatures'): Promise<string> => {
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    
+    try {
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!response.ok) {
+        throw new Error((await response.json()).error || `${type} upload failed`);
+      }
+      const result = await response.json();
+      return result.path;
+    } catch (error: any) {
+       toast.error('Upload Failed', { description: error.message });
+       throw error; // Re-throw to be caught by handleSave
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    const result = await updateUserProfile(user.id, { 
-        name, 
-        email, 
-        avatar: avatarUrl, 
-        signature: signatureUrl 
-    });
-    if (result.success) {
-      toast.success('Profile Updated', {
-        description: 'Your profile has been successfully updated.',
-      });
-            // Reload local user data
+    
+    try {
+        let finalAvatarUrl = user.avatar || '';
+        if (pendingAvatar) {
+            finalAvatarUrl = await uploadFile(pendingAvatar, 'profile');
+        }
+
+        let finalSignatureUrl = user.signature || '';
+        if (signatureCleared) {
+            finalSignatureUrl = '';
+        } else if (pendingSignature) {
+            finalSignatureUrl = await uploadFile(pendingSignature, 'signatures');
+        }
+        
+        const result = await updateUserProfile(user.id, { 
+            name, 
+            email, 
+            avatar: finalAvatarUrl, 
+            signature: finalSignatureUrl 
+        });
+
+        if (result.success) {
+            toast.success('Profile Updated', {
+                description: 'Your profile has been successfully updated.',
+            });
+            
+            // Reload local user data and reset pending states
             await loadUser();
 
-            // Notify other parts of the app (header, memo views) about the update so they can refresh immediately.
-            // Append a cache-busting query param to avatar/signature URLs so browsers refetch the new images.
+            // Notify other parts of the app
             try {
                 const fresh = await getLoggedInUser();
                 if (fresh) {
@@ -105,12 +141,16 @@ export default function ProfilePage() {
             } catch (e) {
                 // no-op
             }
-    } else {
-        toast.error('Update Failed', {
-            description: result.error || 'Could not update your profile.',
-        });
+        } else {
+            toast.error('Update Failed', {
+                description: result.error || 'Could not update your profile.',
+            });
+        }
+    } catch (error) {
+        console.error("Save failed:", error);
+    } finally {
+        setIsSaving(false);
     }
-    setIsSaving(false);
   };
   
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,38 +162,38 @@ export default function ProfilePage() {
         return;
     }
 
+    setPendingAvatar(file);
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setAvatarPreview(reader.result as string);
     };
     reader.readAsDataURL(file);
-
-    await handleFileUpload(file, setAvatarUrl, "profile", "Avatar");
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
     setIsSignatureDialogOpen(false);
-    setSignatureModified(true);
     
-    if (!dataUrl) {
-      setSignaturePreview('');
-      setSignatureUrl('');
+    if (!dataUrl) { // Handle clearing
+      setSignatureCleared(true);
+      setPendingSignature(null);
+      setSignaturePreview(null);
       toast.info("Signature Cleared", { description: "Click 'Save All Changes' to apply." });
       return;
     }
     
     setSignaturePreview(dataUrl);
+    setSignatureCleared(false);
     
     const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], 'signature.webp', { type: 'image/webp' });
-    await handleFileUpload(file, setSignatureUrl, "signatures", "Signature");
+    setPendingSignature(file);
+    toast.info("Signature Updated", { description: "Click 'Save All Changes' to apply." });
   };
 
   const handleSignatureUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setSignatureModified(true);
 
     const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
@@ -161,39 +201,21 @@ export default function ProfilePage() {
         return;
     }
 
-    if (file.size > MAX_AVATAR_SIZE) { // Reuse avatar size limit for now
+    if (file.size > MAX_AVATAR_SIZE) {
         toast.error('File too large', { description: 'Signature image must be less than 5MB.' });
         return;
     }
-
+    
+    setSignatureCleared(false);
+    setPendingSignature(file);
+    
     const reader = new FileReader();
     reader.onloadend = () => {
       setSignaturePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
-
-    await handleFileUpload(file, setSignatureUrl, "signatures", "Signature");
-  };
-
-  const handleFileUpload = async (file: File, setUrl: (url: string) => void, type: 'profile' | 'signatures' | 'attachments', fieldName: string) => {
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
     
-    try {
-      const response = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error((await response.json()).error || `${fieldName} upload failed`);
-      const result = await response.json();
-      setUrl(result.path);
-      toast.success(`${fieldName} Updated`, { description: `Click 'Save All Changes' to apply your new ${fieldName.toLowerCase()}.` });
-    } catch (error: any) {
-       toast.error('Upload Failed', { description: error.message });
-       if(fieldName === 'Avatar') setAvatarPreview(user?.avatar || null);
-       if(fieldName === 'Signature') setSignaturePreview(user?.signature || null);
-    } finally {
-      setIsUploading(false);
-    }
+    toast.info("Signature Image Selected", { description: "Click 'Save All Changes' to apply." });
   };
   
   if (!user) {
@@ -216,6 +238,7 @@ export default function ProfilePage() {
   };
   const orgPath = getUserOrgPath();
 
+  const signatureToDisplay = signaturePreview ?? (!signatureCleared ? user?.signature : null);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -240,7 +263,7 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
-                                        <AvatarImage src={avatarPreview || avatarUrl} alt={name} />
+                                        <AvatarImage src={avatarPreview || user?.avatar || ''} alt={name} />
                                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 
@@ -280,17 +303,13 @@ export default function ProfilePage() {
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
                                             <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2 overflow-hidden">
-                                                {signaturePreview ? (
-                                                    <SignaturePreview src={signaturePreview} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" priority />
+                                                {signatureToDisplay ? (
+                                                    <SignaturePreview src={signatureToDisplay} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
                                                 ) : (
-                                                    signatureUrl ? (
-                                                        <SignaturePreview src={signatureUrl} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
-                                                    ) : (
-                                                        <div className="text-center text-xs text-muted-foreground">
-                                                            <ImageIcon className="mx-auto h-6 w-6" />
-                                                            <p>No Signature Set</p>
-                                                        </div>
-                                                    )
+                                                    <div className="text-center text-xs text-muted-foreground">
+                                                        <ImageIcon className="mx-auto h-6 w-6" />
+                                                        <p>No Signature Set</p>
+                                                    </div>
                                                 )}
                                             </div>
                                             <div className="flex-1">
@@ -298,7 +317,7 @@ export default function ProfilePage() {
                                                     <DialogTrigger asChild>
                                                          <Button type="button" variant="outline">
                                                             <Edit className="mr-2 h-4 w-4" />
-                                                            {signatureUrl ? 'Edit Signature' : 'Create Signature'}
+                                                            {user?.signature ? 'Edit Signature' : 'Create Signature'}
                                                         </Button>
                                                     </DialogTrigger>
                                                     <DialogContent className="max-w-2xl">
@@ -311,7 +330,7 @@ export default function ProfilePage() {
                                                                 <TabsTrigger value="upload" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Upload</TabsTrigger>
                                                             </TabsList>
                                                             <TabsContent value="draw" className="p-4">
-                                                                <SignaturePad onSave={handleSignatureSave} initialSignature={signatureUrl} />
+                                                                <SignaturePad onSave={handleSignatureSave} initialSignature={user?.signature || undefined} />
                                                             </TabsContent>
                                                             <TabsContent value="upload" className="p-4">
                                                                 <div className="flex flex-col items-center gap-4">
@@ -396,4 +415,5 @@ export default function ProfilePage() {
         </div>
     </div>
   );
-}
+
+    
