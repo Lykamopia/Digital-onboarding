@@ -4,30 +4,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const securityHeaders = [
-    {
-        key: 'Strict-Transport-Security',
-        value: 'max-age=63072000; includeSubDomains; preload',
-    },
-    {
-        key: 'X-Permitted-Cross-Domain-Policies',
-        value: 'none',
-    },
-    {
-        key: 'Cross-Origin-Embedder-Policy',
-        value: 'require-corp',
-    },
-    {
-        key: 'Cross-Origin-Opener-Policy',
-        value: 'same-origin',
-    },
-    {
-        key: 'Cross-Origin-Resource-Policy',
-        value: 'same-origin',
-    }
-];
-
-
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
@@ -57,15 +33,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  async headers() {
-    return [
-      {
-        // Apply these headers to all routes in your application.
-        source: '/:path*',
-        headers: securityHeaders,
-      },
-    ]
   },
 };
 
