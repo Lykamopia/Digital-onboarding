@@ -24,7 +24,7 @@ type NotificationContextType = {
   settings: NotificationSettings;
   setSettings: (settings: Partial<NotificationSettings>) => void;
   showNotification: (props: ShowNotificationProps) => void;
-  addNotification: (memo: MemoWithActivity) => void;
+  addNotification: (memo: MemoWithActivity, type?: string) => void;
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
@@ -103,7 +103,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications(initialNotifications);
   }, []);
 
-  const addNotification = useCallback((memo: MemoWithActivity) => {
+  const addNotification = useCallback((memo: MemoWithActivity, type?: string) => {
     if (!settings.notificationsEnabled) return;
     
     setNotifications(prev => {
@@ -111,14 +111,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             return prev;
         }
         
-        const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        const isForward = lastActivity?.action === 'forwarded';
+        const isForward = type === 'forward-memo';
+        const isReply = type === 'reply-memo';
+
+        let title: string;
+        const fromName = memo.from.name;
+
+        if (isForward) {
+            title = 'Memo Forwarded to You';
+        } else if (isReply) {
+            title = 'You have a reply';
+        } else {
+            title = 'New Memo Received';
+        }
 
         const newNotif = {
             id: memo.id,
             memoId: memo.id,
-            title: isForward ? 'Memo Delegated to You' : 'New Memo Received',
-            description: `From: ${isForward && lastActivity.actor ? lastActivity.actor.name : memo.from.name} - ${memo.subject}`,
+            title: title,
+            description: `From: ${fromName} - ${memo.subject}`,
             createdAt: new Date(memo.createdAt),
             read: false,
         };

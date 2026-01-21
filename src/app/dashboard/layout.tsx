@@ -49,14 +49,14 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
             socket.onmessage = (event) => {
                 try {
                     const eventData = JSON.parse(event.data);
-                    const { payload, recipientIds } = eventData;
+                    const { type, payload, recipientIds } = eventData;
                     if (!payload || !recipientIds) return;
                     
                     const isRecipient = recipientIds.includes(user.id);
                     if (!isRecipient) return;
 
                     window.dispatchEvent(new CustomEvent('new-memo-received', { detail: { memo: payload } }));
-                    addNotification(payload);
+                    addNotification(payload, type);
 
                 } catch (error) {
                     console.error('Error parsing WebSocket message:', error);
