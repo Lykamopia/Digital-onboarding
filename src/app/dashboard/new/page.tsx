@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -493,6 +493,22 @@ export default function NewMemoPage() {
     }
     setIsTemplateDialogOpen(false);
   };
+  
+  const getIconForMimeType = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return <ImageIcon className="h-10 w-10 text-muted-foreground" />;
+    if (mimeType === 'application/pdf') return <FileText className="h-10 w-10 text-red-500" />;
+    if (mimeType.includes('wordprocessingml')) return <FileText className="h-10 w-10 text-blue-500" />;
+    if (mimeType.includes('spreadsheetml')) return <FileSpreadsheet className="h-10 w-10 text-green-500" />;
+    if (mimeType.includes('presentationml')) return <Presentation className="h-10 w-10 text-orange-500" />;
+    if (mimeType.startsWith('audio/')) return <FileMusic className="h-10 w-10 text-purple-500" />;
+    if (mimeType.startsWith('video/')) return <FileVideo className="h-10 w-10 text-indigo-500" />;
+    if (mimeType.includes('zip') || mimeType.includes('archive')) return <Archive className="h-10 w-10 text-yellow-500" />;
+    return <FileIcon className="h-10 w-10 text-muted-foreground" />;
+  };
+
+  const getFileExtension = (filename: string) => {
+      return filename.split('.').pop()?.toUpperCase() || '';
+  };
 
 
   if (!loggedInUser) {
@@ -624,14 +640,17 @@ export default function NewMemoPage() {
                             className="hidden"
                             multiple
                           />
-                          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
-                                    <Image src={att.url.startsWith('http') ? att.url : `/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                    <Image src={att.url.startsWith('http') ? att.url : att.url.startsWith('/uploads') ? att.url : `/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
                                 ) : (
                                     <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
-                                        <FileIcon className="h-10 w-10 text-muted-foreground" />
+                                        <div className="relative">
+                                            {getIconForMimeType(att.type)}
+                                            <Badge variant="secondary" className="absolute -top-1 -right-2 text-xs">{getFileExtension(att.name)}</Badge>
+                                        </div>
                                         <p className="text-xs text-center mt-2 text-muted-foreground break-all">{att.name}</p>
                                     </div>
                                 )}
