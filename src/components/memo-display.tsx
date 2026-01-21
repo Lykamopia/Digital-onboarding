@@ -544,7 +544,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
 
   return (
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
-        <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4">
+        <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4 bg-gradient-to-br from-primary/5 to-accent/5">
             <div className="flex items-center gap-2 overflow-hidden">
                 {onBack && (
                   <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
