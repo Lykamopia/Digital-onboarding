@@ -1532,26 +1532,29 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
 }
 
 
-let emailSettings = { 
-    notificationsEnabled: true, 
-    headerText: 'New Memo Notification', 
-    bodyText: 'Hello,\n\n{{notificationType}}\n\nPlease find the details of the memo below.',
-    footerText: 'This is an automated message. Please do not reply.' 
-};
-
 export async function getEmailSettings() {
-    await hasPermission('manage_email_settings');
-    return emailSettings;
+    const settings = await prisma.setting.findUnique({ where: { key: 'email' } });
+    const defaultSettings = { 
+        notificationsEnabled: true, 
+        headerText: 'New Memo Notification', 
+        bodyText: 'Hello,\n\n{{notificationType}}\n\nPlease find the details of the memo below.',
+        footerText: 'This is an automated message. Please do not reply.' 
+    };
+    return settings ? { ...defaultSettings, ...(settings.value as any) } : defaultSettings;
 }
 
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
     await hasPermission('manage_email_settings');
-    emailSettings = settings;
+    await prisma.setting.upsert({
+        where: { key: 'email' },
+        update: { value: settings },
+        create: { key: 'email', value: settings }
+    });
     revalidatePath('/dashboard/admin/email');
     return { success: true };
 }
 
-let generalSettings = { 
+const defaultGeneralSettings = { 
     acknowledgementType: 'SIGNATURE' as AcknowledgementType,
     referenceFormat: {
         prefix: 'department' as 'department' | 'office' | 'custom',
@@ -1561,20 +1564,24 @@ let generalSettings = {
 };
 
 export async function getGeneralSettings() {
-    // Ensure defaults are set if the object is incomplete
-    if (!generalSettings.referenceFormat) {
-        generalSettings.referenceFormat = {
-            prefix: 'department',
-            separator: '-',
-            numberLength: 4,
-        };
+    const settings = await prisma.setting.findUnique({ where: { key: 'general' } });
+    if (settings) {
+        // basic merge to ensure all default keys are present
+        const dbSettings = settings.value as any;
+        const mergedSettings = { ...defaultGeneralSettings, ...dbSettings };
+        mergedSettings.referenceFormat = { ...defaultGeneralSettings.referenceFormat, ...dbSettings.referenceFormat };
+        return mergedSettings;
     }
-    return generalSettings;
+    return defaultGeneralSettings;
 }
 
 export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any }) {
     await hasPermission('manage_general_settings');
-    generalSettings = settings;
+    await prisma.setting.upsert({
+        where: { key: 'general' },
+        update: { value: settings },
+        create: { key: 'general', value: settings }
+    });
     revalidatePath('/dashboard/admin/general');
     return { success: true };
 }
