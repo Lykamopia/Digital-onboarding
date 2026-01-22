@@ -71,7 +71,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                 cc.push(memo);
             }
         });
-        return { directMemos, ccMemos };
+        return { directMemos: direct, ccMemos: cc };
     }, [memos, tab, loggedInUser]);
 
     const { directSentMemos, forwardedMemos, repliedMemos } = useMemo(() => {
@@ -90,7 +90,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                 direct.push(memo);
             }
         });
-        return { directSentMemos: direct, forwardedMemos, repliedMemos };
+        return { directSentMemos: direct, forwardedMemos: forwarded, repliedMemos: replied };
     }, [memos, tab]);
 
     const getMemoStatus = (memo: MemoWithActivity) => {
@@ -694,5 +694,3 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
-
-    
