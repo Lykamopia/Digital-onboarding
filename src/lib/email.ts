@@ -1,7 +1,8 @@
 
 import nodemailer from 'nodemailer';
-import type { Memo, User, Role } from './types';
+import type { Memo, User, Role, Prisma } from './types';
 import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
+import prisma from './prisma';
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -31,6 +32,19 @@ interface PasswordResetEmailOptions {
     to: string;
     name: string;
     password: string;
+}
+
+async function logEmail(data: Omit<Prisma.EmailLogCreateInput, 'from'>) {
+    try {
+        await prisma.emailLog.create({
+            data: {
+                from: process.env.EMAIL_FROM || 'noreply@example.com',
+                ...data
+            }
+        });
+    } catch (logError) {
+        console.error("Failed to log email:", logError);
+    }
 }
 
 
@@ -211,9 +225,29 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
     try {
         const info = await transporter.sendMail(mailOptions);
         console.log('Welcome email sent: %s', info.messageId);
+        const user = await prisma.user.findUnique({ where: { email: to } });
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'sent',
+            triggerEvent: 'welcome_user',
+            relatedEntityId: user?.id,
+            messageId: info.messageId,
+        });
         return info;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error sending welcome email:', error);
+         const user = await prisma.user.findUnique({ where: { email: to } });
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'failed',
+            triggerEvent: 'welcome_user',
+            relatedEntityId: user?.id,
+            errorMessage: error.message,
+        });
         throw error;
     }
 }
@@ -249,9 +283,29 @@ export async function sendPasswordResetEmail({ to, name, password }: PasswordRes
     try {
         const info = await transporter.sendMail(mailOptions);
         console.log('Password reset email sent: %s', info.messageId);
+        const user = await prisma.user.findUnique({ where: { email: to } });
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'sent',
+            triggerEvent: 'password_reset',
+            relatedEntityId: user?.id,
+            messageId: info.messageId,
+        });
         return info;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error sending password reset email:', error);
+        const user = await prisma.user.findUnique({ where: { email: to } });
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'failed',
+            triggerEvent: 'password_reset',
+            relatedEntityId: user?.id,
+            errorMessage: error.message,
+        });
         throw error;
     }
 }
@@ -276,9 +330,29 @@ export async function sendEmail({ to, subject, memo, sender, type }: MemoEmailOp
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log('Email sent: %s', info.messageId);
+     await logEmail({
+        to: to,
+        cc: memo.cc.map(u => u.email).join(', '),
+        subject,
+        body: htmlBody,
+        status: 'sent',
+        triggerEvent: 'new_memo',
+        relatedEntityId: memo.id,
+        messageId: info.messageId,
+    });
     return info;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending email:', error);
+    await logEmail({
+        to: to,
+        cc: memo.cc.map(u => u.email).join(', '),
+        subject,
+        body: htmlBody,
+        status: 'failed',
+        triggerEvent: 'new_memo',
+        relatedEntityId: memo.id,
+        errorMessage: error.message,
+    });
     throw error;
   }
 }

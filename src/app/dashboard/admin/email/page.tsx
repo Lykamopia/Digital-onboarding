@@ -1,28 +1,28 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getEmailSettings, saveEmailSettings } from "@/app/actions/memo";
+import { getEmailSettings, saveEmailSettings, getEmailLogs } from "@/app/actions/memo";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Search, ChevronsLeft, ChevronsRight, Eye } from "lucide-react";
 import Image from "next/image";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedCallback } from "use-debounce";
+import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { formatTimestamp } from "@/lib/data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import type { EmailLog } from "@/lib/types";
 
-function EmailSettingsSkeleton() {
-    return (
-        <div className="space-y-6">
-            <Skeleton className="h-96 w-full" />
-        </div>
-    );
-}
-
-export default function EmailSettingsPage() {
+function EmailTemplateSettings() {
   const [settings, setSettings] = useState({ notificationsEnabled: true, headerText: '', bodyText: '', footerText: '' });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,16 +63,14 @@ export default function EmailSettingsPage() {
   }
 
   if (loading) {
-    return <EmailSettingsSkeleton />;
+    return <div className="space-y-6"><Skeleton className="h-96 w-full" /></div>;
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Email Notification Settings</CardTitle>
-        <CardDescription>
-          Manage email notifications and customize their content and appearance.
-        </CardDescription>
+        <CardTitle>Email Template Settings</CardTitle>
+        <CardDescription>Customize the content and appearance of email notifications.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
@@ -118,7 +116,6 @@ export default function EmailSettingsPage() {
                 </p>
             </div>
 
-
             <div className="space-y-2">
                 <Label htmlFor="footer-text">Email Footer Text</Label>
                 <Textarea
@@ -136,36 +133,29 @@ export default function EmailSettingsPage() {
             <Label className="text-base font-semibold">Live Preview</Label>
             <div className="mt-2 rounded-lg border bg-muted/30 p-4">
                 <div className="mx-auto max-w-xl rounded-md border bg-card shadow-lg">
-                    {/* Email Header */}
                     <div className="p-4 text-center rounded-t-md">
                         <Image src="/Logo.png" alt="Logo" width={90} height={30} className="mx-auto" />
                     </div>
-                    {/* Email Body */}
                     <div className="p-6">
                         <h2 className="text-xl font-bold mb-4">{settings.headerText}</h2>
-                        
                         <div className="prose prose-sm max-w-none dark:prose-invert"
                             dangerouslySetInnerHTML={{ __html: processTextForPreview(settings.bodyText) }}
                         />
-
                         <div className="my-6 rounded-md border-l-4 border-accent bg-muted/50 p-4 text-sm">
                             <p><strong>From:</strong> Sender Name</p>
                             <p><strong>Subject:</strong> Sample Memo Subject</p>
                             <p><strong>Reference:</strong> MEMO-2024-XXX</p>
                         </div>
-                        
                         <div className="text-center">
                             <Button size="sm" disabled={!settings.notificationsEnabled}>View Full Memo</Button>
                         </div>
                     </div>
-                    {/* Email Footer */}
                     <div className="bg-muted p-4 text-center text-xs text-muted-foreground rounded-b-md">
                         <p>{settings.footerText}</p>
                     </div>
                 </div>
             </div>
         </div>
-
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>
@@ -176,3 +166,176 @@ export default function EmailSettingsPage() {
     </Card>
   );
 }
+
+function EmailLogViewer() {
+    const [data, setData] = useState<{ logs: EmailLog[], total: number, totalPages: number } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(15);
+    const [filters, setFilters] = useState<{ status?: string; query?: string }>({});
+    const [selectedEmail, setSelectedEmail] = useState<EmailLog | null>(null);
+
+    const debouncedSetQuery = useDebouncedCallback((query: string) => {
+        setFilters(prev => ({ ...prev, query }));
+        setPage(1);
+    }, 500);
+
+    const fetchLogs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await getEmailLogs(page, limit, filters);
+            setData(result);
+        } catch (error) {
+            toast.error("Failed to fetch email logs.");
+        } finally {
+            setLoading(false);
+        }
+    }, [page, limit, filters]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Sent Email Log</CardTitle>
+                <CardDescription>Browse and audit all emails sent by the system.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex gap-2 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by recipient, subject, or ID..."
+                            className="pl-8"
+                            onChange={(e) => debouncedSetQuery(e.target.value)}
+                        />
+                    </div>
+                    <Select value={filters.status || 'all'} onValueChange={(value) => {
+                        setFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value }));
+                        setPage(1);
+                    }}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="sent">Sent</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Status</TableHead>
+                                <TableHead>To</TableHead>
+                                <TableHead>Subject</TableHead>
+                                <TableHead>Event</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : data && data.logs.length > 0 ? (
+                                data.logs.map(log => (
+                                    <TableRow key={log.id}>
+                                        <TableCell>
+                                            <Badge variant={log.status === 'sent' ? 'secondary' : 'destructive'}>{log.status}</Badge>
+                                        </TableCell>
+                                        <TableCell>{log.to}</TableCell>
+                                        <TableCell className="max-w-xs truncate">{log.subject}</TableCell>
+                                        <TableCell>{log.triggerEvent}</TableCell>
+                                        <TableCell>{formatTimestamp(log.createdAt)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => setSelectedEmail(log)}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">No email logs found.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                {data && data.totalPages > 1 && (
+                    <div className="flex justify-between items-center mt-4">
+                        <div className="text-sm text-muted-foreground">
+                            Page {page} of {data.totalPages} ({data.total} results)
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}><ChevronsLeft /> Previous</Button>
+                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}>Next <ChevronsRight /></Button>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+             <Dialog open={!!selectedEmail} onOpenChange={(isOpen) => !isOpen && setSelectedEmail(null)}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Email Details</DialogTitle>
+                        <DialogDescription>
+                            Audit trail for email sent to {selectedEmail?.to}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedEmail && (
+                        <div className="flex-1 overflow-y-auto pr-4 -mr-6 space-y-4 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <p><strong>From:</strong> {selectedEmail.from}</p>
+                                <p><strong>To:</strong> {selectedEmail.to}</p>
+                                {selectedEmail.cc && <p><strong>CC:</strong> {selectedEmail.cc}</p>}
+                                <p><strong>Date:</strong> {formatTimestamp(selectedEmail.createdAt)}</p>
+                                <p><strong>Subject:</strong> {selectedEmail.subject}</p>
+                                <p><strong>Event:</strong> {selectedEmail.triggerEvent}</p>
+                                <p><strong>Related ID:</strong> {selectedEmail.relatedEntityId}</p>
+                                <p><strong>Status:</strong> <Badge variant={selectedEmail.status === 'sent' ? 'secondary' : 'destructive'}>{selectedEmail.status}</Badge></p>
+                            </div>
+                            {selectedEmail.errorMessage && (
+                                <div className="p-2 bg-destructive/10 border border-destructive/20 rounded">
+                                    <strong>Error:</strong> {selectedEmail.errorMessage}
+                                </div>
+                            )}
+                            <iframe
+                                srcDoc={selectedEmail.body}
+                                className="w-full h-[50vh] border rounded-md"
+                                sandbox="" // most restrictive sandbox
+                                title="Email Body Preview"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </Card>
+    );
+}
+
+
+export default function AdminEmailPage() {
+    return (
+        <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="settings">Template Settings</TabsTrigger>
+                <TabsTrigger value="log">Sent Email Log</TabsTrigger>
+            </TabsList>
+            <TabsContent value="settings">
+                <EmailTemplateSettings />
+            </TabsContent>
+            <TabsContent value="log">
+                <EmailLogViewer />
+            </TabsContent>
+        </Tabs>
+    );
+}
+

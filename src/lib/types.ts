@@ -11,6 +11,8 @@ import type {
     Branch as PrismaBranch,
     District as PrismaDistrict,
     Label as PrismaLabel,
+    EmailLog as PrismaEmailLog,
+    Prisma,
 } from '@prisma/client';
 
 export type Permission = 
@@ -72,6 +74,7 @@ export type User = PrismaUser & {
 };
 
 export type Attachment = PrismaAttachment;
+export type EmailLog = PrismaEmailLog;
 
 // Base types from Prisma
 export type Memo = PrismaMemo & {
@@ -110,4 +113,5 @@ export type UserWithStatus = User & {
     status: 'active' | 'inactive';
 }
 
+export type { Prisma };
     

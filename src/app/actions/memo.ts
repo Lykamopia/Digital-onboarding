@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -571,6 +571,7 @@ export async function sendMemo(formData: FormData) {
             ]
         },
         replyToId: validatedData.replyTo,
+        forwardFromId: validatedData.forwardFrom,
         scheduledFor: validatedData.scheduledFor,
     };
 
@@ -1677,4 +1678,32 @@ export async function revokeUserTokens(userId: string) {
     return { success: true };
 }
 
+export async function getEmailLogs(page = 1, limit = 10, filters: { status?: string; query?: string } = {}) {
+    await hasPermission('manage_email_settings');
     
+    const where: Prisma.EmailLogWhereInput = {};
+    if (filters.status) {
+        where.status = filters.status;
+    }
+    if (filters.query) {
+        where.OR = [
+            { to: { contains: filters.query, mode: 'insensitive' } },
+            { subject: { contains: filters.query, mode: 'insensitive' } },
+            { relatedEntityId: { contains: filters.query, mode: 'insensitive' } },
+        ];
+    }
+
+    const [logs, total] = await prisma.$transaction([
+        prisma.emailLog.findMany({
+            where,
+            skip: (page - 1) * limit,
+            take: limit,
+            orderBy: { createdAt: 'desc' }
+        }),
+        prisma.emailLog.count({ where })
+    ]);
+
+    return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+    
+
