@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
-import { useEffect, useState, MouseEvent } from "react"
+import { useEffect, useState, MouseEvent, useMemo } from "react"
 import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo, toggleFlag } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, C
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
+import { Separator } from "./ui/separator"
 
 function hexToRgba(hex: string, alpha: number) {
     if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
@@ -30,6 +31,15 @@ function hexToRgba(hex: string, alpha: number) {
     const i = parseInt(c.join(''), 16);
     return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
 }
+
+const CategoryHeader = ({ title }: { title: string }) => {
+    return (
+        <div className="px-3 pt-4 pb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
+            <Separator className="mt-1" />
+        </div>
+    );
+};
 
 interface MemoListProps {
   memos: MemoWithActivity[]
@@ -46,6 +56,42 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     
     const router = useRouter();
     if (!loggedInUser) return null;
+
+    const { directMemos, ccMemos } = useMemo(() => {
+        if (tab !== 'inbox' || !loggedInUser) {
+            return { directMemos: [], ccMemos: [] };
+        }
+        const direct: MemoWithActivity[] = [];
+        const cc: MemoWithActivity[] = [];
+        memos.forEach(memo => {
+            const isDirect = memo.to.some(u => u.id === loggedInUser.id) || memo.current_holderId === loggedInUser.id;
+            if (isDirect) {
+                direct.push(memo);
+            } else if (memo.cc.some(u => u.id === loggedInUser.id)) {
+                cc.push(memo);
+            }
+        });
+        return { directMemos, ccMemos };
+    }, [memos, tab, loggedInUser]);
+
+    const { directSentMemos, forwardedMemos, repliedMemos } = useMemo(() => {
+        if (tab !== 'sent') {
+            return { directSentMemos: [], forwardedMemos: [], repliedMemos: [] };
+        }
+        const direct: MemoWithActivity[] = [];
+        const forwarded: MemoWithActivity[] = [];
+        const replied: MemoWithActivity[] = [];
+        memos.forEach(memo => {
+            if (memo.forwardFromId) {
+                forwarded.push(memo);
+            } else if (memo.replyToId) {
+                replied.push(memo);
+            } else {
+                direct.push(memo);
+            }
+        });
+        return { directSentMemos: direct, forwardedMemos, repliedMemos };
+    }, [memos, tab]);
 
     const getMemoStatus = (memo: MemoWithActivity) => {
         if (memo.status === 'draft') return 'draft';
@@ -461,78 +507,124 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         )
     }
 
+    const renderMemoItem = (memo: MemoWithActivity) => {
+        const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
+        const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
+        return (
+        <ContextMenu key={memo.id}>
+            <ContextMenuTrigger>
+                <div
+                    className={cn(
+                    "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
+                    "hover:bg-primary/5",
+                    selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : "",
+                    isFlaggedByUser && "border-l-4 border-l-red-500/70"
+                    )}
+                    onClick={() => onSelectMemo(memo.id)}
+                >
+                    <div className="flex w-full items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+                            <div className="font-semibold truncate">{getDisplayName(memo)}</div>
+                            {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && <StatusBadge status={getMemoStatus(memo)} />}
+                            {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
+                        </div>
+                        <div
+                        className={cn(
+                            "text-xs shrink-0 transition-opacity duration-300",
+                            "group-hover:opacity-0",
+                            selectedMemoId === memo.id
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                        )}
+                        >
+                        {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                        </div>
+                    </div>
+
+                    <div className="w-full pr-20 overflow-hidden">
+                        <div className="text-sm font-medium truncate flex items-center gap-2">
+                                <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
+                                <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                            </button>
+                            <span className="truncate">{memo.subject || "No Subject"}</span>
+                        </div>
+                        {memo.labels.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {memo.labels.map(label => (
+                                        <span 
+                                        key={label.id}
+                                        style={{ 
+                                            backgroundColor: hexToRgba(label.color, 0.2), 
+                                            color: label.color, 
+                                            borderColor: hexToRgba(label.color, 0.4) 
+                                        }} 
+                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+                                    >
+                                        {label.name}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <div className="line-clamp-1 text-xs text-muted-foreground break-words mt-1" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                    </div>
+                    
+                    <MemoActions memo={memo} />
+                </div>
+            </ContextMenuTrigger>
+            <MemoContextMenu memo={memo} />
+        </ContextMenu>
+        )
+    }
+
+    if (tab === 'inbox') {
+        return (
+             <div className="flex flex-col gap-0.5 px-1 py-1">
+                 {directMemos.length > 0 && (
+                     <>
+                         <CategoryHeader title="Direct" />
+                         {directMemos.map(renderMemoItem)}
+                     </>
+                 )}
+                 {ccMemos.length > 0 && (
+                     <>
+                         <CategoryHeader title="CC'd" />
+                         {ccMemos.map(renderMemoItem)}
+                     </>
+                 )}
+             </div>
+        );
+    }
+    
+    if (tab === 'sent') {
+        return (
+             <div className="flex flex-col gap-0.5 px-1 py-1">
+                {directSentMemos.length > 0 && (
+                    <>
+                        <CategoryHeader title="Direct Sent" />
+                        {directSentMemos.map(renderMemoItem)}
+                    </>
+                )}
+                {forwardedMemos.length > 0 && (
+                    <>
+                        <CategoryHeader title="Forwarded" />
+                        {forwardedMemos.map(renderMemoItem)}
+                    </>
+                )}
+                {repliedMemos.length > 0 && (
+                    <>
+                        <CategoryHeader title="Replied" />
+                        {repliedMemos.map(renderMemoItem)}
+                    </>
+                )}
+             </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-0.5 px-1 py-1">
-            {memos.map((memo) => {
-                const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
-                const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
-                return (
-                <ContextMenu key={memo.id}>
-                    <ContextMenuTrigger>
-                        <div
-                            className={cn(
-                            "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
-                            "hover:bg-primary/5",
-                            selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : "",
-                            isFlaggedByUser && "border-l-4 border-l-red-500/70"
-                            )}
-                            onClick={() => onSelectMemo(memo.id)}
-                        >
-                            <div className="flex w-full items-start justify-between gap-2">
-                                <div className="flex items-center gap-2 truncate min-w-0 flex-1">
-                                    <div className="font-semibold truncate">{getDisplayName(memo)}</div>
-                                    {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && <StatusBadge status={getMemoStatus(memo)} />}
-                                    {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
-                                </div>
-                                <div
-                                className={cn(
-                                    "text-xs shrink-0 transition-opacity duration-300",
-                                    "group-hover:opacity-0",
-                                    selectedMemoId === memo.id
-                                    ? "text-foreground"
-                                    : "text-muted-foreground"
-                                )}
-                                >
-                                {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
-                                </div>
-                            </div>
-
-                            <div className="w-full pr-20 overflow-hidden">
-                                <div className="text-sm font-medium truncate flex items-center gap-2">
-                                     <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
-                                        <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                                    </button>
-                                    <span className="truncate">{memo.subject || "No Subject"}</span>
-                                </div>
-                                {memo.labels.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                        {memo.labels.map(label => (
-                                             <span 
-                                                key={label.id}
-                                                style={{ 
-                                                    backgroundColor: hexToRgba(label.color, 0.2), 
-                                                    color: label.color, 
-                                                    borderColor: hexToRgba(label.color, 0.4) 
-                                                }} 
-                                                className="px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
-                                            >
-                                                {label.name}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="line-clamp-1 text-xs text-muted-foreground break-words mt-1" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
-                            </div>
-                            
-                            <MemoActions memo={memo} />
-                        </div>
-                    </ContextMenuTrigger>
-                    <MemoContextMenu memo={memo} />
-                </ContextMenu>
-                )
-            })}
+            {memos.map(renderMemoItem)}
         </div>
-    )
+    );
 }
 
 const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
