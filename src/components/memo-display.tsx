@@ -313,12 +313,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <div className="flex items-center gap-2 cursor-help">
-                                            <span>
-                                                {(memo.from as UserWithRole).name}
+                                            <div>
+                                                <div>{(memo.from as UserWithRole).name}</div>
                                                 {(memo.from as UserWithRole).role && (
-                                                    <span className="ml-1 text-xs italic text-muted-foreground">({(memo.from as UserWithRole).role.name})</span>
+                                                    <div className="text-xs italic text-muted-foreground">{((memo.from as UserWithRole).role as Role).name}</div>
                                                 )}
-                                            </span>
+                                            </div>
                                             {useSignature && senderSignatureUrl && (
                                                 <SignaturePreview src={senderSignatureUrl} alt={`${(memo.from as UserWithRole).name}'s signature`} compact />
                                             )}
@@ -338,12 +338,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
                                 return (
                                     <div key={user.id} className="flex items-center gap-2">
-                                        <span>
-                                            {user.name}
+                                        <div>
+                                            <div>{user.name}</div>
                                             {(user as UserWithRole).role && (
-                                                <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
+                                                <div className="text-xs italic text-muted-foreground">{((user as UserWithRole).role as Role).name}</div>
                                             )}
-                                        </span>
+                                        </div>
                                         {acknowledgement && (
                                             <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
                                         )}
@@ -360,10 +360,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                     const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
                                     return (
                                     <div key={user.id} className="flex items-center gap-2">
-                                        {user.name}
-                                        {(user as UserWithRole).role && (
-                                            <span className="ml-1 text-xs italic text-muted-foreground">({(user as UserWithRole).role.name})</span>
-                                        )}
+                                        <div>
+                                            <div>{user.name}</div>
+                                            {(user as UserWithRole).role && (
+                                                <div className="text-xs italic text-muted-foreground">{((user as UserWithRole).role as Role).name}</div>
+                                            )}
+                                        </div>
                                         {acknowledgement && (
                                             <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
                                         )}
@@ -513,13 +515,18 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 </span>
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                        <p className="text-sm">
-                                            <span className="font-medium">{(act.actor as User).name}</span>
-                                            <span className="text-muted-foreground">
-                                            {' '}
-                                            {act.action} this memo.
-                                            </span>
-                                        </p>
+                                        <div>
+                                            <p className="text-sm">
+                                                <span className="font-medium">{(act.actor as User).name}</span>
+                                                <span className="text-muted-foreground">
+                                                {' '}
+                                                {act.action} this memo.
+                                                </span>
+                                            </p>
+                                            {(act.actor as UserWithRole).role && (
+                                                <p className="text-xs text-muted-foreground">{((act.actor as UserWithRole).role as Role).name}</p>
+                                            )}
+                                        </div>
                                         {act.action === 'acknowledged' && <AcknowledgementDisplay user={act.actor as User} timestamp={act.timestamp} useSignature={useSignature} />}
                                     </div>
 
@@ -586,3 +593,5 @@ interface MemoDisplayProps {
   setMemo?: (memo: MemoWithActivity) => void;
   onBack?: () => void;
 }
+
+    
