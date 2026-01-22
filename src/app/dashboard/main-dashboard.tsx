@@ -42,6 +42,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
+  const [category, setCategory] = useState(searchParams.get('category') || 'all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
@@ -50,7 +51,6 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     }
     return undefined;
   });
-  const [status, setStatus] = useState(searchParams.get('status') || '');
   const [selectedLabels, setSelectedLabels] = useState<string[]>(() => {
       const labels = searchParams.get('labels');
       return labels ? labels.split(',') : [];
@@ -185,7 +185,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     
     // Skip initial load if we already have initialMemos and no filters are applied
     if (!hasInitialLoad && !forceReload && initialMemos.length > 0 && 
-        !search && !status && !dateRange && selectedLabels.length === 0 && !show) {
+        !search && category === 'all' && !dateRange && selectedLabels.length === 0 && !show) {
       setHasInitialLoad(true);
       // Set selected memo from URL if present
       if (memoIdFromUrl) {
@@ -208,7 +208,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     };
     try {
       const currentShow = tab === 'favorites' ? '' : show;
-      const data = await getDashboardData(tab, search, status, dateRangeParams, selectedLabels, currentShow);
+      const data = await getDashboardData(tab, search, category, dateRangeParams, selectedLabels, currentShow);
       setMemos(data as MemoWithActivity[]);
       setHasInitialLoad(true);
 
@@ -222,17 +222,17 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [tab, search, status, dateRange, user, selectedLabels, show, hasInitialLoad, initialMemos, memoIdFromUrl]);
+  }, [tab, search, category, dateRange, user, selectedLabels, show, hasInitialLoad, initialMemos, memoIdFromUrl]);
 
   // Only load memos when filters change, not on initial mount if we have initialMemos
   useEffect(() => {
     // Skip if we haven't done initial load yet and have initial data
     if (!hasInitialLoad && initialMemos.length > 0 && 
-        !search && !status && !dateRange && selectedLabels.length === 0 && !show) {
+        !search && category === 'all' && !dateRange && selectedLabels.length === 0 && !show) {
       return;
     }
     loadMemos();
-  }, [search, status, dateRange, selectedLabels, show, loadMemos, hasInitialLoad, initialMemos]);
+  }, [search, category, dateRange, selectedLabels, show, loadMemos, hasInitialLoad, initialMemos]);
 
   useEffect(() => {
       // This effect syncs the selected memo with the URL id, but does NOT reload the list.
@@ -261,7 +261,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [memoIdFromUrl, memos, hasInitialLoad]);
   
   const getEmptyState = () => {
-      if (search || status || dateRange || selectedLabels.length > 0 || (show && tab !== 'favorites')) {
+      if (search || category !== 'all' || dateRange || selectedLabels.length > 0 || (show && tab !== 'favorites')) {
         return { 
             icon: <SearchEmptyIllustration />,
             title: "No Memos Found", 
@@ -339,8 +339,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               setSearch={setSearch}
               dateRange={dateRange}
               setDateRange={setDateRange}
-              status={status}
-              setStatus={setStatus}
+              category={category}
+              setCategory={setCategory}
               allLabels={allLabels}
               selectedLabels={selectedLabels}
               setSelectedLabels={setSelectedLabels}

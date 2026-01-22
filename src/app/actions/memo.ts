@@ -66,7 +66,7 @@ async function sendToWebSocket(data: any) {
     }
 }
 
-export async function getDashboardData(tab: string, query: string, status: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
+export async function getDashboardData(tab: string, query: string, category: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
     const user = await getLoggedInUser();
     if (!user) {
         // If user is not logged in for any reason, return empty.
@@ -99,8 +99,33 @@ export async function getDashboardData(tab: string, query: string, status: strin
                     { current_holderId: user.id },
                 ],
             });
+            if (category === 'direct') {
+                where.AND.push({
+                    OR: [
+                        { to: { some: { id: user.id } } },
+                        { current_holderId: user.id },
+                    ]
+                });
+            } else if (category === 'cc') {
+                where.AND.push({
+                    cc: { some: { id: user.id } },
+                    NOT: {
+                        OR: [
+                            { to: { some: { id: user.id } } },
+                            { current_holderId: user.id },
+                        ]
+                    }
+                });
+            }
         } else if (tab === 'sent') {
             where.AND.push({ fromId: user.id, status: { not: 'draft' } });
+            if (category === 'sent') {
+                where.AND.push({ replyToId: null, forwardFromId: null });
+            } else if (category === 'replied') {
+                where.AND.push({ replyToId: { not: null } });
+            } else if (category === 'forwarded') {
+                where.AND.push({ forwardFromId: { not: null } });
+            }
         } else if (tab === 'drafts') {
             where.AND.push({ fromId: user.id, status: 'draft' });
         } else if (tab === 'scheduled') {
@@ -127,30 +152,6 @@ export async function getDashboardData(tab: string, query: string, status: strin
             labels: { some: { id: { in: labels } } }
         });
     }
-
-    if (tab === 'inbox' && status && status !== 'all') {
-      const userHasAcknowledged = { acknowledgedBy: { some: { id: user.id } } };
-      const userHasViewed = { activity: { some: { action: 'viewed', actorId: user.id } } };
-
-      switch (status) {
-        case 'read':
-          where.AND.push({
-            OR: [userHasViewed, userHasAcknowledged]
-          });
-          break;
-        case 'unread':
-          where.AND.push({
-            NOT: {
-              OR: [userHasViewed, userHasAcknowledged]
-            }
-          });
-          break;
-        case 'acknowledged':
-          where.AND.push(userHasAcknowledged);
-          break;
-      }
-    }
-
 
     if (dateRange?.from) {
         where.AND.push({ createdAt: { gte: new Date(dateRange.from) } });
@@ -452,7 +453,7 @@ export async function toggleMemoReadStatus(memoId: string) {
     }
     revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
-    return getDashboardData('inbox', '', '', {}, [], '');
+    return getDashboardData('inbox', '', 'all', {}, [], '', 'all');
 }
 
 

@@ -18,7 +18,6 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, C
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
-import { Separator } from "./ui/separator"
 
 function hexToRgba(hex: string, alpha: number) {
     if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
@@ -32,66 +31,20 @@ function hexToRgba(hex: string, alpha: number) {
     return `rgba(${(i >> 16) & 255}, ${(i >> 8) & 255}, ${i & 255}, ${alpha})`;
 }
 
-const CategoryHeader = ({ title }: { title: string }) => {
-    return (
-        <div className="px-3 pt-4 pb-2">
-            <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
-            <Separator className="mt-1" />
-        </div>
-    );
-};
-
-interface MemoListProps {
-  memos: MemoWithActivity[]
-  setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>
-  selectedMemoId: string | null
-  onSelectMemo: (id: string) => void
-  isExpanded: boolean
-  tab: string
-  onUpdate: () => void;
-  user: User | null;
+interface MemoItemProps {
+    memo: MemoWithActivity;
+    selectedMemoId: string | null;
+    onSelectMemo: (id: string) => void;
+    loggedInUser: User | null;
+    tab: string;
+    onUpdate: () => void;
+    setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>;
 }
 
-const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, loggedInUser, onUpdate }: { tab: string, memos: MemoWithActivity[], setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>, selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null, onUpdate: () => void }) => {
-    
+const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo, loggedInUser, tab, onUpdate, setMemos }) => {
     const router = useRouter();
+
     if (!loggedInUser) return null;
-
-    const { directMemos, ccMemos } = useMemo(() => {
-        if (tab !== 'inbox' || !loggedInUser) {
-            return { directMemos: [], ccMemos: [] };
-        }
-        const direct: MemoWithActivity[] = [];
-        const cc: MemoWithActivity[] = [];
-        memos.forEach(memo => {
-            const isDirect = memo.to.some(u => u.id === loggedInUser.id) || memo.current_holderId === loggedInUser.id;
-            if (isDirect) {
-                direct.push(memo);
-            } else if (memo.cc.some(u => u.id === loggedInUser.id)) {
-                cc.push(memo);
-            }
-        });
-        return { directMemos: direct, ccMemos: cc };
-    }, [memos, tab, loggedInUser]);
-
-    const { directSentMemos, forwardedMemos, repliedMemos } = useMemo(() => {
-        if (tab !== 'sent') {
-            return { directSentMemos: [], forwardedMemos: [], repliedMemos: [] };
-        }
-        const direct: MemoWithActivity[] = [];
-        const forwarded: MemoWithActivity[] = [];
-        const replied: MemoWithActivity[] = [];
-        memos.forEach(memo => {
-            if (memo.forwardFromId) {
-                forwarded.push(memo);
-            } else if (memo.replyToId) {
-                replied.push(memo);
-            } else {
-                direct.push(memo);
-            }
-        });
-        return { directSentMemos: direct, forwardedMemos: forwarded, repliedMemos: replied };
-    }, [memos, tab]);
 
     const getMemoStatus = (memo: MemoWithActivity) => {
         if (memo.status === 'draft') return 'draft';
@@ -161,7 +114,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     }
     
     const handleMarkAsRead = async (memo: MemoWithActivity) => {
-        // Optimistic update
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
                 const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed' as const, timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
@@ -175,7 +127,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
     }
     
     const handleToggleFavorite = async (memoId: string) => {
-        // Optimistic update
         if (tab === 'favorites') {
             setMemos(prevMemos => prevMemos.filter(m => m.id !== memoId));
         } else {
@@ -190,7 +141,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
                     }
                     return m;
                 });
-                // Re-sort based on new favorite status
                 return newMemos.sort((a, b) => {
                     const aIsFav = (a.favoritedBy?.length ?? 0) > 0;
                     const bIsFav = (b.favoritedBy?.length ?? 0) > 0;
@@ -203,15 +153,12 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const result = await toggleFavorite(memoId);
         toast.success(result.isFavorited ? "Memo favorited" : "Memo unfavorited");
         
-        // We only need to call onUpdate if we are not on the favorites tab
-        // to handle sorting or other potential full-list reloads.
         if (tab !== 'favorites') {
             onUpdate();
         }
     };
     
     const handleToggleFlag = async (memoId: string) => {
-        // Optimistic update
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memoId) {
                 const isFlagged = m.flaggedBy && m.flaggedBy.length > 0;
@@ -251,7 +198,6 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
         const canForward = isDirectRecipient;
 
-        // Conditional rendering logic
         if (tab === 'drafts') {
             return (
                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -507,11 +453,11 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
         )
     }
 
-    const renderMemoItem = (memo: MemoWithActivity) => {
-        const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
-        const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
-        return (
-        <ContextMenu key={memo.id}>
+    const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
+    const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
+    
+    return (
+        <ContextMenu>
             <ContextMenuTrigger>
                 <div
                     className={cn(
@@ -573,58 +519,7 @@ const ExpandedView = ({ tab, memos, setMemos, selectedMemoId, onSelectMemo, logg
             </ContextMenuTrigger>
             <MemoContextMenu memo={memo} />
         </ContextMenu>
-        )
-    }
-
-    if (tab === 'inbox') {
-        return (
-             <div className="flex flex-col gap-0.5 px-1 py-1">
-                 {directMemos.length > 0 && (
-                     <>
-                         <CategoryHeader title="Direct" />
-                         {directMemos.map(renderMemoItem)}
-                     </>
-                 )}
-                 {ccMemos.length > 0 && (
-                     <>
-                         <CategoryHeader title="CC'd" />
-                         {ccMemos.map(renderMemoItem)}
-                     </>
-                 )}
-             </div>
-        );
-    }
-    
-    if (tab === 'sent') {
-        return (
-             <div className="flex flex-col gap-0.5 px-1 py-1">
-                {directSentMemos.length > 0 && (
-                    <>
-                        <CategoryHeader title="Direct Sent" />
-                        {directSentMemos.map(renderMemoItem)}
-                    </>
-                )}
-                {forwardedMemos.length > 0 && (
-                    <>
-                        <CategoryHeader title="Forwarded" />
-                        {forwardedMemos.map(renderMemoItem)}
-                    </>
-                )}
-                {repliedMemos.length > 0 && (
-                    <>
-                        <CategoryHeader title="Replied" />
-                        {repliedMemos.map(renderMemoItem)}
-                    </>
-                )}
-             </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-0.5 px-1 py-1">
-            {memos.map(renderMemoItem)}
-        </div>
-    );
+    )
 }
 
 const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
@@ -668,6 +563,17 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     )
 }
 
+interface MemoListProps {
+  memos: MemoWithActivity[]
+  setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>
+  selectedMemoId: string | null
+  onSelectMemo: (id: string) => void
+  isExpanded: boolean
+  tab: string
+  onUpdate: () => void;
+  user: User | null;
+}
+
 export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab, onUpdate, user: loggedInUser }: MemoListProps) {
   const router = useRouter();
   
@@ -686,7 +592,20 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     <ScrollArea className="h-full [&>[data-radix-scroll-area-scrollbar]]:hidden">
         <TooltipProvider>
             {isExpanded ? (
-                <ExpandedView tab={tab} memos={memos} setMemos={setMemos} selectedMemoId={selectedMemoId} onSelectMemo={handleSelect} loggedInUser={loggedInUser} onUpdate={onUpdate} />
+                <div className="flex flex-col gap-0.5 px-1 py-1">
+                    {memos.map((memo) => (
+                        <MemoItem 
+                            key={memo.id}
+                            memo={memo}
+                            selectedMemoId={selectedMemoId}
+                            onSelectMemo={handleSelect}
+                            loggedInUser={loggedInUser}
+                            tab={tab}
+                            onUpdate={onUpdate}
+                            setMemos={setMemos}
+                        />
+                    ))}
+                </div>
             ) : (
                 <CollapsedView memos={memos} selectedMemoId={selectedMemoId} onSelectMemo={handleSelect} loggedInUser={loggedInUser}/>
             )}

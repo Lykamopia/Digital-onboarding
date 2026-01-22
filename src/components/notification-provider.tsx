@@ -81,7 +81,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
   
   const initializeNotifications = useCallback(async (user: User) => {
-    const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', '', {}, [], '');
+    const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', 'all', {}, [], '', 'all');
     const unreadMemos = inboxMemos.filter(memo => 
         !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
         !memo.acknowledgedBy?.some(ackUser => ackUser.id === user.id)

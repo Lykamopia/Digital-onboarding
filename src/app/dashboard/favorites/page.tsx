@@ -11,7 +11,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
     }
 
     const show = searchParams.show as string || '';
-    const initialMemos = await getDashboardData('favorites', '', '', { from: undefined, to: undefined }, [], show);
+    const initialMemos = await getDashboardData('favorites', '', 'all', { from: undefined, to: undefined }, [], show, 'all');
 
     return <MainDashboard 
         tab="favorites"

@@ -2,10 +2,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Bot, BookCopy, Book } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Book, BookCopy, Inbox, Users, Send, Reply, Share2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, isSameDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,52 @@ import { LabelSelector } from '@/components/label-selector';
 import type { DateRange, Label as LabelType } from '@/lib/types';
 import { Separator } from './ui/separator';
 
+const inboxFilterItems = [
+    { value: 'all', label: 'All', icon: <Inbox /> },
+    { value: 'direct', label: 'Direct', icon: <Mail /> },
+    { value: 'cc', label: 'CC\'d', icon: <Users /> },
+];
+
+const sentFilterItems = [
+    { value: 'all', label: 'All', icon: <Mail /> },
+    { value: 'sent', label: 'Sent', icon: <Send /> },
+    { value: 'replied', label: 'Replied', icon: <Reply /> },
+    { value: 'forwarded', label: 'Forwarded', icon: <Share2 /> },
+];
+
+interface FilterTabsProps {
+    items: { value: string; label: string; icon: React.ReactNode; }[];
+    selected: string;
+    onSelect: (value: string) => void;
+}
+
+const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) => {
+    return (
+        <div className="relative flex w-full items-center justify-start gap-2 rounded-lg bg-muted p-1">
+            {items.map(item => (
+                <button
+                    key={item.value}
+                    onClick={() => onSelect(item.value)}
+                    className={cn(
+                        "relative flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        selected === item.value ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                >
+                    {selected === item.value && (
+                        <motion.div
+                            layoutId="activeFilterTab"
+                            className="absolute inset-0 z-0 rounded-md bg-primary"
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        />
+                    )}
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                        {item.icon} {item.label}
+                    </span>
+                </button>
+            ))}
+        </div>
+    );
+};
 
 interface MemoFiltersProps {
   tab: string;
@@ -23,8 +70,8 @@ interface MemoFiltersProps {
   setSearch: (search: string) => void;
   dateRange: DateRange | undefined;
   setDateRange: (date: DateRange | undefined) => void;
-  status: string;
-  setStatus: (status: string) => void;
+  category: string;
+  setCategory: (status: string) => void;
   allLabels: LabelType[];
   selectedLabels: string[];
   setSelectedLabels: (labels: string[]) => void;
@@ -40,7 +87,7 @@ type QuickDateRange = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYe
 
 export function MemoFilters({ 
     tab, search, setSearch, dateRange, setDateRange, 
-    status, setStatus, allLabels, selectedLabels, 
+    category, setCategory, allLabels, selectedLabels, 
     setSelectedLabels, show, setShow, toggle, isExpanded, onRefresh, loading 
 }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
@@ -103,9 +150,9 @@ export function MemoFilters({
   };
 
 
-  const handleStatusChange = (newStatus: string) => {
-      setStatus(newStatus);
-      setSearchParams({ status: newStatus === 'all' ? null : newStatus });
+  const handleCategoryChange = (newCategory: string) => {
+      setCategory(newCategory);
+      setSearchParams({ category: newCategory === 'all' ? null : newCategory });
   }
   
   const handleLabelChange = (newLabels: LabelType[]) => {
@@ -122,14 +169,14 @@ export function MemoFilters({
   const clearFilters = () => {
     setSearch('');
     setDateRange(undefined);
-    setStatus('');
+    setCategory('all');
     setSelectedLabels([]);
     setShow('');
     setActiveQuickDate(null);
-    setSearchParams({ q: null, from: null, to: null, status: null, labels: null, show: null });
+    setSearchParams({ q: null, from: null, to: null, category: null, labels: null, show: null });
   }
 
-  const hasActiveFilters = search || dateRange || status || selectedLabels.length > 0 || (show && tab !== 'favorites');
+  const hasActiveFilters = search || dateRange || category !== 'all' || selectedLabels.length > 0 || (show && tab !== 'favorites');
   
   const selectedLabelObjects = selectedLabels.map(id => {
       return allLabels.find(l => l.id === id);
@@ -171,6 +218,12 @@ export function MemoFilters({
         </div>
       {isExpanded && (
         <div className="flex min-w-0 flex-col gap-2 mt-2">
+            {(tab === 'inbox') && (
+                <FilterTabs items={inboxFilterItems} selected={category} onSelect={handleCategoryChange} />
+            )}
+            {(tab === 'sent') && (
+                <FilterTabs items={sentFilterItems} selected={category} onSelect={handleCategoryChange} />
+            )}
            <div className="flex items-center gap-2 flex-wrap">
             <Popover>
                 <PopoverTrigger asChild>
@@ -225,39 +278,7 @@ export function MemoFilters({
                     />
                 </PopoverContent>
             </Popover>
-            {tab === 'inbox' && (
-                <Select value={status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-full sm:w-auto flex-1">
-                    <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">
-                        <div className="flex items-center gap-2">
-                            <List className="h-4 w-4 text-muted-foreground" />
-                            All Statuses
-                        </div>
-                    </SelectItem>
-                    <SelectItem value="unread">
-                        <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-green-500" />
-                            Unread
-                        </div>
-                    </SelectItem>
-                    <SelectItem value="read">
-                        <div className="flex items-center gap-2">
-                            <MailOpen className="h-4 w-4 text-blue-500" />
-                            Read
-                        </div>
-                    </SelectItem>
-                    <SelectItem value="acknowledged">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                            Acknowledged
-                        </div>
-                    </SelectItem>
-                </SelectContent>
-                </Select>
-            )}
+            
             {tab !== 'favorites' && (
                 <Select value={show} onValueChange={handleShowChange}>
                     <SelectTrigger className="w-full sm:w-auto flex-1">
@@ -303,5 +324,3 @@ export function MemoFilters({
     </div>
   );
 }
-
-    

@@ -6,7 +6,7 @@ import type { MemoWithActivity, User } from '@/lib/types';
 export default async function DraftsPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
     const user = await getLoggedInUser();
     const show = searchParams.show as string || '';
-    const initialMemos = await getDashboardData('drafts', '', '', {}, [], show);
+    const initialMemos = await getDashboardData('drafts', '', 'all', {}, [], show, 'all');
 
     return <MainDashboard 
         tab="drafts" 
