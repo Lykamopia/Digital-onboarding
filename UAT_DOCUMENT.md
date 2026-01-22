@@ -10,7 +10,7 @@ This document outlines the User Acceptance Testing (UAT) plan for the Nib Memo M
 This UAT plan covers all features, workflows, and UI components of the Memo Management System, including but not limited to:
 - User Authentication and Security
 - Memo Creation, Sending, and Management (Inbox, Sent, Drafts, etc.)
-- Advanced Memo Features (Acknowledgement, Forwarding, Replying)
+- Advanced Memo Features (Acknowledgement, Assigning, Replying)
 - User Profile Management
 - Administrative Functions (User, Role, and Organizational Structure Management)
 - System Settings and Configuration
@@ -117,7 +117,7 @@ This section defines the system's user roles. All subsequent tests should be per
 | **DASH-009** | Favorite Memo | A memo is not favorited. | Click the star icon on the memo item. | The star icon fills with a yellow color (optimistic update). A toast "Memo favorited" appears. The memo may move to the top of the list. | The memo is now favorited. The UI reflects this change instantly. |
 | **DASH-010**| Unfavorite Memo | A memo is favorited. | Click the filled star icon. | The star icon becomes an outline (optimistic update). A toast "Memo unfavorited" appears. | The memo is no longer favorited. |
 | **DASH-011**| Flag Memo | A memo is not flagged. | Right-click memo -> "Flag". | A red border/indicator appears on the memo item. A toast "Memo Flagged" appears. | The memo is now flagged. |
-| **DASH-012** | Context Menu Actions | User has appropriate permissions. | Right-click on a memo in the inbox. | A context menu appears with relevant actions (Reply, Forward, Archive, Favorite, etc.). | All permitted actions are available and functional. |
+| **DASH-012** | Context Menu Actions | User has appropriate permissions. | Right-click on a memo in the inbox. | A context menu appears with relevant actions (Reply, Assign, Archive, Favorite, etc.). | All permitted actions are available and functional. |
 | **DASH-013**| Hover Actions | User has appropriate permissions. | Hover over a memo item. | A set of quick action icons (e.g., Archive, Reply) appears on the right side of the item. | Hover actions appear and are functional. |
 
 ### 5.3 Memo Detail View (`@/components/memo-display.tsx`)
@@ -129,7 +129,7 @@ This section defines the system's user roles. All subsequent tests should be per
 | **DASH-014**| Display All Fields | A memo with CC, attachments, and labels is selected. | View the memo. | All fields (From, To, CC, Subject, Date, Attachments, Labels) are correctly displayed. | All memo metadata is visible and accurate. |
 | **DASH-015**| Render Body | Memo body contains HTML (lists, tables, bold text). | View the memo. | The memo body is rendered as formatted HTML inside the `prose` container. | All HTML content is displayed correctly, not as raw text. |
 | **DASH-016**| Download Attachment | Memo has an attachment. | Click on an attachment link. | The browser initiates a download for the correct file. | User can successfully download attachments. |
-| **DASH-017**| Activity History | Memo has a history of actions (sent, viewed, forwarded). | Scroll to the bottom of the memo. | The activity history section lists each event with the actor's name, avatar, action type, details, and timestamp, sorted chronologically. | The full history of the memo is accurately displayed. |
+| **DASH-017**| Activity History | Memo has a history of actions (sent, viewed, assigned). | Scroll to the bottom of the memo. | The activity history section lists each event with the actor's name, avatar, action type, details, and timestamp, sorted chronologically. | The full history of the memo is accurately displayed. |
 
 ---
 
@@ -145,13 +145,13 @@ This section defines the system's user roles. All subsequent tests should be per
 | **ACK-005**| Signature Acknowledgement | `acknowledgementType` is 'SIGNATURE'. User has an uploaded signature. | Acknowledge the memo. | The user's saved signature image appears next to their name in the recipient list. | Signature is correctly displayed. |
 | **ACK-006**| Badge Acknowledgement | `acknowledgementType` is 'BADGE'. | Acknowledge the memo. | A status badge with "Acknowledged" appears next to the user's name. | Badge is correctly displayed. |
 
-### 6.2 Reply, Reply All, Forward
+### 6.2 Reply, Reply All, Assign
 | Test ID | Feature | Preconditions | User Actions | System Behavior | Success Criteria |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **ACT-001** | Reply | User is a direct recipient of a memo. | Click "Reply". | User is redirected to `/dashboard/new`. The "To" field is pre-filled with the original sender. The subject is pre-filled with "Re: [Original Subject]". The original memo content is quoted in the body. | The reply composition page is correctly pre-populated. |
 | **ACT-002** | Reply All | Memo has multiple recipients (To/CC). User is a direct recipient. | Click "Reply All". | User is redirected to `/dashboard/new`. "To" is pre-filled with the original sender. "CC" is pre-filled with all other To/CC recipients. Subject and body are pre-filled as in a normal reply. | All original recipients are correctly added to the new memo. |
-| **ACT-003** | Forward | User is a recipient of a memo. | Click "Forward". | User is redirected to `/dashboard/new`. The subject is pre-filled with "Fw: [Original Subject]". The original memo content is quoted in the body. "To" and "CC" fields are empty. | The forward composition page is correctly pre-populated. |
-| **ACT-004**| Action Restrictions (CC user) | User is a CC recipient, not a direct (`to`) recipient. | View the memo. | The "Acknowledge" button is visible, but "Reply," "Reply All," and "Forward" buttons are not visible or are disabled. | CC'd users can acknowledge but cannot perform other primary actions. |
+| **ACT-003** | Assign | User is a recipient of a memo. | Click "Assign". | User is redirected to `/dashboard/new`. The subject is pre-filled with "Fw: [Original Subject]". The original memo content is quoted in the body. "To" and "CC" fields are empty. | The assign composition page is correctly pre-populated. |
+| **ACT-004**| Action Restrictions (CC user) | User is a CC recipient, not a direct (`to`) recipient. | View the memo. | The "Acknowledge" button is visible, but "Reply," "Reply All," and "Assign" buttons are not visible or are disabled. | CC'd users can acknowledge but cannot perform other primary actions. |
 | **ACT-005**| Action Restrictions (Sender) | User is the sender of the memo. | View the memo in the "Sent" folder. | "Acknowledge," "Reply," and "Reply All" buttons are not visible. | Senders cannot perform actions on memos they have sent. |
 
 ### 6.3 Drafts
@@ -225,4 +225,3 @@ This section defines the system's user roles. All subsequent tests should be per
 | **PROF-002**| Update Profile Info | User is on the profile page. | Change Name and Email fields. Click "Save All Changes". | The user's details are updated. A success toast appears. The user nav in the header updates instantly with the new name/email. | Profile text fields can be updated successfully. |
 | **PROF-003**| Upload New Avatar | User is on the profile page. | Click the camera icon on the avatar. Select a valid image file (<5MB). | A preview of the new avatar is shown. Click "Save All Changes". | The avatar is uploaded. The user nav avatar and all other instances of the user's avatar update across the app (cache-busted). | Avatar can be updated. |
 | **PROF-004**| Create/Update Signature | User is on the profile page. | Click "Edit Signature". Draw a signature in the pad. Click "Save Signature". Click "Save All Changes". | The signature is saved. The preview on the profile page updates. This new signature will be used for future acknowledgements. | Signature can be created and updated. |
-

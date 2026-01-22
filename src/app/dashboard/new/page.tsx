@@ -125,12 +125,12 @@ export default function NewMemoPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
-  const [forwardFrom, setForwardFrom] = useState<string | undefined>(undefined);
+  const [assignFrom, setAssignFrom] = useState<string | undefined>(undefined);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
   const isReplying = !!replyTo;
-  const isForwarding = !!forwardFrom;
-  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isForwarding && !body.trim()) || ((isReplying || isForwarding) && !replyBody.trim());
+  const isAssigning = !!assignFrom;
+  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isAssigning && !body.trim()) || ((isReplying || isAssigning) && !replyBody.trim());
 
   useEffect(() => {
     async function fetchData() {
@@ -163,7 +163,7 @@ export default function NewMemoPage() {
       if (!loggedInUser) return;
 
       const getCombinedBody = () => {
-        if ((replyTo || forwardFrom) && body) {
+        if ((replyTo || assignFrom) && body) {
           return `${replyBody}<hr>${body}`;
         }
         return replyBody || body || '';
@@ -183,11 +183,11 @@ export default function NewMemoPage() {
         status: 'draft',
         activity: [],
         replyToId: replyTo,
-        forwardFromId: forwardFrom,
+        assignedFromId: assignFrom,
         labels,
       };
       setPreviewMemo(newPreview);
-  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo, forwardFrom, labels]);
+  }, [loggedInUser, to, cc, subject, body, replyBody, attachments, replyTo, assignFrom, labels]);
   
   useEffect(() => {
     updatePreview();
@@ -196,8 +196,8 @@ export default function NewMemoPage() {
   const saveDraftCallback = useCallback(async () => {
     if (!loggedInUser || isInitializingRef.current) return;
     
-    let draftBody = (isReplying || isForwarding) ? replyBody : body;
-    if ((isReplying || isForwarding) && body) {
+    let draftBody = (isReplying || isAssigning) ? replyBody : body;
+    if ((isReplying || isAssigning) && body) {
         draftBody = `${replyBody}<hr>${body}`;
     }
 
@@ -209,7 +209,7 @@ export default function NewMemoPage() {
         body: draftBody,
         attachments: attachments,
         replyToId: replyTo,
-        forwardFromId: forwardFrom,
+        assignedFromId: assignFrom,
     };
     
     setIsSaving(true);
@@ -231,7 +231,7 @@ export default function NewMemoPage() {
         // Use a timeout to give a visual "saving" feedback
         setTimeout(() => setIsSaving(false), 500);
     }
-  }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, forwardFrom, router, isReplying, isForwarding]);
+  }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, assignFrom, router, isReplying, isAssigning]);
 
   const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
 
@@ -249,7 +249,7 @@ export default function NewMemoPage() {
         const currentDraftId = searchParams.get('id');
         const replyToId = searchParams.get('replyTo');
         const replyAllToId = searchParams.get('replyAllTo');
-        const forwardFromId = searchParams.get('forwardFrom');
+        const assignFromId = searchParams.get('assignFrom');
 
         // Always prioritize loading an existing draft by its ID
         if (currentDraftId) {
@@ -259,7 +259,7 @@ export default function NewMemoPage() {
                 let replyContent = '';
 
                 // Correctly parse the body for replies/forwards
-                if ((draft.replyToId || draft.forwardFromId) && draft.body.includes('<hr>')) {
+                if ((draft.replyToId || draft.assignedFromId) && draft.body.includes('<hr>')) {
                     const parts = draft.body.split('<hr>');
                     replyContent = parts[0];
                     bodyContent = parts.slice(1).join('<hr>');
@@ -276,17 +276,17 @@ export default function NewMemoPage() {
                 setReplyBody(replyContent);
                 setAttachments(draft.attachments);
                 setReplyTo(draft.replyToId || undefined);
-                setForwardFrom(draft.forwardFromId || undefined);
+                setAssignFrom(draft.assignedFromId || undefined);
                 setIsDraft(true);
                 setDraftId(currentDraftId);
 
-                // Exit early to prevent being overwritten by reply/forward logic
+                // Exit early to prevent being overwritten by reply/assign logic
                 isInitializingRef.current = false;
                 return; 
             }
         }
         
-        // Handle creating a *new* draft for a reply or forward
+        // Handle creating a *new* draft for a reply or assign
         if (replyToId || replyAllToId) {
             const originalMemoId = replyToId || replyAllToId;
             const originalMemo = await getMemo(originalMemoId!);
@@ -296,7 +296,7 @@ export default function NewMemoPage() {
                 const newSubject = `Re: ${originalMemo.subject}`;
                 setSubject(newSubject);
                 setReplyTo(originalMemoId);
-                setForwardFrom(undefined);
+                setAssignFrom(undefined);
 
                 let toRecipients: User[], ccRecipients: User[];
                 if (replyAllToId) {
@@ -321,20 +321,20 @@ export default function NewMemoPage() {
                   router.replace(`/dashboard/new?id=${draft.id}`);
                 }
             }
-        } else if (forwardFromId) {
-            const originalMemo = await getMemo(forwardFromId);
+        } else if (assignFromId) {
+            const originalMemo = await getMemo(assignFromId);
             if (originalMemo) {
-                const originalContent = `<p>---------- Forwarded message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
+                const originalContent = `<p>---------- Assigned message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
                 const newSubject = `Fw: ${originalMemo.subject}`;
                 setBody(originalContent);
                 setSubject(newSubject);
                 setReplyBody(''); // Ensure remark is clean
                 setTo([]);
                 setCc([]);
-                setForwardFrom(forwardFromId);
+                setAssignFrom(assignFromId);
                 setReplyTo(undefined);
                 
-                const draft = await getOrCreateActionDraft(forwardFromId, 'forward', { subject: newSubject, body: originalContent, forwardFromId: forwardFromId });
+                const draft = await getOrCreateActionDraft(assignFromId, 'assign', { subject: newSubject, body: originalContent, assignedFromId: assignFromId });
                 if (draft) {
                   setDraftId(draft.id);
                   router.replace(`/dashboard/new?id=${draft.id}`);
@@ -342,7 +342,7 @@ export default function NewMemoPage() {
             }
         } else if (!currentDraftId) {
             // Reset for a completely new memo
-            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setForwardFrom(undefined); setLabels([]);
+            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setAssignFrom(undefined); setLabels([]);
             setIsDraft(false); setLastSaved(null);
         }
         isInitializingRef.current = false;
@@ -373,9 +373,9 @@ export default function NewMemoPage() {
           errorDescription = "Please select at least one recipient in the 'To' field.";
         } else if (!subject.trim()) {
           errorDescription = "Subject is required.";
-        } else if (!isReplying && !isForwarding && !body.trim()) {
+        } else if (!isReplying && !isAssigning && !body.trim()) {
           errorDescription = "Body is required.";
-        } else if ((isReplying || isForwarding) && !replyBody.trim()) {
+        } else if ((isReplying || isAssigning) && !replyBody.trim()) {
           errorDescription = "Your message/remark is required.";
         }
         
@@ -391,11 +391,11 @@ export default function NewMemoPage() {
     labels.forEach(label => formData.append('labels[]', label.id));
     formData.append('subject', subject);
     
-    let finalBody = (isReplying || isForwarding) ? `${replyBody}<hr>${body}` : body;
+    let finalBody = (isReplying || isAssigning) ? `${replyBody}<hr>${body}` : body;
     formData.append('body', finalBody);
     formData.append('attachments', JSON.stringify(attachments));
     if (replyTo) formData.append('replyTo', replyTo);
-    if (forwardFrom) formData.append('forwardFrom', forwardFrom);
+    if (assignFrom) formData.append('assignFrom', assignFrom);
     if (draftId) formData.append('draftId', draftId);
     
     const result = await sendMemo(formData);
@@ -521,7 +521,7 @@ export default function NewMemoPage() {
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
-                    {isReplying ? 'Compose Reply' : isForwarding ? 'Forward Memo' : 'Compose New Memo'}
+                    {isReplying ? 'Compose Reply' : isAssigning ? 'Assign Memo' : 'Compose New Memo'}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {isSaving && <Badge variant="secondary">Saving...</Badge>}
@@ -530,7 +530,7 @@ export default function NewMemoPage() {
             </CardHeader>
             <CardContent>
                 <form onSubmit={onSubmit} className="space-y-4">
-                    {!isReplying && !isForwarding && (
+                    {!isReplying && !isAssigning && (
                         <div className="flex justify-end">
                             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
                                 <DialogTrigger asChild>
@@ -607,7 +607,7 @@ export default function NewMemoPage() {
                     </div>
                     
                     
-                    {isReplying || isForwarding ? (
+                    {isReplying || isAssigning ? (
                          <>
                          <div>
                             <label>{isReplying ? 'Reply' : 'Remark'}</label>

@@ -42,7 +42,7 @@ const memoSchema = z.object({
   body: z.string().min(1, 'Body is required.'),
   attachments: z.array(z.any()).optional(),
   replyTo: z.string().optional(),
-  forwardFrom: z.string().optional(),
+  assignFrom: z.string().optional(),
   scheduledFor: z.date().optional(),
 });
 
@@ -120,11 +120,11 @@ export async function getDashboardData(tab: string, query: string, category: str
         } else if (tab === 'sent') {
             where.AND.push({ fromId: user.id, status: { not: 'draft' } });
             if (category === 'sent') {
-                where.AND.push({ replyToId: null, forwardFromId: null });
+                where.AND.push({ replyToId: null, assignedFromId: null });
             } else if (category === 'replied') {
                 where.AND.push({ replyToId: { not: null } });
-            } else if (category === 'forwarded') {
-                where.AND.push({ forwardFromId: { not: null } });
+            } else if (category === 'assigned') {
+                where.AND.push({ assignedFromId: { not: null } });
             }
         } else if (tab === 'drafts') {
             where.AND.push({ fromId: user.id, status: 'draft' });
@@ -532,7 +532,7 @@ export async function sendMemo(formData: FormData) {
         body: formData.get('body') as string,
         attachments: JSON.parse(formData.get('attachments') as string || '[]'),
         replyTo: formData.get('replyTo') as string || undefined,
-        forwardFrom: formData.get('forwardFrom') as string || undefined,
+        assignFrom: formData.get('assignFrom') as string || undefined,
         scheduledFor,
     };
     
@@ -571,7 +571,7 @@ export async function sendMemo(formData: FormData) {
             ]
         },
         replyToId: validatedData.replyTo,
-        forwardFromId: validatedData.forwardFrom,
+        assignedFromId: validatedData.assignFrom,
         scheduledFor: validatedData.scheduledFor,
     };
 
@@ -596,14 +596,14 @@ export async function sendMemo(formData: FormData) {
         }
     });
     
-    if (validatedData.forwardFrom) {
+    if (validatedData.assignFrom) {
         const recipients = validatedData.to.map(id => {
             const recipientUser = newMemo.to.find(u => u.id === id);
             return recipientUser?.name || 'Unknown';
         }).join(', ');
 
         await prisma.memo.update({
-            where: { id: validatedData.forwardFrom },
+            where: { id: validatedData.assignFrom },
             data: {
                 acknowledgedBy: {
                     connect: { id: user.id }
@@ -612,13 +612,13 @@ export async function sendMemo(formData: FormData) {
                     create: [
                         {
                             actorId: user.id,
-                            action: 'forwarded',
-                            details: `Forwarded to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
+                            action: 'assigned',
+                            details: `Assigned to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
                         },
                         {
                             actorId: user.id,
                             action: 'acknowledged',
-                            details: 'Acknowledged receipt of the memo by forwarding it.'
+                            details: 'Acknowledged receipt of the memo by assigning it.'
                         }
                     ]
                 }
@@ -728,7 +728,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             },
             status: 'draft' as const,
             replyToId: data.replyToId,
-            forwardFromId: data.forwardFromId,
+            assignedFromId: data.assignedFromId,
         };
         
 
@@ -749,7 +749,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             status: 'draft' as const,
             memo_reference_number: `DRAFT-${Date.now()}`,
             replyToId: data.replyToId,
-            forwardFromId: data.forwardFromId,
+            assignedFromId: data.assignedFromId,
         };
         
         const newDraft = await prisma.memo.create({ data: payload });
@@ -757,12 +757,12 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
-export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'forward', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
+export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
     const user = await hasPermission('manage_memos');
 
     const whereClause: any = { fromId: user.id, status: 'draft' };
     if (action === 'reply') whereClause.replyToId = originalMemoId;
-    if (action === 'forward') whereClause.forwardFromId = originalMemoId;
+    if (action === 'assign') whereClause.assignedFromId = originalMemoId;
 
     // Find existing drafts for this action, newest first
     const existingDrafts = await prisma.memo.findMany({
@@ -794,7 +794,7 @@ export async function getOrCreateActionDraft(originalMemoId: string, action: 're
     };
 
     if (action === 'reply') payload.replyToId = originalMemoId;
-    if (action === 'forward') payload.forwardFromId = originalMemoId;
+    if (action === 'assign') payload.assignedFromId = originalMemoId;
 
     const newDraft = await prisma.memo.create({ data: payload, include: { to: true, cc: true, labels: true, attachments: true } });
     return newDraft;
@@ -1706,4 +1706,3 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
     return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
     
-

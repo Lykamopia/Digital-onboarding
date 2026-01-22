@@ -64,7 +64,7 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   viewed: <CheckCircle className="h-4 w-4 text-blue-500" />,
   acknowledged: <CheckCircle className="h-4 w-4 text-green-500" />,
   commented: <Reply className="h-4 w-4" />,
-  forwarded: <Share2 className="h-4 w-4 text-purple-500" />,
+  assigned: <Share2 className="h-4 w-4 text-purple-500" />,
   created: <Edit className="h-4 w-4" />,
   archived: <Archive className="h-4 w-4" />,
   unarchived: <Undo2 className="h-4 w-4" />,
@@ -232,9 +232,9 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     router.push(`/dashboard/new?replyAllTo=${memo.id}`);
   }
 
-  const handleForward = () => {
+  const handleAssign = () => {
     if(!memo) return;
-    router.push(`/dashboard/new?forwardFrom=${memo.id}`);
+    router.push(`/dashboard/new?assignFrom=${memo.id}`);
   }
 
   const handleToggleFlag = async () => {
@@ -285,7 +285,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged;
   const canReply = isDirectRecipient && !isSender;
   const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
-  const canForward = isDirectRecipient;
+  const canAssign = isDirectRecipient;
   const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
@@ -460,10 +460,10 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 Reply All
                             </Button>
                         )}
-                        {canForward && (
-                            <Button variant="outline" onClick={handleForward}>
+                        {canAssign && (
+                            <Button variant="outline" onClick={handleAssign}>
                                 <Share2 className="mr-2 h-4 w-4" />
-                                Forward
+                                Assign
                             </Button>
                         )}
                          {canDuplicate && (

@@ -27,7 +27,7 @@ const sentFilterItems = [
     { value: 'all', label: 'All', icon: <Mail /> },
     { value: 'sent', label: 'Sent', icon: <Send /> },
     { value: 'replied', label: 'Replied', icon: <Reply /> },
-    { value: 'forwarded', label: 'Forwarded', icon: <Share2 /> },
+    { value: 'assigned', label: 'Assigned', icon: <Share2 /> },
 ];
 
 interface FilterTabsProps {

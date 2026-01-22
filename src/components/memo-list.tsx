@@ -51,7 +51,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         if (memo.status === 'scheduled') return 'scheduled';
 
         const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        if(lastActivity?.action === 'forwarded' && memo.current_holderId === loggedInUser.id) {
+        if(lastActivity?.action === 'assigned' && memo.current_holderId === loggedInUser.id) {
             return 'delegated';
         }
 
@@ -98,8 +98,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         router.push(`/dashboard/new?replyTo=${memoId}`);
     }
     
-    const handleForward = (memoId: string) => {
-        router.push(`/dashboard/new?forwardFrom=${memoId}`);
+    const handleAssign = (memoId: string) => {
+        router.push(`/dashboard/new?assignFrom=${memoId}`);
     }
 
     const handleDuplicate = async (memoId: string) => {
@@ -196,7 +196,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
         const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
-        const canForward = isDirectRecipient;
+        const canAssign = isDirectRecipient;
 
         if (tab === 'drafts') {
             return (
@@ -281,14 +281,14 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             <TooltipContent>Reply</TooltipContent>
                         </Tooltip>
                     )}
-                    {canForward && (
+                    {canAssign && (
                          <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleForward(memo.id))}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAssign(memo.id))}>
                                     <Share2 />
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Forward</TooltipContent>
+                            <TooltipContent>Assign</TooltipContent>
                         </Tooltip>
                     )}
                     {tab === 'archive' ? (
@@ -353,7 +353,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
         const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
-        const canForward = isDirectRecipient;
+        const canAssign = isDirectRecipient;
         const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
         const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
         const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
@@ -420,10 +420,10 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                         <span>Reply</span>
                     </ContextMenuItem>
                 )}
-                {canForward && (
-                    <ContextMenuItem onSelect={() => handleForward(memo.id)}>
+                {canAssign && (
+                    <ContextMenuItem onSelect={() => handleAssign(memo.id)}>
                         <Share2 className="mr-2 h-4 w-4" />
-                        <span>Forward</span>
+                        <span>Assign</span>
                     </ContextMenuItem>
                 )}
                 <ContextMenuSeparator />

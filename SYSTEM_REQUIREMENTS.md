@@ -6,7 +6,7 @@
 This document provides a detailed description of the requirements for the Memo Management System. It outlines the functional and non-functional requirements of the system, serving as the primary guide for designers, developers, and testers to ensure the final product meets the specified business needs and quality standards.
 
 ### 1.2 Scope
-The scope of this system includes the complete lifecycle management of internal memorandums. Key functionalities include secure user authentication, role-based access control, memo creation, distribution (sending, CC), and management (inbox, sent, drafts, archive), advanced memo workflows (acknowledgement, forwarding, replying), user and system administration, and real-time notifications. The system is designed as a web application accessible on modern desktop and mobile browsers.
+The scope of this system includes the complete lifecycle management of internal memorandums. Key functionalities include secure user authentication, role-based access control, memo creation, distribution (sending, CC), and management (inbox, sent, drafts, archive), advanced memo workflows (acknowledgement, assigning, replying), user and system administration, and real-time notifications. The system is designed as a web application accessible on modern desktop and mobile browsers.
 
 ### 1.3 Definitions, Acronyms, and Abbreviations
 - **MMS**: Memo Management System
@@ -34,7 +34,7 @@ The major features of the system are:
 - Secure User Authentication and Session Management
 - Role-Based Access Control (Admin, Member)
 - Comprehensive Memo Management (Create, Read, Update, Delete)
-- Memo Distribution and Tracking (To, CC, Forward, Reply, Acknowledgement)
+- Memo Distribution and Tracking (To, CC, Assign, Reply, Acknowledgement)
 - Advanced Memo Organization (Labels, Favorites, Flagging, Archive)
 - Real-time In-App and Email Notifications
 - Full-featured Admin Panel for System Management
@@ -91,12 +91,12 @@ The major features of the system are:
 - **FR-MEMO-10 (Read Status):** A memo shall be marked as 'read' for a user once they view it in the detail view. This action should be recorded in the activity history.
 - **FR-MEMO-11 (Reply):** A recipient shall be able to reply to the original sender. The composition form shall be pre-filled with the sender in the 'To' field, the subject prefixed with "Re:", and the original memo content quoted.
 - **FR-MEMO-12 (Reply All):** A recipient shall be able to reply to the sender and all other recipients. The form shall be pre-filled as with a normal reply, but with all original To/CC users (except the replier) added to the CC field.
-- **FR-MEMO-13 (Forward):** A recipient shall be able to forward a memo to new recipients. The composition form shall be pre-filled with the subject prefixed with "Fw:", the original memo content quoted, and empty To/CC fields.
+- **FR-MEMO-13 (Assign):** A recipient shall be able to assign a memo to new recipients. The composition form shall be pre-filled with the subject prefixed with "Fw:", the original memo content quoted, and empty To/CC fields.
 - **FR-MEMO-14 (Acknowledgement):**
     - The system shall display an "Acknowledge" button on a memo if a global setting requires it OR if the memo has a label with `requiresAcknowledgement=true`.
     - Only direct recipients or current holders who have not yet acknowledged can see the button.
     - Upon acknowledgement, the button shall disappear, and a visual indicator (badge or signature) shall appear next to the user's name. This action must be recorded in the activity history.
-- **FR-MEMO-15 (CC Restrictions):** Users who are only CC'd on a memo shall be able to acknowledge it but shall be restricted from replying, replying all, or forwarding it.
+- **FR-MEMO-15 (CC Restrictions):** Users who are only CC'd on a memo shall be able to acknowledge it but shall be restricted from replying, replying all, or assigning it.
 
 ### 3.3 Admin Panel
 - **FR-ADMIN-01 (User Management):** Admins shall be able to perform full CRUD (Create, Read, Update, Delete) operations on user accounts.

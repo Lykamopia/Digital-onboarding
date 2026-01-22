@@ -22,13 +22,13 @@ import Logo from './logo';
 import { Label } from './ui/label';
 import { useRouter } from 'next/navigation';
 
-interface ForwardDialogProps {
+interface AssignDialogProps {
   memo: MemoWithActivity;
   onUpdate: () => void;
   children: React.ReactNode;
 }
 
-function ForwardMemoIllustration() {
+function AssignMemoIllustration() {
     return (
         <div className="absolute top-4 right-4 text-accent/20">
             <svg
@@ -51,13 +51,13 @@ function ForwardMemoIllustration() {
     )
 }
 
-export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) {
+export function ForwardDialog({ memo, onUpdate, children }: AssignDialogProps) {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [remark, setRemark] = useState('');
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isForwarding, setIsForwarding] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -94,11 +94,11 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
     setRemark('');
   }
 
-  const handleForward = () => {
-    setIsForwarding(true);
+  const handleAssign = () => {
+    setIsAssigning(true);
     // Create query params for the new memo page
     const params = new URLSearchParams();
-    params.set('forwardFrom', memo.id);
+    params.set('assignFrom', memo.id);
     selectedUsers.forEach(user => params.append('to[]', user.id));
     if (remark) {
         params.set('remark', remark);
@@ -108,9 +108,9 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
     router.push(`/dashboard/new?${params.toString()}`);
 
     // Close the dialog and show toast
-    toast({ title: "Forwarding Memo", description: "You are now composing a forward." });
+    toast({ title: "Assigning Memo", description: "You are now composing an assignment." });
     closeDialog();
-    setIsForwarding(false);
+    setIsAssigning(false);
   }
 
   return (
@@ -128,25 +128,25 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         }}
       >
         <DialogHeader>
-          <DialogTitle className="sr-only">Forward Memo</DialogTitle>
+          <DialogTitle className="sr-only">Assign Memo</DialogTitle>
           <div className='relative pr-24'>
             <div className="mb-4">
               <Logo hideText />
             </div>
             <div className="text-2xl font-bold flex items-center gap-2">
-                <Share2 /> Forward Memo
+                <Share2 /> Assign Memo
             </div>
             <DialogDescription className="mt-2">
-                Delegate or share this memo with other users.
+                Assign this memo to other users.
             </DialogDescription>
-            <ForwardMemoIllustration />
+            <AssignMemoIllustration />
           </div>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="forward-to">Forward to</Label>
+            <Label htmlFor="assign-to">Assign to</Label>
             <RecipientSelector
-              id="forward-to"
+              id="assign-to"
               allUsers={availableUsers}
               selected={selectedUsers}
               setSelected={setSelectedUsers}
@@ -166,13 +166,13 @@ export function ForwardDialog({ memo, onUpdate, children }: ForwardDialogProps) 
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-          <Button onClick={handleForward} disabled={selectedUsers.length === 0 || isForwarding}>
-            {isForwarding ? (
+          <Button onClick={handleAssign} disabled={selectedUsers.length === 0 || isAssigning}>
+            {isAssigning ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Share2 className="mr-2" />
             )}
-            {isForwarding ? 'Preparing...' : 'Forward'}
+            {isAssigning ? 'Preparing...' : 'Assign'}
           </Button>
         </DialogFooter>
       </DialogContent>
