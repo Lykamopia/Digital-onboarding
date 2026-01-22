@@ -6,8 +6,15 @@ import { getGeneralSettings, saveGeneralSettings } from '@/app/actions/memo';
 import type { AcknowledgementType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
 
+type ReferenceFormatSettings = {
+    prefix: 'department' | 'office' | 'custom';
+    separator: '-' | '/';
+    numberLength: number;
+};
+
 type GeneralSettings = {
   acknowledgementType: AcknowledgementType;
+  referenceFormat: ReferenceFormatSettings;
 };
 
 type SettingsContextType = {
@@ -19,7 +26,14 @@ type SettingsContextType = {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<GeneralSettings>({ acknowledgementType: 'SIGNATURE' });
+  const [settings, setSettings] = useState<GeneralSettings>({ 
+    acknowledgementType: 'SIGNATURE',
+    referenceFormat: {
+        prefix: 'department',
+        separator: '-',
+        numberLength: 4
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -42,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings); // Optimistic update
     try {
-      await saveGeneralSettings(updatedSettings);
+      await saveGeneralSettings(updatedSettings as GeneralSettings);
       // Optional: broadcast change to other tabs
       window.dispatchEvent(new CustomEvent('settings-updated'));
     } catch (error) {

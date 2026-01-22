@@ -434,6 +434,65 @@ export async function toggleMemoReadStatus(memoId: string) {
     return getDashboardData('inbox', '', '', {}, [], '');
 }
 
+
+async function generateReferenceNumber(user: User): Promise<string> {
+    const settings = await getGeneralSettings();
+    const format = settings.referenceFormat;
+    
+    const userWithRelations = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+            office: true,
+            department: true,
+        }
+    });
+    
+    if (!userWithRelations) throw new Error("User not found for reference generation.");
+
+    let prefixPart = '';
+    if (format.prefix === 'department' && userWithRelations.department) {
+        prefixPart = userWithRelations.department.code;
+    } else if (format.prefix === 'office' && userWithRelations.office) {
+        prefixPart = userWithRelations.office.code;
+    }
+    // 'custom' prefix would be handled by a setting, which is currently not implemented for simplicity.
+
+    const year = new Date().getFullYear();
+
+    const fullPrefix = `${prefixPart}${format.separator}${year}${format.separator}`;
+
+    // Find the last memo with this prefix to determine the next sequence number.
+    // This approach is not perfectly safe from race conditions in high-concurrency environments
+    // but is the most feasible method without database schema changes for sequence tracking.
+    const lastMemo = await prisma.memo.findFirst({
+        where: {
+            memo_reference_number: {
+                startsWith: fullPrefix
+            }
+        },
+        orderBy: {
+            createdAt: 'desc'
+        },
+        select: {
+            memo_reference_number: true
+        }
+    });
+
+    let nextSequence = 1;
+    if (lastMemo?.memo_reference_number) {
+        const lastNumberStr = lastMemo.memo_reference_number.split(format.separator).pop();
+        const lastNumber = parseInt(lastNumberStr || '0', 10);
+        if (!isNaN(lastNumber)) {
+            nextSequence = lastNumber + 1;
+        }
+    }
+
+    const sequenceString = String(nextSequence).padStart(format.numberLength, '0');
+
+    return `${fullPrefix}${sequenceString}`;
+}
+
+
 export async function sendMemo(formData: FormData) {
     const user = await hasPermission('manage_memos');
 
@@ -464,10 +523,10 @@ export async function sendMemo(formData: FormData) {
     const validatedData = validation.data;
     const isScheduled = validatedData.scheduledFor && validatedData.scheduledFor > new Date();
 
-    const memoCount = await prisma.memo.count({ where: { status: { not: 'draft' } } });
+    const newReferenceNumber = await generateReferenceNumber(user);
     
     const newMemoData: any = {
-        memo_reference_number: `MEMO-${new Date().getFullYear()}-${String(memoCount + 1).padStart(3, '0')}`,
+        memo_reference_number: newReferenceNumber,
         fromId: user.id,
         to: { connect: validatedData.to.map(id => ({ id })) },
         cc: { connect: validatedData.cc?.map(id => ({ id })) },
@@ -1493,14 +1552,27 @@ export async function saveEmailSettings(settings: { notificationsEnabled: boolea
 }
 
 let generalSettings = { 
-    acknowledgementType: 'SIGNATURE' as AcknowledgementType
+    acknowledgementType: 'SIGNATURE' as AcknowledgementType,
+    referenceFormat: {
+        prefix: 'department' as 'department' | 'office' | 'custom',
+        separator: '-' as '-' | '/',
+        numberLength: 4,
+    }
 };
 
 export async function getGeneralSettings() {
+    // Ensure defaults are set if the object is incomplete
+    if (!generalSettings.referenceFormat) {
+        generalSettings.referenceFormat = {
+            prefix: 'department',
+            separator: '-',
+            numberLength: 4,
+        };
+    }
     return generalSettings;
 }
 
-export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType }) {
+export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any }) {
     await hasPermission('manage_general_settings');
     generalSettings = settings;
     revalidatePath('/dashboard/admin/general');
