@@ -326,8 +326,8 @@ export default function AdminEmailPage() {
     return (
         <Tabs defaultValue="settings" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="settings">Template Settings</TabsTrigger>
-                <TabsTrigger value="log">Sent Email Log</TabsTrigger>
+                <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Template Settings</TabsTrigger>
+                <TabsTrigger value="log" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sent Email Log</TabsTrigger>
             </TabsList>
             <TabsContent value="settings">
                 <EmailTemplateSettings />
@@ -338,4 +338,3 @@ export default function AdminEmailPage() {
         </Tabs>
     );
 }
-
