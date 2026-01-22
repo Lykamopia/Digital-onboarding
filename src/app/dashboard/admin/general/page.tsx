@@ -30,17 +30,16 @@ export default function GeneralSettingsPage() {
 
   useEffect(() => {
     // Ensure local settings has a default for referenceFormat if it's missing
-    if (settings && !settings.referenceFormat) {
+    if (settings) {
       setLocalSettings({
-        ...settings,
-        referenceFormat: {
+        acknowledgementType: settings.acknowledgementType || 'SIGNATURE',
+        acknowledgementMode: settings.acknowledgementMode || 'manual',
+        referenceFormat: settings.referenceFormat || {
           prefix: 'department',
           separator: '-',
           numberLength: 4
         }
       });
-    } else {
-      setLocalSettings(settings);
     }
   }, [settings]);
 
@@ -56,8 +55,12 @@ export default function GeneralSettingsPage() {
     }
   };
 
-  const handleAcknowledgementChange = (checked: boolean) => {
+  const handleAcknowledgementTypeChange = (checked: boolean) => {
     setLocalSettings(prev => ({ ...prev, acknowledgementType: checked ? 'SIGNATURE' : 'BADGE' }));
+  }
+
+  const handleAcknowledgementModeChange = (checked: boolean) => {
+    setLocalSettings(prev => ({ ...prev, acknowledgementMode: checked ? 'manual' : 'auto' }));
   }
 
   const handleReferenceFormatChange = (field: string, value: string | number) => {
@@ -87,10 +90,10 @@ export default function GeneralSettingsPage() {
         <CardHeader>
           <CardTitle>Acknowledgement Settings</CardTitle>
           <CardDescription>
-            Manage global settings that affect all users.
+            Configure how users acknowledge receipt of memos.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
                 <Label htmlFor="ack-type" className="text-base">
@@ -103,7 +106,22 @@ export default function GeneralSettingsPage() {
             <Switch
                 id="ack-type"
                 checked={localSettings.acknowledgementType === 'SIGNATURE'}
-                onCheckedChange={handleAcknowledgementChange}
+                onCheckedChange={handleAcknowledgementTypeChange}
+            />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+                <Label htmlFor="ack-mode" className="text-base">
+                Require Manual Acknowledgment
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                If enabled, users must click 'Acknowledge'. If disabled, memos are acknowledged automatically when read.
+                </p>
+            </div>
+            <Switch
+                id="ack-mode"
+                checked={localSettings.acknowledgementMode === 'manual'}
+                onCheckedChange={handleAcknowledgementModeChange}
             />
             </div>
         </CardContent>
@@ -199,4 +217,3 @@ export default function GeneralSettingsPage() {
     </div>
   );
 }
-

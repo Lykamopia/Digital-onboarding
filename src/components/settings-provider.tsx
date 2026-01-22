@@ -15,6 +15,7 @@ type ReferenceFormatSettings = {
 type GeneralSettings = {
   acknowledgementType: AcknowledgementType;
   referenceFormat: ReferenceFormatSettings;
+  acknowledgementMode: 'auto' | 'manual';
 };
 
 type SettingsContextType = {
@@ -32,7 +33,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         prefix: 'department',
         separator: '-',
         numberLength: 4
-    }
+    },
+    acknowledgementMode: 'manual',
   });
   const [loading, setLoading] = useState(true);
 

@@ -282,7 +282,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
-  const canAcknowledge = (isDirectRecipient || isCC) && !hasAcknowledged;
+  const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged;
   const canReply = isDirectRecipient && !isSender;
   const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
   const canForward = isDirectRecipient;

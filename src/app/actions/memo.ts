@@ -329,24 +329,45 @@ export async function markAsRead(memoId: string) {
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
-        include: { activity: true }
+        include: {
+            activity: {
+                where: { actorId: user.id, action: { in: ['viewed', 'acknowledged'] } }
+            },
+            to: { select: { id: true } },
+            cc: { select: { id: true } },
+            current_holder: { select: { id: true } },
+        }
     });
 
-    if (memo && !memo.activity.some(a => a.actorId === user.id && a.action === 'viewed')) {
-        await prisma.memo.update({
-            where: { id: memoId },
+    if (!memo) return;
+
+    // Proceed only if not viewed yet
+    if (!memo.activity.some(a => a.action === 'viewed')) {
+        await prisma.activity.create({
             data: {
-                activity: {
-                    create: {
-                        actorId: user.id,
-                        action: 'viewed',
-                    }
-                }
+                memoId: memoId,
+                actorId: user.id,
+                action: 'viewed',
             }
         });
+
+        const { acknowledgementMode } = await getGeneralSettings();
+        const hasAcknowledged = memo.activity.some(a => a.action === 'acknowledged');
+
+        if (acknowledgementMode === 'auto' && !hasAcknowledged) {
+            const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
+            const isCcRecipient = memo.cc.some(u => u.id === user.id);
+            
+            if (isDirectRecipient || isCcRecipient) {
+                await acknowledgeMemo(memoId);
+            }
+        }
+
         revalidatePath('/dashboard/inbox');
+        revalidatePath(`/dashboard?id=${memoId}`);
     }
 }
+
 
 export async function markAllAsReadForUser() {
     const user = await getLoggedInUser();
@@ -630,7 +651,7 @@ export async function sendMemo(formData: FormData) {
 
     // Send to WebSocket server
     await sendToWebSocket({
-        type: validatedData.forwardFrom ? 'forward-memo' : (validatedData.replyTo ? 'reply-memo' : 'new-memo'),
+        type: 'new-memo',
         payload: newMemo,
     });
 
@@ -1560,7 +1581,8 @@ const defaultGeneralSettings = {
         prefix: 'department' as 'department' | 'office' | 'custom',
         separator: '-' as '-' | '/',
         numberLength: 4,
-    }
+    },
+    acknowledgementMode: 'manual' as 'auto' | 'manual',
 };
 
 export async function getGeneralSettings() {
@@ -1575,7 +1597,7 @@ export async function getGeneralSettings() {
     return defaultGeneralSettings;
 }
 
-export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any }) {
+export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual' }) {
     await hasPermission('manage_general_settings');
     await prisma.setting.upsert({
         where: { key: 'general' },
