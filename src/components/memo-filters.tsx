@@ -18,20 +18,20 @@ import type { DateRange, Label as LabelType } from '@/lib/types';
 import { Separator } from './ui/separator';
 
 const inboxFilterItems = [
-    { value: 'all', label: 'All', icon: <Inbox /> },
-    { value: 'direct', label: 'Direct', icon: <Mail /> },
-    { value: 'cc', label: 'CC\'d', icon: <Users /> },
+    { value: 'all', label: 'All', icon: <Inbox className="h-4 w-4" /> },
+    { value: 'direct', label: 'Direct', icon: <Mail className="h-4 w-4" />, color: 'text-blue-500' },
+    { value: 'cc', label: 'CC\'d', icon: <Users className="h-4 w-4" />, color: 'text-purple-500' },
 ];
 
 const sentFilterItems = [
-    { value: 'all', label: 'All', icon: <Mail /> },
-    { value: 'sent', label: 'Sent', icon: <Send /> },
-    { value: 'replied', label: 'Replied', icon: <Reply /> },
-    { value: 'assigned', label: 'Assigned', icon: <Share2 /> },
+    { value: 'all', label: 'All', icon: <Mail className="h-4 w-4" /> },
+    { value: 'sent', label: 'Sent', icon: <Send className="h-4 w-4" />, color: 'text-green-500' },
+    { value: 'replied', label: 'Replied', icon: <Reply className="h-4 w-4" />, color: 'text-indigo-500' },
+    { value: 'assigned', label: 'Assigned', icon: <Share2 className="h-4 w-4" />, color: 'text-orange-500' },
 ];
 
 interface FilterTabsProps {
-    items: { value: string; label: string; icon: React.ReactNode; }[];
+    items: { value: string; label: string; icon: React.ReactNode; color?: string; }[];
     selected: string;
     onSelect: (value: string) => void;
 }
@@ -55,8 +55,14 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) =>
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         />
                     )}
-                    <span className="relative z-10 flex items-center justify-center gap-2">
-                        {item.icon} {item.label}
+                    <span className={cn("relative z-10 flex items-center justify-center gap-2", selected !== item.value && item.color)}>
+                        <motion.div
+                            animate={{ scale: selected === item.value ? 1.2 : 1 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        >
+                            {item.icon}
+                        </motion.div>
+                        {item.label}
                     </span>
                 </button>
             ))}
