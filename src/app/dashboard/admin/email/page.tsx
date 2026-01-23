@@ -195,6 +195,23 @@ function EmailLogViewer() {
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
+    
+    const getSanitizedEmailBody = (body: string) => {
+        // 1. Mask sensitive information like passwords in <code> tags
+        const maskedBody = body.replace(/<code>(.*?)<\/code>/g, '<code>********</code>');
+
+        // 2. Inject CSS to disable links and buttons for the preview
+        const style = `
+            <style>
+                a, button {
+                    pointer-events: none !important;
+                    cursor: default !important;
+                    opacity: 0.6 !important;
+                }
+            </style>
+        `;
+        return style + maskedBody;
+    };
 
     return (
         <Card>
@@ -308,9 +325,9 @@ function EmailLogViewer() {
                                 </div>
                             )}
                             <iframe
-                                srcDoc={selectedEmail.body}
+                                srcDoc={getSanitizedEmailBody(selectedEmail.body)}
                                 className="w-full h-[50vh] border rounded-md"
-                                sandbox="" // most restrictive sandbox
+                                sandbox="allow-same-origin"
                                 title="Email Body Preview"
                             />
                         </div>

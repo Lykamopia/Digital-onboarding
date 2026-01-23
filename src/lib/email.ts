@@ -4,6 +4,9 @@ import type { Memo, User, Role, Prisma } from './types';
 import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
 import prisma from './prisma';
 
+const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
+const logoUrl = `${baseUrl}/Logo.png`;
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT) || 465,
@@ -57,7 +60,6 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
     const { acknowledgementType } = await getGeneralSettings();
     const useSignature = acknowledgementType === 'SIGNATURE';
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const memoUrl = `${baseUrl}/dashboard/inbox?id=${memo.id}`;
     
     const senderNameWithRole = sender.role 
@@ -75,8 +77,6 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
         .replace(/{{reference}}/g, memo.memo_reference_number || '')
         .replace(/{{memoUrl}}/g, memoUrl)
         .replace(/\n/g, '<br>');
-
-    const logoUrl = `https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612`;
     
     const signatureBlock = useSignature && sender.signature
         ? `<div><img src="${baseUrl}${sender.signature.startsWith('/') ? sender.signature : '/' + sender.signature}" alt="Signature" style="height: 40px; margin-top: 10px;"></div>`
@@ -145,7 +145,6 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
 
 function generateAuthEmailBody(title: string, content: string): string {
     const { footerText } = { footerText: 'This is an automated message. Please do not reply.' };
-    const logoUrl = `https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612`;
 
     return `
     <!DOCTYPE html>
@@ -195,7 +194,6 @@ function generateAuthEmailBody(title: string, content: string): string {
 }
 
 export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptions) {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const loginUrl = `${baseUrl}/login`;
 
     const title = "Welcome to Nib Memo!";
@@ -253,7 +251,6 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
 }
 
 export async function sendPasswordResetEmail({ to, name, password }: PasswordResetEmailOptions) {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
     const loginUrl = `${baseUrl}/login`;
 
     const title = "Your Password Has Been Reset";
