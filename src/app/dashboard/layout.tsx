@@ -84,7 +84,6 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
 interface DashboardLayoutProps {
   children: React.ReactNode;
   user: (User & { role: { permissions: Permission[] } }) | null;
-  session: Session | null;
 }
 
 function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
@@ -130,6 +129,9 @@ function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
             {children}
         </DashboardContentWrapper>
         {isMobile && user && <BottomNavigation user={user} />}
+        {user && !user.mustChangePassword && !user.onboardingCompleted && (
+          <OnboardingTour />
+        )}
     </SidebarProvider>
   );
 }
@@ -176,9 +178,6 @@ export default function DashboardLayout({
             <DashboardLayoutClient user={user}>
                 {children}
             </DashboardLayoutClient>
-            {user && !user.mustChangePassword && !user.onboardingCompleted && (
-              <OnboardingTour />
-            )}
         </SettingsProvider>
     </Suspense>
   )
