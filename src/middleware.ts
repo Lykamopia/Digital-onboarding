@@ -7,7 +7,7 @@ function generateCsp(nonce: string) {
         'default-src': ["'self'"],
         'script-src': ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"],
         'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        'img-src': ["'self'", "data:", "https://images.unsplash.com", "https://picsum.photos"],
+        'img-src': ["'self'", "data:", "https://images.unsplash.com", "https://picsum.photos", "https://cdn.brandfetch.io"],
         'connect-src': ["'self'", "ws://localhost:3011", "http://localhost:3011"],
         'font-src': ["'self'", "https://fonts.gstatic.com"],
         'object-src': ["'none'"],

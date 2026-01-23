@@ -5,7 +5,7 @@ import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
 import prisma from './prisma';
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
-const logoUrl = `${baseUrl}/Logo.png`;
+const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -111,7 +111,7 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${logoUrl}" alt="Nib Memo Logo" style="max-width:80px;height:auto;display:block;margin:0 auto;">
+                           <img src="${logoUrl}" alt="Nib Memo Logo" style="width:60px;height:60px;display:block;margin:0 auto;">
                         </div>
                         <div class="content">
                             <h2>${headerText}</h2>
@@ -175,7 +175,7 @@ function generateAuthEmailBody(title: string, content: string): string {
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${logoUrl}" alt="Nib Memo Logo" style="max-width:80px;height:auto;display:block;margin:0 auto;">
+                           <img src="${logoUrl}" alt="Nib Memo Logo" style="width:60px;height:60px;display:block;margin:0 auto;">
                         </div>
                         <div class="content">
                             <h2>${title}</h2>
