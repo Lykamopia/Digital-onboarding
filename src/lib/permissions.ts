@@ -1,5 +1,5 @@
-import { Permission } from '@/lib/types';
-import { format, formatDistanceToNow } from 'date-fns';
+
+import type { Permission } from '@/lib/types';
 
 export const permissions: { id: Permission, label: string, description: string }[] = [
     { id: 'view_dashboard', label: 'View Dashboard', description: 'Can view the main dashboard and memos' },
@@ -19,19 +19,11 @@ export const permissions: { id: Permission, label: string, description: string }
     { id: 'manage_labels', label: 'Manage Labels', description: 'Can create, edit, and delete memo labels' },
 ];
 
-export const formatTimestamp = (timestamp: string | Date, relative: boolean = true) => {
-  if (!timestamp) return '';
-  try {
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-    if (isNaN(date.getTime())) {
-      return '';
-    }
-    const formattedDate = format(date, "MMMM d, yyyy 'at' h:mm a");
-    if (!relative) return formattedDate;
-    
-    const relativeDate = formatDistanceToNow(date, { addSuffix: true });
-    return `${formattedDate} (${relativeDate})`;
-  } catch (e) {
-    return '';
-  }
-};
+
+export const delegationPermissions = [
+  { id: 'delegation:view', label: 'View Memos', description: "Can view the delegator's inbox, sent items, and archive." },
+  { id: 'delegation:draft', label: 'Draft Memos', description: "Can create and save drafts on behalf of the delegator." },
+  { id: 'delegation:send', label: 'Send Memos', description: "Can send new memos and drafts. The 'From' field will show the delegator." },
+  { id: 'delegation:reply', label: 'Reply & Assign', description: "Can reply to or assign memos received by the delegator." },
+  { id: 'delegation:acknowledge', label: 'Acknowledge Memos', description: "Can acknowledge memos on behalf of the delegator." },
+] as const;

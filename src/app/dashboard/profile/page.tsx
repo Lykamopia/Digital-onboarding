@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { getLoggedInUser, updateUserProfile } from '@/app/actions/memo';
-import type { User, Office, Department, Division, District, Branch } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud } from 'lucide-react';
+import { getLoggedInUser, updateUserProfile, getUsers } from '@/app/actions/memo';
+import type { User, Office, Department, Division, District, Branch, Delegation } from '@/lib/types';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud, Users } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { SignaturePad } from '@/components/signature-pad';
 import { SignaturePreview } from '@/components/signature-preview';
 import { UserProfileLoader } from '@/components/user-profile-loader';
+import { DelegationSettings } from '@/components/delegation-settings';
 
 
 type UserWithRelations = User & {
@@ -29,12 +30,15 @@ type UserWithRelations = User & {
     division?: Division;
     district?: District;
     branch?: Branch;
+    delegations?: Delegation[];
+    delegatedTo?: Delegation[];
 };
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ProfilePage() {
   const [user, setUser] = useState<UserWithRelations | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   
@@ -59,9 +63,10 @@ export default function ProfilePage() {
     pendingAvatar !== null ||
     signatureModified;
 
-  const loadUser = useCallback(async () => {
-    const initialUser = await getLoggedInUser();
+  const loadUserAndData = useCallback(async () => {
+    const [initialUser, users] = await Promise.all([getLoggedInUser(), getUsers()]);
     setUser(initialUser as any);
+    setAllUsers(users);
     if (initialUser) {
         setName(initialUser.name);
         setEmail(initialUser.email);
@@ -75,8 +80,8 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    loadUserAndData();
+  }, [loadUserAndData]);
 
   const uploadFile = async (file: File, type: 'profile' | 'signatures'): Promise<string> => {
     setIsUploading(true);
@@ -154,7 +159,7 @@ export default function ProfilePage() {
         }
 
         // Reload local user data and reset pending states
-        await loadUser();
+        await loadUserAndData();
 
         // Notify other parts of the app
         try {
@@ -301,8 +306,9 @@ export default function ProfilePage() {
         </div>
         
         <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Profile</TabsTrigger>
+                <TabsTrigger value="delegation" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Delegation</TabsTrigger>
                 <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
@@ -448,6 +454,9 @@ export default function ProfilePage() {
                         </div>
                     </CardContent>
                 </Card>
+            </TabsContent>
+             <TabsContent value="delegation">
+                <DelegationSettings user={user} allUsers={allUsers} onUpdate={loadUserAndData} />
             </TabsContent>
             <TabsContent value="security">
                 <Card>

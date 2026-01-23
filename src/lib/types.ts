@@ -1,4 +1,5 @@
 
+
 import type { 
     User as PrismaUser, 
     Role as PrismaRole,
@@ -12,8 +13,10 @@ import type {
     District as PrismaDistrict,
     Label as PrismaLabel,
     EmailLog as PrismaEmailLog,
+    Delegation as PrismaDelegation,
     Prisma,
 } from '@prisma/client';
+import { delegationPermissions } from './permissions';
 
 export type Permission = 
     | 'view_dashboard' 
@@ -31,6 +34,8 @@ export type Permission =
     | 'manage_labels' 
     | 'manage_general_settings'
     | 'manage_email_settings';
+
+export type DelegationPermission = typeof delegationPermissions[number]['id'];
 
 export type DateRange = {
     from?: Date;
@@ -72,10 +77,22 @@ export type User = PrismaUser & {
     district?: District | null;
     branch?: Branch | null;
     role: Role | null;
+    delegations?: Delegation[];
+    delegatedTo?: Delegation[];
 };
+
+export type LoggedInUser = User & {
+    actingUser: { id: string, name: string, email: string } | null;
+    delegationPermissions: DelegationPermission[] | [];
+};
+
 
 export type Attachment = PrismaAttachment;
 export type EmailLog = PrismaEmailLog;
+export type Delegation = PrismaDelegation & {
+    delegator: User;
+    delegate: User;
+};
 
 // Base types from Prisma
 export type Memo = PrismaMemo & {

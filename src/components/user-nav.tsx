@@ -1,7 +1,7 @@
 
 "use client"
 
-import { LogOut, User as UserIcon } from "lucide-react"
+import { LogOut, User as UserIcon, Repeat } from "lucide-react"
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 
@@ -16,8 +16,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { User } from "@/lib/types";
+import type { User, Delegation } from "@/lib/types";
 import { revokeUserTokens } from "@/app/actions/memo";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 export function UserNav({ user }: { user: User }) {
   
@@ -43,6 +44,8 @@ export function UserNav({ user }: { user: User }) {
     // Fallback for any other relative paths that might need the API prefix
     return p.startsWith('/') ? `/api${p}` : `/api/${p}`;
   }
+
+  const delegatedToAccounts = user.delegatedTo || [];
 
   return (
       <DropdownMenu>
@@ -72,6 +75,31 @@ export function UserNav({ user }: { user: User }) {
               </DropdownMenuItem>
             </Link>
           </DropdownMenuGroup>
+          
+          {delegatedToAccounts.length > 0 && (
+             <DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
+                {delegatedToAccounts.map((delegation: Delegation) => (
+                    <TooltipProvider key={delegation.id}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div>
+                                    <DropdownMenuItem disabled>
+                                        <Repeat className="mr-2 h-4 w-4" />
+                                        <span>Act as {delegation.delegator.name}</span>
+                                    </DropdownMenuItem>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>This feature is coming soon!</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                ))}
+             </DropdownMenuGroup>
+          )}
+
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
