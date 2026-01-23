@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,7 +17,7 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-card text-center p-8">
+    <div data-testid="empty-state" className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-card text-center p-8">
       <div className="mb-4">{icon}</div>
       <h3 className="text-lg font-semibold text-foreground">{title}</h3>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -197,7 +196,13 @@ export function OnboardingTour() {
     };
 
     const updateTarget = useCallback(() => {
-        const targetElement = document.querySelector(currentStep.target);
+        let targetElement = document.querySelector(currentStep.target);
+        
+        // Handle case where inbox is empty
+        if (currentStep.id === 'inbox-item' && !targetElement) {
+            targetElement = document.querySelector('[data-testid="empty-state"]');
+        }
+
         if (targetElement) {
             const rect = targetElement.getBoundingClientRect();
             setTargetRect(rect);
@@ -212,7 +217,20 @@ export function OnboardingTour() {
         } else {
             setTargetRect(null);
         }
-    }, [currentStep.target]);
+    }, [currentStep.target, currentStep.id]);
+    
+    const adjustedDescription = useMemo(() => {
+        if (currentStep.id === 'inbox-item') {
+            if (typeof document !== 'undefined') {
+                const memoItemExists = document.querySelector('[data-testid="memo-item"]');
+                if (!memoItemExists) {
+                    return "Your inbox is currently empty. Memos you receive will appear here. Let's move on.";
+                }
+            }
+        }
+        return currentStep.description;
+    }, [currentStep.id, currentStep.description, stepIndex]);
+
 
     useEffect(() => {
         // Initial visibility delay
@@ -309,7 +327,7 @@ export function OnboardingTour() {
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">{currentStep.description}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{adjustedDescription}</p>
                 </div>
                 <div className="flex items-center justify-between border-t bg-muted/50 p-4">
                     <span className="text-xs text-muted-foreground">
