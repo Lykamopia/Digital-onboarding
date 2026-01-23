@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -455,7 +454,7 @@ export default function ProfilePage() {
                     </CardContent>
                 </Card>
             </TabsContent>
-             <TabsContent value="delegation">
+            <TabsContent value="delegation">
                 <DelegationSettings user={user} allUsers={allUsers} onUpdate={loadUserAndData} />
             </TabsContent>
             <TabsContent value="security">
