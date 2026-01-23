@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -996,6 +996,16 @@ export async function getLoggedInUser() {
             division: true,
             district: true,
             branch: true,
+            delegations: {
+                include: {
+                    delegate: true,
+                }
+            },
+            delegatedTo: {
+                include: {
+                    delegator: true,
+                }
+            }
         }
     });
     if (!user) return null;
@@ -1719,4 +1729,52 @@ export async function completeOnboardingTour() {
 
     revalidatePath('/dashboard');
     return { success: true };
+}
+
+export async function addOrUpdateDelegate(data: { delegateId: string, permissions: DelegationPermission[] }) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const existingDelegation = await prisma.delegation.findUnique({
+        where: {
+            delegatorId_delegateId: {
+                delegatorId: user.id,
+                delegateId: data.delegateId,
+            }
+        }
+    });
+
+    if (existingDelegation) {
+        await prisma.delegation.update({
+            where: { id: existingDelegation.id },
+            data: { permissions: data.permissions.join(',') },
+        });
+    } else {
+        await prisma.delegation.create({
+            data: {
+                delegatorId: user.id,
+                delegateId: data.delegateId,
+                permissions: data.permissions.join(','),
+            }
+        });
+    }
+    revalidatePath('/dashboard/profile');
+}
+
+export async function removeDelegate(delegationId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const delegation = await prisma.delegation.findUnique({
+        where: { id: delegationId }
+    });
+
+    if (delegation?.delegatorId !== user.id) {
+        throw new Error("You are not authorized to remove this delegation.");
+    }
+
+    await prisma.delegation.delete({
+        where: { id: delegationId }
+    });
+    revalidatePath('/dashboard/profile');
 }
