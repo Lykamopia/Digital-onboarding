@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lightbulb } from 'lucide-react';
 import { Button } from './ui/button';
 import { completeOnboardingTour } from '@/app/actions/memo';
-import Logo from './logo';
-import { cn } from '@/lib/utils';
 import { useSidebar } from './ui/sidebar';
 import { toast } from 'sonner';
 
@@ -162,11 +160,20 @@ export function OnboardingTour() {
 
     const pathname = usePathname();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { state: sidebarState, setOpen: setSidebarOpen } = useSidebar();
     
     const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
 
-    const handleNext = () => {
+    const handleFinish = useCallback(async () => {
+        setIsVisible(false);
+        await completeOnboardingTour();
+        toast.success("Onboarding Complete!", {
+            description: "You're all set to use Nib Memo.",
+        });
+    }, []);
+
+    const handleNext = useCallback(() => {
         if (currentStep.nextPath) {
             router.push(currentStep.nextPath);
         }
@@ -175,9 +182,9 @@ export function OnboardingTour() {
         } else {
             handleFinish();
         }
-    };
+    }, [currentStep, stepIndex, router, handleFinish]);
 
-    const handlePrev = () => {
+    const handlePrev = useCallback(() => {
         if (stepIndex > 0) {
             const prevStep = tourSteps[stepIndex - 1];
             if (prevStep.path !== pathname) {
@@ -185,15 +192,7 @@ export function OnboardingTour() {
             }
             setStepIndex(stepIndex - 1);
         }
-    };
-
-    const handleFinish = async () => {
-        setIsVisible(false);
-        await completeOnboardingTour();
-        toast.success("Onboarding Complete!", {
-            description: "You're all set to use Nib Memo.",
-        });
-    };
+    }, [stepIndex, pathname, router]);
 
     const updateTarget = useCallback(() => {
         let targetElement = document.querySelector(currentStep.target);
@@ -229,7 +228,7 @@ export function OnboardingTour() {
             }
         }
         return currentStep.description;
-    }, [currentStep.id, currentStep.description, stepIndex]);
+    }, [currentStep.id, currentStep.description]);
 
 
     useEffect(() => {
@@ -237,6 +236,16 @@ export function OnboardingTour() {
         const timer = setTimeout(() => setIsVisible(true), 1000);
         return () => clearTimeout(timer);
     }, []);
+
+    // Effect to handle automatic progression when user performs an action
+    useEffect(() => {
+        const memoId = searchParams.get('id');
+        // If we are at the step where we expect the user to click a memo,
+        // and a memo ID appears in the URL, it means they've done it.
+        if (currentStep.id === 'inbox-item' && memoId) {
+            handleNext();
+        }
+    }, [searchParams, currentStep.id, handleNext]);
 
     useEffect(() => {
         if (!isVisible || !currentStep) return;
@@ -264,19 +273,38 @@ export function OnboardingTour() {
 
     const isWelcomeStep = currentStep.target === 'body';
 
-    const popupPositionStyle = isWelcomeStep
-    ? {
-        top: '50%',
-        left: '50%',
-    }
-    : {
-        top: targetRect!.bottom + 20,
-        left: targetRect!.left + targetRect!.width / 2 - 160,
-        // Basic boundary detection
-        ...(targetRect!.bottom + 300 > window.innerHeight && { bottom: window.innerHeight - targetRect!.top + 20, top: 'auto' }),
-        ...(targetRect!.left + targetRect!.width / 2 + 160 > window.innerWidth && { right: 20, left: 'auto' }),
-        ...(targetRect!.left + targetRect!.width / 2 - 160 < 0 && { left: 20 }),
+    const getPopupPosition = () => {
+        if (isWelcomeStep || !targetRect) {
+            return {
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+            };
+        }
+
+        const isTargetInBottomHalf = targetRect.top + targetRect.height / 2 > window.innerHeight / 2;
+        const baseLeft = targetRect.left + targetRect.width / 2 - 160;
+
+        let left: number | string = baseLeft;
+        let right: number | string = 'auto';
+
+        if (baseLeft < 20) {
+            left = 20;
+        } else if (baseLeft + 320 > window.innerWidth - 20) { // 320 is popup width (w-80)
+            left = 'auto';
+            right = 20;
+        }
+
+        return {
+            left,
+            right,
+            ...(isTargetInBottomHalf
+                ? { bottom: window.innerHeight - targetRect.top + 20 }
+                : { top: targetRect.bottom + 20 }
+            ),
+        };
     };
+    const popupPositionStyle = getPopupPosition();
 
     return (
         <AnimatePresence>
@@ -302,16 +330,8 @@ export function OnboardingTour() {
             <motion.div
                 key="popup"
                 className="fixed z-[9999] w-80 rounded-lg border bg-card text-card-foreground shadow-xl"
-                initial={{
-                    opacity: 0,
-                    scale: 0.95,
-                    ...(isWelcomeStep && { y: '-50%', x: '-50%' })
-                }}
-                animate={{
-                    opacity: 1,
-                    scale: 1,
-                    ...(isWelcomeStep && { y: '-50%', x: '-50%' })
-                }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 style={popupPositionStyle}
             >
