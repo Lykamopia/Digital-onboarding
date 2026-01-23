@@ -315,6 +315,7 @@ export default function ProfilePage() {
                                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 
+                                        id="profile-avatar-upload-trigger"
                                         className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                         onClick={() => !isUploading && avatarInputRef.current?.click()}
                                     >
@@ -363,7 +364,7 @@ export default function ProfilePage() {
                                             <div className="flex-1">
                                                 <Dialog open={isSignatureDialogOpen} onOpenChange={setIsSignatureDialogOpen}>
                                                     <DialogTrigger asChild>
-                                                         <Button type="button" variant="outline">
+                                                         <Button id="signature-edit-trigger" type="button" variant="outline">
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             {user?.signature ? 'Edit Signature' : 'Create Signature'}
                                                         </Button>

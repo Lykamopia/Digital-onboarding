@@ -1705,4 +1705,18 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
 
     return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
-    
+
+export async function completeOnboardingTour() {
+    const user = await getLoggedInUser();
+    if (!user) {
+        throw new Error("Not authenticated");
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { onboardingCompleted: true }
+    });
+
+    revalidatePath('/dashboard');
+    return { success: true };
+}

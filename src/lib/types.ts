@@ -65,6 +65,7 @@ export type Branch = PrismaBranch & {
 export type User = PrismaUser & {
     // any custom properties if needed
     mustChangePassword?: boolean;
+    onboardingCompleted?: boolean;
     office?: Office | null;
     department?: Department | null;
     division?: Division | null;
@@ -89,7 +90,7 @@ export type Memo = PrismaMemo & {
     favoritedBy?: { id: string }[];
     flaggedBy?: { id: string }[];
     labels: Label[];
-    forwardFromId?: string | null;
+    assignedFromId?: string | null;
 };
 
 export type Activity = PrismaActivity & {
@@ -114,4 +115,3 @@ export type UserWithStatus = User & {
 }
 
 export type { Prisma };
-    

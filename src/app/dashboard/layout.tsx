@@ -17,6 +17,7 @@ import { UserProfileLoader } from "@/components/user-profile-loader";
 import { SettingsProvider } from "@/components/settings-provider";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { OnboardingTour } from "@/components/onboarding-tour";
 
 
 function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
@@ -175,6 +176,9 @@ export default function DashboardLayout({
             <DashboardLayoutClient user={user}>
                 {children}
             </DashboardLayoutClient>
+            {user && !user.mustChangePassword && !user.onboardingCompleted && (
+              <OnboardingTour />
+            )}
         </SettingsProvider>
     </Suspense>
   )

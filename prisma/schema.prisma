@@ -1,255 +1,206 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Memo {
-  id                    String    @id @default(cuid())
-  memo_reference_number String?   @unique
-  subject               String
-  body                  String    @db.Text
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  status                String    @default("draft") // draft, sent, archived, scheduled
-  fromId                String
-  from                  User      @relation("SentMemos", fields: [fromId], references: [id])
-  to                    User[]    @relation("MemosTo")
-  cc                    User[]    @relation("MemosCc")
-  labels                Label[]
-  attachments           Attachment[]
-  activity              Activity[]
-  acknowledgedBy        User[]    @relation("AcknowledgedMemos")
-  archivedBy            User[]    @relation("ArchivedMemos")
-  favoritedBy           User[]    @relation("FavoritedMemos")
-  flaggedBy             User[]    @relation("FlaggedMemos")
-
-  // Holder fields for delegation/assigning
-  current_holderId String?
-  current_holder   User?    @relation("CurrentHolder", fields: [current_holderId], references: [id], onDelete: SetNull)
-  previous_holders User[]   @relation("PreviousHolders")
-
-  // Reply and Assign tracking
-  replyToId      String?
-  replyTo        Memo?    @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies        Memo[]   @relation("Replies")
-  assignedFromId  String?
-  assignedFrom    Memo?    @relation("Assign", fields: [assignedFromId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assignedTo     Memo[]   @relation("Assign")
-
-  // for scheduled memos
-  scheduledFor DateTime?
-
-  @@index([fromId])
-  @@index([current_holderId])
-  @@index([replyToId])
-  @@index([assignedFromId])
-}
-
-model Attachment {
-  id     String @id @default(cuid())
-  name   String
-  type   String
-  size   Int
-  url    String
-  memoId String
-  memo   Memo   @relation(fields: [memoId], references: [id])
-
-  @@index([memoId])
-}
-
-model Activity {
-  id        String   @id @default(cuid())
-  memoId    String
-  memo      Memo     @relation(fields: [memoId], references: [id])
-  actorId   String
-  actor     User     @relation(fields: [actorId], references: [id])
-  action    String // e.g., 'created', 'sent', 'viewed', 'acknowledged', 'commented', 'assigned'
-  details   String?
-  timestamp DateTime @default(now())
-  ipAddress String?
-  userAgent String?
-
-  @@index([memoId])
-  @@index([actorId])
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String?   @unique
-  emailVerified      DateTime?
-  hashedPassword     String?
-  image              String?
-  avatar             String?
-  signature          String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  sessions           Session[]
-  accounts           Account[]
-  sentMemos          Memo[]    @relation("SentMemos")
-  acknowledgedMemos  Memo[]    @relation("AcknowledgedMemos")
-  archivedMemos      Memo[]    @relation("ArchivedMemos")
-  favoritedMemos     Memo[]    @relation("FavoritedMemos")
-  flaggedMemos       Memo[]    @relation("FlaggedMemos")
-  activity           Activity[]
-  roleId             String?
-  role               Role?     @relation(fields: [roleId], references: [id])
-  status             String    @default("active") // active, inactive
-  mustChangePassword Boolean   @default(true)
-  tokenVersion       Int       @default(0) // Used to invalidate JWTs
-  memosTo            Memo[]    @relation("MemosTo")
-  memosCc            Memo[]    @relation("MemosCc")
-  
-  // For one-to-many relation for current holder
-  currentHolderOf Memo[] @relation("CurrentHolder")
-
-  // For delegation
-  previousHolderOf   Memo[]    @relation("PreviousHolders")
-
-  // Org Structure
-  officeId    String?
-  office      Office?   @relation(fields: [officeId], references: [id])
-  departmentId String?
-  department  Department? @relation(fields: [departmentId], references: [id])
-  divisionId  String?
-  division    Division?   @relation(fields: [divisionId], references: [id])
-  districtId  String?
-  district    District?   @relation(fields: [districtId], references: [id])
-  branchId    String?
-  branch      Branch?     @relation(fields: [branchId], references: [id])
-
-  // Login security
-  failedLoginAttempts Int @default(0)
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String?   @unique
+  emailVerified       DateTime?
+  hashedPassword      String?
+  avatar              String?
+  signature           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  status              String    @default("active")
+  mustChangePassword  Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
   lockoutUntil        DateTime?
+  tokenVersion        Int       @default(0)
+  onboardingCompleted Boolean   @default(false)
 
-  @@index([roleId])
-  @@index([officeId])
-  @@index([departmentId])
-  @@index([divisionId])
+  officeId    String?
+  departmentId String?
+  divisionId  String?
+  districtId  String?
+  branchId    String?
+  roleId      String?
+
+  role       Role?       @relation(fields: [roleId], references: [id])
+  office     Office?     @relation(fields: [officeId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  division   Division?   @relation(fields: [divisionId], references: [id])
+  district   District?   @relation(fields: [districtId], references: [id])
+  branch     Branch?     @relation(fields: [branchId], references: [id])
+
+  sentMemos        Memo[] @relation("SentMemos")
+  receivedMemos    Memo[] @relation("ReceivedMemos")
+  ccMemos          Memo[] @relation("CcMemos")
+  acknowledgedMemos Memo[] @relation("AcknowledgedMemos")
+  archivedMemos    Memo[] @relation("ArchivedMemos")
+  favoritedMemos   Memo[] @relation("FavoritedMemos")
+  flaggedMemos     Memo[] @relation("FlaggedMemos")
+  
+  currentHolderOf  Memo[] @relation("CurrentHolder")
+  previousHolderOf Memo[] @relation("PreviousHolders")
+
+  activities Activity[]
+
+  @@map("users")
 }
 
 model Role {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  permissions String? // Comma-separated list of permissions
+  id          String @id @default(cuid())
+  name        String @unique
+  permissions String
   users       User[]
+
+  @@map("roles")
 }
 
-model Label {
-  id    String @id @default(cuid())
-  name  String @unique
-  color String
-  type  String @default("USER") // SYSTEM, USER
-  memos Memo[]
-}
-
-// Org Structure Models
 model Office {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  code        String       @unique
-  type        String       @default("branch_office") // head_office, division_office, branch_office
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  type        String   @default("branch_office")
+  users       User[]
   departments Department[]
   districts   District[]
-  users       User[]
+
+  @@map("offices")
 }
 
 model Department {
-  id       String     @id @default(cuid())
-  name     String
-  code     String
-  officeId String
-  office   Office     @relation(fields: [officeId], references: [id])
+  id        String     @id @default(cuid())
+  name      String
+  code      String     @unique
+  officeId  String
+  office    Office     @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  users     User[]
   divisions Division[]
-  users    User[]
 
-  @@unique([name, officeId])
-  @@index([officeId])
+  @@map("departments")
 }
 
 model Division {
   id           String     @id @default(cuid())
   name         String
-  code         String
+  code         String     @unique
   departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   users        User[]
 
-  @@unique([name, departmentId])
-  @@index([departmentId])
+  @@map("divisions")
 }
 
 model District {
-  id       String   @id @default(cuid())
-  name     String
-  code     String
-  officeId String
-  office   Office   @relation(fields: [officeId], references: [id])
-  branches Branch[]
-  users    User[]
+    id       String   @id @default(cuid())
+    name     String
+    code     String   @unique
+    officeId String
+    office   Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+    users    User[]
+    branches Branch[]
 
-  @@unique([name, officeId])
-  @@index([officeId])
+    @@map("districts")
 }
 
 model Branch {
-  id         String   @id @default(cuid())
-  name       String
-  code       String
-  districtId String
-  district   District @relation(fields: [districtId], references: [id])
-  users      User[]
+    id         String   @id @default(cuid())
+    name       String
+    code       String   @unique
+    districtId String
+    district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+    users      User[]
 
-  @@unique([name, districtId])
-  @@index([districtId])
+    @@map("branches")
 }
 
-// NextAuth models
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Label {
+  id      String @id @default(cuid())
+  name    String @unique
+  color   String
+  type    String @default("USER") // SYSTEM or USER
+  memos   Memo[]
 
-  @@unique([provider, providerAccountId])
-  @@index([userId])
+  @@map("labels")
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Memo {
+  id                    String    @id @default(cuid())
+  memo_reference_number String?   @unique
+  subject               String
+  body                  String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  status                String    @default("draft") // draft, sent, scheduled, archived
+  scheduledFor          DateTime?
 
-  @@index([userId])
+  fromId String
+  from   User   @relation("SentMemos", fields: [fromId], references: [id])
+
+  to User[] @relation("ReceivedMemos")
+  cc User[] @relation("CcMemos")
+
+  attachments Attachment[]
+  activity    Activity[]
+  labels      Label[]
+
+  acknowledgedBy   User[] @relation("AcknowledgedMemos")
+  archivedBy       User[] @relation("ArchivedMemos")
+  favoritedBy      User[] @relation("FavoritedMemos")
+  flaggedBy        User[] @relation("FlaggedMemos")
+
+  current_holderId String?
+  current_holder   User?    @relation("CurrentHolder", fields: [current_holderId], references: [id], onDelete: SetNull)
+
+  previous_holders User[] @relation("PreviousHolders")
+  
+  replyToId String?
+  replyTo   Memo?   @relation("Replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Memo[]  @relation("Replies")
+
+  assignedFromId String?
+  assignedFrom   Memo?   @relation("Assignments", fields: [assignedFromId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignments    Memo[]  @relation("Assignments")
+
+  @@map("memos")
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model Attachment {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  size      Int
+  url       String
+  createdAt DateTime @default(now())
+  memoId    String
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
 
-  @@unique([identifier, token])
+  @@map("attachments")
 }
 
-// App Settings
+model Activity {
+  id        String   @id @default(cuid())
+  action    String // created, sent, viewed, acknowledged, commented, forwarded
+  details   String?
+  timestamp DateTime @default(now())
+  memoId    String
+  actorId   String
+  memo      Memo     @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+  ipAddress String?
+  userAgent String?
+
+  @@map("activity")
+}
+
 model Setting {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -259,16 +210,18 @@ model Setting {
 }
 
 model EmailLog {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  from            String
-  to              String
-  cc              String?
-  subject         String
-  body            String   @db.Text
-  status          String // "sent", "failed"
-  triggerEvent    String // "new_memo", "welcome_user", etc.
-  relatedEntityId String?
-  errorMessage    String?
-  messageId       String?
+  id               String   @id @default(cuid())
+  from             String
+  to               String
+  cc               String?
+  subject          String
+  body             String
+  status           String // sent, failed
+  errorMessage     String?
+  triggerEvent     String // new_memo, welcome_user, password_reset
+  relatedEntityId  String?
+  messageId        String?
+  createdAt        DateTime @default(now())
+  
+  @@map("email_logs")
 }

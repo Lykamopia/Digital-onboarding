@@ -47,7 +47,7 @@ export function UserNav({ user }: { user: User }) {
   return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+          <Button id="user-nav-trigger" variant="ghost" className="relative h-9 w-9 rounded-full">
             <Avatar className="h-9 w-9 border border-primary">
               <AvatarImage src={getAvatarUrl()} alt={user.name || ''} data-ai-hint="person portrait"/>
               <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
