@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -75,11 +74,10 @@ export function OnboardingTour() {
     const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
 
     const handleNext = () => {
+        if (currentStep.nextPath) {
+            router.push(currentStep.nextPath);
+        }
         if (stepIndex < tourSteps.length - 1) {
-            const nextStep = tourSteps[stepIndex + 1];
-            if (nextStep.path !== pathname) {
-                router.push(nextStep.path);
-            }
             setStepIndex(stepIndex + 1);
         } else {
             handleFinish();
@@ -152,34 +150,58 @@ export function OnboardingTour() {
         return null;
     }
 
+    const isWelcomeStep = currentStep.target === 'body';
+
+    const popupPositionStyle = isWelcomeStep
+    ? {
+        top: '50%',
+        left: '50%',
+    }
+    : {
+        top: targetRect.bottom + 20,
+        left: targetRect.left + targetRect.width / 2 - 160,
+        // Basic boundary detection
+        ...(targetRect.bottom + 300 > window.innerHeight && { bottom: window.innerHeight - targetRect.top + 20, top: 'auto' }),
+        ...(targetRect.left + targetRect.width / 2 + 160 > window.innerWidth && { right: 20, left: 'auto' }),
+        ...(targetRect.left + targetRect.width / 2 - 160 < 0 && { left: 20 }),
+    };
+
     return (
         <AnimatePresence>
             <motion.div
+                key="overlay"
                 className="fixed inset-0 z-[9997] bg-black/60"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
             />
             
-            <motion.div
-                className={cn("onboarding-highlight", currentStep.target !== 'body' && 'onboarding-pulse')}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1, ...highlighterStyle }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-            />
+            {!isWelcomeStep && (
+                <motion.div
+                    key="highlighter"
+                    className="onboarding-highlight onboarding-pulse"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, ...highlighterStyle }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                />
+            )}
 
             <motion.div
+                key="popup"
                 className="fixed z-[9999] w-80 rounded-lg border bg-card text-card-foreground shadow-xl"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                style={{
-                    top: targetRect.bottom + 20,
-                    left: targetRect.left + targetRect.width / 2 - 160,
-                    // Basic boundary detection
-                    ...(targetRect.bottom + 300 > window.innerHeight && { bottom: window.innerHeight - targetRect.top + 20, top: 'auto' }),
-                    ...(targetRect.left + targetRect.width / 2 + 160 > window.innerWidth && { right: 20, left: 'auto' }),
-                    ...(targetRect.left + targetRect.width / 2 - 160 < 0 && { left: 20 }),
+                initial={{
+                    opacity: 0,
+                    scale: 0.95,
+                    ...(isWelcomeStep && { y: '-50%', x: '-50%' })
                 }}
+                animate={{
+                    opacity: 1,
+                    scale: 1,
+                    ...(isWelcomeStep && { y: '-50%', x: '-50%' })
+                }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={popupPositionStyle}
             >
                 <div className="p-4">
                     <div className="flex items-start justify-between">
