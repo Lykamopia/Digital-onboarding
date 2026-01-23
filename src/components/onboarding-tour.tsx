@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -50,6 +49,13 @@ const tourSteps: TourStep[] = [
         title: 'Set Your Signature',
         description: 'Your digital signature will be used to acknowledge memos. You can draw it or upload an image of your signature.',
         target: '#signature-edit-trigger',
+        path: '/dashboard/profile',
+    },
+    {
+        id: 'profile-save',
+        title: 'Save Your Changes',
+        description: "Whenever you make changes to your profile, click this button to save them. Feel free to try it now if you've uploaded an avatar or signature!",
+        target: '#profile-save-button',
         path: '/dashboard/profile',
     },
     {
@@ -167,7 +173,7 @@ const TourOverlay = ({ targetRect, isWelcomeStep }: { targetRect: DOMRect | null
 
   // When it's the welcome step or no target, show a full-screen overlay
   if (isWelcomeStep || !targetRect || windowSize.width === 0) {
-    return <motion.div className="fixed inset-0 z-[9997] bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />;
+    return <motion.div key="welcome-overlay" className="fixed inset-0 z-[9997] bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />;
   }
 
   const { top, left, width, height } = targetRect;
@@ -175,20 +181,20 @@ const TourOverlay = ({ targetRect, isWelcomeStep }: { targetRect: DOMRect | null
 
   const overlays = [
     // Top overlay
-    { top: 0, left: 0, width: '100%', height: Math.max(0, top - padding) },
+    { key: 'top', top: 0, left: 0, width: '100%', height: Math.max(0, top - padding) },
     // Bottom overlay
-    { top: Math.max(0, top + height + padding), left: 0, width: '100%', bottom: 0 },
+    { key: 'bottom', top: Math.max(0, top + height + padding), left: 0, width: '100%', bottom: 0 },
     // Left overlay
-    { top: Math.max(0, top - padding), left: 0, width: Math.max(0, left - padding), height: height + padding * 2 },
+    { key: 'left', top: Math.max(0, top - padding), left: 0, width: Math.max(0, left - padding), height: height + padding * 2 },
     // Right overlay
-    { top: Math.max(0, top - padding), left: Math.max(0, left + width + padding), right: 0, height: height + padding * 2 },
+    { key: 'right', top: Math.max(0, top - padding), left: Math.max(0, left + width + padding), right: 0, height: height + padding * 2 },
   ];
 
   return (
     <>
-      {overlays.map((style, i) => (
+      {overlays.map((style) => (
         <motion.div
-          key={i}
+          key={style.key}
           className="fixed z-[9997] bg-black/60"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -370,7 +376,7 @@ export function OnboardingTour() {
 
     return (
         <AnimatePresence>
-            <TourOverlay targetRect={targetRect} isWelcomeStep={isWelcomeStep} />
+            <TourOverlay key="tour-overlay" targetRect={targetRect} isWelcomeStep={isWelcomeStep} />
             
             {!isWelcomeStep && targetRect && (
                  <motion.div

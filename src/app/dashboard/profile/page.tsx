@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -457,7 +456,7 @@ export default function ProfilePage() {
             </TabsContent>
         </Tabs>
         <div className="flex justify-end mt-6">
-            <Button type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploading}>
+            <Button id="profile-save-button" type="button" onClick={handleSave} disabled={!isChanged || isSaving || isUploading}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save All Changes
             </Button>
