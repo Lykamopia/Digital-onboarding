@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -199,7 +198,7 @@ export function MemoFilters({
 
 
   return (
-    <div className={cn("p-2 border-b", !isExpanded && "flex flex-col items-center")}>
+    <div id="memo-filters-container" className={cn("p-2 border-b", !isExpanded && "flex flex-col items-center")}>
         <div className='flex items-center gap-2 w-full'>
             {toggle}
              {isExpanded && (

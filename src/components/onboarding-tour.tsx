@@ -22,6 +22,7 @@ type TourStep = {
 };
 
 const tourSteps: TourStep[] = [
+    // Step 1: Welcome (On Inbox)
     {
         id: 'welcome',
         title: 'Welcome to Nib Memo!',
@@ -30,6 +31,7 @@ const tourSteps: TourStep[] = [
         path: '/dashboard/inbox',
         nextPath: '/dashboard/profile',
     },
+    // --- PROFILE ---
     {
         id: 'profile-intro',
         title: 'Your Profile Page',
@@ -52,12 +54,103 @@ const tourSteps: TourStep[] = [
         path: '/dashboard/profile',
     },
     {
-        id: 'tour-finish',
-        title: "You're All Set!",
-        description: "You've completed the basic setup and can now start sending and receiving memos. You can always find your way back to your profile from the user menu.",
+        id: 'profile-done',
+        title: "Profile Complete!",
+        description: "Great! Your profile is set up. Let's head back to the inbox to see how it works.",
         target: '#user-nav-trigger',
         path: '/dashboard/profile',
-        requireSidebarClosed: true
+        requireSidebarClosed: true,
+        nextPath: '/dashboard/inbox',
+    },
+    // --- INBOX ---
+    {
+        id: 'inbox-list',
+        title: 'Your Inbox',
+        description: "This is your inbox, where all memos sent to you will appear. Let's explore the layout.",
+        target: '#memo-content-wrapper',
+        path: '/dashboard/inbox',
+    },
+    {
+        id: 'inbox-filters',
+        title: 'Filter & Search',
+        description: 'You can use these controls to search, filter by date, category, or labels to quickly find what you need.',
+        target: '#memo-filters-container',
+        path: '/dashboard/inbox',
+    },
+    {
+        id: 'inbox-item',
+        title: 'Reading a Memo',
+        description: 'Click on any memo in this list to open it. If there is a sample memo, click on it now to continue the tour.',
+        target: '[data-testid="memo-item"]',
+        path: '/dashboard/inbox',
+    },
+    // --- MEMO DISPLAY ---
+    {
+        id: 'memo-display-header',
+        title: 'Memo Details',
+        description: 'At the top, you can see all the important details: sender, recipients, subject, and attachments.',
+        target: '#memo-display-header',
+        path: '/dashboard/inbox',
+    },
+    {
+        id: 'memo-display-actions',
+        title: 'Memo Actions',
+        description: 'Below the memo content, you can find actions like Acknowledge, Reply, or Assign.',
+        target: '#memo-display-actions',
+        path: '/dashboard/inbox',
+    },
+    {
+        id: 'memo-display-activity',
+        title: 'Activity History',
+        description: 'This timeline shows every action taken on the memo, providing a complete audit trail.',
+        target: '#memo-activity-history',
+        path: '/dashboard/inbox',
+    },
+    {
+        id: 'memo-compose-link',
+        title: 'Ready to Compose?',
+        description: "Now let's see how to write your own memo. Click on the 'New Memo' button to continue.",
+        target: 'a[href="/dashboard/new"]',
+        path: '/dashboard/inbox',
+        requireSidebarClosed: true,
+        nextPath: '/dashboard/new',
+    },
+    // --- COMPOSE PAGE ---
+    {
+        id: 'compose-recipients',
+        title: 'Add Recipients',
+        description: "Start by selecting who the memo is for in the 'To' and 'CC' fields.",
+        target: '#recipient-selector-to',
+        path: '/dashboard/new',
+    },
+    {
+        id: 'compose-subject',
+        title: 'Enter a Subject',
+        description: 'A clear and concise subject helps recipients understand the memo at a glance.',
+        target: '#compose-subject-input',
+        path: '/dashboard/new',
+    },
+    {
+        id: 'compose-body',
+        title: 'Write Your Memo',
+        description: 'Use the rich text editor to compose your message. You can use templates to get started quickly!',
+        target: '#memo-editor-container',
+        path: '/dashboard/new',
+    },
+    {
+        id: 'compose-actions',
+        title: 'Send or Preview',
+        description: "Once you're done, you can preview how your memo will look or send it off.",
+        target: '#compose-actions-container',
+        path: '/dashboard/new',
+    },
+    // --- FINISH ---
+    {
+        id: 'tour-finish',
+        title: "You're a Pro!",
+        description: "You've learned the basics of Nib Memo. You can now close this tour and start exploring on your own.",
+        target: 'body',
+        path: '/dashboard/new',
     }
 ];
 
@@ -177,10 +270,10 @@ export function OnboardingTour() {
             />
             
             {!isWelcomeStep && (
-                <motion.div
+                 <motion.div
                     key="highlighter"
                     className="onboarding-highlight onboarding-pulse"
-                    initial={{ opacity: 0 }}
+                    initial={{ opacity: 0, ...highlighterStyle }}
                     animate={{ opacity: 1, ...highlighterStyle }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3, ease: 'easeInOut' }}

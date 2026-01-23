@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -575,6 +574,7 @@ export default function NewMemoPage() {
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
                         <RecipientSelector
+                        id="recipient-selector-to"
                         allUsers={availableForTo}
                         selected={to}
                         setSelected={setTo}
@@ -593,7 +593,7 @@ export default function NewMemoPage() {
 
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>Subject - ጉዳዩ</label>
-                        <Input placeholder="Enter memo subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                        <Input id="compose-subject-input" placeholder="Enter memo subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
                     </div>
 
                      <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
@@ -607,23 +607,25 @@ export default function NewMemoPage() {
                     </div>
                     
                     
-                    {isReplying || isAssigning ? (
-                         <>
-                         <div>
-                            <label>{isReplying ? 'Reply' : 'Remark'}</label>
-                            <Editor value={replyBody} onChange={setReplyBody} />
-                         </div>
-                         <div>
-                            <label>Original Message</label>
-                            <Editor value={body} onChange={setBody} readOnly />
-                         </div>
-                         </>
-                    ) : (
-                        <div>
-                            <label>Body</label>
-                            <Editor value={body} onChange={setBody} />
-                        </div>
-                    )}
+                    <div id="memo-editor-container">
+                        {isReplying || isAssigning ? (
+                            <>
+                            <div>
+                                <label>{isReplying ? 'Reply' : 'Remark'}</label>
+                                <Editor value={replyBody} onChange={setReplyBody} />
+                            </div>
+                            <div>
+                                <label>Original Message</label>
+                                <Editor value={body} onChange={setBody} readOnly />
+                            </div>
+                            </>
+                        ) : (
+                            <div>
+                                <label>Body</label>
+                                <Editor value={body} onChange={setBody} />
+                            </div>
+                        )}
+                    </div>
 
 
                     <div className="grid grid-cols-[120px_1fr] items-start space-y-0">
@@ -677,7 +679,7 @@ export default function NewMemoPage() {
                         </div>
                     </div>
 
-                    <div className="flex justify-between pt-4">
+                    <div id="compose-actions-container" className="flex justify-between pt-4">
                     <div>
                         {isDraft && (
                         <AlertDialog>

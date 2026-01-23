@@ -1,4 +1,3 @@
-
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -460,6 +459,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         <ContextMenu>
             <ContextMenuTrigger>
                 <div
+                    data-testid="memo-item"
                     className={cn(
                     "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
                     "hover:bg-primary/5",

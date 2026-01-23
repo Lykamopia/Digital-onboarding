@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -296,9 +295,9 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const MemoContent = () => (
     <div className={`font-serif printable-memo-container ${!isPreview ? 'bg-card text-card-foreground' : ''}`}>
         <div className="printable-memo p-4 md:p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
-            <CardHeader className="p-0 printable-memo-header">
+            <CardHeader id="memo-display-header" className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
-                    <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={300} height={100} className="object-contain" />
+                    <Image src="/Logo.png" alt="Nib International Bank" width={300} height={100} className="object-contain" />
                     <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                     </div>
@@ -420,7 +419,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                 { !isPreview && (
                     <>
                         <Separator className="my-6 no-print" />
-                        <div className="flex items-center gap-2 font-sans no-print flex-wrap">
+                        <div id="memo-display-actions" className="flex items-center gap-2 font-sans no-print flex-wrap">
                         {canAcknowledge && 
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -502,7 +501,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         </div>
                         <Separator className="my-6 no-print" />
 
-                        <div className="font-sans no-print">
+                        <div id="memo-activity-history" className="font-sans no-print">
                         <h3 className="text-sm font-medium mb-4">Activity History</h3>
                         <ul className="space-y-4">
                             {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
