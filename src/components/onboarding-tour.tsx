@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -152,6 +153,53 @@ const tourSteps: TourStep[] = [
     }
 ];
 
+const TourOverlay = ({ targetRect, isWelcomeStep }: { targetRect: DOMRect | null; isWelcomeStep: boolean }) => {
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial size
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // When it's the welcome step or no target, show a full-screen overlay
+  if (isWelcomeStep || !targetRect || windowSize.width === 0) {
+    return <motion.div className="fixed inset-0 z-[9997] bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />;
+  }
+
+  const { top, left, width, height } = targetRect;
+  const padding = 6;
+
+  const overlays = [
+    // Top overlay
+    { top: 0, left: 0, width: '100%', height: Math.max(0, top - padding) },
+    // Bottom overlay
+    { top: Math.max(0, top + height + padding), left: 0, width: '100%', bottom: 0 },
+    // Left overlay
+    { top: Math.max(0, top - padding), left: 0, width: Math.max(0, left - padding), height: height + padding * 2 },
+    // Right overlay
+    { top: Math.max(0, top - padding), left: Math.max(0, left + width + padding), right: 0, height: height + padding * 2 },
+  ];
+
+  return (
+    <>
+      {overlays.map((style, i) => (
+        <motion.div
+          key={i}
+          className="fixed z-[9997] bg-black/60"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={style}
+        />
+      ))}
+    </>
+  );
+};
+
 export function OnboardingTour() {
     const [stepIndex, setStepIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
@@ -247,7 +295,7 @@ export function OnboardingTour() {
             if (typeof document !== 'undefined') {
                 const memoItemExists = document.querySelector('[data-testid="memo-item"]');
                 if (!memoItemExists) {
-                    return "Your inbox is currently empty. Memos you receive will appear here. Let's move on.";
+                    return "Your inbox is currently empty. Memos you receive will appear here. Let's move on to creating one!";
                 }
             }
         }
@@ -300,38 +348,29 @@ export function OnboardingTour() {
         }
 
         const isTargetInBottomHalf = targetRect.top + targetRect.height / 2 > window.innerHeight / 2;
-        const baseLeft = targetRect.left + targetRect.width / 2 - 160;
-
-        let left: number | string = baseLeft;
-        let right: number | string = 'auto';
-
-        if (baseLeft < 20) {
-            left = 20;
-        } else if (baseLeft + 320 > window.innerWidth - 20) {
-            left = 'auto';
-            right = 20;
+        
+        let top: string | number = 'auto';
+        let bottom: string | number = 'auto';
+        
+        if (isTargetInBottomHalf) {
+            bottom = window.innerHeight - targetRect.top + 20;
+        } else {
+            top = targetRect.bottom + 20;
         }
 
-        return {
-            left,
-            right,
-            ...(isTargetInBottomHalf
-                ? { bottom: window.innerHeight - targetRect.top + 20 }
-                : { top: targetRect.bottom + 20 }
-            ),
-        };
+        const baseLeft = targetRect.left + targetRect.width / 2 - 160; // 160 is half popup width
+        let left: number | string = Math.max(20, baseLeft);
+        if (left + 320 > window.innerWidth - 20) {
+            left = window.innerWidth - 320 - 20;
+        }
+
+        return { top, bottom, left };
     };
     const popupPositionStyle = getPopupPosition();
 
     return (
         <AnimatePresence>
-            <motion.div
-                key="overlay"
-                className="fixed inset-0 z-[9997] bg-black/60"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-            />
+            <TourOverlay targetRect={targetRect} isWelcomeStep={isWelcomeStep} />
             
             {!isWelcomeStep && targetRect && (
                  <motion.div
