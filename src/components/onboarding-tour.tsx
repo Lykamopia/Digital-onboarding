@@ -174,6 +174,19 @@ export function OnboardingTour() {
     }, []);
 
     const handleNext = useCallback(() => {
+        // Special logic for skipping steps when inbox is empty
+        if (currentStep.id === 'inbox-item') {
+            const memoItemExists = document.querySelector('[data-testid="memo-item"]');
+            if (!memoItemExists) {
+                // Skip memo-specific steps if inbox is empty
+                const composeStepIndex = tourSteps.findIndex(step => step.id === 'memo-compose-link');
+                if (composeStepIndex !== -1) {
+                    setStepIndex(composeStepIndex);
+                    return;
+                }
+            }
+        }
+
         if (currentStep.nextPath) {
             router.push(currentStep.nextPath);
         }
@@ -283,11 +296,12 @@ export function OnboardingTour() {
         }
 
         const isTargetInBottomHalf = targetRect.top + targetRect.height / 2 > window.innerHeight / 2;
-        const baseLeft = targetRect.left + targetRect.width / 2 - 160;
+        const baseLeft = targetRect.left + targetRect.width / 2 - 160; // 160 is half of w-80
 
         let left: number | string = baseLeft;
         let right: number | string = 'auto';
 
+        // Clamp the position to be within the viewport
         if (baseLeft < 20) {
             left = 20;
         } else if (baseLeft + 320 > window.innerWidth - 20) { // 320 is popup width (w-80)
@@ -316,7 +330,7 @@ export function OnboardingTour() {
                 exit={{ opacity: 0 }}
             />
             
-            {!isWelcomeStep && (
+            {!isWelcomeStep && targetRect && (
                  <motion.div
                     key="highlighter"
                     className="onboarding-highlight onboarding-pulse"
@@ -328,7 +342,7 @@ export function OnboardingTour() {
             )}
 
             <motion.div
-                key="popup"
+                key={`popup-${stepIndex}`}
                 className="fixed z-[9999] w-80 rounded-lg border bg-card text-card-foreground shadow-xl"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
