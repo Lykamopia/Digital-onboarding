@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -67,7 +68,7 @@ const tourSteps: TourStep[] = [
         id: 'inbox-list',
         title: 'Your Inbox',
         description: "This is your inbox, where all memos sent to you will appear. Let's explore the layout.",
-        target: '#memo-content-wrapper',
+        target: '#dashboard-grid',
         path: '/dashboard/inbox',
     },
     {
@@ -239,7 +240,7 @@ export function OnboardingTour() {
         };
     }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen]);
 
-    if (!isVisible || !currentStep || !targetRect || currentStep.path !== pathname) {
+    if (!isVisible || !currentStep || (!targetRect && currentStep.target !== 'body') || currentStep.path !== pathname) {
         return null;
     }
 
@@ -251,12 +252,12 @@ export function OnboardingTour() {
         left: '50%',
     }
     : {
-        top: targetRect.bottom + 20,
-        left: targetRect.left + targetRect.width / 2 - 160,
+        top: targetRect!.bottom + 20,
+        left: targetRect!.left + targetRect!.width / 2 - 160,
         // Basic boundary detection
-        ...(targetRect.bottom + 300 > window.innerHeight && { bottom: window.innerHeight - targetRect.top + 20, top: 'auto' }),
-        ...(targetRect.left + targetRect.width / 2 + 160 > window.innerWidth && { right: 20, left: 'auto' }),
-        ...(targetRect.left + targetRect.width / 2 - 160 < 0 && { left: 20 }),
+        ...(targetRect!.bottom + 300 > window.innerHeight && { bottom: window.innerHeight - targetRect!.top + 20, top: 'auto' }),
+        ...(targetRect!.left + targetRect!.width / 2 + 160 > window.innerWidth && { right: 20, left: 'auto' }),
+        ...(targetRect!.left + targetRect!.width / 2 - 160 < 0 && { left: 20 }),
     };
 
     return (

@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -326,6 +327,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   return (
     <div 
+      id="dashboard-grid"
       className={cn(
         "grid gap-4 h-full transition-all",
         isListExpanded ? "md:grid-cols-[minmax(300px,_1fr)_2fr]" : "md:grid-cols-[80px_1fr]"
