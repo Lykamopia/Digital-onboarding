@@ -174,11 +174,9 @@ export function OnboardingTour() {
     }, []);
 
     const handleNext = useCallback(() => {
-        // Special logic for skipping steps when inbox is empty
         if (currentStep.id === 'inbox-item') {
             const memoItemExists = document.querySelector('[data-testid="memo-item"]');
             if (!memoItemExists) {
-                // Skip memo-specific steps if inbox is empty
                 const composeStepIndex = tourSteps.findIndex(step => step.id === 'memo-compose-link');
                 if (composeStepIndex !== -1) {
                     setStepIndex(composeStepIndex);
@@ -210,22 +208,35 @@ export function OnboardingTour() {
     const updateTarget = useCallback(() => {
         let targetElement = document.querySelector(currentStep.target);
         
-        // Handle case where inbox is empty
         if (currentStep.id === 'inbox-item' && !targetElement) {
             targetElement = document.querySelector('[data-testid="empty-state"]');
         }
 
         if (targetElement) {
             const rect = targetElement.getBoundingClientRect();
-            setTargetRect(rect);
-            const borderRadius = window.getComputedStyle(targetElement).borderRadius;
-            setHighlighterStyle({
-                width: `${rect.width + 12}px`,
-                height: `${rect.height + 12}px`,
-                top: `${rect.top - 6}px`,
-                left: `${rect.left - 6}px`,
-                borderRadius: `calc(${borderRadius} + 6px)`,
-            });
+            const isFullyInView = 
+                rect.top >= 0 &&
+                rect.left >= 0 &&
+                rect.bottom <= window.innerHeight &&
+                rect.right <= window.innerWidth;
+            
+            if (!isFullyInView) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // A timeout to allow scroll animation to finish before updating position
+            setTimeout(() => {
+                const newRect = targetElement!.getBoundingClientRect();
+                setTargetRect(newRect);
+                const borderRadius = window.getComputedStyle(targetElement!).borderRadius;
+                setHighlighterStyle({
+                    width: `${newRect.width + 12}px`,
+                    height: `${newRect.height + 12}px`,
+                    top: `${newRect.top - 6}px`,
+                    left: `${newRect.left - 6}px`,
+                    borderRadius: `calc(${borderRadius} + 6px)`,
+                });
+            }, isFullyInView ? 0 : 300); // No delay if already in view
         } else {
             setTargetRect(null);
         }
@@ -245,16 +256,12 @@ export function OnboardingTour() {
 
 
     useEffect(() => {
-        // Initial visibility delay
         const timer = setTimeout(() => setIsVisible(true), 1000);
         return () => clearTimeout(timer);
     }, []);
 
-    // Effect to handle automatic progression when user performs an action
     useEffect(() => {
         const memoId = searchParams.get('id');
-        // If we are at the step where we expect the user to click a memo,
-        // and a memo ID appears in the URL, it means they've done it.
         if (currentStep.id === 'inbox-item' && memoId) {
             handleNext();
         }
@@ -263,14 +270,11 @@ export function OnboardingTour() {
     useEffect(() => {
         if (!isVisible || !currentStep) return;
 
-        // If step requires sidebar to be closed, close it
         if (currentStep.requireSidebarClosed && sidebarState === 'expanded') {
             setSidebarOpen(false);
         }
 
         const onResize = () => updateTarget();
-        
-        // Wait for potential layout shifts or navigation
         const timer = setTimeout(updateTarget, 300);
         window.addEventListener('resize', onResize);
 
@@ -296,15 +300,14 @@ export function OnboardingTour() {
         }
 
         const isTargetInBottomHalf = targetRect.top + targetRect.height / 2 > window.innerHeight / 2;
-        const baseLeft = targetRect.left + targetRect.width / 2 - 160; // 160 is half of w-80
+        const baseLeft = targetRect.left + targetRect.width / 2 - 160;
 
         let left: number | string = baseLeft;
         let right: number | string = 'auto';
 
-        // Clamp the position to be within the viewport
         if (baseLeft < 20) {
             left = 20;
-        } else if (baseLeft + 320 > window.innerWidth - 20) { // 320 is popup width (w-80)
+        } else if (baseLeft + 320 > window.innerWidth - 20) {
             left = 'auto';
             right = 20;
         }
