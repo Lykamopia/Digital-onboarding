@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -26,11 +27,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Checkbox } from './ui/checkbox';
 import { RecipientSelector } from './recipient-selector';
-import { UserPlus, Trash2, Key, Users, Loader2 } from 'lucide-react';
+import { UserPlus, Trash2, Key, Users, Loader2, Repeat, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { delegationPermissions } from '@/lib/permissions';
 import { addOrUpdateDelegate, removeDelegate } from '@/app/actions/memo';
 import type { Delegation, User, DelegationPermission } from '@/lib/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Badge } from './ui/badge';
 
 interface DelegationSettingsProps {
   user: User & { delegations?: Delegation[], delegatedTo?: Delegation[] };
@@ -38,10 +41,92 @@ interface DelegationSettingsProps {
   onUpdate: () => void;
 }
 
+const DelegatedUserCard = ({ delegation, onEdit, onRemove }: { delegation: Delegation, onEdit: (delegation: Delegation) => void, onRemove: (delegation: Delegation) => void }) => {
+    const permissions = delegation.permissions ? delegation.permissions.split(',') : [];
+    
+    return (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors gap-4">
+            <div className="flex items-center gap-4">
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={delegation.delegate.avatar ?? undefined} alt={delegation.delegate.name} />
+                    <AvatarFallback>{delegation.delegate.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold">{delegation.delegate.name}</p>
+                    <p className="text-sm text-muted-foreground">{delegation.delegate.email}</p>
+                </div>
+            </div>
+            <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                 <div className="flex flex-wrap gap-1 justify-end">
+                    {permissions.map(perm => {
+                        const permInfo = delegationPermissions.find(p => p.id === perm);
+                        return (
+                            <TooltipProvider key={perm}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge variant="secondary" className="font-normal">{permInfo?.label || perm}</Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{permInfo?.description}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )
+                    })}
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onEdit(delegation)}>
+                        <Edit className="mr-2 h-3 w-3" />
+                        Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onRemove(delegation)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+const DelegatorCard = ({ delegation }: { delegation: Delegation }) => {
+    return (
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-background">
+            <div className="flex items-center gap-4">
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={delegation.delegator.avatar ?? undefined} alt={delegation.delegator.name} />
+                    <AvatarFallback>{delegation.delegator.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold">{delegation.delegator.name}</p>
+                    <p className="text-sm text-muted-foreground">{delegation.delegator.email}</p>
+                </div>
+            </div>
+             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div>
+                           <Button disabled>
+                                <Repeat className="mr-2 h-4 w-4" /> Act as
+                            </Button>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Account switching is coming soon!</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        </div>
+    )
+}
+
 export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSettingsProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [editingDelegate, setEditingDelegate] = useState<User | null>(null);
+    
+    // State for both adding and editing
+    const [editingDelegation, setEditingDelegation] = useState<Delegation | null>(null);
+    const [selectedDelegate, setSelectedDelegate] = useState<User | null>(null);
+    
     const [selectedPermissions, setSelectedPermissions] = useState<DelegationPermission[]>([]);
     const [delegationToDelete, setDelegationToDelete] = useState<Delegation | null>(null);
     
@@ -52,25 +137,33 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
         const delegatedIds = new Set(myDelegates.map(d => d.delegateId));
         return allUsers.filter(u => u.id !== user.id && !delegatedIds.has(u.id));
     }, [allUsers, user.id, myDelegates]);
+
+    const handleEdit = (delegation: Delegation) => {
+        setEditingDelegation(delegation);
+        setSelectedDelegate(delegation.delegate);
+        setSelectedPermissions((delegation.permissions?.split(',') as DelegationPermission[]) || []);
+        setIsDialogOpen(true);
+    };
     
     const handleAddNew = () => {
-        setEditingDelegate(null);
+        setEditingDelegation(null);
+        setSelectedDelegate(null);
         setSelectedPermissions([]);
         setIsDialogOpen(true);
     };
     
     const handleSave = async () => {
-        if (!editingDelegate) {
+        if (!selectedDelegate) {
             toast.error('No delegate selected.');
             return;
         }
         setIsSaving(true);
         try {
             await addOrUpdateDelegate({
-                delegateId: editingDelegate.id,
+                delegateId: selectedDelegate.id,
                 permissions: selectedPermissions,
             });
-            toast.success(`Delegation for ${editingDelegate.name} has been saved.`);
+            toast.success(`Delegation for ${selectedDelegate.name} has been ${editingDelegation ? 'updated' : 'saved'}.`);
             onUpdate();
             setIsDialogOpen(false);
         } catch (error: any) {
@@ -102,7 +195,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <CardTitle className="flex items-center gap-2"><Key /> My Delegates</CardTitle>
+                                <CardTitle className="flex items-center gap-2"><Key className="text-primary"/> My Delegates</CardTitle>
                                 <CardDescription>Users you have given access to your account.</CardDescription>
                             </div>
                             <Button onClick={handleAddNew} size="sm">
@@ -113,21 +206,12 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                     <CardContent>
                         <div className="space-y-4">
                             {myDelegates.length > 0 ? myDelegates.map(delegation => (
-                                <div key={delegation.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarImage src={delegation.delegate.avatar ?? undefined} alt={delegation.delegate.name} />
-                                            <AvatarFallback>{delegation.delegate.name?.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold">{delegation.delegate.name}</p>
-                                            <p className="text-xs text-muted-foreground">{delegation.delegate.email}</p>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setDelegationToDelete(delegation)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
+                                <DelegatedUserCard 
+                                    key={delegation.id} 
+                                    delegation={delegation}
+                                    onEdit={handleEdit}
+                                    onRemove={setDelegationToDelete}
+                                />
                             )) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">You have not delegated your account to anyone.</p>
                             )}
@@ -137,24 +221,13 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Users /> Accounts I Can Access</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Users className="text-primary"/> Accounts I Can Access</CardTitle>
                         <CardDescription>Accounts that have been delegated to you.</CardDescription>
                     </CardHeader>
                     <CardContent>
                          <div className="space-y-4">
                             {accountsICanAccess.length > 0 ? accountsICanAccess.map(delegation => (
-                                <div key={delegation.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarImage src={delegation.delegator.avatar ?? undefined} alt={delegation.delegator.name} />
-                                            <AvatarFallback>{delegation.delegator.name?.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold">{delegation.delegator.name}</p>
-                                            <p className="text-xs text-muted-foreground">{delegation.delegator.email}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                <DelegatorCard key={delegation.id} delegation={delegation} />
                             )) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">No accounts have been delegated to you.</p>
                             )}
@@ -166,23 +239,24 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add a New Delegate</DialogTitle>
+                        <DialogTitle>{editingDelegation ? `Edit Delegation for ${editingDelegation.delegate.name}` : 'Add a New Delegate'}</DialogTitle>
                         <DialogDescription>Select a user and grant them specific permissions to act on your behalf.</DialogDescription>
                     </DialogHeader>
                     <div className="py-4 space-y-6">
                         <div className="space-y-2">
                             <Label>Select User</Label>
                             <RecipientSelector 
-                                allUsers={availableUsersToDelegate}
-                                selected={editingDelegate ? [editingDelegate] : []}
-                                setSelected={(users) => setEditingDelegate(users[0] || null)}
+                                allUsers={editingDelegation ? [editingDelegation.delegate] : availableUsersToDelegate}
+                                selected={selectedDelegate ? [selectedDelegate] : []}
+                                setSelected={(users) => setSelectedDelegate(users[0] || null)}
                                 placeholder="Search for a user to delegate..."
+                                className={editingDelegation ? "bg-muted pointer-events-none" : ""}
                             />
                         </div>
-                        {editingDelegate && (
+                        {selectedDelegate && (
                             <div className="space-y-4">
                                 <Label>Permissions</Label>
-                                <div className="space-y-3 rounded-md border p-4">
+                                <div className="space-y-3 rounded-md border p-4 max-h-64 overflow-y-auto">
                                     {delegationPermissions.map(permission => (
                                         <div key={permission.id} className="flex items-start gap-3">
                                             <Checkbox
@@ -208,9 +282,9 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={!editingDelegate || isSaving}>
+                        <Button onClick={handleSave} disabled={!selectedDelegate || isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Delegation
+                            {editingDelegation ? 'Update Delegation' : 'Save Delegation'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -225,7 +299,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleRemove} className="bg-destructive hover:bg-destructive/90" disabled={isSaving}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Revoke Access'}
                         </AlertDialogAction>
