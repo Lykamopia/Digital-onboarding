@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -265,6 +266,11 @@ export default function ProfilePage() {
     toast.info("Signature Image Selected", { description: "Click 'Save All Changes' to apply." });
   };
   
+  const handleSignatureDialogOpenChange = (open: boolean) => {
+    setIsSignatureDialogOpen(open);
+    window.dispatchEvent(new CustomEvent('onboarding-dialog-state', { detail: { open } }));
+  };
+
   if (!user) {
     return (
         <div className="max-w-4xl mx-auto h-full flex items-center justify-center">
@@ -361,7 +367,7 @@ export default function ProfilePage() {
                                                 )}
                                             </div>
                                             <div className="flex-1">
-                                                <Dialog open={isSignatureDialogOpen} onOpenChange={setIsSignatureDialogOpen}>
+                                                <Dialog open={isSignatureDialogOpen} onOpenChange={handleSignatureDialogOpenChange}>
                                                     <DialogTrigger asChild>
                                                          <Button id="signature-edit-trigger" type="button" variant="outline">
                                                             <Edit className="mr-2 h-4 w-4" />
@@ -406,7 +412,7 @@ export default function ProfilePage() {
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                    <Button onClick={() => setIsSignatureDialogOpen(false)} disabled={isUploading}>
+                                                                    <Button onClick={() => handleSignatureDialogOpenChange(false)} disabled={isUploading}>
                                                                         {isUploading ? 'Uploading...' : 'Done'}
                                                                     </Button>
                                                                 </div>

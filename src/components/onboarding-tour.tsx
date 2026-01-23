@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -17,6 +18,7 @@ type TourStep = {
     path: string;
     nextPath?: string;
     requireSidebarClosed?: boolean;
+    hideNext?: boolean;
 };
 
 const tourSteps: TourStep[] = [
@@ -98,13 +100,6 @@ const tourSteps: TourStep[] = [
         path: '/dashboard/inbox',
     },
     {
-        id: 'memo-display-actions',
-        title: 'Memo Actions',
-        description: 'Below the memo content, you can find actions like Acknowledge, Reply, or Assign.',
-        target: '#memo-display-actions',
-        path: '/dashboard/inbox',
-    },
-    {
         id: 'memo-display-activity',
         title: 'Activity History',
         description: 'This timeline shows every action taken on the memo, providing a complete audit trail.',
@@ -114,11 +109,11 @@ const tourSteps: TourStep[] = [
     {
         id: 'memo-compose-link',
         title: 'Ready to Compose?',
-        description: "Now let's see how to write your own memo. Click on the 'New Memo' button to continue.",
+        description: "Now let's see how to write your own memo. Click on the highlighted 'New Memo' button to continue.",
         target: 'a[href="/dashboard/new"]',
         path: '/dashboard/inbox',
         requireSidebarClosed: true,
-        nextPath: '/dashboard/new',
+        hideNext: true,
     },
     // --- COMPOSE PAGE ---
     {
@@ -211,6 +206,7 @@ export function OnboardingTour() {
     const [isVisible, setIsVisible] = useState(false);
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
     const [highlighterStyle, setHighlighterStyle] = useState({});
+    const [isSuppressed, setIsSuppressed] = useState(false);
 
     const pathname = usePathname();
     const router = useRouter();
@@ -225,7 +221,8 @@ export function OnboardingTour() {
         toast.success("Onboarding Complete!", {
             description: "You're all set to use Nib Memo.",
         });
-    }, []);
+        router.push('/dashboard/inbox');
+    }, [router]);
 
     const handleNext = useCallback(() => {
         if (currentStep.id === 'inbox-item') {
@@ -322,6 +319,24 @@ export function OnboardingTour() {
     }, [searchParams, currentStep.id, handleNext]);
 
     useEffect(() => {
+        if (currentStep.id === 'memo-compose-link' && pathname === '/dashboard/new') {
+            handleNext();
+        }
+    }, [pathname, currentStep.id, handleNext]);
+    
+    useEffect(() => {
+        const handleDialogState = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (currentStep && currentStep.id === 'profile-signature') {
+                setIsSuppressed(customEvent.detail.open);
+            }
+        };
+        window.addEventListener('onboarding-dialog-state', handleDialogState as EventListener);
+        return () => window.removeEventListener('onboarding-dialog-state', handleDialogState as EventListener);
+    }, [currentStep]);
+
+
+    useEffect(() => {
         if (!isVisible || !currentStep) return;
 
         if (currentStep.requireSidebarClosed && sidebarState === 'expanded') {
@@ -338,7 +353,7 @@ export function OnboardingTour() {
         };
     }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen]);
 
-    if (!isVisible || !currentStep || (!targetRect && currentStep.target !== 'body') || currentStep.path !== pathname) {
+    if (isSuppressed || !isVisible || !currentStep || (!targetRect && currentStep.target !== 'body') || currentStep.path !== pathname) {
         return null;
     }
 
@@ -419,9 +434,11 @@ export function OnboardingTour() {
                         {stepIndex > 0 && (
                             <Button variant="outline" size="sm" onClick={handlePrev}>Previous</Button>
                         )}
-                        <Button size="sm" onClick={handleNext}>
-                            {stepIndex === tourSteps.length - 1 ? 'Finish' : 'Next'}
-                        </Button>
+                        {!currentStep.hideNext && (
+                            <Button size="sm" onClick={handleNext}>
+                                {stepIndex === tourSteps.length - 1 ? 'Finish' : 'Next'}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </motion.div>
