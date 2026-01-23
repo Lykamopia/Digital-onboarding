@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -34,6 +33,7 @@ import { addOrUpdateDelegate, removeDelegate } from '@/app/actions/memo';
 import type { Delegation, User, DelegationPermission } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface DelegationSettingsProps {
   user: User & { delegations?: Delegation[], delegatedTo?: Delegation[] };
@@ -45,19 +45,30 @@ const DelegatedUserCard = ({ delegation, onEdit, onRemove }: { delegation: Deleg
     const permissions = delegation.permissions ? delegation.permissions.split(',') : [];
     
     return (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors gap-4">
-            <div className="flex items-center gap-4">
-                <Avatar className="h-12 w-12">
-                    <AvatarImage src={delegation.delegate.avatar ?? undefined} alt={delegation.delegate.name} />
-                    <AvatarFallback>{delegation.delegate.name?.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <p className="font-semibold">{delegation.delegate.name}</p>
-                    <p className="text-sm text-muted-foreground">{delegation.delegate.email}</p>
+        <div className="p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors space-y-3">
+            <div className="flex justify-between items-start">
+                <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12">
+                        <AvatarImage src={delegation.delegate.avatar ?? undefined} alt={delegation.delegate.name} />
+                        <AvatarFallback>{delegation.delegate.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="font-semibold">{delegation.delegate.name}</p>
+                        <p className="text-sm text-muted-foreground">{delegation.delegate.email}</p>
+                    </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => onEdit(delegation)}>
+                        <Edit className="mr-2 h-3 w-3" />
+                        Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onRemove(delegation)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             </div>
-            <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
-                 <div className="flex flex-wrap gap-1 justify-end">
+            {permissions.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-3 border-t border-dashed">
                     {permissions.map(perm => {
                         const permInfo = delegationPermissions.find(p => p.id === perm);
                         return (
@@ -74,23 +85,14 @@ const DelegatedUserCard = ({ delegation, onEdit, onRemove }: { delegation: Deleg
                         )
                     })}
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => onEdit(delegation)}>
-                        <Edit className="mr-2 h-3 w-3" />
-                        Edit
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onRemove(delegation)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
+            )}
         </div>
     )
 }
 
 const DelegatorCard = ({ delegation }: { delegation: Delegation }) => {
     return (
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-background">
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-4">
                 <Avatar className="h-12 w-12">
                     <AvatarImage src={delegation.delegator.avatar ?? undefined} alt={delegation.delegator.name} />
@@ -187,6 +189,19 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
             setIsSaving(false);
         }
     };
+
+    const listVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
+    };
   
     return (
         <>
@@ -205,16 +220,37 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {myDelegates.length > 0 ? myDelegates.map(delegation => (
-                                <DelegatedUserCard 
-                                    key={delegation.id} 
-                                    delegation={delegation}
-                                    onEdit={handleEdit}
-                                    onRemove={setDelegationToDelete}
-                                />
-                            )) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">You have not delegated your account to anyone.</p>
-                            )}
+                             <AnimatePresence>
+                                {myDelegates.length > 0 ? (
+                                    <motion.div
+                                        key="delegates-list"
+                                        variants={listVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                        exit="hidden"
+                                        className="space-y-4"
+                                    >
+                                        {myDelegates.map(delegation => (
+                                            <motion.div key={delegation.id} variants={itemVariants}>
+                                                <DelegatedUserCard 
+                                                    delegation={delegation}
+                                                    onEdit={handleEdit}
+                                                    onRemove={setDelegationToDelete}
+                                                />
+                                            </motion.div>
+                                        ))}
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="empty-delegates"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <p className="text-sm text-muted-foreground text-center py-4">You have not delegated your account to anyone.</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </CardContent>
                 </Card>
@@ -226,11 +262,33 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                     </CardHeader>
                     <CardContent>
                          <div className="space-y-4">
-                            {accountsICanAccess.length > 0 ? accountsICanAccess.map(delegation => (
-                                <DelegatorCard key={delegation.id} delegation={delegation} />
-                            )) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">No accounts have been delegated to you.</p>
-                            )}
+                            <AnimatePresence>
+                                {accountsICanAccess.length > 0 ? (
+                                     <motion.div
+                                        key="delegators-list"
+                                        variants={listVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                        exit="hidden"
+                                        className="space-y-4"
+                                    >
+                                        {accountsICanAccess.map(delegation => (
+                                            <motion.div key={delegation.id} variants={itemVariants}>
+                                                <DelegatorCard key={delegation.id} delegation={delegation} />
+                                            </motion.div>
+                                        ))}
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="empty-delegators"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <p className="text-sm text-muted-foreground text-center py-4">No accounts have been delegated to you.</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </CardContent>
                 </Card>
