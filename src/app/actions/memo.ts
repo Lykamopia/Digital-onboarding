@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -15,14 +15,21 @@ import { redirect } from 'next/navigation';
 import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
 import Papa from 'papaparse';
 
-async function hasPermission(permission: Permission | Permission[]): Promise<User> {
+async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
     if (!user) {
         throw new Error("Not authenticated");
     }
 
-    const userPermissions = user.role?.permissions ? user.role.permissions.split(',') : [];
     const requiredPermissions = Array.isArray(permission) ? permission : [permission];
+
+    // For delegated sessions, all permission checks happen inside the actions themselves.
+    // The `hasPermission` function is for standard role-based access control.
+    if (user.actingUser) {
+        throw new Error("hasPermission check is not supported for delegated sessions. Use specific delegation permission checks within actions.");
+    }
+
+    const userPermissions = user.role?.permissions ? user.role.permissions.split(',') : [];
     
     const hasRequiredPermission = requiredPermissions.every(p => userPermissions.includes(p));
 
@@ -69,22 +76,20 @@ async function sendToWebSocket(data: any) {
 export async function getDashboardData(tab: string, query: string, category: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
     const user = await getLoggedInUser();
     if (!user) {
-        // If user is not logged in for any reason, return empty.
-        // This can happen if the session expires or is invalid.
         return [];
     }
 
     if (user.mustChangePassword) {
-      // If user must change password, they should only see the change password page.
-      // Returning an empty array for dashboard data prevents any other data from loading.
       return [];
     }
+    
+    const userId = user.id;
 
     const where: any = {
         AND: []
     };
 
-    const isArchivedByCurrentUser = { archivedBy: { some: { id: user.id } } };
+    const isArchivedByCurrentUser = { archivedBy: { some: { id: userId } } };
 
     if (tab === 'archive') {
         where.AND.push(isArchivedByCurrentUser);
@@ -94,31 +99,31 @@ export async function getDashboardData(tab: string, query: string, category: str
             where.AND.push({
                 status: { in: ['sent', 'scheduled'] } ,
                 OR: [
-                    { to: { some: { id: user.id } } },
-                    { cc: { some: { id: user.id } } },
-                    { current_holderId: user.id },
+                    { to: { some: { id: userId } } },
+                    { cc: { some: { id: userId } } },
+                    { current_holderId: userId },
                 ],
             });
             if (category === 'direct') {
                 where.AND.push({
                     OR: [
-                        { to: { some: { id: user.id } } },
-                        { current_holderId: user.id },
+                        { to: { some: { id: userId } } },
+                        { current_holderId: userId },
                     ]
                 });
             } else if (category === 'cc') {
                 where.AND.push({
-                    cc: { some: { id: user.id } },
+                    cc: { some: { id: userId } },
                     NOT: {
                         OR: [
-                            { to: { some: { id: user.id } } },
-                            { current_holderId: user.id },
+                            { to: { some: { id: userId } } },
+                            { current_holderId: userId },
                         ]
                     }
                 });
             }
         } else if (tab === 'sent') {
-            where.AND.push({ fromId: user.id, status: { not: 'draft' } });
+            where.AND.push({ fromId: userId, status: { not: 'draft' } });
             if (category === 'sent') {
                 where.AND.push({ replyToId: null, assignedFromId: null });
             } else if (category === 'replied') {
@@ -127,11 +132,11 @@ export async function getDashboardData(tab: string, query: string, category: str
                 where.AND.push({ assignedFromId: { not: null } });
             }
         } else if (tab === 'drafts') {
-            where.AND.push({ fromId: user.id, status: 'draft' });
+            where.AND.push({ fromId: userId, status: 'draft' });
         } else if (tab === 'scheduled') {
-             where.AND.push({ fromId: user.id, status: 'scheduled' });
+             where.AND.push({ fromId: userId, status: 'scheduled' });
         } else if (tab === 'favorites') {
-            where.AND.push({ favoritedBy: { some: { id: user.id } } });
+            where.AND.push({ favoritedBy: { some: { id: userId } } });
         }
     }
     
@@ -161,9 +166,14 @@ export async function getDashboardData(tab: string, query: string, category: str
     }
     
     if (show === 'favorites' && tab !== 'favorites') {
-        where.AND.push({ favoritedBy: { some: { id: user.id } } });
+        where.AND.push({ favoritedBy: { some: { id: userId } } });
     } else if (show === 'flagged') {
-        where.AND.push({ flaggedBy: { some: { id: user.id } } });
+        where.AND.push({ flaggedBy: { some: { id: userId } } });
+    }
+    
+    // In a delegated session, we must also ensure that the user can see these memos.
+    if(user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
+      return []; // If no view permission, return nothing.
     }
 
     const memos = await prisma.memo.findMany({
@@ -183,8 +193,8 @@ export async function getDashboardData(tab: string, query: string, category: str
             previous_holders: { include: { role: true } },
             acknowledgedBy: { include: { role: true } },
             archivedBy: { include: { role: true } },
-            favoritedBy: { where: { id: user.id }, select: { id: true } },
-            flaggedBy: { where: { id: user.id }, select: { id: true } },
+            favoritedBy: { where: { id: userId }, select: { id: true } },
+            flaggedBy: { where: { id: userId }, select: { id: true } },
         },
         orderBy: [
             { favoritedBy: { _count: 'desc' } }, // favorited memos first
@@ -233,11 +243,14 @@ export async function getAuditMemos() {
 }
 
 export async function toggleFavorite(memoId: string) {
-    const user = await hasPermission('manage_memos');
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const userId = user.id;
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
-        include: { favoritedBy: { where: { id: user.id } } }
+        include: { favoritedBy: { where: { id: userId } } }
     });
 
     if (!memo) throw new Error("Memo not found");
@@ -248,8 +261,8 @@ export async function toggleFavorite(memoId: string) {
         where: { id: memoId },
         data: {
             favoritedBy: isFavorited
-                ? { disconnect: { id: user.id } }
-                : { connect: { id: user.id } }
+                ? { disconnect: { id: userId } }
+                : { connect: { id: userId } }
         }
     });
 
@@ -262,11 +275,14 @@ export async function toggleFavorite(memoId: string) {
 }
 
 export async function toggleFlag(memoId: string) {
-    const user = await hasPermission('manage_memos');
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+    
+    const userId = user.id;
 
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
-        include: { flaggedBy: { where: { id: user.id } } }
+        include: { flaggedBy: { where: { id: userId } } }
     });
 
     if (!memo) throw new Error("Memo not found");
@@ -277,8 +293,8 @@ export async function toggleFlag(memoId: string) {
         where: { id: memoId },
         data: {
             flaggedBy: isFlagged
-                ? { disconnect: { id: user.id } }
-                : { connect: { id: user.id } }
+                ? { disconnect: { id: userId } }
+                : { connect: { id: userId } }
         }
     });
 
@@ -292,6 +308,7 @@ export async function toggleFlag(memoId: string) {
 export async function getMemo(id: string) {
   if (!id) return null;
   const user = await getLoggedInUser();
+  const userId = user?.id;
 
   const memo = await prisma.memo.findUnique({
     where: { id },
@@ -316,8 +333,8 @@ export async function getMemo(id: string) {
         },
       },
       replyTo: { include: { from: { include: { role: true } } } },
-      favoritedBy: { where: { id: user?.id }, select: { id: true } },
-      flaggedBy: { where: { id: user?.id }, select: { id: true } },
+      favoritedBy: { where: { id: userId }, select: { id: true } },
+      flaggedBy: { where: { id: userId }, select: { id: true } },
     },
   });
   return memo;
@@ -328,11 +345,13 @@ export async function markAsRead(memoId: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
         include: {
             activity: {
-                where: { actorId: user.id, action: { in: ['viewed', 'acknowledged'] } }
+                where: { actorId: actorId, action: { in: ['viewed', 'acknowledged'] } }
             },
             to: { select: { id: true } },
             cc: { select: { id: true } },
@@ -342,12 +361,11 @@ export async function markAsRead(memoId: string) {
 
     if (!memo) return;
 
-    // Proceed only if not viewed yet
     if (!memo.activity.some(a => a.action === 'viewed')) {
         await prisma.activity.create({
             data: {
                 memoId: memoId,
-                actorId: user.id,
+                actorId: actorId,
                 action: 'viewed',
             }
         });
@@ -374,11 +392,11 @@ export async function markAllAsReadForUser() {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
-    // Find all memos in the user's inbox that are unread by them
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
     const unreadMemos = await prisma.memo.findMany({
         where: {
             AND: [
-                // Is in inbox
                 {
                     status: { not: 'draft' },
                     OR: [
@@ -387,14 +405,12 @@ export async function markAllAsReadForUser() {
                         { current_holderId: user.id },
                     ],
                 },
-                // Is not archived by the user
                 { NOT: { archivedBy: { some: { id: user.id } } } },
-                // Is not already viewed or acknowledged by the user
                 {
                     NOT: {
                         activity: {
                             some: {
-                                actorId: user.id,
+                                actorId: actorId,
                                 action: { in: ['viewed', 'acknowledged'] }
                             }
                         }
@@ -411,11 +427,10 @@ export async function markAllAsReadForUser() {
         return { success: true, count: 0 };
     }
 
-    // Create 'viewed' activity for each unread memo
     await prisma.activity.createMany({
         data: unreadMemos.map(memo => ({
             memoId: memo.id,
-            actorId: user.id,
+            actorId: actorId,
             action: 'viewed',
             details: 'Marked as read via "Mark all as read"'
         }))
@@ -430,21 +445,22 @@ export async function toggleMemoReadStatus(memoId: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
     const memo = await prisma.memo.findUnique({
         where: { id: memoId },
-        include: { activity: { where: { actorId: user.id, action: 'viewed' } } }
+        include: { activity: { where: { actorId: actorId, action: 'viewed' } } }
     });
 
     if (!memo) throw new Error("Memo not found");
 
-    // Only mark as read, never as unread.
     if (memo.activity.length === 0) {
         await prisma.memo.update({
             where: { id: memoId },
             data: {
                 activity: {
                     create: {
-                        actorId: user.id,
+                        actorId: actorId,
                         action: 'viewed',
                     }
                 }
@@ -453,7 +469,7 @@ export async function toggleMemoReadStatus(memoId: string) {
     }
     revalidatePath('/dashboard/inbox');
     revalidatePath(`/dashboard?id=${memoId}`);
-    return getDashboardData('inbox', '', 'all', {}, [], '', 'all');
+    return getDashboardData('inbox', '', 'all', {}, [], 'all');
 }
 
 
@@ -477,15 +493,10 @@ async function generateReferenceNumber(user: User): Promise<string> {
     } else if (format.prefix === 'office' && userWithRelations.office) {
         prefixPart = userWithRelations.office.code;
     }
-    // 'custom' prefix would be handled by a setting, which is currently not implemented for simplicity.
 
     const year = new Date().getFullYear();
-
     const fullPrefix = `${prefixPart}${format.separator}${year}${format.separator}`;
 
-    // Find the last memo with this prefix to determine the next sequence number.
-    // This approach is not perfectly safe from race conditions in high-concurrency environments
-    // but is the most feasible method without database schema changes for sequence tracking.
     const lastMemo = await prisma.memo.findFirst({
         where: {
             memo_reference_number: {
@@ -516,7 +527,18 @@ async function generateReferenceNumber(user: User): Promise<string> {
 
 
 export async function sendMemo(formData: FormData) {
-    const user = await hasPermission('manage_memos');
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    if (user.actingUser) {
+        if (!user.delegationPermissions?.includes('delegation:send')) {
+            throw new Error("Access Denied: You do not have permission to send memos on behalf of this user.");
+        }
+    } else {
+        await hasPermission('manage_memos');
+    }
+
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
 
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
@@ -525,15 +547,12 @@ export async function sendMemo(formData: FormData) {
     const scheduledFor = scheduledForRaw ? new Date(scheduledForRaw) : undefined;
 
     const data = {
-        to,
-        cc,
-        labels,
+        to, cc, labels, scheduledFor,
         subject: formData.get('subject') as string,
         body: formData.get('body') as string,
         attachments: JSON.parse(formData.get('attachments') as string || '[]'),
         replyTo: formData.get('replyTo') as string || undefined,
         assignFrom: formData.get('assignFrom') as string || undefined,
-        scheduledFor,
     };
     
     const validation = memoSchema.safeParse(data);
@@ -544,7 +563,6 @@ export async function sendMemo(formData: FormData) {
     
     const validatedData = validation.data;
     const isScheduled = validatedData.scheduledFor && validatedData.scheduledFor > new Date();
-
     const newReferenceNumber = await generateReferenceNumber(user);
     
     const newMemoData: any = {
@@ -557,24 +575,12 @@ export async function sendMemo(formData: FormData) {
         subject: validatedData.subject,
         body: validatedData.body,
         status: isScheduled ? 'scheduled' : 'sent',
-        attachments: {
-            create: validatedData.attachments.map((att: any) => ({
-                name: att.name,
-                type: att.type,
-                size: att.size,
-                url: att.url,
-            }))
-        },
-        activity: {
-            create: [
-                { actorId: user.id, action: isScheduled ? 'scheduled' : 'sent', details: isScheduled ? `Scheduled to be sent on ${validatedData.scheduledFor?.toLocaleString()}` : `Sent to recipients.` }
-            ]
-        },
+        attachments: { create: validatedData.attachments.map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
+        activity: { create: [{ actorId: actorId, action: isScheduled ? 'scheduled' : 'sent', details: isScheduled ? `Scheduled on ${validatedData.scheduledFor?.toLocaleString()}` : `Sent to recipients.` }] },
         replyToId: validatedData.replyTo,
         assignedFromId: validatedData.assignFrom,
         scheduledFor: validatedData.scheduledFor,
     };
-
 
     const newMemo = await prisma.memo.create({
         data: newMemoData,
@@ -582,11 +588,8 @@ export async function sendMemo(formData: FormData) {
             from: { include: { role: true } },
             to: { include: { role: true } },
             cc: { include: { role: true } },
-            attachments: true,
-            labels: true,
-            activity: {
-                include: { actor: true }
-            },
+            attachments: true, labels: true,
+            activity: { include: { actor: true } },
             current_holder: { include: { role: true } },
             previous_holders: { include: { role: true } },
             acknowledgedBy: { include: { role: true } },
@@ -597,29 +600,15 @@ export async function sendMemo(formData: FormData) {
     });
     
     if (validatedData.assignFrom) {
-        const recipients = validatedData.to.map(id => {
-            const recipientUser = newMemo.to.find(u => u.id === id);
-            return recipientUser?.name || 'Unknown';
-        }).join(', ');
-
+        const recipients = validatedData.to.map(id => newMemo.to.find(u => u.id === id)?.name || 'Unknown').join(', ');
         await prisma.memo.update({
             where: { id: validatedData.assignFrom },
             data: {
-                acknowledgedBy: {
-                    connect: { id: user.id }
-                },
+                acknowledgedBy: { connect: { id: user.id } },
                 activity: {
                     create: [
-                        {
-                            actorId: user.id,
-                            action: 'assigned',
-                            details: `Assigned to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`
-                        },
-                        {
-                            actorId: user.id,
-                            action: 'acknowledged',
-                            details: 'Acknowledged receipt of the memo by assigning it.'
-                        }
+                        { actorId: actorId, action: 'assigned', details: `Assigned to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}` },
+                        { actorId: actorId, action: 'acknowledged', details: 'Acknowledged receipt of the memo by assigning it.' }
                     ]
                 }
             }
@@ -630,169 +619,115 @@ export async function sendMemo(formData: FormData) {
         await prisma.memo.update({
             where: { id: validatedData.replyTo },
             data: {
-                activity: {
-                    create: {
-                        actorId: user.id,
-                        action: 'replied',
-                        details: `Replied to this memo. See memo ${newMemo.memo_reference_number}`
-                    }
-                }
+                activity: { create: { actorId: actorId, action: 'replied', details: `Replied to this memo. See memo ${newMemo.memo_reference_number}` } }
             }
         });
     }
 
     const draftId = formData.get('draftId') as string;
-    if (draftId) {
-        await prisma.memo.delete({ where: { id: draftId } });
-    }
+    if (draftId) await prisma.memo.delete({ where: { id: draftId } });
     
     if (isScheduled) {
         revalidatePath('/dashboard/scheduled');
         return { success: true, memo: newMemo };
     }
 
-    // Send to WebSocket server
-    await sendToWebSocket({
-        type: 'new-memo',
-        payload: newMemo,
-    });
-
-    // Send email notifications
+    await sendToWebSocket({ type: 'new-memo', payload: newMemo });
+    
     const allRecipients = [...newMemo.to, ...newMemo.cc];
     for (const recipient of allRecipients) {
-        const isDirectRecipient = newMemo.to.some(u => u.id === recipient.id);
         try {
             await sendEmail({
                 to: recipient.email,
                 subject: `New Memo: ${newMemo.subject}`,
                 memo: newMemo,
                 sender: user,
-                type: isDirectRecipient ? 'direct' : 'cc'
+                type: newMemo.to.some(u => u.id === recipient.id) ? 'direct' : 'cc'
             });
         } catch (error) {
             console.error(`Failed to send email to ${recipient.email}:`, error);
         }
     }
 
-
     revalidatePath('/dashboard/inbox');
     return { success: true, memo: newMemo };
 }
 
 export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null) {
-    const user = await hasPermission('manage_memos');
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
 
-    const attachmentsData = {
-        create: (data.attachments || []).map((att: any) => ({
-            name: att.name,
-            type: att.type,
-            size: att.size,
-            url: att.url,
-        })),
-    };
+    if (user.actingUser) {
+        if (!user.delegationPermissions?.includes('delegation:draft')) {
+            throw new Error("Access Denied: You do not have permission to draft memos on behalf of this user.");
+        }
+    } else {
+        await hasPermission('manage_memos');
+    }
+
+    const fromId = user.id;
+
+    const attachmentsData = { create: (data.attachments || []).map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) };
 
     if (draftId) {
-         const existingDraft = await prisma.memo.findUnique({
-            where: { id: draftId },
-            include: { to: true, cc: true, labels: true },
-        });
-
+         const existingDraft = await prisma.memo.findUnique({ where: { id: draftId }, include: { to: true, cc: true, labels: true }});
         const toIds = (data.to || []).map(u => u.id);
         const ccIds = (data.cc || []).map(u => u.id);
         const labelIds = (data.labels || []).map(l => l.id);
-
-
         const toToDisconnect = existingDraft?.to.filter(u => !toIds.includes(u.id)) || [];
         const ccToDisconnect = existingDraft?.cc.filter(u => !ccIds.includes(u.id)) || [];
         const labelsToDisconnect = existingDraft?.labels.filter(l => !labelIds.includes(l.id)) || [];
         
         const payload: any = {
-            fromId: user.id,
-            subject: data.subject || '',
-            body: data.body || '',
-            to: {
-                disconnect: toToDisconnect.map(u => ({ id: u.id })),
-                connect: toIds.map(id => ({ id })),
-            },
-            cc: {
-                disconnect: ccToDisconnect.map(u => ({ id: u.id })),
-                connect: ccIds.map(id => ({ id })),
-            },
-            labels: {
-                disconnect: labelsToDisconnect.map(l => ({ id: l.id })),
-                connect: labelIds.map(id => ({ id })),
-            },
-            attachments: {
-                deleteMany: {},
-                ...attachmentsData,
-            },
+            fromId, subject: data.subject || '', body: data.body || '',
+            to: { disconnect: toToDisconnect.map(u => ({ id: u.id })), connect: toIds.map(id => ({ id })) },
+            cc: { disconnect: ccToDisconnect.map(u => ({ id: u.id })), connect: ccIds.map(id => ({ id })) },
+            labels: { disconnect: labelsToDisconnect.map(l => ({ id: l.id })), connect: labelIds.map(id => ({ id })) },
+            attachments: { deleteMany: {}, ...attachmentsData },
             status: 'draft' as const,
-            replyToId: data.replyToId,
-            assignedFromId: data.assignedFromId,
+            replyToId: data.replyToId, assignedFromId: data.assignedFromId,
         };
-        
-
-        const updatedDraft = await prisma.memo.update({
-            where: { id: draftId },
-            data: payload,
-        });
+        const updatedDraft = await prisma.memo.update({ where: { id: draftId }, data: payload });
         return updatedDraft;
     } else {
         const payload: any = {
-            fromId: user.id,
-            subject: data.subject || '',
-            body: data.body || '',
+            fromId, subject: data.subject || '', body: data.body || '',
             to: { connect: (data.to || []).map(u => ({ id: u.id })) },
             cc: { connect: (data.cc || []).map(u => ({ id: u.id })) },
             labels: { connect: (data.labels || []).map(l => ({ id: l.id })) },
             attachments: attachmentsData,
-            status: 'draft' as const,
-            memo_reference_number: `DRAFT-${Date.now()}`,
-            replyToId: data.replyToId,
-            assignedFromId: data.assignedFromId,
+            status: 'draft' as const, memo_reference_number: `DRAFT-${Date.now()}`,
+            replyToId: data.replyToId, assignedFromId: data.assignedFromId,
         };
-        
         const newDraft = await prisma.memo.create({ data: payload });
         return newDraft;
     }
 }
 
 export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
-    const user = await hasPermission('manage_memos');
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
 
     const whereClause: any = { fromId: user.id, status: 'draft' };
     if (action === 'reply') whereClause.replyToId = originalMemoId;
     if (action === 'assign') whereClause.assignedFromId = originalMemoId;
 
-    // Find existing drafts for this action, newest first
-    const existingDrafts = await prisma.memo.findMany({
-        where: whereClause,
-        orderBy: { createdAt: 'desc' },
-        include: { to: true, cc: true, labels: true, attachments: true }
-    });
-
+    const existingDrafts = await prisma.memo.findMany({ where: whereClause, orderBy: { createdAt: 'desc' }, include: { to: true, cc: true, labels: true, attachments: true }});
     if (existingDrafts.length > 0) {
-        // If multiple exist, keep the most recent and remove duplicates
         if (existingDrafts.length > 1) {
-            const toDelete = existingDrafts.slice(1).map(d => d.id);
-            await prisma.memo.deleteMany({ where: { id: { in: toDelete } } });
+            await prisma.memo.deleteMany({ where: { id: { in: existingDrafts.slice(1).map(d => d.id) } } });
         }
         return existingDrafts[0];
     }
 
-    // No existing draft: create one using provided initial data
     const payload: any = {
-        fromId: user.id,
-        subject: initialData.subject || '',
-        body: initialData.body || '',
+        fromId: user.id, subject: initialData.subject || '', body: initialData.body || '',
         to: { connect: (initialData.to || []).map((u: any) => ({ id: u.id })) },
         cc: { connect: (initialData.cc || []).map((u: any) => ({ id: u.id })) },
         labels: { connect: (initialData.labels || []).map((l: any) => ({ id: l.id })) },
         attachments: { create: (initialData.attachments || []).map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
-        status: 'draft' as const,
-        memo_reference_number: `DRAFT-${Date.now()}`,
+        status: 'draft' as const, memo_reference_number: `DRAFT-${Date.now()}`,
     };
-
     if (action === 'reply') payload.replyToId = originalMemoId;
     if (action === 'assign') payload.assignedFromId = originalMemoId;
 
@@ -809,49 +744,24 @@ export async function deleteDraft(draftId: string) {
 }
 
 export async function duplicateMemo(memoId: string) {
-    const user = await hasPermission('manage_memos');
+    await hasPermission('manage_memos');
 
-    const originalMemo = await prisma.memo.findUnique({
-        where: { id: memoId },
-        include: {
-            to: true,
-            cc: true,
-            attachments: true,
-            labels: true,
-        },
-    });
+    const originalMemo = await prisma.memo.findUnique({ where: { id: memoId }, include: { to: true, cc: true, attachments: true, labels: true }});
+    if (!originalMemo) throw new Error("Memo not found");
 
-    if (!originalMemo) {
-        throw new Error("Memo not found");
-    }
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
 
     const newDraft = await prisma.memo.create({
         data: {
             fromId: user.id,
-            subject: `(copy) ${originalMemo.subject}`,
-            body: originalMemo.body,
-            status: 'draft',
-            memo_reference_number: `DRAFT-${Date.now()}`,
-            to: {
-                connect: originalMemo.to.map(u => ({ id: u.id }))
-            },
-            cc: {
-                connect: originalMemo.cc.map(u => ({ id: u.id }))
-            },
-            labels: {
-                connect: originalMemo.labels.map(l => ({ id: l.id }))
-            },
-            attachments: {
-                create: originalMemo.attachments.map(att => ({
-                    name: att.name,
-                    size: att.size,
-                    type: att.type,
-                    url: att.url,
-                }))
-            }
+            subject: `(copy) ${originalMemo.subject}`, body: originalMemo.body, status: 'draft', memo_reference_number: `DRAFT-${Date.now()}`,
+            to: { connect: originalMemo.to.map(u => ({ id: u.id })) },
+            cc: { connect: originalMemo.cc.map(u => ({ id: u.id })) },
+            labels: { connect: originalMemo.labels.map(l => ({ id: l.id })) },
+            attachments: { create: originalMemo.attachments.map(att => ({ name: att.name, size: att.size, type: att.type, url: att.url })) }
         }
     });
-
     redirect(`/dashboard/new?id=${newDraft.id}`);
 }
 
@@ -859,6 +769,12 @@ export async function duplicateMemo(memoId: string) {
 export async function acknowledgeMemo(memoId: string) {
   const user = await getLoggedInUser();
   if (!user) throw new Error("Not authenticated");
+  
+  if (user.actingUser) {
+    if (!user.delegationPermissions?.includes('delegation:acknowledge')) {
+      throw new Error("Access Denied: You do not have permission to acknowledge memos on behalf of this user.");
+    }
+  }
 
   const memo = await getMemo(memoId);
   if (!memo) return;
@@ -869,32 +785,19 @@ export async function acknowledgeMemo(memoId: string) {
   if (!isDirectRecipient && !isCcRecipient) {
     throw new Error("You are not a recipient of this memo and cannot acknowledge it.");
   }
+  
+  const actorId = user.actingUser ? user.actingUser.id : user.id;
 
   const updateData: any = {
     acknowledgedBy: { connect: { id: user.id } },
-    activity: {
-      create: {
-        actorId: user.id,
-        action: 'acknowledged',
-        details: 'Acknowledged receipt of the memo.',
-      },
-    },
+    activity: { create: { actorId: actorId, action: 'acknowledged', details: 'Acknowledged receipt of the memo.' } },
   };
   
-  // This is the fix for the Prisma Client Error.
-  // The error occurs because we are trying to connect a current_holder
-  // when the user is only a CC recipient, which is not a valid
-  // one-to-one relation in this context.
   if (isDirectRecipient) {
-      updateData.current_holder = {
-          connect: { id: user.id }
-      };
+      updateData.current_holder = { connect: { id: user.id } };
   }
 
-  await prisma.memo.update({
-    where: { id: memoId },
-    data: updateData,
-  });
+  await prisma.memo.update({ where: { id: memoId }, data: updateData });
 
   revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
@@ -904,6 +807,8 @@ export async function archiveMemo(memoId: string, archive: boolean) {
   const user = await getLoggedInUser();
   if (!user) throw new Error("Not authenticated");
 
+  const actorId = user.actingUser ? user.actingUser.id : user.id;
+
   const data = archive ? 
     { archivedBy: { connect: { id: user.id } } } :
     { archivedBy: { disconnect: { id: user.id } } };
@@ -912,13 +817,7 @@ export async function archiveMemo(memoId: string, archive: boolean) {
       where: { id: memoId },
       data: {
           ...data,
-          activity: {
-            create: {
-                actorId: user.id,
-                action: archive ? 'archived' : 'unarchived',
-                details: archive ? 'Archived the memo.' : 'Unarchived the memo.',
-            }
-        }
+          activity: { create: { actorId: actorId, action: archive ? 'archived' : 'unarchived', details: archive ? 'Archived the memo.' : 'Unarchived the memo.' } }
       }
   });
 
@@ -981,33 +880,32 @@ export async function getLabels() {
     return await prisma.label.findMany();
 }
 
-export async function getLoggedInUser() {
+export async function getLoggedInUser(): Promise<LoggedInUser | null> {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user) {
         return null;
     }
+    const sessionUser = session.user as any;
+    const userId = sessionUser.id;
 
-    const user = await prisma.user.findUnique({ 
-        where: { email: session.user.email },
-        include: { 
-            role: true,
-            office: true,
-            department: true,
-            division: true,
-            district: true,
-            branch: true,
-            delegations: {
-                include: {
-                    delegate: true,
-                }
-            },
-            delegatedTo: {
-                include: {
-                    delegator: true,
-                }
-            }
-        }
+    if (!userId) return null;
+    
+    const userInclude = {
+        role: true,
+        office: true,
+        department: true,
+        division: true,
+        district: true,
+        branch: true,
+        delegations: { include: { delegate: true } },
+        delegatedTo: { include: { delegator: true } }
+    };
+    
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: userInclude
     });
+
     if (!user) return null;
     
     // Do not return user if they are inactive, unless they need to change their password
@@ -1015,8 +913,17 @@ export async function getLoggedInUser() {
         return null;
     }
 
+    if (sessionUser.isDelegated) {
+        return {
+            ...user,
+            actingUser: sessionUser.realUser,
+            delegationPermissions: sessionUser.delegationPermissions,
+        };
+    }
+
     return user;
 }
+
 
 export async function getUserLockoutStatus(email: string) {
     if (!email) return null;
@@ -1120,7 +1027,7 @@ export async function saveOffice(data: { id?: string, name: string, code: string
     const payload = {
         name: data.name,
         code: data.code,
-        type: data.type || 'branch_office' // Default type if not provided
+        type: data.type || 'branch_office'
     };
     if (data.id) {
         await prisma.office.update({ where: { id: data.id }, data: payload });
@@ -1178,9 +1085,8 @@ export async function saveUser(data: {
         branchId: data.branchId || null,
     };
 
-    if (data.id) { // Existing user
+    if (data.id) {
         const existingUser = await prisma.user.findUnique({ where: { id: data.id } });
-        // If email is being changed, check if the new email is already taken by another user
         if (existingUser && existingUser.email !== data.email) {
             const emailInUse = await prisma.user.findUnique({ where: { email: data.email } });
             if (emailInUse) {
@@ -1188,17 +1094,13 @@ export async function saveUser(data: {
             }
         }
         
-        // Invalidate sessions if role or status changes
         if (existingUser && (existingUser.roleId !== data.roleId || existingUser.status !== data.status)) {
             payload.tokenVersion = { increment: 1 };
         }
         
         await prisma.user.update({ where: { id: data.id }, data: payload });
-    } else { // New user
-        // Check if email already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
-        });
+    } else {
+        const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
         if (existingUser) {
             return { error: `A user with the email ${data.email} already exists.` };
         }
@@ -1206,7 +1108,6 @@ export async function saveUser(data: {
         const password = generateStrongPassword();
         const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
-            // This case should ideally not be hit if auto-generating, but as a safeguard.
             return { error: validation.error.issues.map(i => i.message).join(' ') };
         }
         payload.hashedPassword = await bcrypt.hash(password, 10);
@@ -1214,16 +1115,10 @@ export async function saveUser(data: {
         
         const newUser = await prisma.user.create({ data: payload });
         
-        // Send welcome email
         try {
-            await sendWelcomeEmail({
-                to: newUser.email,
-                name: newUser.name,
-                password: password,
-            });
+            await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password: password });
         } catch (error) {
             console.error(`Failed to send welcome email to ${newUser.email}:`, error);
-            // Don't block the user creation, but maybe log this for admin attention
         }
     }
     
@@ -1233,15 +1128,11 @@ export async function saveUser(data: {
 
 export async function deleteUser(userId: string) {
     await hasPermission('manage_users');
-    // Safety check: prevent deleting a user who has authored memos.
-    // In a real-world scenario, you might want to reassign memos or soft-delete the user.
     const memoCount = await prisma.memo.count({ where: { fromId: userId } });
     if (memoCount > 0) {
         return { error: `Cannot delete user. They are the author of ${memoCount} memo(s). Please reassign them first.` };
     }
-    // Add more checks for other relations if necessary.
     
-    // Perform deletion
     try {
         await prisma.user.delete({ where: { id: userId }});
         revalidatePath('/dashboard/admin/users');
@@ -1273,11 +1164,7 @@ export async function resetUserPassword(userId: string) {
         });
         
         try {
-            await sendPasswordResetEmail({
-                to: user.email,
-                name: user.name,
-                password: password,
-            });
+            await sendPasswordResetEmail({ to: user.email, name: user.name, password: password });
         } catch (error) {
              console.error(`Failed to send password reset email to ${user.email}:`, error);
         }
@@ -1353,21 +1240,19 @@ export async function saveLabel(data: { id?: string, name: string, color: string
 export async function deleteLabel(id: string) {
     await hasPermission('manage_labels');
     const label = await prisma.label.findUnique({ where: { id }});
-    if (!label) {
-        return { error: "Label not found." };
-    }
-    if (label.type === 'SYSTEM') {
-        return { error: "Cannot delete a system label." };
-    }
+    if (!label) return { error: "Label not found." };
+    if (label.type === 'SYSTEM') return { error: "Cannot delete a system label." };
     await prisma.label.delete({ where: { id } });
     revalidatePath('/dashboard/admin/labels');
     return { success: true };
 }
 
 export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
-    await getLoggedInUser();
-    
-    // Check if email is being changed and if it's already taken
+    const user = await getLoggedInUser();
+    if (!user || (user.id !== userId && !user.actingUser)) {
+      throw new Error("Unauthorized");
+    }
+
     if (data.email) {
         const currentUser = await prisma.user.findUnique({ where: { id: userId } });
         if (currentUser && currentUser.email !== data.email) {
@@ -1378,11 +1263,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         }
     }
 
-    await prisma.user.update({
-        where: { id: userId },
-        data: data
-    });
-    // Revalidate both the profile page and dashboard layout so header updates instantly
+    await prisma.user.update({ where: { id: userId }, data: data });
     revalidatePath('/dashboard/profile');
     revalidatePath('/dashboard');
     return { success: true };
@@ -1450,7 +1331,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
 
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const rowIndex = i + 2; // 1 for header, 1 for 0-indexing
+        const rowIndex = i + 2;
         const { name, email, role: roleName, office: officeName, department: deptName, division: divName, district: distName, branch: branchName } = row;
 
         if (!name || !email || !roleName || !officeName) {
@@ -1468,7 +1349,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
 
         if (existingEmails.has(email)) {
             result.errorCount++;
-            result.errors.push({ rowIndex, email, error: "Email already exists in the system." });
+            result.errors.push({ rowIndex, email, error: "Email already exists." });
             continue;
         }
 
@@ -1491,7 +1372,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             const dept = departmentMap.get(deptName.toLowerCase());
             if (!dept || dept.officeId !== officeId) {
                 result.errorCount++;
-                result.errors.push({ rowIndex, email, error: `Department '${deptName}' not found or doesn't belong to office '${officeName}'.` });
+                result.errors.push({ rowIndex, email, error: `Department '${deptName}' not in office '${officeName}'.` });
                 continue;
             }
             departmentId = dept.id;
@@ -1500,7 +1381,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             const div = divisionMap.get(divName.toLowerCase());
             if (!div || !departmentId || div.departmentId !== departmentId) {
                 result.errorCount++;
-                result.errors.push({ rowIndex, email, error: `Division '${divName}' not found or doesn't belong to department '${deptName}'.` });
+                result.errors.push({ rowIndex, email, error: `Division '${divName}' not in department '${deptName}'.` });
                 continue;
             }
             divisionId = div.id;
@@ -1509,7 +1390,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             const dist = districtMap.get(distName.toLowerCase());
             if (!dist || dist.officeId !== officeId) {
                 result.errorCount++;
-                result.errors.push({ rowIndex, email, error: `District '${distName}' not found or doesn't belong to office '${officeName}'.` });
+                result.errors.push({ rowIndex, email, error: `District '${distName}' not in office '${officeName}'.` });
                 continue;
             }
             districtId = dist.id;
@@ -1518,7 +1399,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             const branch = branchMap.get(branchName.toLowerCase());
             if (!branch || !districtId || branch.districtId !== districtId) {
                 result.errorCount++;
-                result.errors.push({ rowIndex, email, error: `Branch '${branchName}' not found or doesn't belong to district '${distName}'.` });
+                result.errors.push({ rowIndex, email, error: `Branch '${branchName}' not in district '${distName}'.` });
                 continue;
             }
             branchId = branch.id;
@@ -1530,33 +1411,23 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
         try {
             const newUser = await prisma.user.create({
                 data: {
-                    name,
-                    email,
-                    roleId,
-                    officeId,
-                    departmentId: departmentId || null,
-                    divisionId: divisionId || null,
-                    districtId: districtId || null,
-                    branchId: branchId || null,
-                    hashedPassword,
-                    mustChangePassword: true,
-                    status: 'active',
+                    name, email, roleId, officeId,
+                    departmentId: departmentId || null, divisionId: divisionId || null,
+                    districtId: districtId || null, branchId: branchId || null,
+                    hashedPassword, mustChangePassword: true, status: 'active',
                 },
             });
 
-            try {
-                await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password });
-            } catch (emailError) {
-                console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
-            }
+            try { await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password }); } 
+            catch (emailError) { console.error(`Failed to send welcome email to ${newUser.email}:`, emailError); }
 
             existingEmails.add(email);
             result.successCount++;
 
         } catch (dbError) {
-            console.error('Database error during bulk import:', dbError);
+            console.error('DB error during bulk import:', dbError);
             result.errorCount++;
-            result.errors.push({ rowIndex, email, error: "Database error during user creation." });
+            result.errors.push({ rowIndex, email, error: "Database error." });
         }
     }
     
@@ -1600,7 +1471,6 @@ const defaultGeneralSettings = {
 export async function getGeneralSettings() {
     const settings = await prisma.setting.findUnique({ where: { key: 'general' } });
     if (settings) {
-        // basic merge to ensure all default keys are present
         const dbSettings = settings.value as any;
         const mergedSettings = { ...defaultGeneralSettings, ...dbSettings };
         mergedSettings.referenceFormat = { ...defaultGeneralSettings.referenceFormat, ...dbSettings.referenceFormat };
@@ -1620,48 +1490,20 @@ export async function saveGeneralSettings(settings: { acknowledgementType: Ackno
     return { success: true };
 }
 
-
-// END SIMULATED SETTINGS
-
 export async function performBulkArchiveActions(action: 'archive' | 'restore' | 'delete', memoIds: string[]) {
     if (memoIds.length === 0) return { error: 'No memos selected.' };
 
     const user = await hasPermission('manage_archive');
 
     if (action === 'delete') {
-        // This is a hard delete. Ensure compliance with data retention policies.
-        // In a real app, you might want to soft-delete or log this action extensively.
         await prisma.attachment.deleteMany({ where: { memoId: { in: memoIds } } });
         await prisma.activity.deleteMany({ where: { memoId: { in: memoIds } } });
-
-        // Need to handle replies carefully. Find memos that reply to the ones being deleted.
-        await prisma.memo.updateMany({
-            where: { replyToId: { in: memoIds } },
-            data: { replyToId: null },
-        });
-
-        await prisma.memo.deleteMany({
-            where: { id: { in: memoIds } },
-        });
-
+        await prisma.memo.updateMany({ where: { replyToId: { in: memoIds } }, data: { replyToId: null } });
+        await prisma.memo.deleteMany({ where: { id: { in: memoIds } } });
     } else if (action === 'restore') {
-        // For restore, we need to disconnect for all users who archived it.
-        // This is a bit tricky with the current schema. A better approach might be a separate Archive model.
-        // For now, we find all users who archived any of the selected memos and disconnect them.
-        const memosToRestore = await prisma.memo.findMany({
-            where: { id: { in: memoIds } },
-            select: { id: true, archivedBy: { select: { id: true } } }
-        });
-        
+        const memosToRestore = await prisma.memo.findMany({ where: { id: { in: memoIds } }, select: { id: true, archivedBy: { select: { id: true } } } });
         for (const memo of memosToRestore) {
-            await prisma.memo.update({
-                where: { id: memo.id },
-                data: {
-                    archivedBy: {
-                        disconnect: memo.archivedBy.map(u => ({ id: u.id }))
-                    }
-                }
-            });
+            await prisma.memo.update({ where: { id: memo.id }, data: { archivedBy: { disconnect: memo.archivedBy.map(u => ({ id: u.id })) } } });
         }
     }
     
@@ -1672,18 +1514,13 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
 
 export async function revokeUserTokens(userId: string) {
     const user = await getLoggedInUser();
-    // Ensure user is revoking their own token or is an admin
     if (!user || (user.id !== userId && !user.role?.permissions.includes('manage_users'))) {
         throw new Error("Unauthorized");
     }
     
     await prisma.user.update({
         where: { id: userId },
-        data: {
-            tokenVersion: {
-                increment: 1
-            }
-        }
+        data: { tokenVersion: { increment: 1 } }
     });
     return { success: true };
 }
@@ -1692,9 +1529,7 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
     await hasPermission('manage_email_settings');
     
     const where: Prisma.EmailLogWhereInput = {};
-    if (filters.status) {
-        where.status = filters.status;
-    }
+    if (filters.status) where.status = filters.status;
     if (filters.query) {
         where.OR = [
             { to: { contains: filters.query, mode: 'insensitive' } },
@@ -1704,29 +1539,20 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
     }
 
     const [logs, total] = await prisma.$transaction([
-        prisma.emailLog.findMany({
-            where,
-            skip: (page - 1) * limit,
-            take: limit,
-            orderBy: { createdAt: 'desc' }
-        }),
+        prisma.emailLog.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' }}),
         prisma.emailLog.count({ where })
     ]);
-
     return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 export async function completeOnboardingTour() {
     const user = await getLoggedInUser();
-    if (!user) {
-        throw new Error("Not authenticated");
-    }
+    if (!user) throw new Error("Not authenticated");
 
     await prisma.user.update({
         where: { id: user.id },
         data: { onboardingCompleted: true }
     });
-
     revalidatePath('/dashboard');
     return { success: true };
 }
@@ -1736,27 +1562,13 @@ export async function addOrUpdateDelegate(data: { delegateId: string, permission
     if (!user) throw new Error("Not authenticated");
 
     const existingDelegation = await prisma.delegation.findUnique({
-        where: {
-            delegatorId_delegateId: {
-                delegatorId: user.id,
-                delegateId: data.delegateId,
-            }
-        }
+        where: { delegatorId_delegateId: { delegatorId: user.id, delegateId: data.delegateId } }
     });
 
     if (existingDelegation) {
-        await prisma.delegation.update({
-            where: { id: existingDelegation.id },
-            data: { permissions: data.permissions.join(',') },
-        });
+        await prisma.delegation.update({ where: { id: existingDelegation.id }, data: { permissions: data.permissions.join(',') } });
     } else {
-        await prisma.delegation.create({
-            data: {
-                delegatorId: user.id,
-                delegateId: data.delegateId,
-                permissions: data.permissions.join(','),
-            }
-        });
+        await prisma.delegation.create({ data: { delegatorId: user.id, delegateId: data.delegateId, permissions: data.permissions.join(',') } });
     }
     revalidatePath('/dashboard/profile');
 }
@@ -1765,16 +1577,11 @@ export async function removeDelegate(delegationId: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
-    const delegation = await prisma.delegation.findUnique({
-        where: { id: delegationId }
-    });
-
+    const delegation = await prisma.delegation.findUnique({ where: { id: delegationId } });
     if (delegation?.delegatorId !== user.id) {
         throw new Error("You are not authorized to remove this delegation.");
     }
 
-    await prisma.delegation.delete({
-        where: { id: delegationId }
-    });
+    await prisma.delegation.delete({ where: { id: delegationId } });
     revalidatePath('/dashboard/profile');
 }

@@ -1,9 +1,10 @@
 
 "use client"
 
-import { LogOut, User as UserIcon, Repeat } from "lucide-react"
+import { LogOut, User as UserIcon, Repeat, ShieldQuestion } from "lucide-react"
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -21,11 +22,33 @@ import { revokeUserTokens } from "@/app/actions/memo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 export function UserNav({ user }: { user: User }) {
-  
+  const { data: session, update } = useSession();
+  const router = useRouter();
+
   if (!user) return null;
+  
+  const isDelegated = (session?.user as any)?.isDelegated;
+  const realUser = (session?.user as any)?.realUser;
+  const delegatedToAccounts = (session?.user as any)?.delegatedTo || user.delegatedTo || [];
+
+
+  const handleSwitchAccount = async (delegatorId: string) => {
+    toast.loading("Switching accounts...", { id: 'account-switch' });
+    await update({ switch_to_delegator_id: delegatorId });
+    router.refresh();
+    toast.success("Switched successfully!", { id: 'account-switch' });
+  }
+
+  const handleReturnToOwnAccount = async () => {
+    toast.loading("Returning to your account...", { id: 'account-switch' });
+    await update({ stop_delegation: true });
+    router.refresh();
+    toast.success("Welcome back!", { id: 'account-switch' });
+  }
+
 
   const handleSignOut = async () => {
-    await revokeUserTokens(user.id);
+    await revokeUserTokens(realUser?.id || user.id);
     signOut({ callbackUrl: '/login' });
   }
 
@@ -33,19 +56,14 @@ export function UserNav({ user }: { user: User }) {
     const p = user.avatar?.toString().trim();
     if (!p) return user.image || undefined;
     
-    // If it's already a full URL, use it directly.
     if (p.startsWith('http')) return p;
     
-    // If it's a path starting with /uploads, it's a public file, no need for /api prefix
     if (p.startsWith('/uploads')) {
       return p;
     }
     
-    // Fallback for any other relative paths that might need the API prefix
     return p.startsWith('/') ? `/api${p}` : `/api/${p}`;
   }
-
-  const delegatedToAccounts = user.delegatedTo || [];
 
   return (
       <DropdownMenu>
@@ -55,15 +73,25 @@ export function UserNav({ user }: { user: User }) {
               <AvatarImage src={getAvatarUrl()} alt={user.name || ''} data-ai-hint="person portrait"/>
               <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
+            {isDelegated && (
+                <span className="absolute bottom-0 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                    <ShieldQuestion className="h-2.5 w-2.5 text-primary-foreground" />
+                </span>
+            )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuContent className="w-64" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">{user.name}</p>
               <p className="text-xs leading-none text-muted-foreground">
                 {user.email}
               </p>
+              {isDelegated && realUser && (
+                <p className="text-xs leading-none text-blue-500 pt-1">
+                  Acting on behalf of you ({realUser.name})
+                </p>
+              )}
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -81,30 +109,26 @@ export function UserNav({ user }: { user: User }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
                 {delegatedToAccounts.map((delegation: Delegation) => (
-                    <TooltipProvider key={delegation.id}>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div>
-                                    <DropdownMenuItem disabled>
-                                        <Repeat className="mr-2 h-4 w-4" />
-                                        <span>Act as {delegation.delegator.name}</span>
-                                    </DropdownMenuItem>
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>This feature is coming soon!</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    <DropdownMenuItem key={delegation.id} onClick={() => handleSwitchAccount(delegation.delegatorId)}>
+                        <Repeat className="mr-2 h-4 w-4" />
+                        <span>Act as {delegation.delegator.name}</span>
+                    </DropdownMenuItem>
                 ))}
              </DropdownMenuGroup>
           )}
 
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Log out</span>
-          </DropdownMenuItem>
+          {isDelegated ? (
+            <DropdownMenuItem onClick={handleReturnToOwnAccount}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Return to My Account</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
   )

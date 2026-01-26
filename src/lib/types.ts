@@ -1,5 +1,4 @@
 
-
 import type { 
     User as PrismaUser, 
     Role as PrismaRole,
@@ -66,9 +65,8 @@ export type Branch = PrismaBranch & {
     district: District;
 };
 
-// Extend PrismaUser to include next-auth properties if needed
+// Base user type from Prisma, extended for UI needs
 export type User = PrismaUser & {
-    // any custom properties if needed
     mustChangePassword?: boolean;
     onboardingCompleted?: boolean;
     office?: Office | null;
@@ -81,11 +79,11 @@ export type User = PrismaUser & {
     delegatedTo?: Delegation[];
 };
 
+// Represents the user for the current session, which might be a delegated one
 export type LoggedInUser = User & {
-    actingUser: { id: string, name: string, email: string } | null;
-    delegationPermissions: DelegationPermission[] | [];
+    actingUser?: { id: string; name: string | null; email: string | null; };
+    delegationPermissions?: DelegationPermission[];
 };
-
 
 export type Attachment = PrismaAttachment;
 export type EmailLog = PrismaEmailLog;

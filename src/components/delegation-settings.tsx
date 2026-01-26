@@ -2,6 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -46,6 +48,8 @@ interface DelegationSettingsProps {
 }
 
 export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSettingsProps) {
+    const { update: updateSession } = useSession();
+    const router = useRouter();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -113,6 +117,14 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
         }
     };
     
+    const handleSwitchAccount = async (delegatorId: string) => {
+        toast.loading("Switching accounts...", { id: 'account-switch' });
+        await updateSession({ switch_to_delegator_id: delegatorId });
+        router.refresh();
+        router.push('/dashboard/inbox');
+        toast.success("Switched successfully!", { id: 'account-switch' });
+    }
+
     // Animation variants
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -266,20 +278,9 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div>
-                                                            <Button disabled>
-                                                                <Repeat className="mr-2 h-4 w-4" /> Act as
-                                                            </Button>
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Account switching is coming soon!</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                                <Button onClick={() => handleSwitchAccount(delegation.delegatorId)}>
+                                                    <Repeat className="mr-2 h-4 w-4" /> Act as
+                                                </Button>
                                             </TableCell>
                                         </motion.tr>
                                     )) : (

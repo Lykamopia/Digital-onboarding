@@ -4,7 +4,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
-import { User } from "./types";
+import type { User, DelegationPermission } from "./types";
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
@@ -69,13 +69,11 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid credentials");
         }
         
-        // On successful login, invalidate all other sessions by incrementing the token version.
         const updatedUser = await prisma.user.update({
             where: { id: user.id },
             data: {
                 failedLoginAttempts: 0,
                 lockoutUntil: null,
-                tokenVersion: { increment: 1 },
             }
         });
 
@@ -111,36 +109,96 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-        if (trigger === "update" && session?.mustChangePassword === false) {
-          token.mustChangePassword = false;
+      if (trigger === "update" && session?.mustChangePassword === false) {
+        token.mustChangePassword = false;
+      }
+      
+      if (trigger === "update" && session?.switch_to_delegator_id) {
+          const delegateId = (token.realUser?.id || token.id) as string;
+          const delegatorId = session.switch_to_delegator_id as string;
+          
+          const delegation = await prisma.delegation.findFirst({
+              where: { delegatorId, delegateId }
+          });
+          
+          if (delegation) {
+              const delegator = await prisma.user.findUnique({ where: { id: delegatorId } });
+              if (delegator) {
+                  // If not already delegated, store current user as realUser
+                  if (!token.realUser) {
+                      token.realUser = { id: token.id, name: token.name, email: token.email };
+                  }
+                  
+                  token.id = delegator.id;
+                  token.name = delegator.name;
+                  token.email = delegator.email;
+                  token.picture = delegator.avatar;
+                  token.mustChangePassword = delegator.mustChangePassword;
+                  token.delegationPermissions = (delegation.permissions?.split(',') || []) as DelegationPermission[];
+              }
+          }
+      } else if (trigger === "update" && session?.stop_delegation) {
+          if (token.realUser) {
+              const realUser = token.realUser as { id: string; name: string | null; email: string | null };
+              
+              const realDbUser = await prisma.user.findUnique({ where: { id: realUser.id }});
+
+              token.id = realUser.id;
+              token.name = realUser.name;
+              token.email = realUser.email;
+              token.picture = realDbUser?.avatar;
+              token.mustChangePassword = realDbUser?.mustChangePassword;
+              
+              delete token.realUser;
+              delete token.delegationPermissions;
+          }
+      }
+
+      if (user) { // This runs on initial sign-in
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+        if (dbUser) {
+            await prisma.user.update({
+                where: { id: dbUser.id },
+                data: { tokenVersion: { increment: 1 } }
+            });
+            token.tokenVersion = dbUser.tokenVersion + 1;
         }
 
-        if (user) { // This runs on sign-in
-            const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-            token.id = user.id;
-            token.mustChangePassword = dbUser?.mustChangePassword;
-            token.tokenVersion = dbUser?.tokenVersion;
-        }
-        
-        // On subsequent requests, validate the token version
-        if (token.id && token.tokenVersion !== undefined) {
-            const dbUser = await prisma.user.findUnique({ where: { id: token.id as string }});
-            if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
-                return null;
-            }
-            // Ensure the mustChangePassword flag is up-to-date
-            token.mustChangePassword = dbUser.mustChangePassword;
-        }
+        token.id = user.id;
+        token.mustChangePassword = (user as User).mustChangePassword;
+      }
+      
+      // On subsequent requests, validate the token version
+      const userIdToCheck = (token.realUser?.id || token.id) as string;
+      if (userIdToCheck && token.tokenVersion !== undefined) {
+          const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }});
+          if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
+              return null; // Invalidate session
+          }
+          if(!token.realUser) {
+              token.mustChangePassword = dbUser.mustChangePassword;
+          }
+      }
 
-
-        return token;
+      return token;
     },
     async session({ session, token }) {
-        if (session.user && token.id) {
-            (session.user as any).id = token.id;
-            (session.user as any).mustChangePassword = token.mustChangePassword;
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.name = token.name;
+        session.user.email = token.email;
+        session.user.image = token.picture;
+        (session.user as any).mustChangePassword = token.mustChangePassword;
+
+        if (token.realUser) {
+            (session.user as any).isDelegated = true;
+            (session.user as any).realUser = token.realUser;
+            (session.user as any).delegationPermissions = token.delegationPermissions;
+        } else {
+            (session.user as any).isDelegated = false;
         }
-        return session;
+      }
+      return session;
     },
   },
 };
