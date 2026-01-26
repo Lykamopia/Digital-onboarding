@@ -26,7 +26,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Breadcrumb } from './breadcrumb';
+import { Breadcrumb } from '@/components/breadcrumb';
 
 interface DashboardContentWrapperProps {
   user: LoggedInUser | null;
