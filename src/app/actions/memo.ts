@@ -1134,7 +1134,7 @@ export async function saveUser(data: {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
 
         await prisma.passwordResetToken.upsert({
             where: { email: newUser.email! },
