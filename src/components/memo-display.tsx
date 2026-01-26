@@ -24,7 +24,7 @@ import Image from 'next/image';
 import { SignaturePreview } from './signature-preview';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType, LoggedInUser } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType, LoggedInUser, Activity } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -161,6 +161,25 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
   }, []);
+
+  const findAcknowledgementActivity = (recipient: User, allActivities: Activity[]): Activity | undefined => {
+    // The activity list is sorted by timestamp descending, so `find` will get the most recent one.
+    return allActivities.find(act => {
+        if (act.action !== 'acknowledged') {
+            return false;
+        }
+        // Case 1: The recipient acknowledged it themselves.
+        if (act.actorId === recipient.id) {
+            return true;
+        }
+        // Case 2: A delegate acknowledged on their behalf.
+        // This relies on the specific string from the server action.
+        if (act.details?.includes(`on behalf of **${recipient.name}**`)) {
+            return true;
+        }
+        return false;
+    });
+  };
   
   const handlePrint = () => {
     window.print();
@@ -342,7 +361,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                     <MemoField label="To" amharic="ለ">
                         <div className="flex flex-col gap-1 font-sans">
                             {memo.to.map((user) => {
-                                const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
+                                const acknowledgement = findAcknowledgementActivity(user, memo.activity);
                                 return (
                                     <div key={user.id} className="flex items-center gap-2">
                                         <div>
@@ -364,7 +383,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         <MemoField label="CC" amharic="ግልባጭ">
                             <div className="flex flex-col gap-2 font-sans">
                                 {memo.cc.map((user) => {
-                                    const acknowledgement = memo.activity.find(act => act.actorId === user.id && act.action === 'acknowledged');
+                                    const acknowledgement = findAcknowledgementActivity(user, memo.activity);
                                     return (
                                     <div key={user.id} className="flex items-center gap-2">
                                         <div>
