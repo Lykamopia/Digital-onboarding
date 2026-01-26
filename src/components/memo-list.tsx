@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -18,6 +19,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, C
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
+import { useSettings } from "./settings-provider"
 
 function hexToRgba(hex: string, alpha: number) {
     if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
@@ -199,16 +201,17 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     }
 
     const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
+        const { settings } = useSettings();
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+        const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
 
 
         if (tab === 'drafts') {
-            return (
+             return (
                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                      <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
                         <Tooltip>
@@ -357,10 +360,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     }
 
     const MemoContextMenu = ({ memo }: { memo: MemoWithActivity }) => {
+        const { settings } = useSettings();
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+        const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canDuplicate = (!loggedInUser.actingUser && loggedInUser.role?.permissions.includes('manage_memos')) || (loggedInUser.actingUser && loggedInUser.delegationPermissions?.includes('delegation:draft'));
@@ -624,5 +628,3 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
-
-    

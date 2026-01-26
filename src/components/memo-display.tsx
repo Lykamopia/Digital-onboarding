@@ -156,38 +156,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = React.useState<LoggedInUser | null>(null);
   const { settings } = useSettings();
-    const [isAcknowledging, setIsAcknowledging] = React.useState(false);
-
-    // Automatic acknowledgment effect
-    React.useEffect(() => {
-        if (
-            memo &&
-            loggedInUser &&
-            settings.acknowledgementMode !== 'manual' &&
-            (memo.status === 'read' || memo.status === 'viewed') &&
-            !(memo.acknowledgedBy?.some(u => u.id === loggedInUser.id))
-        ) {
-            // Only auto-acknowledge if not already acknowledged
-            acknowledgeMemo(memo.id).then((result) => {
-                if (result.success) {
-                    const newActivity = {
-                        id: `temp-ack-${Date.now()}`,
-                        actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
-                        action: 'acknowledged',
-                        actor: loggedInUser.actingUser || loggedInUser,
-                        details: 'Automatically acknowledged receipt of this memo.',
-                        timestamp: new Date().toISOString(),
-                    };
-                    const updatedMemo = {
-                        ...memo,
-                        acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
-                        activity: [...memo.activity, newActivity],
-                    };
-                    setMemo?.(updatedMemo);
-                }
-            });
-        }
-    }, [memo, loggedInUser, settings.acknowledgementMode, setMemo]);
+  const [isAcknowledging, setIsAcknowledging] = React.useState(false);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
@@ -631,7 +600,3 @@ interface MemoDisplayProps {
   setMemo?: (memo: MemoWithActivity) => void;
   onBack?: () => void;
 }
-
-    
-
-    

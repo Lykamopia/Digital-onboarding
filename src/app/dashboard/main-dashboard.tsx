@@ -24,6 +24,7 @@ import { SearchEmptyIllustration } from "@/components/search-empty-illustration"
 import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { FavoritesEmptyIllustration } from "@/components/favorites-empty-illustration"
+import { useSettings } from "@/components/settings-provider"
 
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: LoggedInUser | null; }) {
   const router = useRouter();
@@ -31,6 +32,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const searchParams = useSearchParams();
   const memoIdFromUrl = searchParams.get('id');
   const isMobile = useIsMobile();
+  const { settings } = useSettings();
 
   const [memos, setMemos] = useState<MemoWithActivity[]>(initialMemos);
   const [selectedMemo, setSelectedMemo] = useState<MemoWithActivity | null>(null);
@@ -96,23 +98,49 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     const actorId = user.actingUser ? user.actingUser.id : user.id;
 
     const updateUser = (m: MemoWithActivity | null) => {
-        if (!m || m.id !== memoId || m.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
-            return m;
+        if (!m || m.id !== memoId) return m;
+
+        let updatedMemo = { ...m };
+        let hasChanged = false;
+
+        const hasViewed = updatedMemo.activity.some(a => a.action === 'viewed' && a.actorId === actorId);
+        if (!hasViewed) {
+            const newViewActivity = {
+                id: `temp-view-${Date.now()}`,
+                actorId: actorId,
+                action: 'viewed' as const,
+                actor: user.actingUser || user,
+                details: '',
+                timestamp: new Date().toISOString()
+            };
+            updatedMemo = { ...updatedMemo, activity: [...updatedMemo.activity, newViewActivity] };
+            hasChanged = true;
         }
-        const newActivity = {
-            id: `temp-view-${Date.now()}`,
-            actorId: actorId,
-            action: 'viewed' as const,
-            actor: user.actingUser || user,
-            details: '',
-            timestamp: new Date().toISOString()
-        };
-        return { ...m, activity: [...m.activity, newActivity] };
+        
+        const hasAcknowledged = updatedMemo.acknowledgedBy?.some(u => u.id === user.id);
+        if (settings.acknowledgementMode === 'auto' && !hasAcknowledged) {
+            const newAckActivity = {
+                id: `temp-ack-${Date.now()}`,
+                actorId: actorId,
+                action: 'acknowledged' as const,
+                actor: user.actingUser || user,
+                details: 'Automatically acknowledged upon read.',
+                timestamp: new Date().toISOString()
+            };
+            updatedMemo = { 
+                ...updatedMemo, 
+                acknowledgedBy: [...(updatedMemo.acknowledgedBy || []), user],
+                activity: [...updatedMemo.activity, newAckActivity] 
+            };
+            hasChanged = true;
+        }
+
+        return hasChanged ? updatedMemo : m;
     };
 
     setMemos(prevMemos => prevMemos.map(updateUser) as MemoWithActivity[]);
     setSelectedMemo(prevMemo => updateUser(prevMemo));
-  }, [user]);
+  }, [user, settings.acknowledgementMode]);
 
 
   // Listener for client-side events like "mark all as read"
@@ -411,5 +439,3 @@ export default function MainDashboard({ tab, initialMemos, user }: { tab: string
         </Suspense>
     )
 }
-
-    
