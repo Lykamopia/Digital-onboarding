@@ -1,7 +1,6 @@
-
 "use client"
 
-import { LogOut, User as UserIcon, Repeat, ShieldQuestion } from "lucide-react"
+import { LogOut, User as UserIcon, Repeat, ShieldQuestion, Info } from "lucide-react"
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -34,7 +33,7 @@ export function UserNav({ user }: { user: User }) {
 
   const handleSwitchAccount = async (delegatorId: string) => {
     toast.loading("Switching accounts...", { id: 'account-switch' });
-    const res = await update({ switch_to_delegator_id: delegatorId, redirect: false });
+    const res = await update({ switch_to_delegator_id: delegatorId });
     if (res) {
         window.location.href = '/dashboard/inbox';
     } else {
@@ -44,7 +43,7 @@ export function UserNav({ user }: { user: User }) {
 
   const handleReturnToOwnAccount = async () => {
     toast.loading("Returning to your account...", { id: 'account-switch' });
-    const res = await update({ stop_delegation: true, redirect: false });
+    const res = await update({ stop_delegation: true });
     if (res) {
         window.location.href = '/dashboard/inbox';
     } else {
@@ -108,12 +107,20 @@ export function UserNav({ user }: { user: User }) {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {!isDelegated && (
+                <>
                 <Link href="/dashboard/profile" passHref>
                     <DropdownMenuItem>
                         <UserIcon className="mr-2 h-4 w-4" />
                         <span>Profile</span>
                     </DropdownMenuItem>
                 </Link>
+                <Link href="/dashboard/about" passHref>
+                    <DropdownMenuItem>
+                        <Info className="mr-2 h-4 w-4" />
+                        <span>About</span>
+                    </DropdownMenuItem>
+                </Link>
+                </>
             )}
           </DropdownMenuGroup>
           

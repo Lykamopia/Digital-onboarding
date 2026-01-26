@@ -1,12 +1,13 @@
-
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle, Info } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 
-import type { User, Permission, MemoWithActivity } from '@/lib/types';
+import type { User, Permission, MemoWithActivity, LoggedInUser } from '@/lib/types';
 
 import {
   Sidebar,
@@ -25,25 +26,42 @@ import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Breadcrumb } from '@/components/breadcrumb';
+import { Breadcrumb } from './breadcrumb';
 
 interface DashboardContentWrapperProps {
-  user: (User & { role: { permissions: Permission[] } }) | null;
+  user: LoggedInUser | null;
   children: React.ReactNode;
 }
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
+  const { update: updateSession } = useSession();
+
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  const handleReturnToOwnAccount = async () => {
+    toast.loading("Returning to your account...", { id: 'account-switch' });
+    const res = await updateSession({ stop_delegation: true });
+    if (res) {
+        window.location.href = '/dashboard/inbox';
+    } else {
+        toast.error("Failed to return to your account.", { id: 'account-switch' });
+    }
+  }
+
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
+
+  const canCreateMemo = user.actingUser
+    ? user.delegationPermissions?.includes('delegation:send') || user.delegationPermissions?.includes('delegation:draft')
+    : user.role?.permissions.includes('manage_memos');
 
   const navItems = [
     ...(user.mustChangePassword
@@ -52,13 +70,14 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]
       : [
-          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
+          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:draft') },
+          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
+          { href: "/dashboard/about", icon: <Info />, label: "About", active: pathname === '/dashboard/about', visible: !user.actingUser },
+          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]),
   ];
@@ -90,6 +109,17 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         </SidebarContent>
       </Sidebar>
       <div className="flex flex-col h-screen">
+          {user.actingUser && (
+            <div className="flex items-center justify-center gap-4 bg-primary/10 py-2 px-4 text-sm no-print">
+                <AlertCircle className="h-5 w-5 text-primary"/>
+                <span className="font-medium text-primary">
+                    You are currently acting on behalf of <span className="font-bold">{user.name}</span>.
+                </span>
+                <Button variant="link" size="sm" className="h-auto p-0 text-primary underline" onClick={handleReturnToOwnAccount}>
+                    Return to your account
+                </Button>
+            </div>
+          )}
         <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>
@@ -123,7 +153,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
-            {user?.role.permissions.includes('manage_memos' as Permission) && !user.mustChangePassword && (
+            {canCreateMemo && !user.mustChangePassword && (
               <Link href="/dashboard/new">
                 <Button>
                   <FilePlus className="mr-2 h-4 w-4" />
