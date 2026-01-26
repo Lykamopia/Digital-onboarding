@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -160,7 +159,34 @@ export default function SetPasswordClientPage() {
     
     return (
         <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/20 p-4">
-             <Card className="w-full max-w-md z-10">
+            <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full" />
+            <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-accent/5 rounded-full" />
+            
+            <svg
+                viewBox="0 0 1024 1024"
+                className="absolute left-1/3 top-1/2 -z-10 h-[64rem] w-[64rem] -translate-y-1/2 [mask-image:radial-gradient(closest-side,white,transparent)] sm:left-full sm:-ml-80 lg:left-1/2 lg:ml-0 lg:-translate-x-1/2 lg:translate-y-0"
+                aria-hidden="true"
+            >
+                <circle cx={512} cy={512} r={512} fill="url(#9a759170-4320-4e94-a7de-180a42ebb9e1)" fillOpacity="0.7" />
+                <defs>
+                <radialGradient id="9a759170-4320-4e94-a7de-180a42ebb9e1">
+                    <stop stopColor="hsl(var(--primary))" />
+                    <stop offset={1} stopColor="hsl(var(--accent))" />
+                </radialGradient>
+                </defs>
+            </svg>
+
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" className="absolute top-1/4 left-1/4 w-64 h-64 text-primary/10 -rotate-12">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+            </svg>
+
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" className="absolute bottom-1/4 right-1/4 w-64 h-64 text-accent/20 rotate-12">
+                <path d="M22 2L11 13" />
+                <path d="m22 2-7 20-4-9-9-4Z" />
+            </svg>
+
+            <Card className="w-full max-w-md z-10 backdrop-blur-sm bg-card/60">
                 <CardHeader className="text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                         <KeyRound className="h-6 w-6 text-primary" />
@@ -171,7 +197,7 @@ export default function SetPasswordClientPage() {
                 <CardContent>
                     {renderContent()}
                 </CardContent>
-             </Card>
+            </Card>
         </div>
     );
 }
