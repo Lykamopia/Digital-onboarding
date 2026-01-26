@@ -146,6 +146,7 @@ async function main() {
   await prisma.activity.deleteMany();
   await prisma.attachment.deleteMany();
   await prisma.memo.deleteMany();
+  await prisma.delegation.deleteMany();
   await prisma.user.deleteMany();
   await prisma.label.deleteMany();
   await prisma.role.deleteMany();
@@ -437,5 +438,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
