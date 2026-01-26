@@ -5,6 +5,7 @@ import { LogOut, User as UserIcon, Repeat, ShieldQuestion } from "lucide-react"
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
