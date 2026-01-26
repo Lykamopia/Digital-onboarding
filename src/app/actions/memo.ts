@@ -9,11 +9,12 @@ import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, 
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
-import { sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from '@/lib/email';
+import { sendEmail, sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
-import { passwordSchema, generateStrongPassword } from '@/lib/password-policy';
+import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
+import { randomBytes, createHash } from 'crypto';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -79,10 +80,6 @@ export async function getDashboardData(tab: string, query: string, category: str
     const user = await getLoggedInUser();
     if (!user) {
         return [];
-    }
-
-    if (user.mustChangePassword) {
-      return [];
     }
 
     if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
@@ -933,7 +930,7 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     if (!currentUser || !realUserWithDelegations) return null;
     
-    if (currentUser.status === 'inactive' && !currentUser.mustChangePassword) {
+    if (currentUser.status === 'inactive') {
         return null;
     }
 
@@ -1131,18 +1128,22 @@ export async function saveUser(data: {
             return { error: `A user with the email ${data.email} already exists.` };
         }
 
-        const password = generateStrongPassword();
-        const validation = await passwordSchema.safeParseAsync(password);
-        if (!validation.success) {
-            return { error: validation.error.issues.map(i => i.message).join(' ') };
-        }
-        payload.hashedPassword = await bcrypt.hash(password, 10);
-        payload.mustChangePassword = true;
+        payload.hashedPassword = null;
         
         const newUser = await prisma.user.create({ data: payload });
+
+        const token = randomBytes(32).toString('hex');
+        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        await prisma.passwordResetToken.upsert({
+            where: { email: newUser.email! },
+            update: { token: hashedToken, expires },
+            create: { email: newUser.email!, token: hashedToken, expires },
+        });
         
         try {
-            await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password: password });
+            await sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token: token });
         } catch (error) {
             console.error(`Failed to send welcome email to ${newUser.email}:`, error);
         }
@@ -1174,23 +1175,22 @@ export async function resetUserPassword(userId: string) {
     await hasPermission('manage_users');
     try {
         const user = await prisma.user.findUnique({ where: { id: userId }});
-        if (!user) {
-            return { success: false, error: 'User not found.' };
+        if (!user || !user.email) {
+            return { success: false, error: 'User not found or has no email.' };
         }
 
-        const password = generateStrongPassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await prisma.user.update({
-            where: { id: userId },
-            data: { 
-                hashedPassword,
-                mustChangePassword: true,
-                tokenVersion: { increment: 1 },
-            }
+        const token = randomBytes(32).toString('hex');
+        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+        await prisma.passwordResetToken.upsert({
+            where: { email: user.email },
+            update: { token: hashedToken, expires },
+            create: { email: user.email, token: hashedToken, expires },
         });
         
         try {
-            await sendPasswordResetEmail({ to: user.email, name: user.name, password: password });
+            await sendPasswordResetEmail({ to: user.email, name: user.name!, token: token });
         } catch (error) {
              console.error(`Failed to send password reset email to ${user.email}:`, error);
         }
@@ -1217,7 +1217,6 @@ export async function changeUserPassword(password: string) {
             where: { id: user.id },
             data: {
                 hashedPassword,
-                mustChangePassword: false,
                 tokenVersion: { increment: 1 },
             }
         });
@@ -1431,20 +1430,27 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             branchId = branch.id;
         }
 
-        const password = generateStrongPassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
         try {
             const newUser = await prisma.user.create({
                 data: {
                     name, email, roleId, officeId,
                     departmentId: departmentId || null, divisionId: divisionId || null,
                     districtId: districtId || null, branchId: branchId || null,
-                    hashedPassword, mustChangePassword: true, status: 'active',
+                    hashedPassword: null, status: 'active',
                 },
             });
+            
+            const token = randomBytes(32).toString('hex');
+            const hashedToken = createHash('sha256').update(token).digest('hex');
+            const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-            try { await sendWelcomeEmail({ to: newUser.email, name: newUser.name, password }); } 
+            await prisma.passwordResetToken.upsert({
+                where: { email: newUser.email! },
+                update: { token: hashedToken, expires },
+                create: { email: newUser.email!, token: hashedToken, expires },
+            });
+
+            try { await sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token }); } 
             catch (emailError) { console.error(`Failed to send welcome email to ${newUser.email}:`, emailError); }
 
             existingEmails.add(email);
@@ -1612,4 +1618,61 @@ export async function removeDelegate(delegationId: string) {
     revalidatePath('/dashboard/profile');
 }
 
+export async function verifyPasswordResetToken(token: string) {
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const tokenEntry = await prisma.passwordResetToken.findFirst({
+        where: { 
+            token: hashedToken,
+            expires: { gt: new Date() }
+        }
+    });
+
+    if (!tokenEntry) {
+        return { error: "This link is invalid or has expired. Please request a new one." };
+    }
+
+    return { success: true, email: tokenEntry.email };
+}
+
+export async function setPasswordWithToken({ token, password }: { token: string, password: string}) {
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const tokenEntry = await prisma.passwordResetToken.findUnique({
+        where: { token: hashedToken }
+    });
+
+    if (!tokenEntry || tokenEntry.expires < new Date()) {
+        if(tokenEntry) {
+            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email }});
+        }
+        return { error: "This link is invalid or has expired. Please request a new one." };
+    }
+    
+    const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
+    if (!user) {
+        return { error: "User not found." };
+    }
+    
+    const validation = await passwordSchema.safeParseAsync(password);
+    if (!validation.success) {
+        return { error: validation.error.issues.map(i => i.message).join(' ') };
+    }
+
+    const newHashedPassword = await bcrypt.hash(password, 10);
+    
+    await prisma.$transaction([
+        prisma.user.update({
+            where: { id: user.id },
+            data: {
+                hashedPassword: newHashedPassword,
+                status: 'active',
+                tokenVersion: { increment: 1 }
+            }
+        }),
+        prisma.passwordResetToken.delete({
+            where: { email: tokenEntry.email }
+        })
+    ]);
+
+    return { success: true };
+}
     

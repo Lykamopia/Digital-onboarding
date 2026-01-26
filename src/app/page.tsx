@@ -7,9 +7,6 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
 
   if (session) {
-    if ((session.user as any)?.mustChangePassword) {
-      redirect('/dashboard/change-password');
-    }
     redirect('/dashboard/inbox');
   } else {
     redirect('/login');

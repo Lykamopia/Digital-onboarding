@@ -25,16 +25,16 @@ interface MemoEmailOptions {
   type: 'direct' | 'cc';
 }
 
-interface WelcomeEmailOptions {
+interface VerificationEmailOptions {
     to: string;
     name: string;
-    password: string;
+    token: string;
 }
 
 interface PasswordResetEmailOptions {
     to: string;
     name: string;
-    password: string;
+    token: string;
 }
 
 async function logEmail(data: Omit<Prisma.EmailLogCreateInput, 'from'>) {
@@ -193,22 +193,19 @@ function generateAuthEmailBody(title: string, content: string): string {
     `;
 }
 
-export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptions) {
-    const loginUrl = `${baseUrl}/login`;
+export async function sendVerificationEmail({ to, name, token }: VerificationEmailOptions) {
+    const verificationLink = `${baseUrl}/set-password?token=${token}`;
+    const expirationHours = 24;
 
-    const title = "Welcome to Nib Memo!";
+    const title = "Welcome to Nib Memo! Please Verify Your Account";
     const content = `
         <p>Hello ${name},</p>
-        <p>An account has been created for you on the Nib Memo platform. You can now log in using the credentials below.</p>
-        <div class="credentials">
-            <p><strong>Username/Email:</strong> ${to}</p>
-            <p><strong>Temporary Password:</strong> <code>${password}</code></p>
-        </div>
-        <p>For your security, you will be required to change this temporary password immediately after your first login.</p>
+        <p>An account has been created for you on the Nib Memo platform. To get started, please set your password by clicking the link below.</p>
+        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
         <div class="button-container">
-            <a href="${loginUrl}" class="button">Log In to Your Account</a>
+            <a href="${verificationLink}" class="button">Set Your Password</a>
         </div>
-        <p>If you have any questions, please contact your system administrator.</p>
+        <p>If you did not request this, please ignore this email.</p>
     `;
     
     const htmlBody = generateAuthEmailBody(title, content);
@@ -222,7 +219,7 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
 
     try {
         const info = await transporter.sendMail(mailOptions);
-        console.log('Welcome email sent: %s', info.messageId);
+        console.log('Verification email sent: %s', info.messageId);
         const user = await prisma.user.findUnique({ where: { email: to } });
         await logEmail({
             to,
@@ -235,7 +232,7 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
         });
         return info;
     } catch (error: any) {
-        console.error('Error sending welcome email:', error);
+        console.error('Error sending verification email:', error);
          const user = await prisma.user.findUnique({ where: { email: to } });
         await logEmail({
             to,
@@ -250,22 +247,19 @@ export async function sendWelcomeEmail({ to, name, password }: WelcomeEmailOptio
     }
 }
 
-export async function sendPasswordResetEmail({ to, name, password }: PasswordResetEmailOptions) {
-    const loginUrl = `${baseUrl}/login`;
+export async function sendPasswordResetEmail({ to, name, token }: PasswordResetEmailOptions) {
+    const resetLink = `${baseUrl}/set-password?token=${token}`;
+    const expirationHours = 1;
 
-    const title = "Your Password Has Been Reset";
+    const title = "Your Password Reset Request";
     const content = `
         <p>Hello ${name},</p>
-        <p>Your password for the Nib Memo platform has been reset by an administrator. Please use the following temporary password to log in.</p>
-        <div class="credentials">
-            <p><strong>Username/Email:</strong> ${to}</p>
-            <p><strong>Temporary Password:</strong> <code>${password}</code></p>
-        </div>
-        <p>You will be required to set a new password immediately after logging in.</p>
+        <p>We received a request to reset your password for the Nib Memo platform. You can reset your password by clicking the link below.</p>
+        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
-            <a href="${loginUrl}" class="button">Log In to Your Account</a>
+            <a href="${resetLink}" class="button">Reset Your Password</a>
         </div>
-        <p>If you did not request this change or have concerns, please contact your system administrator immediately.</p>
+        <p>If you did not request a password reset, you can safely ignore this email.</p>
     `;
 
     const htmlBody = generateAuthEmailBody(title, content);

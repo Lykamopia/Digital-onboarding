@@ -4,7 +4,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle, Info } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import { HoneycombLoader } from '@/components/honeycomb-loader';
 import { SessionTimeoutManager } from '@/components/session-timeout-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Breadcrumb } from './breadcrumb';
+import { Breadcrumb } from '@/components/breadcrumb';
 
 interface DashboardContentWrapperProps {
   user: LoggedInUser | null;
@@ -65,26 +65,20 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     : user.role?.permissions.includes('manage_memos');
 
   const navItems = [
-    ...(user.mustChangePassword
-      ? [
-          { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
-          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-        ]
-      : [
-          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
-          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
-          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:draft') },
-          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
-          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
-          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
-          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
-          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-        ]),
+    { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+    { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+    { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:draft') },
+    { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+    { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+    { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
+    { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
+    { href: "/dashboard/about", icon: <Info />, label: "About", active: pathname.startsWith('/dashboard/about'), visible: !user.actingUser },
+    { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
   ];
 
   return (
     <>
-    {!user.mustChangePassword && <SessionTimeoutManager />}
+    <SessionTimeoutManager />
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
@@ -153,7 +147,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
-            {canCreateMemo && !user.mustChangePassword && (
+            {canCreateMemo && (
               <Link href="/dashboard/new">
                 <Button>
                   <FilePlus className="mr-2 h-4 w-4" />
@@ -179,5 +173,3 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     </>
   );
 }
-
-    

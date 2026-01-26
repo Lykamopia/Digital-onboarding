@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Archive, Edit, FilePlus, Home, Inbox, Send, Shield, Star, User as UserIcon, MoreHorizontal, Lock, ShieldAlert } from 'lucide-react';
+import { Archive, Edit, FilePlus, Home, Inbox, Send, Shield, Star, User as UserIcon, MoreHorizontal, Lock, ShieldAlert, Info } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -20,22 +20,16 @@ export function BottomNavigation({ user }: BottomNavigationProps) {
   const pathname = usePathname();
 
   const allNavItems = [
-    ...(user.mustChangePassword
-      ? [
-          { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
-          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-        ]
-      : [
-          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/new", icon: <FilePlus />, label: "New", active: pathname === '/dashboard/new', visible: user.role.permissions.includes('manage_memos' as Permission), isFab: true },
-          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
-          { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-        ]),
+    { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+    { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+    { href: "/dashboard/new", icon: <FilePlus />, label: "New", active: pathname === '/dashboard/new', visible: user.role.permissions.includes('manage_memos' as Permission), isFab: true },
+    { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
+    { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
+    { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+    { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
+    { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
+    { href: "/dashboard/about", icon: <Info />, label: "About", active: pathname.startsWith('/dashboard/about'), visible: true },
+    { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
   ];
 
   const visibleNavItems = allNavItems.filter(item => item.visible && !item.className?.includes('hidden'));
@@ -107,4 +101,3 @@ export function BottomNavigation({ user }: BottomNavigationProps) {
     </>
   );
 }
-

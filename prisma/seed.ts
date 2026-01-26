@@ -81,7 +81,6 @@ const users = [
     departmentId: 'dept-1',
     divisionId: 'div-1',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
   {
     id: 'user-2',
@@ -92,7 +91,6 @@ const users = [
     departmentId: 'dept-4',
     divisionId: 'div-5',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
   {
     id: 'user-3',
@@ -103,7 +101,6 @@ const users = [
     districtId: 'dist-1',
     branchId: 'branch-1',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
   {
     id: 'user-4',
@@ -114,7 +111,6 @@ const users = [
     districtId: 'dist-1',
     branchId: 'branch-2',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
   {
     id: 'user-5',
@@ -125,7 +121,6 @@ const users = [
     departmentId: 'dept-1',
     divisionId: 'div-2',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
   {
     id: 'user-6',
@@ -136,7 +131,6 @@ const users = [
     districtId: 'dist-2',
     branchId: 'branch-3',
     roleId: 'role-2',
-    mustChangePassword: true,
   },
 ];
 
@@ -147,6 +141,7 @@ async function main() {
   await prisma.attachment.deleteMany();
   await prisma.memo.deleteMany();
   await prisma.delegation.deleteMany();
+  await prisma.passwordResetToken.deleteMany();
   await prisma.user.deleteMany();
   await prisma.label.deleteMany();
   await prisma.role.deleteMany();
@@ -191,7 +186,6 @@ async function main() {
           hashedPassword: hashedPassword,
           roleId: 'role-1',
           officeId: 'off-1', // Assign to a default office
-          mustChangePassword: false,
       }
   });
   console.log('Seeded admin user.');
@@ -199,7 +193,7 @@ async function main() {
 
   // Seed other users without passwords (they can't log in until one is set)
   for (const user of users) {
-      const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId, mustChangePassword } = user;
+      const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId } = user;
       await prisma.user.create({
           data: {
               id,
@@ -212,8 +206,7 @@ async function main() {
               districtId: districtId || null,
               branchId: branchId || null,
               roleId,
-              mustChangePassword,
-              hashedPassword: '', // No password set initially
+              hashedPassword: null,
           }
       });
   }

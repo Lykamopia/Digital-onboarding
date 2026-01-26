@@ -67,7 +67,6 @@ export type Branch = PrismaBranch & {
 
 // Base user type from Prisma, extended for UI needs
 export type User = PrismaUser & {
-    mustChangePassword?: boolean;
     onboardingCompleted?: boolean;
     office?: Office | null;
     department?: Department | null;

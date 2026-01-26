@@ -91,37 +91,6 @@ function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (user?.mustChangePassword && pathname !== '/dashboard/change-password') {
-        router.replace('/dashboard/change-password');
-    }
-  }, [user, pathname, router]);
-
-  if (user && user.mustChangePassword) {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/20">
-        <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full" />
-        <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-accent/5 rounded-full" />
-        <svg
-            viewBox="0 0 1024 1024"
-            className="absolute left-1/3 top-1/2 -z-10 h-[64rem] w-[64rem] -translate-y-1/2 [mask-image:radial-gradient(closest-side,white,transparent)] sm:left-full sm:-ml-80 lg:left-1/2 lg:ml-0 lg:-translate-x-1/2 lg:translate-y-0"
-            aria-hidden="true"
-        >
-            <circle cx={512} cy={512} r={512} fill="url(#9a759170-4320-4e94-a7de-180a42ebb9e1)" fillOpacity="0.7" />
-            <defs>
-            <radialGradient id="9a759170-4320-4e94-a7de-180a42ebb9e1">
-                <stop stopColor="hsl(var(--primary))" />
-                <stop offset={1} stopColor="hsl(var(--accent))" />
-            </radialGradient>
-            </defs>
-        </svg>
-        <div className="z-10">
-          {children}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <SidebarProvider>
         <WebSocketHandler user={user} />
@@ -129,7 +98,7 @@ function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
             {children}
         </DashboardContentWrapper>
         {isMobile && user && <BottomNavigation user={user} />}
-        {user && !user.mustChangePassword && !user.onboardingCompleted && (
+        {user && !user.onboardingCompleted && (
           <OnboardingTour />
         )}
     </SidebarProvider>
@@ -150,9 +119,7 @@ export default function DashboardLayout({
     getLoggedInUser().then(async (userData) => {
       if (userData) {
         setUser(userData as any);
-        if (!userData.mustChangePassword) {
-            await initializeNotifications(userData);
-        }
+        await initializeNotifications(userData);
       }
       setLoading(false);
     });
@@ -182,5 +149,3 @@ export default function DashboardLayout({
     </Suspense>
   )
 }
-
-    
