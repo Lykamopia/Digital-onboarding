@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getLoggedInUser, updateUserProfile, getUsers } from '@/app/actions/memo';
-import type { User, Office, Department, Division, District, Branch, Delegation } from '@/lib/types';
+import type { User, Office, Department, Division, District, Branch, Delegation, LoggedInUser } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud, Users } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,9 +22,10 @@ import { SignaturePad } from '@/components/signature-pad';
 import { SignaturePreview } from '@/components/signature-preview';
 import { UserProfileLoader } from '@/components/user-profile-loader';
 import { DelegationSettings } from '@/components/delegation-settings';
+import { useRouter } from 'next/navigation';
 
 
-type UserWithRelations = User & {
+type UserWithRelations = LoggedInUser & {
     office: Office;
     department?: Department;
     division?: Division;
@@ -36,6 +38,7 @@ type UserWithRelations = User & {
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserWithRelations | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [name, setName] = useState('');
@@ -63,9 +66,18 @@ export default function ProfilePage() {
     signatureModified;
 
   const loadUserAndData = useCallback(async () => {
-    const [initialUser, users] = await Promise.all([getLoggedInUser(), getUsers()]);
+    const initialUser = await getLoggedInUser();
+    
+    if (initialUser?.actingUser) {
+        router.replace('/dashboard/access-denied');
+        return;
+    }
+    
+    const users = await getUsers();
+    
     setUser(initialUser as any);
     setAllUsers(users);
+
     if (initialUser) {
         setName(initialUser.name);
         setEmail(initialUser.email);
@@ -76,7 +88,7 @@ export default function ProfilePage() {
         setSignatureCleared(false);
         setSignatureModified(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadUserAndData();

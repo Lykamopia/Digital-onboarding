@@ -1,10 +1,12 @@
 
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 
 import type { User, Permission, MemoWithActivity, LoggedInUser } from '@/lib/types';
 
@@ -34,11 +36,21 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
+  const { update: updateSession } = useSession();
+
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const handleReturnToOwnAccount = async () => {
+    toast.loading("Returning to your account...", { id: 'account-switch' });
+    await updateSession({ stop_delegation: true });
+    router.refresh();
+    toast.success("Welcome back!", { id: 'account-switch' });
+  }
 
 
   if (!isMounted || !user) {
@@ -61,8 +73,8 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
           { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
           { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
+          { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
+          { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]),
   ];
@@ -94,6 +106,17 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         </SidebarContent>
       </Sidebar>
       <div className="flex flex-col h-screen">
+          {user.actingUser && (
+            <div className="flex items-center justify-center gap-4 bg-primary/10 py-2 px-4 text-sm no-print">
+                <AlertCircle className="h-5 w-5 text-primary"/>
+                <span className="font-medium text-primary">
+                    You are currently acting on behalf of <span className="font-bold">{user.name}</span>.
+                </span>
+                <Button variant="link" size="sm" className="h-auto p-0 text-primary underline" onClick={handleReturnToOwnAccount}>
+                    Return to your account
+                </Button>
+            </div>
+          )}
         <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>

@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { User, Delegation } from "@/lib/types";
 import { revokeUserTokens } from "@/app/actions/memo";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 export function UserNav({ user }: { user: User }) {
   const { data: session, update } = useSession();
@@ -37,6 +36,7 @@ export function UserNav({ user }: { user: User }) {
     toast.loading("Switching accounts...", { id: 'account-switch' });
     await update({ switch_to_delegator_id: delegatorId });
     router.refresh();
+    router.push('/dashboard/inbox');
     toast.success("Switched successfully!", { id: 'account-switch' });
   }
 
@@ -44,6 +44,7 @@ export function UserNav({ user }: { user: User }) {
     toast.loading("Returning to your account...", { id: 'account-switch' });
     await update({ stop_delegation: true });
     router.refresh();
+    router.push('/dashboard/inbox');
     toast.success("Welcome back!", { id: 'account-switch' });
   }
 
@@ -84,28 +85,35 @@ export function UserNav({ user }: { user: User }) {
         <DropdownMenuContent className="w-64" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
+                {isDelegated && (
+                    <div className="text-xs text-blue-500 mb-1">
+                        On behalf of:
+                    </div>
+                )}
               <p className="text-sm font-medium leading-none">{user.name}</p>
               <p className="text-xs leading-none text-muted-foreground">
                 {user.email}
               </p>
-              {isDelegated && realUser && (
-                <p className="text-xs leading-none text-blue-500 pt-1">
-                  Acting on behalf of you ({realUser.name})
+               {isDelegated && realUser && (
+                <p className="text-xs italic text-muted-foreground pt-1">
+                    (Your account: {realUser.name})
                 </p>
               )}
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <Link href="/dashboard/profile" passHref>
-              <DropdownMenuItem>
-                <UserIcon className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-            </Link>
+            {!isDelegated && (
+                <Link href="/dashboard/profile" passHref>
+                    <DropdownMenuItem>
+                        <UserIcon className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                    </DropdownMenuItem>
+                </Link>
+            )}
           </DropdownMenuGroup>
           
-          {delegatedToAccounts.length > 0 && (
+          {delegatedToAccounts.length > 0 && !isDelegated && (
              <DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
