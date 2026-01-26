@@ -36,6 +36,8 @@ import type { Delegation, User, DelegationPermission } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DelegationEmptyIllustration } from './delegation-empty-illustration';
+import { NoAccessIllustration } from './no-access-illustration';
 
 interface DelegationSettingsProps {
   user: User & { delegations?: Delegation[], delegatedTo?: Delegation[] };
@@ -213,8 +215,14 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                                         );
                                     }) : (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="h-24 text-center">
-                                                You have not delegated your account to anyone.
+                                            <TableCell colSpan={3} className="h-48 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-4">
+                                                    <DelegationEmptyIllustration />
+                                                    <div className="text-center">
+                                                        <p className="font-semibold">No Delegates Yet</p>
+                                                        <p className="text-sm text-muted-foreground">Click "Add Delegate" to grant someone access to your account.</p>
+                                                    </div>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     )}
@@ -276,8 +284,14 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                                         </motion.tr>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={2} className="h-24 text-center">
-                                                No accounts have been delegated to you.
+                                            <TableCell colSpan={2} className="h-48 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-4">
+                                                    <NoAccessIllustration />
+                                                    <div className="text-center">
+                                                        <p className="font-semibold">No Delegated Accounts</p>
+                                                        <p className="text-sm text-muted-foreground">When other users delegate access to you, their accounts will appear here.</p>
+                                                    </div>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     )}
