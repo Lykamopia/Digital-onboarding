@@ -120,7 +120,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
     const handleSwitchAccount = async (delegatorId: string) => {
         toast.loading("Switching accounts...", { id: 'account-switch' });
         const res = await updateSession({ switch_to_delegator_id: delegatorId, redirect: false });
-        if (res?.ok) {
+        if (res) {
             window.location.href = '/dashboard/inbox';
         } else {
             toast.error("Failed to switch accounts.", { id: 'account-switch' });

@@ -35,7 +35,7 @@ export function UserNav({ user }: { user: User }) {
   const handleSwitchAccount = async (delegatorId: string) => {
     toast.loading("Switching accounts...", { id: 'account-switch' });
     const res = await update({ switch_to_delegator_id: delegatorId, redirect: false });
-    if (res?.ok) {
+    if (res) {
         window.location.href = '/dashboard/inbox';
     } else {
         toast.error("Failed to switch accounts.", { id: 'account-switch' });
@@ -45,7 +45,7 @@ export function UserNav({ user }: { user: User }) {
   const handleReturnToOwnAccount = async () => {
     toast.loading("Returning to your account...", { id: 'account-switch' });
     const res = await update({ stop_delegation: true, redirect: false });
-    if (res?.ok) {
+    if (res) {
         window.location.href = '/dashboard/inbox';
     } else {
         toast.error("Failed to return to your account.", { id: 'account-switch' });
