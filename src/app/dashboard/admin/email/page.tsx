@@ -134,7 +134,7 @@ function EmailTemplateSettings() {
             <div className="mt-2 rounded-lg border bg-muted/30 p-4">
                 <div className="mx-auto max-w-xl rounded-md border bg-card shadow-lg">
                     <div className="p-4 text-center rounded-t-md">
-                        <Image src="https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612" alt="Logo" width={60} height={60} className="mx-auto" />
+                        <Image src="/Logo.png" alt="Logo" width={60} height={60} className="mx-auto" />
                     </div>
                     <div className="p-6">
                         <h2 className="text-xl font-bold mb-4">{settings.headerText}</h2>

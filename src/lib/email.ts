@@ -5,7 +5,7 @@ import { getEmailSettings, getGeneralSettings } from '@/app/actions/memo';
 import prisma from './prisma';
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
-const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761145582612';
+const logoUrl = `${baseUrl}/Logo.png`;
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
