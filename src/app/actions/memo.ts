@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser } from '@/lib/types';
+import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
@@ -366,7 +366,12 @@ export async function markAsRead(memoId: string) {
 
     if (!memo) return;
 
-    if (!memo.activity.some(a => a.action === 'viewed')) {
+    // Check if the user themselves has already viewed it
+    const hasViewed = memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id);
+    // For delegates, also check if the delegate has viewed it
+    const hasDelegateViewed = user.actingUser ? memo.activity.some(a => a.action === 'viewed' && a.actorId === user.actingUser!.id) : false;
+
+    if (!hasViewed && !hasDelegateViewed) {
         await prisma.activity.create({
             data: {
                 memoId: memoId,
@@ -376,9 +381,10 @@ export async function markAsRead(memoId: string) {
         });
 
         const { acknowledgementMode } = await getGeneralSettings();
-        const hasAcknowledged = memo.acknowledgedBy.length > 0;
+        // A delegator might have already acknowledged it before delegating
+        const delegatorHasAcknowledged = memo.acknowledgedBy.some(u => u.id === user.id);
 
-        if (acknowledgementMode === 'auto' && !hasAcknowledged) {
+        if (acknowledgementMode === 'auto' && !delegatorHasAcknowledged) {
             const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
             const isCcRecipient = memo.cc.some(u => u.id === user.id);
             
@@ -486,26 +492,39 @@ export async function toggleMemoReadStatus(memoId: string) {
 async function generateReferenceNumber(user: User): Promise<string> {
     const settings = await getGeneralSettings();
     const format = settings.referenceFormat;
-    
+
     const userWithRelations = await prisma.user.findUnique({
         where: { id: user.id },
         include: {
             office: true,
             department: true,
+            division: true,
+            district: true,
+            branch: true,
         }
     });
-    
+
     if (!userWithRelations) throw new Error("User not found for reference generation.");
 
-    let prefixPart = '';
-    if (format.prefix === 'department' && userWithRelations.department) {
-        prefixPart = userWithRelations.department.code;
-    } else if (format.prefix === 'office' && userWithRelations.office) {
-        prefixPart = userWithRelations.office.code;
-    }
+    const orgParts: string[] = [];
 
+    // Determine base prefix
+    let basePrefix = '';
+    if (format.prefix === 'department' && userWithRelations.department) {
+        basePrefix = userWithRelations.department.code;
+    } else if (userWithRelations.office) { // Fallback to office if no department or if office is the setting
+        basePrefix = userWithRelations.office.code;
+    }
+    if (basePrefix) orgParts.push(basePrefix);
+
+    // Add other relevant org levels based on the user's assignment
+    if (userWithRelations.division) orgParts.push(userWithRelations.division.code);
+    if (userWithRelations.district) orgParts.push(userWithRelations.district.code);
+    if (userWithRelations.branch) orgParts.push(userWithRelations.branch.code);
+    
+    const orgPrefix = orgParts.join(format.separator);
     const year = new Date().getFullYear();
-    const fullPrefix = `${prefixPart}${format.separator}${year}${format.separator}`;
+    const fullPrefix = orgPrefix ? `${orgPrefix}${format.separator}${year}${format.separator}` : `${year}${format.separator}`;
 
     const lastMemo = await prisma.memo.findFirst({
         where: {
@@ -740,7 +759,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
-export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
+export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] } = {}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
