@@ -7,7 +7,6 @@ import type { AcknowledgementType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
 
 type ReferenceFormatSettings = {
-    prefix: 'department' | 'office' | 'custom';
     separator: '-' | '/';
     numberLength: number;
 };
@@ -30,7 +29,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<GeneralSettings>({ 
     acknowledgementType: 'SIGNATURE',
     referenceFormat: {
-        prefix: 'department',
         separator: '-',
         numberLength: 4
     },

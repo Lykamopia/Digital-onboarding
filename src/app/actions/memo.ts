@@ -384,7 +384,7 @@ export async function markAsRead(memoId: string) {
         });
 
         const { acknowledgementMode } = await getGeneralSettings();
-        const hasDelegatorAcknowledged = memo.acknowledgedBy.length > 0;
+        const hasDelegatorAcknowledged = memo.acknowledgedBy.some(u => u.id === user.id);
 
         if (acknowledgementMode === 'auto' && !hasDelegatorAcknowledged) {
             const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
@@ -515,7 +515,7 @@ async function generateReferenceNumber(user: User): Promise<string> {
         orgParts.push(userWithRelations.office.code);
     }
 
-    // Add department and division if they exist
+    // Add department and division if they exist and user is associated with a department
     if (userWithRelations.department) {
         orgParts.push(userWithRelations.department.code);
         if (userWithRelations.division) {
@@ -532,7 +532,7 @@ async function generateReferenceNumber(user: User): Promise<string> {
     
     const orgPrefix = orgParts.join(format.separator);
     const year = new Date().getFullYear();
-    const fullPrefix = orgPrefix ? `${orgPrefix}${format.separator}${year}${format.separator}` : `${year}${format.separator}`;
+    const fullPrefix = `${orgPrefix}${format.separator}${year}${format.separator}`;
 
     const lastMemo = await prisma.memo.findFirst({
         where: {
@@ -1560,7 +1560,6 @@ export async function saveEmailSettings(settings: { notificationsEnabled: boolea
 const defaultGeneralSettings = { 
     acknowledgementType: 'SIGNATURE' as AcknowledgementType,
     referenceFormat: {
-        prefix: 'department' as 'department' | 'office' | 'custom',
         separator: '-' as '-' | '/',
         numberLength: 4,
     },
@@ -1748,4 +1747,5 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 

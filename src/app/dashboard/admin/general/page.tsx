@@ -35,7 +35,6 @@ export default function GeneralSettingsPage() {
         acknowledgementType: settings.acknowledgementType || 'SIGNATURE',
         acknowledgementMode: settings.acknowledgementMode || 'manual',
         referenceFormat: settings.referenceFormat || {
-          prefix: 'department',
           separator: '-',
           numberLength: 4
         }
@@ -67,7 +66,7 @@ export default function GeneralSettingsPage() {
     setLocalSettings(prev => ({
         ...prev,
         referenceFormat: {
-            ...(prev.referenceFormat || { prefix: 'department', separator: '-', numberLength: 4 }), // Default structure
+            ...(prev.referenceFormat || { separator: '-', numberLength: 4 }), // Default structure
             [field]: value
         }
     }));
@@ -77,11 +76,15 @@ export default function GeneralSettingsPage() {
     return <GeneralSettingsSkeleton />;
   }
   
-  const examplePrefix = localSettings.referenceFormat.prefix === 'department' ? 'DEPT' : 'OFFICE';
   const exampleSeparator = localSettings.referenceFormat.separator || '-';
-  const exampleYear = new Date().getFullYear();
-  const exampleSequence = '1'.padStart(localSettings.referenceFormat.numberLength || 4, '0');
-  const exampleReference = `${examplePrefix}${exampleSeparator}${exampleYear}${exampleSeparator}${exampleSequence}`;
+  const year = new Date().getFullYear();
+  const sequence = '1'.padStart(localSettings.referenceFormat.numberLength || 4, '0');
+
+  const divPath = ['OFFICE', 'DEPT', 'DIV'].join(exampleSeparator);
+  const branchPath = ['OFFICE', 'DIST', 'BRANCH'].join(exampleSeparator);
+  
+  const exampleRefDiv = `${divPath}${exampleSeparator}${year}${exampleSeparator}${sequence}`;
+  const exampleRefBranch = `${branchPath}${exampleSeparator}${year}${exampleSeparator}${sequence}`;
 
 
   return (
@@ -131,33 +134,10 @@ export default function GeneralSettingsPage() {
         <CardHeader>
           <CardTitle>Memo Reference Number</CardTitle>
           <CardDescription>
-              Configure the format for automatically generated memo reference numbers.
+              Configure the format for automatically generated memo reference numbers. The prefix always starts with the user's Office code.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-            <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                    <Label htmlFor="ref-prefix" className="text-base">
-                        Prefix Source
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                        Choose what code to use as the prefix for the reference number.
-                    </p>
-                </div>
-                <Select
-                    value={localSettings.referenceFormat.prefix || 'department'}
-                    onValueChange={(value) => handleReferenceFormatChange('prefix', value)}
-                >
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select a prefix" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="department">Department Code</SelectItem>
-                        <SelectItem value="office">Office Code</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-
             <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                     <Label htmlFor="ref-separator" className="text-base">
@@ -201,10 +181,11 @@ export default function GeneralSettingsPage() {
                 />
             </div>
              <div className="text-center p-4 bg-muted/50 rounded-md">
-                <p className="text-sm text-muted-foreground">Example Preview</p>
-                <p className="font-mono text-lg font-bold">
-                    {exampleReference}
-                </p>
+                <p className="text-sm text-muted-foreground mb-2">Example Previews</p>
+                <div className="font-mono text-base md:text-lg font-bold space-y-1">
+                    <p>{exampleRefDiv}</p>
+                    <p>{exampleRefBranch}</p>
+                </div>
             </div>
         </CardContent>
         <CardFooter>
