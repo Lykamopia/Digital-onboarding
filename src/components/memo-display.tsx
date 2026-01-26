@@ -156,7 +156,38 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const router = useRouter();
   const [loggedInUser, setLoggedInUser] = React.useState<LoggedInUser | null>(null);
   const { settings } = useSettings();
-  const [isAcknowledging, setIsAcknowledging] = React.useState(false);
+    const [isAcknowledging, setIsAcknowledging] = React.useState(false);
+
+    // Automatic acknowledgment effect
+    React.useEffect(() => {
+        if (
+            memo &&
+            loggedInUser &&
+            settings.acknowledgementMode !== 'manual' &&
+            (memo.status === 'read' || memo.status === 'viewed') &&
+            !(memo.acknowledgedBy?.some(u => u.id === loggedInUser.id))
+        ) {
+            // Only auto-acknowledge if not already acknowledged
+            acknowledgeMemo(memo.id).then((result) => {
+                if (result.success) {
+                    const newActivity = {
+                        id: `temp-ack-${Date.now()}`,
+                        actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
+                        action: 'acknowledged',
+                        actor: loggedInUser.actingUser || loggedInUser,
+                        details: 'Automatically acknowledged receipt of this memo.',
+                        timestamp: new Date().toISOString(),
+                    };
+                    const updatedMemo = {
+                        ...memo,
+                        acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
+                        activity: [...memo.activity, newActivity],
+                    };
+                    setMemo?.(updatedMemo);
+                }
+            });
+        }
+    }, [memo, loggedInUser, settings.acknowledgementMode, setMemo]);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
@@ -305,7 +336,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
         <div className="printable-memo p-4 md:p-8 max-w-4xl mx-auto my-8 shadow-lg bg-card text-card-foreground">
             <CardHeader id="memo-display-header" className="p-0 printable-memo-header">
                 <div className="flex flex-col items-center justify-center mb-6">
-                    <Image src="/Logo.png" alt="Nib International Bank" width={300} height={100} className="object-contain" />
+                    <Image src="/Wide - LOGO.png" alt="Nib International Bank" width={400} height={120} className="object-contain" />
                     <div className='text-center mt-4'>
                         <p className="text-xl font-bold tracking-wider">MEMORANDUM</p>
                     </div>
