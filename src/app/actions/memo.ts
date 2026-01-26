@@ -893,10 +893,10 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
         return null;
     }
     const sessionUser = session.user as any;
-    const userId = sessionUser.isDelegated ? sessionUser.id : sessionUser.id;
 
-    if (!userId) return null;
-    
+    const currentUserId = sessionUser.id;
+    const realUserId = sessionUser.isDelegated ? sessionUser.realUser.id : sessionUser.id;
+
     const userInclude = {
         role: true,
         office: true,
@@ -905,29 +905,38 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
         district: true,
         branch: true,
         delegations: { include: { delegate: true } },
-        delegatedTo: { include: { delegator: true } }
     };
-    
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: userInclude
-    });
 
-    if (!user) return null;
+    const [currentUser, realUserWithDelegations] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: currentUserId },
+            include: userInclude
+        }),
+        prisma.user.findUnique({
+            where: { id: realUserId },
+            include: {
+                delegatedTo: { include: { delegator: true } }
+            }
+        })
+    ]);
+
+    if (!currentUser || !realUserWithDelegations) return null;
     
-    if (user.status === 'inactive' && !user.mustChangePassword) {
+    if (currentUser.status === 'inactive' && !currentUser.mustChangePassword) {
         return null;
     }
 
+    const finalUser: LoggedInUser = {
+        ...currentUser,
+        delegatedTo: realUserWithDelegations.delegatedTo, // Always use the real user's delegatedTo list
+    };
+    
     if (sessionUser.isDelegated) {
-        return {
-            ...user,
-            actingUser: sessionUser.realUser,
-            delegationPermissions: sessionUser.delegationPermissions,
-        };
+        finalUser.actingUser = sessionUser.realUser;
+        finalUser.delegationPermissions = sessionUser.delegationPermissions;
     }
 
-    return user;
+    return finalUser;
 }
 
 
