@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -76,7 +77,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
           { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
           { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
-          { href: "/dashboard/about", icon: <Info />, label: "About", active: pathname === '/dashboard/about', visible: !user.actingUser },
           { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]),
