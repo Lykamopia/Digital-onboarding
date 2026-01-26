@@ -353,7 +353,10 @@ export async function markAsRead(memoId: string) {
         where: { id: memoId },
         include: {
             activity: {
-                where: { actorId: actorId, action: { in: ['viewed', 'acknowledged'] } }
+                where: { actorId: actorId, action: 'viewed' }
+            },
+            acknowledgedBy: {
+                where: { id: user.id }
             },
             to: { select: { id: true } },
             cc: { select: { id: true } },
@@ -373,7 +376,7 @@ export async function markAsRead(memoId: string) {
         });
 
         const { acknowledgementMode } = await getGeneralSettings();
-        const hasAcknowledged = memo.activity.some(a => a.action === 'acknowledged');
+        const hasAcknowledged = memo.acknowledgedBy.length > 0;
 
         if (acknowledgementMode === 'auto' && !hasAcknowledged) {
             const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
@@ -428,13 +431,18 @@ export async function markAllAsReadForUser() {
     if (unreadMemos.length === 0) {
         return { success: true, count: 0 };
     }
+    
+    let details = 'Marked as read via "Mark all as read"';
+    if (user.actingUser) {
+        details = `Marked as read by **${user.actingUser.name}** on behalf of **${user.name}** via "Mark all as read".`;
+    }
 
     await prisma.activity.createMany({
         data: unreadMemos.map(memo => ({
             memoId: memo.id,
             actorId: actorId,
             action: 'viewed',
-            details: 'Marked as read via "Mark all as read"'
+            details: details
         }))
     });
 
@@ -570,6 +578,15 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     const isScheduled = validatedData.scheduledFor && validatedData.scheduledFor > new Date();
     const newReferenceNumber = await generateReferenceNumber(user);
     
+    const actionVerb = isScheduled ? 'scheduled' : 'sent';
+    let activityDetails = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} to recipients.`;
+    if (user.actingUser) {
+      activityDetails = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} by **${user.actingUser.name}** on behalf of **${user.name}**.`;
+    }
+    if (isScheduled) {
+        activityDetails += ` for ${validatedData.scheduledFor?.toLocaleString()}`;
+    }
+
     const newMemoData: any = {
         memo_reference_number: newReferenceNumber,
         fromId: user.id,
@@ -581,7 +598,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
         body: validatedData.body,
         status: isScheduled ? 'scheduled' : 'sent',
         attachments: { create: validatedData.attachments.map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
-        activity: { create: [{ actorId: actorId, action: isScheduled ? 'scheduled' : 'sent', details: isScheduled ? `Scheduled on ${validatedData.scheduledFor?.toLocaleString()}` : `Sent to recipients.` }] },
+        activity: { create: [{ actorId: actorId, action: actionVerb, details: activityDetails }] },
         replyToId: validatedData.replyTo,
         assignedFromId: validatedData.assignFrom,
         scheduledFor: validatedData.scheduledFor,
@@ -606,14 +623,22 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     
     if (validatedData.assignFrom) {
         const recipients = validatedData.to.map(id => newMemo.to.find(u => u.id === id)?.name || 'Unknown').join(', ');
+        
+        let assignDetails = `Assigned to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`;
+        let ackDetails = `Acknowledged receipt of the memo by assigning it.`;
+        if (user.actingUser) {
+            assignDetails = `Assigned by **${user.actingUser.name}** on behalf of **${user.name}** to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}`;
+            ackDetails = `Acknowledged by **${user.actingUser.name}** on behalf of **${user.name}** by assigning the memo.`;
+        }
+
         await prisma.memo.update({
             where: { id: validatedData.assignFrom },
             data: {
                 acknowledgedBy: { connect: { id: user.id } },
                 activity: {
                     create: [
-                        { actorId: actorId, action: 'assigned', details: `Assigned to ${recipients}.\n<b>Remark:</b> ${newMemo.body.split('<hr>')[0]}` },
-                        { actorId: actorId, action: 'acknowledged', details: 'Acknowledged receipt of the memo by assigning it.' }
+                        { actorId: actorId, action: 'assigned', details: assignDetails },
+                        { actorId: actorId, action: 'acknowledged', details: ackDetails }
                     ]
                 }
             }
@@ -621,10 +646,14 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     }
 
     if (validatedData.replyTo) {
+        let replyDetails = `Replied to this memo. See memo ${newMemo.memo_reference_number}`;
+        if (user.actingUser) {
+            replyDetails = `Replied by **${user.actingUser.name}** on behalf of **${user.name}**. See memo ${newMemo.memo_reference_number}`;
+        }
         await prisma.memo.update({
             where: { id: validatedData.replyTo },
             data: {
-                activity: { create: { actorId: actorId, action: 'replied', details: `Replied to this memo. See memo ${newMemo.memo_reference_number}` } }
+                activity: { create: { actorId: actorId, action: 'replied', details: replyDetails } }
             }
         });
     }
@@ -802,9 +831,14 @@ export async function acknowledgeMemo(memoId: string): Promise<{ success: boolea
   
   const actorId = user.actingUser ? user.actingUser.id : user.id;
 
+  let ackDetails = 'Acknowledged receipt of the memo.';
+  if (user.actingUser) {
+    ackDetails = `Acknowledged by **${user.actingUser.name}** on behalf of **${user.name}**.`;
+  }
+
   const updateData: any = {
     acknowledgedBy: { connect: { id: user.id } },
-    activity: { create: { actorId: actorId, action: 'acknowledged', details: 'Acknowledged receipt of the memo.' } },
+    activity: { create: { actorId: actorId, action: 'acknowledged', details: ackDetails } },
   };
   
   if (isDirectRecipient) {
@@ -824,6 +858,12 @@ export async function archiveMemo(memoId: string, archive: boolean) {
 
   const actorId = user.actingUser ? user.actingUser.id : user.id;
 
+  const actionVerb = archive ? 'archived' : 'unarchived';
+  let details = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} the memo.`;
+  if (user.actingUser) {
+      details = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} by **${user.actingUser.name}** on behalf of **${user.name}**.`;
+  }
+
   const data = archive ? 
     { archivedBy: { connect: { id: user.id } } } :
     { archivedBy: { disconnect: { id: user.id } } };
@@ -832,7 +872,7 @@ export async function archiveMemo(memoId: string, archive: boolean) {
       where: { id: memoId },
       data: {
           ...data,
-          activity: { create: { actorId: actorId, action: archive ? 'archived' : 'unarchived', details: archive ? 'Archived the memo.' : 'Unarchived the memo.' } }
+          activity: { create: { actorId: actorId, action: actionVerb, details: details } }
       }
   });
 
@@ -1442,7 +1482,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             
             const token = randomBytes(32).toString('hex');
             const hashedToken = createHash('sha256').update(token).digest('hex');
-            const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+            const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
 
             await prisma.passwordResetToken.upsert({
                 where: { email: newUser.email! },
@@ -1677,5 +1717,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 }
     
 
+
+    
 
     
