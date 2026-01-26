@@ -34,18 +34,22 @@ export function UserNav({ user }: { user: User }) {
 
   const handleSwitchAccount = async (delegatorId: string) => {
     toast.loading("Switching accounts...", { id: 'account-switch' });
-    await update({ switch_to_delegator_id: delegatorId });
-    router.refresh();
-    router.push('/dashboard/inbox');
-    toast.success("Switched successfully!", { id: 'account-switch' });
+    const res = await update({ switch_to_delegator_id: delegatorId, redirect: false });
+    if (res?.ok) {
+        window.location.href = '/dashboard/inbox';
+    } else {
+        toast.error("Failed to switch accounts.", { id: 'account-switch' });
+    }
   }
 
   const handleReturnToOwnAccount = async () => {
     toast.loading("Returning to your account...", { id: 'account-switch' });
-    await update({ stop_delegation: true });
-    router.refresh();
-    router.push('/dashboard/inbox');
-    toast.success("Welcome back!", { id: 'account-switch' });
+    const res = await update({ stop_delegation: true, redirect: false });
+    if (res?.ok) {
+        window.location.href = '/dashboard/inbox';
+    } else {
+        toast.error("Failed to return to your account.", { id: 'account-switch' });
+    }
   }
 
 
