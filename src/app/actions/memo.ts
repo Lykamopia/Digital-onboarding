@@ -26,7 +26,9 @@ async function hasPermission(permission: Permission | Permission[]): Promise<Log
     // For delegated sessions, all permission checks happen inside the actions themselves.
     // The `hasPermission` function is for standard role-based access control.
     if (user.actingUser) {
-        throw new Error("hasPermission check is not supported for delegated sessions. Use specific delegation permission checks within actions.");
+        // This function is for RBAC, delegation checks are done in the actions.
+        // We return the user object to allow the action to proceed to its specific delegation check.
+        return user;
     }
 
     const userPermissions = user.role?.permissions ? user.role.permissions.split(',') : [];
@@ -171,7 +173,6 @@ export async function getDashboardData(tab: string, query: string, category: str
         where.AND.push({ flaggedBy: { some: { id: userId } } });
     }
     
-    // In a delegated session, we must also ensure that the user can see these memos.
     if(user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
       return []; // If no view permission, return nothing.
     }
@@ -526,19 +527,9 @@ async function generateReferenceNumber(user: User): Promise<string> {
 }
 
 
-export async function sendMemo(formData: FormData) {
+export async function sendMemo(formData: FormData): Promise<{ success: boolean; error?: string; memo?: Memo; }> {
     const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
-
-    if (user.actingUser) {
-        if (!user.delegationPermissions?.includes('delegation:send')) {
-            throw new Error("Access Denied: You do not have permission to send memos on behalf of this user.");
-        }
-    } else {
-        await hasPermission('manage_memos');
-    }
-
-    const actorId = user.actingUser ? user.actingUser.id : user.id;
+    if (!user) return { success: false, error: "Not authenticated" };
 
     const to = formData.getAll('to[]') as string[];
     const cc = formData.getAll('cc[]') as string[];
@@ -558,10 +549,23 @@ export async function sendMemo(formData: FormData) {
     const validation = memoSchema.safeParse(data);
     if (!validation.success) {
         console.error(validation.error.flatten().fieldErrors);
-        return { error: 'Invalid memo data', details: validation.error.flatten().fieldErrors };
+        return { success: false, error: 'Invalid memo data', details: validation.error.flatten().fieldErrors };
     }
     
     const validatedData = validation.data;
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
+    const isReplyingOrAssigning = validatedData.replyTo || validatedData.assignFrom;
+    if (user.actingUser) {
+        const requiredPermission = isReplyingOrAssigning ? 'delegation:reply' : 'delegation:send';
+        if (!user.delegationPermissions?.includes(requiredPermission)) {
+            const action = isReplyingOrAssigning ? 'reply to or assign' : 'send';
+            return { success: false, error: `Access Denied: You do not have permission to ${action} memos.` };
+        }
+    } else {
+        await hasPermission('manage_memos');
+    }
+
     const isScheduled = validatedData.scheduledFor && validatedData.scheduledFor > new Date();
     const newReferenceNumber = await generateReferenceNumber(user);
     
@@ -653,20 +657,22 @@ export async function sendMemo(formData: FormData) {
     return { success: true, memo: newMemo };
 }
 
-export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null) {
+export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null): Promise<{ success: boolean; error?: string; draft?: Memo; }> {
     const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
+    if (!user) return { success: false, error: "Not authenticated" };
 
+    const isReplyingOrAssigning = data.replyToId || data.assignedFromId;
     if (user.actingUser) {
-        if (!user.delegationPermissions?.includes('delegation:draft')) {
-            throw new Error("Access Denied: You do not have permission to draft memos on behalf of this user.");
+        const requiredPermission = isReplyingOrAssigning ? 'delegation:reply' : 'delegation:draft';
+        if (!user.delegationPermissions?.includes(requiredPermission)) {
+            const action = isReplyingOrAssigning ? 'draft replies or assignments' : 'create drafts';
+            return { success: false, error: `Access Denied: You do not have permission to ${action}.` };
         }
     } else {
         await hasPermission('manage_memos');
     }
 
     const fromId = user.id;
-
     const attachmentsData = { create: (data.attachments || []).map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) };
 
     if (draftId) {
@@ -688,7 +694,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             replyToId: data.replyToId, assignedFromId: data.assignedFromId,
         };
         const updatedDraft = await prisma.memo.update({ where: { id: draftId }, data: payload });
-        return updatedDraft;
+        return { success: true, draft: updatedDraft };
     } else {
         const payload: any = {
             fromId, subject: data.subject || '', body: data.body || '',
@@ -700,7 +706,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             replyToId: data.replyToId, assignedFromId: data.assignedFromId,
         };
         const newDraft = await prisma.memo.create({ data: payload });
-        return newDraft;
+        return { success: true, draft: newDraft };
     }
 }
 
@@ -766,24 +772,24 @@ export async function duplicateMemo(memoId: string) {
 }
 
 
-export async function acknowledgeMemo(memoId: string) {
+export async function acknowledgeMemo(memoId: string): Promise<{ success: boolean; error?: string }> {
   const user = await getLoggedInUser();
-  if (!user) throw new Error("Not authenticated");
+  if (!user) return { success: false, error: "Not authenticated" };
   
   if (user.actingUser) {
     if (!user.delegationPermissions?.includes('delegation:acknowledge')) {
-      throw new Error("Access Denied: You do not have permission to acknowledge memos on behalf of this user.");
+      return { success: false, error: "Access Denied: You do not have permission to acknowledge memos on behalf of this user." };
     }
   }
 
   const memo = await getMemo(memoId);
-  if (!memo) return;
+  if (!memo) return { success: false, error: "Memo not found." };
   
   const isDirectRecipient = memo.to.some(u => u.id === user.id) || memo.current_holder?.id === user.id;
   const isCcRecipient = memo.cc.some(u => u.id === user.id);
 
   if (!isDirectRecipient && !isCcRecipient) {
-    throw new Error("You are not a recipient of this memo and cannot acknowledge it.");
+    return { success: false, error: "You are not a recipient of this memo and cannot acknowledge it." };
   }
   
   const actorId = user.actingUser ? user.actingUser.id : user.id;
@@ -801,6 +807,7 @@ export async function acknowledgeMemo(memoId: string) {
 
   revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
+  return { success: true };
 }
 
 export async function archiveMemo(memoId: string, archive: boolean) {
@@ -886,7 +893,7 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
         return null;
     }
     const sessionUser = session.user as any;
-    const userId = sessionUser.id;
+    const userId = sessionUser.isDelegated ? sessionUser.id : sessionUser.id;
 
     if (!userId) return null;
     
@@ -908,7 +915,6 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     if (!user) return null;
     
-    // Do not return user if they are inactive, unless they need to change their password
     if (user.status === 'inactive' && !user.mustChangePassword) {
         return null;
     }

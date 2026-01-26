@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star } from 'lucide-react';
 
-import type { User, Permission, MemoWithActivity } from '@/lib/types';
+import type { User, Permission, MemoWithActivity, LoggedInUser } from '@/lib/types';
 
 import {
   Sidebar,
@@ -28,7 +28,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Breadcrumb } from './breadcrumb';
 
 interface DashboardContentWrapperProps {
-  user: (User & { role: { permissions: Permission[] } }) | null;
+  user: LoggedInUser | null;
   children: React.ReactNode;
 }
 
@@ -44,6 +44,10 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
+
+  const canCreateMemo = user.actingUser
+    ? user.delegationPermissions?.includes('delegation:send') || user.delegationPermissions?.includes('delegation:draft')
+    : user.role?.permissions.includes('manage_memos');
 
   const navItems = [
     ...(user.mustChangePassword
@@ -123,7 +127,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
-            {user?.role.permissions.includes('manage_memos' as Permission) && !user.mustChangePassword && (
+            {canCreateMemo && !user.mustChangePassword && (
               <Link href="/dashboard/new">
                 <Button>
                   <FilePlus className="mr-2 h-4 w-4" />
