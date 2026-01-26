@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType } from '@/lib/types';
+import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType, LoggedInUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
@@ -104,13 +105,12 @@ export default function NewMemoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Use state for draft ID to prevent issues with stale closures in callbacks
   const [draftId, setDraftId] = useState<string | null>(searchParams.get('id'));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isInitializingRef = useRef(true);
 
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
   const [previewMemo, setPreviewMemo] = useState<MemoWithActivity | null>(null);
@@ -129,17 +129,36 @@ export default function NewMemoPage() {
 
   const isReplying = !!replyTo;
   const isAssigning = !!assignFrom;
-  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isAssigning && !body.trim()) || ((isReplying || isAssigning) && !replyBody.trim());
+
+  const canSend = loggedInUser?.actingUser ? (isReplying || isAssigning ? loggedInUser.delegationPermissions?.includes('delegation:reply') : loggedInUser.delegationPermissions?.includes('delegation:send')) : true;
+  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isAssigning && !body.trim()) || ((isReplying || isAssigning) && !replyBody.trim()) || !canSend;
+
 
   useEffect(() => {
+    async function fetchUserAndCheckPermissions() {
+        const user = await getLoggedInUser();
+        setLoggedInUser(user as LoggedInUser);
+        if (user?.actingUser) {
+            const canAccess = user.delegationPermissions?.includes('delegation:send') || user.delegationPermissions?.includes('delegation:draft');
+            if (!canAccess) {
+                toast.error("Access Denied", { description: "You do not have permission to compose memos on behalf of this user." });
+                router.replace('/dashboard/inbox');
+            }
+        }
+    }
+    fetchUserAndCheckPermissions();
+  }, [router]);
+  
+  useEffect(() => {
     async function fetchData() {
-        const [user, allUsers, allLabels] = await Promise.all([getLoggedInUser(), getUsers(), getLabels()]);
-        setLoggedInUser(user);
-        setUsers(allUsers);
+        const [users, allLabels] = await Promise.all([getUsers(), getLabels()]);
+        setUsers(users);
         setAllLabels(allLabels);
     }
-    fetchData();
-  }, []);
+    if (loggedInUser) {
+        fetchData();
+    }
+  }, [loggedInUser]);
 
   const availableUsers = useMemo(() => {
     if (!loggedInUser) return users;
@@ -212,24 +231,23 @@ export default function NewMemoPage() {
     };
     
     setIsSaving(true);
-    try {
-        const savedDraft = await saveDraft(draftData, draftId);
-        
-        if (savedDraft && !draftId) {
-            setDraftId(savedDraft.id); // Set the new draft ID in state
-            const newParams = new URLSearchParams(window.location.search);
-            newParams.set('id', savedDraft.id);
-            router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
-        }
-        
-        setIsDraft(true);
-        setLastSaved(new Date().toLocaleTimeString());
-    } catch (error) {
-        console.error("Failed to save draft:", error);
-    } finally {
-        // Use a timeout to give a visual "saving" feedback
-        setTimeout(() => setIsSaving(false), 500);
+    const result = await saveDraft(draftData, draftId);
+    if (result.success) {
+      if (result.draft && !draftId) {
+          setDraftId(result.draft.id);
+          const newParams = new URLSearchParams(window.location.search);
+          newParams.set('id', result.draft.id);
+          router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
+      }
+      setIsDraft(true);
+      setLastSaved(new Date().toLocaleTimeString());
+    } else if (result.error) {
+      toast.error("Could not save draft", { description: result.error });
     }
+    
+    // Use a timeout to give a visual "saving" feedback
+    setTimeout(() => setIsSaving(false), 500);
+
   }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, assignFrom, router, isReplying, isAssigning]);
 
   const debouncedSave = useDebouncedCallback(saveDraftCallback, 2000);
@@ -376,6 +394,8 @@ export default function NewMemoPage() {
           errorDescription = "Body is required.";
         } else if ((isReplying || isAssigning) && !replyBody.trim()) {
           errorDescription = "Your message/remark is required.";
+        } else if (!canSend) {
+          errorDescription = "You do not have permission to send memos.";
         }
         
         toast.error('Cannot Send Memo', { description: errorDescription });
@@ -740,3 +760,5 @@ export default function NewMemoPage() {
     </div>
   );
 }
+
+    

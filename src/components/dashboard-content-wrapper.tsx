@@ -47,9 +47,12 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
   const handleReturnToOwnAccount = async () => {
     toast.loading("Returning to your account...", { id: 'account-switch' });
-    await updateSession({ stop_delegation: true });
-    router.refresh();
-    toast.success("Welcome back!", { id: 'account-switch' });
+    const res = await updateSession({ stop_delegation: true });
+    if (res) {
+        window.location.href = '/dashboard/inbox';
+    } else {
+        toast.error("Failed to return to your account.", { id: 'account-switch' });
+    }
   }
 
 
@@ -68,11 +71,11 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
         ]
       : [
-          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
-          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
+          { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:draft') },
+          { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
+          { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: !user.actingUser || user.delegationPermissions?.includes('delegation:view') },
           { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
           { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) && !user.actingUser },
           { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
@@ -176,3 +179,5 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     </>
   );
 }
+
+    

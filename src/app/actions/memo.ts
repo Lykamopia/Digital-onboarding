@@ -84,6 +84,10 @@ export async function getDashboardData(tab: string, query: string, category: str
     if (user.mustChangePassword) {
       return [];
     }
+
+    if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
+      return []; // If no view permission, return nothing.
+    }
     
     const userId = user.id;
 
@@ -661,11 +665,11 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: "Not authenticated" };
 
-    const isReplyingOrAssigning = data.replyToId || data.assignedFromId;
+    const isReplyingOrAssigningDraft = data.replyToId || data.assignedFromId;
     if (user.actingUser) {
-        const requiredPermission = isReplyingOrAssigning ? 'delegation:reply' : 'delegation:draft';
+        const requiredPermission = isReplyingOrAssigningDraft ? 'delegation:reply' : 'delegation:draft';
         if (!user.delegationPermissions?.includes(requiredPermission)) {
-            const action = isReplyingOrAssigning ? 'draft replies or assignments' : 'create drafts';
+            const action = isReplyingOrAssigningDraft ? 'draft replies or assignments' : 'create drafts';
             return { success: false, error: `Access Denied: You do not have permission to ${action}.` };
         }
     } else {
@@ -705,7 +709,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
             status: 'draft' as const, memo_reference_number: `DRAFT-${Date.now()}`,
             replyToId: data.replyToId, assignedFromId: data.assignedFromId,
         };
-        const newDraft = await prisma.memo.create({ data: payload });
+        const newDraft = await prisma.memo.create({ data: payload, include: { to: true, cc: true, labels: true, attachments: true } });
         return { success: true, draft: newDraft };
     }
 }
@@ -713,6 +717,10 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
 export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
+
+    if (user.actingUser && !user.delegationPermissions?.includes('delegation:reply')) {
+        throw new Error("Access Denied: You do not have permission to draft replies or assignments.");
+    }
 
     const whereClause: any = { fromId: user.id, status: 'draft' };
     if (action === 'reply') whereClause.replyToId = originalMemoId;
@@ -750,13 +758,16 @@ export async function deleteDraft(draftId: string) {
 }
 
 export async function duplicateMemo(memoId: string) {
+    const user = await getLoggedInUser();
+    if (!user) throw new Error("Not authenticated");
+
+    if (user.actingUser && !user.delegationPermissions?.includes('delegation:draft')) {
+      throw new Error("Access Denied: You do not have permission to duplicate memos.");
+    }
     await hasPermission('manage_memos');
 
     const originalMemo = await prisma.memo.findUnique({ where: { id: memoId }, include: { to: true, cc: true, attachments: true, labels: true }});
     if (!originalMemo) throw new Error("Memo not found");
-
-    const user = await getLoggedInUser();
-    if (!user) throw new Error("Not authenticated");
 
     const newDraft = await prisma.memo.create({
         data: {
@@ -1600,3 +1611,5 @@ export async function removeDelegate(delegationId: string) {
     await prisma.delegation.delete({ where: { id: delegationId } });
     revalidatePath('/dashboard/profile');
 }
+
+    

@@ -1,8 +1,9 @@
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import type { MemoWithActivity, User } from "@/lib/types"
+import type { MemoWithActivity, User, LoggedInUser } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -34,7 +35,7 @@ interface MemoItemProps {
     memo: MemoWithActivity;
     selectedMemoId: string | null;
     onSelectMemo: (id: string) => void;
-    loggedInUser: User | null;
+    loggedInUser: LoggedInUser | null;
     tab: string;
     onUpdate: () => void;
     setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>;
@@ -102,14 +103,22 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     }
 
     const handleDuplicate = async (memoId: string) => {
-        await duplicateMemo(memoId);
-        toast.success("Memo Duplicated", { description: "A new draft has been created." });
+        try {
+            await duplicateMemo(memoId);
+            toast.success("Memo Duplicated", { description: "A new draft has been created." });
+        } catch(e: any) {
+            toast.error("Duplication Failed", { description: e.message });
+        }
     }
 
     const handleAcknowledge = async (memoId: string) => {
-        await acknowledgeMemo(memoId);
-        toast.success("Memo Acknowledged");
-        onUpdate();
+        const result = await acknowledgeMemo(memoId);
+        if (result.success) {
+            toast.success("Memo Acknowledged");
+            onUpdate();
+        } else {
+            toast.error("Acknowledgement Failed", { description: result.error });
+        }
     }
     
     const handleMarkAsRead = async (memo: MemoWithActivity) => {
@@ -193,9 +202,10 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
-        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
-        const canAssign = isDirectRecipient;
+        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+        const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+
 
         if (tab === 'drafts') {
             return (
@@ -350,10 +360,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser.id))) && memoStatus !== 'acknowledged';
-        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id;
-        const canAssign = isDirectRecipient;
-        const canDuplicate = loggedInUser.role.permissions.includes('manage_memos');
+        const canAcknowledge = (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+        const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+        const canDuplicate = (!loggedInUser.actingUser && loggedInUser.role?.permissions.includes('manage_memos')) || (loggedInUser.actingUser && loggedInUser.delegationPermissions?.includes('delegation:draft'));
+
         const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
         const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
         
@@ -522,7 +533,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     )
 }
 
-const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: User | null }) => {
+const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: LoggedInUser | null }) => {
     
     if (!loggedInUser) return null;
     
@@ -571,7 +582,7 @@ interface MemoListProps {
   isExpanded: boolean
   tab: string
   onUpdate: () => void;
-  user: User | null;
+  user: LoggedInUser | null;
 }
 
 export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpanded, tab, onUpdate, user: loggedInUser }: MemoListProps) {
@@ -613,3 +624,5 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     </ScrollArea>
   )
 }
+
+    

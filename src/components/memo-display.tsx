@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -23,7 +24,7 @@ import Image from 'next/image';
 import { SignaturePreview } from './signature-preview';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType } from '@/lib/types';
+import type { MemoWithActivity, User, Attachment, Role, Label as LabelType, AcknowledgementType, LoggedInUser } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,7 +154,7 @@ const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { 
 
 export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setMemo, onBack }: MemoDisplayProps) {
   const router = useRouter();
-  const [loggedInUser, setLoggedInUser] = React.useState<(User & { role: { permissions: string[] } }) | null>(null);
+  const [loggedInUser, setLoggedInUser] = React.useState<LoggedInUser | null>(null);
   const { settings } = useSettings();
   const [isAcknowledging, setIsAcknowledging] = React.useState(false);
 
@@ -170,37 +171,44 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
 
     setIsAcknowledging(true);
 
-    // Optimistic UI Update
-    const newActivity = {
-        id: `temp-ack-${Date.now()}`,
-        actorId: loggedInUser.id,
-        action: 'acknowledged' as const,
-        actor: loggedInUser,
-        details: 'Acknowledged receipt of this memo.',
-        timestamp: new Date().toISOString()
-    };
-    const updatedMemo = {
-        ...memo,
-        acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
-        activity: [...memo.activity, newActivity]
-    };
-    setMemo?.(updatedMemo);
+    const result = await acknowledgeMemo(memo.id);
 
+    if (result.success) {
+      // Optimistic UI Update
+      const newActivity = {
+          id: `temp-ack-${Date.now()}`,
+          actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
+          action: 'acknowledged' as const,
+          actor: loggedInUser.actingUser || loggedInUser,
+          details: 'Acknowledged receipt of this memo.',
+          timestamp: new Date().toISOString()
+      };
+      const updatedMemo = {
+          ...memo,
+          acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
+          activity: [...memo.activity, newActivity]
+      };
+      setMemo?.(updatedMemo);
+      toast.success("Memo Acknowledged", {
+          description: "You have acknowledged receipt of this memo."
+      });
+    } else {
+        toast.error("Acknowledgement Failed", { description: result.error });
+    }
 
-    await acknowledgeMemo(memo.id);
-    toast.success("Memo Acknowledged", {
-        description: "You have acknowledged receipt of this memo."
-    });
     setIsAcknowledging(false);
-    // onUpdate(); // We don't need to force a full refresh anymore
   }
   
   const handleDuplicate = async () => {
     if (!memo) return;
-    await duplicateMemo(memo.id);
-    toast.success("Memo Duplicated", {
-        description: "A new draft has been created from this memo."
-    });
+    try {
+        await duplicateMemo(memo.id);
+        toast.success("Memo Duplicated", {
+            description: "A new draft has been created from this memo."
+        });
+    } catch(e: any) {
+        toast.error("Duplication Failed", { description: e.message });
+    }
   }
 
   const handleArchive = async () => {
@@ -281,11 +289,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
-  const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged;
-  const canReply = isDirectRecipient && !isSender;
+  const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+  const canReply = isDirectRecipient && !isSender && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
   const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
-  const canAssign = isDirectRecipient;
-  const canDuplicate = loggedInUser?.role.permissions.includes('manage_memos');
+  const canAssign = isDirectRecipient && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+  const canDuplicate = !loggedInUser?.actingUser ? loggedInUser?.role.permissions.includes('manage_memos') : loggedInUser?.delegationPermissions?.includes('delegation:draft');
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
   const useSignature = settings.acknowledgementType === 'SIGNATURE';
@@ -592,5 +600,7 @@ interface MemoDisplayProps {
   setMemo?: (memo: MemoWithActivity) => void;
   onBack?: () => void;
 }
+
+    
 
     

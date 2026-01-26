@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useNotification } from "@/components/notification-provider"
 import { getLoggedInUser } from "../actions/memo"
-import type { Permission, User, MemoWithActivity } from "@/lib/types"
+import type { Permission, User, MemoWithActivity, LoggedInUser } from "@/lib/types"
 import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { HoneycombLoader } from "@/components/honeycomb-loader";
 import { UserProfileLoader } from "@/components/user-profile-loader";
@@ -20,7 +20,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { OnboardingTour } from "@/components/onboarding-tour";
 
 
-function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permission[] } }) | null }) {
+function WebSocketHandler({ user }: { user: LoggedInUser | null }) {
     const { addNotification } = useNotification();
 
     useEffect(() => {
@@ -83,7 +83,7 @@ function WebSocketHandler({ user }: { user: (User & { role: { permissions: Permi
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  user: (User & { role: { permissions: Permission[] } }) | null;
+  user: LoggedInUser | null;
 }
 
 function DashboardLayoutClient({ children, user }: DashboardLayoutProps) {
@@ -142,7 +142,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [user, setUser] = React.useState<(User & { role: { permissions: Permission[] } }) | null>(null);
+  const [user, setUser] = React.useState<LoggedInUser | null>(null);
   const [loading, setLoading] = React.useState(true);
   const { initializeNotifications } = useNotification();
 
@@ -182,3 +182,5 @@ export default function DashboardLayout({
     </Suspense>
   )
 }
+
+    

@@ -5,7 +5,7 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from "next/navigation"
-import type { MemoWithActivity, User, Label as LabelType, DateRange } from "@/lib/types"
+import type { MemoWithActivity, User, Label as LabelType, DateRange, LoggedInUser } from "@/lib/types"
 import { MemoList } from "@/components/memo-list"
 import { MemoDisplay } from "@/components/memo-display"
 import { Card } from "@/components/ui/card"
@@ -25,7 +25,7 @@ import { MemoEmptyIllustration } from "@/components/memo-empty-illustration"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { FavoritesEmptyIllustration } from "@/components/favorites-empty-illustration"
 
-function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: User | null; }) {
+function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: MemoWithActivity[]; user: LoggedInUser | null; }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -93,15 +93,17 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
   const markMemoAsReadInState = useCallback((memoId: string) => {
     if (!user) return;
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
     const updateUser = (m: MemoWithActivity | null) => {
-        if (!m || m.id !== memoId || m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+        if (!m || m.id !== memoId || m.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
             return m;
         }
         const newActivity = {
             id: `temp-view-${Date.now()}`,
-            actorId: user.id,
+            actorId: actorId,
             action: 'viewed' as const,
-            actor: user,
+            actor: user.actingUser || user,
             details: '',
             timestamp: new Date().toISOString()
         };
@@ -125,13 +127,14 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     
     const handleMarkAllAsRead = () => {
         if (!user) return;
+        const actorId = user.actingUser ? user.actingUser.id : user.id;
         setMemos(prevMemos => prevMemos.map(m => {
-            if (!m.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+            if (!m.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
                  const newActivity = {
                     id: `temp-view-${Date.now()}`,
-                    actorId: user.id,
+                    actorId: actorId,
                     action: 'viewed' as const,
-                    actor: user,
+                    actor: user.actingUser || user,
                     details: '',
                     timestamp: new Date().toISOString()
                 };
@@ -154,9 +157,10 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const handleSelectMemo = useCallback((id: string) => {
     const memo = memos.find(m => m.id === id);
     if (!memo || !user) return;
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
 
     // Optimistic UI update for 'read' status
-    if (tab === 'inbox' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+    if (tab === 'inbox' && !memo.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
       // Fire-and-forget the server action, but update the local state optimistically
       markAsRead(id);
       markMemoAsReadInState(id);
@@ -193,7 +197,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         const memoToSelect = initialMemos.find(m => m.id === memoIdFromUrl);
         if (memoToSelect) {
           setSelectedMemo(memoToSelect);
-          if (user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+          const actorId = user?.actingUser ? user.actingUser.id : user!.id;
+          if (user && memoToSelect.status !== 'draft' && !memoToSelect.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
             markAsRead(memoToSelect.id);
           }
         }
@@ -241,9 +246,10 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
           const memo = memos.find(m => m.id === memoIdFromUrl);
           if (memo && memo.id !== selectedMemo?.id) {
               setSelectedMemo(memo);
+              const actorId = user?.actingUser ? user.actingUser.id : user!.id;
               // Mark as read if needed (only once)
               if (user && tab === 'inbox' && memo.status !== 'draft' && 
-                  !memo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+                  !memo.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
                   markAsRead(memo.id);
                   markMemoAsReadInState(memo.id);
               }
@@ -398,10 +404,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   )
 }
 
-export default function MainDashboard({ tab, initialMemos, user }: { tab: string, initialMemos: MemoWithActivity[], user: User | null }) {
+export default function MainDashboard({ tab, initialMemos, user }: { tab: string, initialMemos: MemoWithActivity[], user: LoggedInUser | null }) {
     return (
         <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><HoneycombLoader /></div>}>
             <DashboardContent tab={tab} initialMemos={initialMemos} user={user} />
         </Suspense>
     )
 }
+
+    
