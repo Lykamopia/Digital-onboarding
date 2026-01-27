@@ -101,7 +101,6 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
             .memo-details { background-color: #f9f9f9; border-left: 4px solid hsl(37, 100%, 48%); padding: 15px; margin: 20px 0; }
             .memo-details p { margin: 5px 0; font-size: 14px; }
             .button-container { text-align: center; margin: 30px 0; }
-            .button { display: inline-block; background-color: hsl(26, 61%, 36%); color: #ffffff !important; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; }
             .footer { padding: 20px; font-size: 12px; color: #777; text-align: center; background-color: #f1f1f1; }
         </style>
     </head>
@@ -124,7 +123,7 @@ async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | n
                             </div>
 
                             <div class="button-container">
-                                <a href="${memoUrl}" class="button">View Full Memo</a>
+                                <a href="${memoUrl}" style="display: inline-block; background-color: #9A4D1C; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">View Full Memo</a>
                             </div>
                             
                             <p>Thank you,</p>
@@ -164,7 +163,6 @@ function generateAuthEmailBody(title: string, content: string): string {
             .credentials { background-color: #f9f9f9; border-left: 4px solid hsl(37, 100%, 48%); padding: 15px; margin: 20px 0; }
             .credentials p { margin: 5px 0; font-size: 14px; }
             .button-container { text-align: center; margin: 30px 0; }
-            .button { display: inline-block; background-color: hsl(26, 61%, 36%); color: #ffffff !important; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; }
             .footer { padding: 20px; font-size: 12px; color: #777; text-align: center; background-color: #f1f1f1; }
             code { background-color: #eee; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
         </style>
@@ -203,7 +201,7 @@ export async function sendVerificationEmail({ to, name, token }: VerificationEma
         <p>An account has been created for you on the Nib Memo platform. To get started, please set your password by clicking the link below.</p>
         <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
-            <a href="${verificationLink}" class="button">Set Your Password</a>
+            <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Set Your Password</a>
         </div>
         <p>If you did not request this, please ignore this email.</p>
     `;
@@ -257,7 +255,7 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
         <p>We received a request to reset your password for the Nib Memo platform. You can reset your password by clicking the link below.</p>
         <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
-            <a href="${resetLink}" class="button">Reset Your Password</a>
+            <a href="${resetLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Your Password</a>
         </div>
         <p>If you did not request a password reset, you can safely ignore this email.</p>
     `;
