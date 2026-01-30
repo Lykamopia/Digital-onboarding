@@ -1,26 +1,26 @@
-# Nibtera Edir System - User Acceptance Testing (UAT) Plan
+# Nib Memo System - User Acceptance Testing (UAT) Plan
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This document outlines the User Acceptance Testing (UAT) plan for the Nibtera Edir System. Its purpose is to validate that the system meets the specified business requirements and is ready for production use by Edir members and administrators.
+This document outlines the User Acceptance Testing (UAT) plan for the Nib Memo System. Its purpose is to validate that the system meets the specified business requirements and is ready for production use by all users and administrators.
 
 ### 1.2 Scope
-This UAT plan covers all major features of the Nibtera Edir System, including:
+This UAT plan covers all major features of the Nib Memo System, including:
 - User Registration and Authentication.
-- Member Profile and Information Management.
-- Contribution Tracking and Payment.
-- Event Reporting and Claim Submission.
-- Administrative review and processing of claims.
-- Financial Dashboards and Reporting.
-- System Notifications and Announcements.
+- User Profile and Signature Management.
+- Memo Creation, Sending, and Distribution.
+- Memo Acknowledgment and Tracking.
+- Administrative review and management of users, roles, and settings.
+- System Dashboards and Reporting.
+- System Notifications and Alerts.
 
 ---
 
 ## 2. User Roles
 
--   **Member**: A standard registered user of the Edir. Can manage their profile, pay contributions, and submit claims.
--   **Admin/Committee**: A user with administrative privileges. Can manage members, contributions, claims, finances, and system settings.
+-   **User**: A standard registered user of the system. Can create, send, receive, and manage their own memos.
+-   **Admin**: A user with administrative privileges. Can manage users, roles, system-wide settings, and view all system activity.
 
 ---
 
@@ -30,35 +30,34 @@ This UAT plan covers all major features of the Nibtera Edir System, including:
 
 | Test ID | Role | Test Case Description | Expected Outcome |
 | :--- | :--- | :--- | :--- |
-| **AUTH-001** | New User | A new user attempts to register for the Edir. | User can fill out the registration form, submit it, and their account is created with a 'Pending Approval' status. |
-| **AUTH-002** | Admin | Admin logs in and navigates to the new member approval screen. | Admin can see the pending member and approve their registration. The member receives a notification. |
-| **AUTH-003** | Member | A registered member attempts to log in with valid credentials. | User is successfully logged in and redirected to their personal dashboard. |
-| **AUTH-004** | Member | A registered member attempts to log in with invalid credentials. | System displays a "Invalid credentials" error. |
-| **AUTH-005** | Member | A logged-in member navigates to their profile page. | Member can view their personal details, contribution history, and edit their profile information. |
+| **AUTH-001** | New User | A new user receives an invitation email and clicks the setup link. | User is directed to a secure page to set their password. |
+| **AUTH-002** | User | A registered user attempts to log in with valid credentials. | User is successfully logged in and redirected to their memo dashboard (Inbox). |
+| **AUTH-003** | User | A registered user attempts to log in with invalid credentials. | System displays a "Invalid credentials" error message. |
+| **AUTH-004** | User | A logged-in user navigates to their profile page. | User can view their personal details and organizational assignment. |
+| **AUTH-005** | User | A logged-in user uploads a new profile picture and digital signature. | The new images are displayed on the profile page and saved successfully. |
 
-### 3.2 Contributions & Payments
-
-| Test ID | Role | Test Case Description | Expected Outcome |
-| :--- | :--- | :--- | :--- |
-| **CON-001** | Admin | Admin sets the monthly contribution amount and schedule. | The new contribution rule is saved and applied to all active members. |
-| **CON-002** | Member | Member logs in and views their dashboard when a contribution is due. | The dashboard clearly shows the outstanding amount and provides a "Pay Now" button. |
-| **CON-003** | Member | Member clicks "Pay Now" and completes the payment process (simulated). | The contribution is marked as 'Paid'. The member's payment history is updated. A receipt is generated. |
-| **CON-004** | Admin | Admin views the financial dashboard. | The dashboard correctly reflects the newly paid contribution, updating the total funds. |
-
-### 3.3 Events & Claims Management
+### 3.2 Memo Creation & Workflow
 
 | Test ID | Role | Test Case Description | Expected Outcome |
 | :--- | :--- | :--- | :--- |
-| **CLAIM-001**| Member | Member experiences a qualifying event (e.g., wedding) and submits a new claim. | Member can fill out the claim form, select the event type, and upload supporting documents. The claim is submitted and appears in their history with a 'Pending' status. |
-| **CLAIM-002**| Admin | Admin logs in and views the claims dashboard. | The new claim from the member appears in the list of pending claims. |
-| **CLAIM-003**| Admin | Admin reviews the claim, verifies documents, and approves it. | The claim status changes to 'Approved'. A notification is sent to the member. The financial system is updated to schedule the disbursement. |
-| **CLAIM-004**| Admin | Admin reviews a claim and rejects it due to insufficient documentation. | Admin can add a reason for rejection. The claim status changes to 'Rejected'. The member is notified with the reason. |
-| **CLAIM-005**| Member | Member views their claim history after approval. | The claim status is 'Approved', and details of the payout are visible. |
+| **MEMO-001** | User | User creates a new memo, adds recipients, a subject, body content, and an attachment. | The memo is saved as a draft. The user can preview the memo. |
+| **MEMO-002** | User | User sends the created memo. | The memo is moved from 'Drafts' to 'Sent'. Recipients receive an in-app and email notification. |
+| **MEMO-003** | User (Recipient) | A recipient opens the new memo from their inbox. | The memo is displayed correctly. The memo is automatically marked as read. The 'Acknowledge' button is visible. |
+| **MEMO-004** | User (Recipient) | Recipient clicks the 'Acknowledge' button. | The memo is marked as acknowledged. The sender can see the acknowledgment in the memo's activity trail. |
+| **MEMO-005** | User | User replies to a received memo. | A new compose window opens with the subject pre-filled with 'Re:' and the original recipients populated. |
 
-### 3.4 Communication & Governance
+### 3.3 Administration
 
 | Test ID | Role | Test Case Description | Expected Outcome |
 | :--- | :--- | :--- | :--- |
-| **COMM-001** | Admin | Admin posts a new announcement for all members. | The announcement appears on the dashboard of all logged-in members. |
-| **COMM-002** | Member | Member logs in after an announcement is posted. | The new announcement is clearly visible on the member's dashboard. |
-| **GOV-001** | Member | Member navigates to the "Bylaws" or "Rules" page. | The member can view the complete, read-only text of the Edir's rules and regulations. |
+| **ADMIN-001** | Admin | Admin navigates to the 'Users' settings page. | Admin can view a list of all users, their roles, and status. |
+| **ADMIN-002** | Admin | Admin creates a new user role with a specific set of permissions. | The new role is saved and can be assigned to users. |
+| **ADMIN-003** | Admin | Admin navigates to the 'General' settings and changes the acknowledgment mode from manual to automatic. | The setting is saved. When a user reads a memo, it is now automatically acknowledged. |
+| **ADMIN-004** | Admin | Admin views the system audit log. | Admin can see a detailed timeline of all memo activities across the system. |
+
+### 3.4 Communication & UI
+
+| Test ID | Role | Test Case Description | Expected Outcome |
+| :--- | :--- | :--- | :--- |
+| **COMM-001** | User (Recipient) | User receives a new memo while logged in. | A toast notification appears. The notification bell shows an unread count. |
+| **UI-001** | User | User views their dashboard on a mobile device. | The layout is responsive and all primary functions (viewing, composing) are accessible. |

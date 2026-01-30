@@ -1,5 +1,5 @@
 {
-  "name": "nibtera-edir",
+  "name": "nib-memo",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -84,7 +84,7 @@
     "postcss": "^8",
     "prisma": "^5.17.0",
     "tailwindcss": "^3.4.1",
-    "tar": "^7.5.6",
+    "tar": "^6.2.1",
     "ts-node": "^10.9.2",
     "typescript": "^5"
   }
