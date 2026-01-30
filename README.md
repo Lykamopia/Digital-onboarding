@@ -1,5 +1,5 @@
-# Firebase Studio
+# Nibtera Edir System
 
-This is a NextJS starter in Firebase Studio.
+This is a starter project for the Nibtera Edir System, a modern application for managing community-based support associations.
 
-To get started, take a look at src/app/page.tsx.
+To get started, take a look at the design documents and the main application file at `src/app/page.tsx`.

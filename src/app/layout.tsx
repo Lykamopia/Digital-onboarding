@@ -8,8 +8,8 @@ import { headers } from 'next/headers';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
-  title: 'Nib Memo',
-  description: 'Internal memo management system',
+  title: 'Nibtera Edir',
+  description: 'Community-based support system',
 };
 
 export default function RootLayout({
