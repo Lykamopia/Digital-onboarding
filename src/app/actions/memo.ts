@@ -1003,7 +1003,7 @@ export async function archiveMemo(memoId: string, archive: boolean) {
 
 
 export async function getUsers() {
-    return await prisma.user.findMany({
+    const users = await prisma.user.findMany({
         include: {
             role: true,
             office: true,
@@ -1016,6 +1016,13 @@ export async function getUsers() {
             name: 'asc'
         }
     });
+
+    // Sanitize user data to remove password hashes before returning
+    users.forEach(user => {
+        (user as any).hashedPassword = null;
+    });
+
+    return users;
 }
 
 export async function getAllMemosForAdmin() {
@@ -1095,6 +1102,24 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     if (!currentUser || !realUserWithDelegations) return null;
     
+    // Sanitize passwords
+    (currentUser as any).hashedPassword = null;
+    if (currentUser.delegations) {
+        for (const delegation of currentUser.delegations) {
+            if (delegation.delegate) {
+                (delegation.delegate as any).hashedPassword = null;
+            }
+        }
+    }
+
+    if (realUserWithDelegations.delegatedTo) {
+        for (const delegation of realUserWithDelegations.delegatedTo) {
+            if (delegation.delegator) {
+                (delegation.delegator as any).hashedPassword = null;
+            }
+        }
+    }
+
     if (currentUser.status === 'inactive') {
         return null;
     }
@@ -1912,5 +1937,6 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 
 
