@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -144,7 +144,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="border-b">
-                <TabsList ref={tabsListRef} className="relative h-auto justify-start p-1">
+                <TabsList ref={tabsListRef} className="relative flex h-auto w-full justify-start p-1">
                     {visibleItems.map((item) => (
                         <TabsTrigger 
                             key={item.value} 

@@ -127,7 +127,7 @@ function SecurityLogViewer() {
                                         </TableCell>
                                         <TableCell>{log.actor?.name || log.actorId || 'System'}</TableCell>
                                         <TableCell className="font-mono">{log.ipAddress}</TableCell>
-                                        <TableCell>{formatTimestamp(log.createdAt)}</TableCell>
+                                        <TableCell>{formatTimestamp(log.timestamp)}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (
