@@ -60,6 +60,10 @@ export enum SecurityEvent {
 
   // Bulk Actions
   BULK_ARCHIVE_ACTION = 'BULK_ARCHIVE_ACTION',
+
+  // File Handling
+  FILE_UPLOAD_SUCCESS = 'FILE_UPLOAD_SUCCESS',
+  FILE_DOWNLOAD_SUCCESS = 'FILE_DOWNLOAD_SUCCESS',
 }
 
 type LogDetails = {
@@ -142,5 +146,3 @@ export async function logSecurityEvent(log: LogDetails) {
         console.error('Failed to write security log:', error);
     }
 }
-
-    
