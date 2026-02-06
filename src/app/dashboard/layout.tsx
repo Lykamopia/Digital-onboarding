@@ -1,6 +1,7 @@
 
 import React, { Suspense } from "react"
-import { getLoggedInUser, getGeneralSettings } from "@/app/actions/memo";
+import { getLoggedInUser } from "@/app/actions/memo";
+import { getGeneralSettings } from "@/app/actions/settings";
 import { DashboardLayoutClient } from "./dashboard-layout-client";
 import { SettingsProvider } from "@/components/settings-provider";
 import { HoneycombLoader } from "@/components/honeycomb-loader";

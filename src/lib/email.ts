@@ -2,6 +2,7 @@
 import nodemailer from 'nodemailer';
 import type { Memo, User, Role, Prisma } from './types';
 import prisma from './prisma';
+import { getEmailSettings, getGeneralSettings } from '@/app/actions/settings';
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
 const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1769246323397';
@@ -211,13 +212,13 @@ function generateAuthEmailBody(title: string, content: string): string {
 
 export async function sendVerificationEmail({ to, name, token }: VerificationEmailOptions) {
     const verificationLink = `${baseUrl}/set-password?token=${token}`;
-    const expirationHours = 1;
+    const expirationHours = 24;
 
     const title = "Welcome to Nib Memo! Please Verify Your Account";
     const content = `
         <p>Hello ${name},</p>
         <p>An account has been created for you on the Nib Memo platform. To get started, please set your password by clicking the link below.</p>
-        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
+        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Set Your Password</a>
         </div>

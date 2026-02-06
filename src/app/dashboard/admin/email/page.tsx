@@ -1,6 +1,6 @@
 
 import AdminEmailPageClient from './email-client';
-import { getEmailSettings } from '@/app/actions/memo';
+import { getEmailSettings } from '@/app/actions/settings';
 
 export default async function AdminEmailPage() {
     const initialSettings = await getEmailSettings();

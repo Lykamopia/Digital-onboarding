@@ -15,7 +15,7 @@ import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
-import { getGeneralSettings, getEmailSettings } from '../lib/settings';
+import { getGeneralSettings, getEmailSettings } from './settings';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -1014,12 +1014,12 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
             where: { id: currentUserId },
             include: userInclude
         }),
-        prisma.user.findUnique({
+        realUserId ? prisma.user.findUnique({
             where: { id: realUserId },
             include: {
                 delegatedTo: { include: { delegator: true } }
             }
-        })
+        }) : Promise.resolve(null),
     ]);
 
     if (!currentUser || !realUserWithDelegations) return null;
@@ -1741,18 +1741,3 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     return { success: true };
 }
     
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
