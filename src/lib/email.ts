@@ -1,7 +1,7 @@
 
 import nodemailer from 'nodemailer';
 import type { Memo, User, Role, Prisma } from './types';
-import { getEmailSettings, getGeneralSettings } from '@/lib/settings';
+import { getEmailSettings, getGeneralSettings } from './settings';
 import prisma from './prisma';
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
