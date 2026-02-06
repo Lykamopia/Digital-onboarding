@@ -89,6 +89,6 @@
     "typescript": "^5"
   },
   "overrides": {
-    "fast-xml-parser": "^4.4.0"
+    "fast-xml-parser": "4.4.0"
   }
 }
