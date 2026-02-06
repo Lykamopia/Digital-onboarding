@@ -37,7 +37,7 @@ import {
 import { deleteRole, saveRole } from "@/app/actions/memo";
 import type { Role, Permission } from "@/lib/types";
 import { toast } from "sonner";
-import { permissions } from "@/lib/data";
+import { permissions } from "@/lib/permissions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles, useUsers } from "../hooks";
 import { ChevronsLeft, ChevronsRight, PlusCircle, Trash2, Edit, Loader2 } from "lucide-react";
@@ -83,7 +83,7 @@ export default function RoleManagementPage() {
   useEffect(() => {
     if (isDialogOpen && editingRole) {
       setRoleName(editingRole.name || "");
-      setSelectedPermissions(editingRole.permissions || []);
+      setSelectedPermissions((editingRole.permissions?.split(',') as Permission[]) || []);
     } else {
       setRoleName("");
       setSelectedPermissions([]);
