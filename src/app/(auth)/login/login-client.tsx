@@ -110,18 +110,22 @@ export default function LoginClientPage() {
 
     setLoading(true);
 
-    // Let NextAuth handle the redirect. It will automatically redirect
-    // to the callbackUrl on success, or back to the login page
-    // with an error query param on failure.
-    await signIn('credentials', {
+    const result = await signIn('credentials', {
+      redirect: false,
       email: data.email,
       password: data.password,
-      callbackUrl,
     });
 
-    // This line may not be reached if signIn redirects successfully,
-    // but it's kept here to handle cases where it might not.
     setLoading(false);
+
+    if (result?.error) {
+      await checkLockout(data.email);
+      toast.error('Login Failed', {
+        description: result.error,
+      });
+    } else if (result?.ok) {
+      window.location.href = callbackUrl;
+    }
   };
   
   const isLocked = lockoutTimeLeft !== null && lockoutTimeLeft > 0;
