@@ -4,6 +4,15 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { stat, mkdir, rm } from 'fs/promises';
 
+// Set a body size limit for file uploads to 10MB
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '10mb',
+        },
+    },
+};
+
 // Main POST handler for file uploads
 export async function POST(req: NextRequest) {
   const data = await req.formData();
