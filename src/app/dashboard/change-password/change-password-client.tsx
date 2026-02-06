@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,6 +14,7 @@ import { changeUserPassword } from '@/app/actions/memo';
 import { passwordSchema, passwordRules } from '@/lib/password-policy';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { signOut } from 'next-auth/react';
 
 const changePasswordSchema = z.object({
     newPassword: passwordSchema,
@@ -47,11 +49,9 @@ export default function ChangePasswordClientPage() {
 
         if (result.success) {
             toast.success('Password Changed', {
-                description: 'Your password has been successfully updated. Redirecting to your dashboard...',
+                description: 'Your password has been updated. Please log in again to continue.',
             });
-            // A hard redirect is the safest way to ensure the session is fully re-evaluated
-            // after the tokenVersion has been incremented on the server.
-            window.location.href = '/dashboard/inbox';
+            signOut({ callbackUrl: '/login' });
         } else {
             setLoading(false);
             toast.error('Update Failed', {
