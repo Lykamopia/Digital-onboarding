@@ -203,11 +203,14 @@ function EmailLogViewer() {
         fetchLogs();
     }, [fetchLogs]);
     
-    const getSanitizedEmailBody = (body: string) => {
-        // 1. Mask sensitive information like passwords in <code> tags
-        const maskedBody = body.replace(/<code>(.*?)<\/code>/g, '<code>********</code>');
+    const getSanitizedEmailBody = (log: EmailLog) => {
+        const isSensitive = ['welcome_user', 'password_reset', 'email_change_notice'].includes(log.triggerEvent || '');
 
-        // 2. Inject CSS to disable links and buttons for the preview
+        // Mask sensitive info if any
+        const maskedBody = log.body.replace(/<code>(.*?)<\/code>/g, '<code>********</code>');
+
+        // For sensitive auth emails, hide the button container.
+        // For all emails, disable links just in case.
         const style = `
             <style>
                 a, button {
@@ -215,6 +218,7 @@ function EmailLogViewer() {
                     cursor: default !important;
                     opacity: 0.6 !important;
                 }
+                ${isSensitive ? `.button-container { display: none !important; }` : ''}
             </style>
         `;
         return style + maskedBody;
@@ -333,7 +337,7 @@ function EmailLogViewer() {
                                 </div>
                             )}
                             <iframe
-                                srcDoc={getSanitizedEmailBody(selectedEmail.body)}
+                                srcDoc={getSanitizedEmailBody(selectedEmail)}
                                 className="w-full h-[50vh] border rounded-md"
                                 sandbox="allow-same-origin"
                                 title="Email Body Preview"
