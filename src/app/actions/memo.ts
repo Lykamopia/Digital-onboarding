@@ -1684,7 +1684,7 @@ export async function getSecurityLogs(page = 1, limit = 15, filters: { severity?
             where, 
             skip: (page - 1) * limit, 
             take: limit, 
-            orderBy: { createdAt: 'desc' },
+            orderBy: { timestamp: 'desc' },
             include: { actor: true }
         }),
         prisma.securityLog.count({ where })
