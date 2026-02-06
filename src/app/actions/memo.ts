@@ -15,7 +15,7 @@ import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
-import { getGeneralSettings, getEmailSettings } from '@/lib/settings';
+import { getGeneralSettings, getEmailSettings } from '../lib/settings';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -995,6 +995,10 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
     const currentUserId = sessionUser.id;
     const realUserId = sessionUser.isDelegated ? sessionUser.realUser.id : sessionUser.id;
 
+    if (!currentUserId || !realUserId) {
+        return null; // One of the IDs is missing, invalid session state
+    }
+
     const userInclude = {
         role: true,
         office: true,
@@ -1742,6 +1746,9 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
+
+
 
 
 
