@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
@@ -1063,22 +1063,27 @@ export async function getUserLockoutStatus(email: string) {
 
 // Admin actions
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
-    await hasPermission('manage_divisions');
+    const user = await hasPermission('manage_divisions');
     if (data.id) {
         await prisma.division.update({ where: { id: data.id }, data });
+        await logSecurityEvent({ event: SecurityEvent.DIVISION_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated division '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'Division' });
     } else {
-        await prisma.division.create({ data });
+        const newDivision = await prisma.division.create({ data });
+        await logSecurityEvent({ event: SecurityEvent.DIVISION_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new division '${data.name}'.`, targetId: newDivision.id, targetType: 'Division' });
     }
     revalidatePath('/dashboard/admin/divisions');
 }
 
 export async function deleteDivision(id: string) {
-    await hasPermission('manage_divisions');
+    const user = await hasPermission('manage_divisions');
     const users = await prisma.user.count({ where: { divisionId: id }});
     if (users > 0) {
         return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
     }
-
+    const division = await prisma.division.findUnique({ where: { id } });
+    if (division) {
+        await logSecurityEvent({ event: SecurityEvent.DIVISION_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted division '${division.name}' (ID: ${id}).`, targetId: id, targetType: 'Division' });
+    }
     await prisma.division.delete({ where: { id } });
     revalidatePath('/dashboard/admin/divisions');
     return { success: true };
@@ -1086,20 +1091,26 @@ export async function deleteDivision(id: string) {
 
 
 export async function saveDepartment(data: { id?: string, name: string, code: string, officeId: string }) {
-    await hasPermission('manage_departments');
+    const user = await hasPermission('manage_departments');
     if (data.id) {
         await prisma.department.update({ where: { id: data.id }, data });
+        await logSecurityEvent({ event: SecurityEvent.DEPARTMENT_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated department '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'Department' });
     } else {
-        await prisma.department.create({ data });
+        const newDept = await prisma.department.create({ data });
+        await logSecurityEvent({ event: SecurityEvent.DEPARTMENT_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new department '${data.name}'.`, targetId: newDept.id, targetType: 'Department' });
     }
     revalidatePath('/dashboard/admin/departments');
 }
 
 export async function deleteDepartment(id: string) {
-    await hasPermission('manage_departments');
+    const user = await hasPermission('manage_departments');
     const divisions = await prisma.division.count({ where: { departmentId: id } });
     if (divisions > 0) {
         return { error: 'Cannot delete department. It has associated divisions. Please delete them first.' };
+    }
+    const department = await prisma.department.findUnique({ where: { id } });
+    if (department) {
+        await logSecurityEvent({ event: SecurityEvent.DEPARTMENT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted department '${department.name}' (ID: ${id}).`, targetId: id, targetType: 'Department' });
     }
     await prisma.department.delete({ where: { id } });
     revalidatePath('/dashboard/admin/departments');
@@ -1107,20 +1118,26 @@ export async function deleteDepartment(id: string) {
 }
 
 export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
-    await hasPermission('manage_branches');
+    const user = await hasPermission('manage_branches');
     if (data.id) {
         await prisma.branch.update({ where: { id: data.id }, data });
+        await logSecurityEvent({ event: SecurityEvent.BRANCH_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated branch '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'Branch' });
     } else {
-        await prisma.branch.create({ data });
+        const newBranch = await prisma.branch.create({ data });
+        await logSecurityEvent({ event: SecurityEvent.BRANCH_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new branch '${data.name}'.`, targetId: newBranch.id, targetType: 'Branch' });
     }
     revalidatePath('/dashboard/admin/branches');
 }
 
 export async function deleteBranch(id: string) {
-    await hasPermission('manage_branches');
+    const user = await hasPermission('manage_branches');
     const users = await prisma.user.count({ where: { branchId: id }});
     if (users > 0) {
         return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
+    }
+    const branch = await prisma.branch.findUnique({ where: { id } });
+    if(branch) {
+        await logSecurityEvent({ event: SecurityEvent.BRANCH_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted branch '${branch.name}' (ID: ${id}).`, targetId: id, targetType: 'Branch' });
     }
     await prisma.branch.delete({ where: { id } });
     revalidatePath('/dashboard/admin/branches');
@@ -1128,20 +1145,26 @@ export async function deleteBranch(id: string) {
 }
 
 export async function saveDistrict(data: { id?: string, name: string, code: string, officeId: string }) {
-    await hasPermission('manage_districts');
+    const user = await hasPermission('manage_districts');
     if (data.id) {
         await prisma.district.update({ where: { id: data.id }, data });
+        await logSecurityEvent({ event: SecurityEvent.DISTRICT_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated district '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'District' });
     } else {
-        await prisma.district.create({ data });
+        const newDistrict = await prisma.district.create({ data });
+        await logSecurityEvent({ event: SecurityEvent.DISTRICT_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new district '${data.name}'.`, targetId: newDistrict.id, targetType: 'District' });
     }
     revalidatePath('/dashboard/admin/districts');
 }
 
 export async function deleteDistrict(id: string) {
-    await hasPermission('manage_districts');
+    const user = await hasPermission('manage_districts');
     const branches = await prisma.branch.count({ where: { districtId: id } });
     if (branches > 0) {
         return { error: 'Cannot delete district. It has associated branches. Please delete them first.' };
+    }
+    const district = await prisma.district.findUnique({ where: { id } });
+    if (district) {
+        await logSecurityEvent({ event: SecurityEvent.DISTRICT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted district '${district.name}' (ID: ${id}).`, targetId: id, targetType: 'District' });
     }
     await prisma.district.delete({ where: { id } });
     revalidatePath('/dashboard/admin/districts');
@@ -1149,7 +1172,7 @@ export async function deleteDistrict(id: string) {
 }
 
 export async function saveOffice(data: { id?: string, name: string, code: string, type?: 'division_office' | 'branch_office' | 'head_office' }) {
-    await hasPermission('manage_offices');
+    const user = await hasPermission('manage_offices');
     const payload = {
         name: data.name,
         code: data.code,
@@ -1157,14 +1180,16 @@ export async function saveOffice(data: { id?: string, name: string, code: string
     };
     if (data.id) {
         await prisma.office.update({ where: { id: data.id }, data: payload });
+        await logSecurityEvent({ event: SecurityEvent.OFFICE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated office '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'Office' });
     } else {
-        await prisma.office.create({ data: payload });
+        const newOffice = await prisma.office.create({ data: payload });
+        await logSecurityEvent({ event: SecurityEvent.OFFICE_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new office '${data.name}'.`, targetId: newOffice.id, targetType: 'Office' });
     }
     revalidatePath('/dashboard/admin/offices');
 }
 
 export async function deleteOffice(id: string) {
-    await hasPermission('manage_offices');
+    const user = await hasPermission('manage_offices');
     const districts = await prisma.district.count({ where: { officeId: id } });
     if (districts > 0) {
         return { error: 'Cannot delete office. It has associated districts. Please delete them first.' };
@@ -1178,6 +1203,11 @@ export async function deleteOffice(id: string) {
     const users = await prisma.user.count({ where: { officeId: id }});
     if (users > 0) {
         return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
+    }
+
+    const office = await prisma.office.findUnique({ where: { id } });
+    if (office) {
+        await logSecurityEvent({ event: SecurityEvent.OFFICE_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted office '${office.name}' (ID: ${id}).`, targetId: id, targetType: 'Office' });
     }
 
     await prisma.office.delete({ where: { id } });
@@ -1369,21 +1399,24 @@ export async function deleteRole(roleId: string) {
 }
 
 export async function saveLabel(data: { id?: string, name: string, color: string, type: 'SYSTEM' | 'USER' }) {
-    await hasPermission('manage_labels');
+    const user = await hasPermission('manage_labels');
     if (data.id) {
         await prisma.label.update({ where: { id: data.id }, data });
+        await logSecurityEvent({ event: SecurityEvent.LABEL_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Updated label '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'Label' });
     } else {
-        await prisma.label.create({ data });
+        const newLabel = await prisma.label.create({ data });
+        await logSecurityEvent({ event: SecurityEvent.LABEL_CREATED, severity: LogSeverity.INFO, actor: user, details: `Created new label '${data.name}'.`, targetId: newLabel.id, targetType: 'Label' });
     }
     revalidatePath('/dashboard/admin/labels');
     return { success: true };
 }
 
 export async function deleteLabel(id: string) {
-    await hasPermission('manage_labels');
+    const user = await hasPermission('manage_labels');
     const label = await prisma.label.findUnique({ where: { id }});
     if (!label) return { error: "Label not found." };
     if (label.type === 'SYSTEM') return { error: "Cannot delete a system label." };
+    await logSecurityEvent({ event: SecurityEvent.LABEL_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted label '${label.name}' (ID: ${id}).`, targetId: id, targetType: 'Label' });
     await prisma.label.delete({ where: { id } });
     revalidatePath('/dashboard/admin/labels');
     return { success: true };
@@ -1406,6 +1439,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
     }
 
     await prisma.user.update({ where: { id: userId }, data: data });
+    await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their own profile.`, targetId: userId, targetType: 'User' });
     revalidatePath('/dashboard/profile');
     revalidatePath('/dashboard');
     return { success: true };
@@ -1439,7 +1473,7 @@ async function parseFileData(fileData: string): Promise<UserDataRow[]> {
 }
 
 export async function bulkImportUsers(fileData: string): Promise<BulkImportResult> {
-    await hasPermission('manage_users');
+    const user = await hasPermission('manage_users');
 
     const result: BulkImportResult = { successCount: 0, errorCount: 0, errors: [] };
     
@@ -1580,28 +1614,37 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
         }
     }
     
+    await logSecurityEvent({
+        event: SecurityEvent.BULK_USER_IMPORT,
+        severity: LogSeverity.WARN,
+        actor: user,
+        details: `Bulk user import action performed. Success: ${result.successCount}, Failures: ${result.errorCount}.`
+    });
+
     revalidatePath('/dashboard/admin/users');
     return result;
 }
 
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
-    await hasPermission('manage_email_settings');
+    const user = await hasPermission('manage_email_settings');
     await prisma.setting.upsert({
         where: { key: 'email' },
         update: { value: settings },
         create: { key: 'email', value: settings }
     });
+    await logSecurityEvent({ event: SecurityEvent.SETTINGS_UPDATED, severity: LogSeverity.WARN, actor: user, details: 'Email settings were updated.' });
     revalidatePath('/dashboard/admin/email');
     return { success: true };
 }
 
 export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual', enableCriticalAlerts: boolean }) {
-    await hasPermission('manage_general_settings');
+    const user = await hasPermission('manage_general_settings');
     await prisma.setting.upsert({
         where: { key: 'general' },
         update: { value: settings },
         create: { key: 'general', value: settings }
     });
+    await logSecurityEvent({ event: SecurityEvent.SETTINGS_UPDATED, severity: LogSeverity.WARN, actor: user, details: 'General settings were updated.' });
     revalidatePath('/dashboard/admin/general');
     return { success: true };
 }
@@ -1623,6 +1666,8 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
         }
     }
     
+    await logSecurityEvent({ event: SecurityEvent.BULK_ARCHIVE_ACTION, severity: LogSeverity.WARN, actor: user, details: `Performed bulk action '${action}' on ${memoIds.length} memos.` });
+
     revalidatePath('/dashboard/admin/archive');
     revalidatePath('/dashboard/inbox');
     return { success: true };
@@ -1804,3 +1849,4 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
