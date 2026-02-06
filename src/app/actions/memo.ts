@@ -16,6 +16,7 @@ import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
 import { getGeneralSettings, getEmailSettings } from './settings';
+import { logSecurityEvent, SecurityEvent, LogSeverity } from '@/lib/security-logger';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -38,6 +39,12 @@ async function hasPermission(permission: Permission | Permission[]): Promise<Log
     const hasRequiredPermission = requiredPermissions.every(p => userPermissions.includes(p));
 
     if (!hasRequiredPermission) {
+        await logSecurityEvent({
+            event: SecurityEvent.PERMISSION_DENIED,
+            severity: LogSeverity.WARN,
+            actor: user,
+            details: `User '${user.name}' (ID: ${user.id}) denied permission for: ${requiredPermissions.join(', ')}.`,
+        });
         throw new Error("Access Denied: You do not have the required permissions.");
     }
     
@@ -1190,7 +1197,7 @@ export async function saveUser(data: {
     districtId?: string,
     branchId?: string,
 }) {
-    await hasPermission('manage_users');
+    const user = await hasPermission('manage_users');
     const payload: any = {
         name: data.name,
         email: data.email,
@@ -1217,6 +1224,8 @@ export async function saveUser(data: {
         }
         
         await prisma.user.update({ where: { id: data.id }, data: payload });
+        await logSecurityEvent({ event: SecurityEvent.USER_UPDATED, severity: LogSeverity.INFO, actor: user, details: `Admin updated user profile for '${data.name}' (ID: ${data.id}).`, targetId: data.id, targetType: 'User' });
+
     } else {
         const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
         if (existingUser) {
@@ -1227,6 +1236,8 @@ export async function saveUser(data: {
         payload.onboardingCompleted = false;
         
         const newUser = await prisma.user.create({ data: payload });
+        await logSecurityEvent({ event: SecurityEvent.USER_CREATED, severity: LogSeverity.WARN, actor: user, details: `Admin created new user '${newUser.name}' (ID: ${newUser.id}).`, targetId: newUser.id, targetType: 'User' });
+
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
@@ -1250,13 +1261,14 @@ export async function saveUser(data: {
 }
 
 export async function deleteUser(userId: string) {
-    await hasPermission('manage_users');
+    const user = await hasPermission('manage_users');
     const memoCount = await prisma.memo.count({ where: { fromId: userId } });
     if (memoCount > 0) {
         return { error: `Cannot delete user. They are the author of ${memoCount} memo(s). Please reassign them first.` };
     }
     
     try {
+        await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user with ID: ${userId}.`, targetId: userId, targetType: 'User' });
         await prisma.user.delete({ where: { id: userId }});
         revalidatePath('/dashboard/admin/users');
         return { success: true };
@@ -1268,7 +1280,7 @@ export async function deleteUser(userId: string) {
 
 
 export async function resetUserPassword(userId: string) {
-    await hasPermission('manage_users');
+    const admin = await hasPermission('manage_users');
     try {
         const user = await prisma.user.findUnique({ where: { id: userId }});
         if (!user || !user.email) {
@@ -1285,6 +1297,8 @@ export async function resetUserPassword(userId: string) {
             create: { email: user.email, token: hashedToken, expires },
         });
         
+        await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_REQUEST, severity: LogSeverity.WARN, actor: admin, details: `Admin initiated password reset for user '${user.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
+
         try {
             await sendPasswordResetEmail({ to: user.email, name: user.name!, token: token });
         } catch (error) {
@@ -1318,6 +1332,8 @@ export async function changeUserPassword(password: string) {
             }
         });
         
+        await logSecurityEvent({ event: SecurityEvent.PASSWORD_CHANGE_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' (ID: ${user.id}) successfully changed their password.`, targetId: user.id, targetType: 'User' });
+        
         revalidatePath('/dashboard/inbox');
         return { success: true };
     } catch (error) {
@@ -1328,21 +1344,24 @@ export async function changeUserPassword(password: string) {
 
 
 export async function saveRole(data: { id?: string, name: string, permissions: any }) {
-    await hasPermission('manage_roles');
+    const user = await hasPermission('manage_roles');
     if (data.id) {
         await prisma.role.update({ where: { id: data.id }, data: { ...data, permissions: data.permissions.join(',') } });
+        await logSecurityEvent({ event: SecurityEvent.ROLE_UPDATED, severity: LogSeverity.WARN, actor: user, details: `Admin updated role '${data.name}' (ID: ${data.id}). Permissions: ${data.permissions.join(',')}`, targetId: data.id, targetType: 'Role' });
     } else {
-        await prisma.role.create({ data: { ...data, permissions: data.permissions.join(',') } });
+        const newRole = await prisma.role.create({ data: { ...data, permissions: data.permissions.join(',') } });
+        await logSecurityEvent({ event: SecurityEvent.ROLE_CREATED, severity: LogSeverity.WARN, actor: user, details: `Admin created new role '${data.name}'. Permissions: ${data.permissions.join(',')}`, targetId: newRole.id, targetType: 'Role' });
     }
     revalidatePath('/dashboard/admin/roles');
 }
 
 export async function deleteRole(roleId: string) {
-    await hasPermission('manage_roles');
+    const user = await hasPermission('manage_roles');
     const usersInRole = await prisma.user.count({ where: { roleId }});
     if (usersInRole > 0) {
         return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
     }
+    await logSecurityEvent({ event: SecurityEvent.ROLE_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted role with ID: ${roleId}.`, targetId: roleId, targetType: 'Role' });
     await prisma.role.delete({ where: { id: roleId } });
     revalidatePath('/dashboard/admin/roles');
     return { success: true };
@@ -1618,6 +1637,9 @@ export async function revokeUserTokens(userId: string) {
         where: { id: userId },
         data: { tokenVersion: { increment: 1 } }
     });
+
+    await logSecurityEvent({ event: SecurityEvent.LOGOUT, severity: LogSeverity.INFO, actor: user, details: `All sessions for user ID ${userId} were revoked by ${user?.name}.`, targetId: userId, targetType: 'User' });
+    
     return { success: true };
 }
 
@@ -1657,14 +1679,18 @@ export async function addOrUpdateDelegate(data: { delegateId: string, permission
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
-    const existingDelegation = await prisma.delegation.findUnique({
-        where: { delegatorId_delegateId: { delegatorId: user.id, delegateId: data.delegateId } }
+    const existingDelegation = await prisma.delegation.findFirst({
+        where: { delegatorId: user.id, delegateId: data.delegateId },
+        include: { delegate: true }
     });
 
     if (existingDelegation) {
         await prisma.delegation.update({ where: { id: existingDelegation.id }, data: { permissions: data.permissions.join(',') } });
+        await logSecurityEvent({ event: SecurityEvent.DELEGATION_UPDATED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' updated delegation for '${existingDelegation.delegate.name}'. Permissions: ${data.permissions.join(',')}`, targetId: data.delegateId, targetType: 'User' });
     } else {
         await prisma.delegation.create({ data: { delegatorId: user.id, delegateId: data.delegateId, permissions: data.permissions.join(',') } });
+        const delegateUser = await prisma.user.findUnique({where: {id: data.delegateId}});
+        await logSecurityEvent({ event: SecurityEvent.DELEGATION_GRANTED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' granted delegation to '${delegateUser?.name}'. Permissions: ${data.permissions.join(',')}`, targetId: data.delegateId, targetType: 'User' });
     }
     revalidatePath('/dashboard/profile');
 }
@@ -1673,12 +1699,14 @@ export async function removeDelegate(delegationId: string) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
-    const delegation = await prisma.delegation.findUnique({ where: { id: delegationId } });
+    const delegation = await prisma.delegation.findUnique({ where: { id: delegationId }, include: { delegate: true } });
     if (delegation?.delegatorId !== user.id) {
         throw new Error("You are not authorized to remove this delegation.");
     }
-
+    
+    await logSecurityEvent({ event: SecurityEvent.DELEGATION_REVOKED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' revoked delegation from '${delegation.delegate.name}'.`, targetId: delegation.delegateId, targetType: 'User' });
     await prisma.delegation.delete({ where: { id: delegationId } });
+
     revalidatePath('/dashboard/profile');
 }
 
@@ -1738,6 +1766,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
         })
     ]);
 
+    await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' successfully set their password via reset link.`, targetId: user.id, targetType: 'User' });
     return { success: true };
 }
     

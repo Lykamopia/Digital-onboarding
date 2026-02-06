@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import type { User, DelegationPermission } from "./types";
+import { logSecurityEvent, SecurityEvent, LogSeverity } from './security-logger';
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
@@ -62,7 +63,20 @@ export const authOptions: NextAuthOptions = {
                 data: updates
             });
 
+            await logSecurityEvent({
+                event: SecurityEvent.LOGIN_FAILURE,
+                severity: LogSeverity.WARN,
+                actor: { id: user.id, name: user.name || user.email },
+                details: `Failed login attempt for user ${user.email}. Attempt ${newFailedAttempts} of ${MAX_FAILED_ATTEMPTS}.`,
+            });
+
             if (updates.lockoutUntil) {
+                 await logSecurityEvent({
+                    event: SecurityEvent.ACCOUNT_LOCKED,
+                    severity: LogSeverity.CRITICAL,
+                    actor: { id: user.id, name: user.name || user.email },
+                    details: `Account for user ${user.email} has been locked out after ${newFailedAttempts} failed login attempts.`,
+                });
                  throw new Error(`Account locked due to too many failed attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`);
             }
 
@@ -75,6 +89,13 @@ export const authOptions: NextAuthOptions = {
                 failedLoginAttempts: 0,
                 lockoutUntil: null,
             }
+        });
+
+        await logSecurityEvent({
+            event: SecurityEvent.LOGIN_SUCCESS,
+            severity: LogSeverity.INFO,
+            actor: { id: user.id, name: user.name || user.email },
+            details: `User ${user.email} logged in successfully.`,
         });
 
         return updatedUser;
@@ -129,6 +150,15 @@ export const authOptions: NextAuthOptions = {
                       token.realUser = { id: token.id, name: token.name, email: token.email };
                   }
                   
+                  await logSecurityEvent({
+                      event: SecurityEvent.DELEGATION_SESSION_START,
+                      severity: LogSeverity.INFO,
+                      actor: { id: delegateId, name: token.realUser?.name },
+                      details: `User ${token.realUser?.name} started acting on behalf of ${delegator.name}.`,
+                      targetId: delegator.id,
+                      targetType: 'User'
+                  });
+
                   token.id = delegator.id;
                   token.name = delegator.name;
                   token.email = delegator.email;
@@ -141,6 +171,15 @@ export const authOptions: NextAuthOptions = {
           if (token.realUser) {
               const realUser = token.realUser as { id: string; name: string | null; email: string | null };
               
+              await logSecurityEvent({
+                  event: SecurityEvent.DELEGATION_SESSION_END,
+                  severity: LogSeverity.INFO,
+                  actor: realUser,
+                  details: `User ${realUser.name} stopped acting on behalf of ${token.name}.`,
+                  targetId: token.id as string,
+                  targetType: 'User'
+              });
+
               const realDbUser = await prisma.user.findUnique({ where: { id: realUser.id }});
 
               token.id = realUser.id;
@@ -173,6 +212,12 @@ export const authOptions: NextAuthOptions = {
       if (userIdToCheck && token.tokenVersion !== undefined) {
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }});
           if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
+              await logSecurityEvent({
+                  event: SecurityEvent.LOGOUT,
+                  severity: LogSeverity.INFO,
+                  actor: { id: userIdToCheck, name: token.name },
+                  details: 'User session invalidated due to token version mismatch (likely remote logout).',
+              });
               return {}; // Invalidate session by returning an empty token
           }
           if(!token.realUser) {

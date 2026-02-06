@@ -31,11 +31,12 @@ type GeneralSettings = {
 interface MemoEmailOptions {
   to: string;
   subject: string;
-  memo: Memo;
-  sender: User & { role: Role | null };
-  type: 'direct' | 'cc';
+  memo?: Memo;
+  sender?: User & { role: Role | null };
+  type?: 'direct' | 'cc';
   emailSettings: EmailSettings;
-  generalSettings: GeneralSettings;
+  generalSettings?: GeneralSettings;
+  html?: string;
 }
 
 interface VerificationEmailOptions {
@@ -318,13 +319,19 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
     }
 }
 
-export async function sendEmail({ to, subject, memo, sender, type, emailSettings, generalSettings }: MemoEmailOptions) {
-  if (!emailSettings.notificationsEnabled) {
+export async function sendEmail({ to, subject, memo, sender, type, emailSettings, generalSettings, html }: MemoEmailOptions) {
+  if (!emailSettings.notificationsEnabled && !html) {
     console.log('Email notifications are disabled. Skipping email to', to);
     return;
   }
 
-  const htmlBody = await generateMemoEmailBody(memo, sender, type, emailSettings, generalSettings);
+  let htmlBody;
+  if (html) {
+      htmlBody = html;
+  } else if (memo && sender && type && generalSettings) {
+      htmlBody = await generateMemoEmailBody(memo, sender, type, emailSettings, generalSettings);
+  }
+
   if (!htmlBody) return;
 
   const mailOptions = {
@@ -339,12 +346,12 @@ export async function sendEmail({ to, subject, memo, sender, type, emailSettings
     console.log('Email sent: %s', info.messageId);
      await logEmail({
         to: to,
-        cc: memo.cc.map(u => u.email).join(', '),
+        cc: memo ? memo.cc.map(u => u.email).join(', ') : undefined,
         subject,
         body: htmlBody,
         status: 'sent',
-        triggerEvent: 'new_memo',
-        relatedEntityId: memo.id,
+        triggerEvent: memo ? 'new_memo' : 'system_alert',
+        relatedEntityId: memo ? memo.id : undefined,
         messageId: info.messageId,
     });
     return info;
@@ -352,12 +359,12 @@ export async function sendEmail({ to, subject, memo, sender, type, emailSettings
     console.error('Error sending email:', error);
     await logEmail({
         to: to,
-        cc: memo.cc.map(u => u.email).join(', '),
+        cc: memo ? memo.cc.map(u => u.email).join(', ') : undefined,
         subject,
         body: htmlBody,
         status: 'failed',
-        triggerEvent: 'new_memo',
-        relatedEntityId: memo.id,
+        triggerEvent: memo ? 'new_memo' : 'system_alert',
+        relatedEntityId: memo ? memo.id : undefined,
         errorMessage: error.message,
     });
     throw error;
