@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
 import { sendEmail } from './email';
-import { getEmailSettings } from '@/app/actions/settings';
+import { getEmailSettings, getGeneralSettings } from '@/app/actions/settings';
 
 export enum SecurityEvent {
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
@@ -50,6 +50,11 @@ type LogDetails = {
 };
 
 async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: string | null; userAgent: string | null }) {
+    const { enableCriticalAlerts } = await getGeneralSettings();
+    if (!enableCriticalAlerts) {
+        return;
+    }
+
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminEmail) {
         console.warn('Cannot send critical alert: ADMIN_EMAIL not set in .env');

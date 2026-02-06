@@ -1594,7 +1594,7 @@ export async function saveEmailSettings(settings: { notificationsEnabled: boolea
     return { success: true };
 }
 
-export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual' }) {
+export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual', enableCriticalAlerts: boolean }) {
     await hasPermission('manage_general_settings');
     await prisma.setting.upsert({
         where: { key: 'general' },

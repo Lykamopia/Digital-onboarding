@@ -16,6 +16,7 @@ type GeneralSettings = {
   acknowledgementType: AcknowledgementType;
   referenceFormat: ReferenceFormatSettings;
   acknowledgementMode: 'auto' | 'manual';
+  enableCriticalAlerts: boolean;
 };
 
 type EmailSettings = {
@@ -31,7 +32,8 @@ const defaultGeneralSettings: GeneralSettings = {
     referenceFormat: {
       separator: '-',
       numberLength: 4
-    }
+    },
+    enableCriticalAlerts: true,
 };
 
 const defaultEmailSettings: EmailSettings = {
@@ -53,7 +55,8 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
                 referenceFormat: {
                     separator: dbSettings.referenceFormat?.separator || defaultGeneralSettings.referenceFormat.separator,
                     numberLength: dbSettings.referenceFormat?.numberLength || defaultGeneralSettings.referenceFormat.numberLength
-                }
+                },
+                enableCriticalAlerts: dbSettings.enableCriticalAlerts ?? defaultGeneralSettings.enableCriticalAlerts,
             };
         }
     } catch (error) {

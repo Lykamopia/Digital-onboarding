@@ -18,6 +18,7 @@ function GeneralSettingsSkeleton() {
     return (
         <div className="space-y-6">
             <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
             <Skeleton className="h-96 w-full" />
         </div>
     );
@@ -29,7 +30,6 @@ export default function GeneralSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Ensure local settings has a default for referenceFormat if it's missing
     if (settings) {
       setLocalSettings({
         acknowledgementType: settings.acknowledgementType || 'SIGNATURE',
@@ -37,7 +37,8 @@ export default function GeneralSettingsPage() {
         referenceFormat: settings.referenceFormat || {
           separator: '-',
           numberLength: 4
-        }
+        },
+        enableCriticalAlerts: settings.enableCriticalAlerts ?? true,
       });
     }
   }, [settings]);
@@ -62,6 +63,10 @@ export default function GeneralSettingsPage() {
     setLocalSettings(prev => ({ ...prev, acknowledgementMode: checked ? 'manual' : 'auto' }));
   }
 
+  const handleCriticalAlertsChange = (checked: boolean) => {
+    setLocalSettings(prev => ({ ...prev, enableCriticalAlerts: checked }));
+  }
+
   const handleReferenceFormatChange = (field: string, value: string | number) => {
     setLocalSettings(prev => ({
         ...prev,
@@ -72,7 +77,7 @@ export default function GeneralSettingsPage() {
     }));
   };
 
-  if (loading || !localSettings.referenceFormat) {
+  if (loading || !localSettings) {
     return <GeneralSettingsSkeleton />;
   }
   
@@ -126,6 +131,32 @@ export default function GeneralSettingsPage() {
                 checked={localSettings.acknowledgementMode === 'manual'}
                 onCheckedChange={handleAcknowledgementModeChange}
             />
+            </div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Security Settings</CardTitle>
+          <CardDescription>
+            Configure security-related features and alerts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label htmlFor="critical-alerts" className="text-base">
+                        Enable Critical Security Alerts
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                        When enabled, an email will be sent to the administrator for critical events like account lockouts.
+                    </p>
+                </div>
+                <Switch
+                    id="critical-alerts"
+                    checked={localSettings.enableCriticalAlerts}
+                    onCheckedChange={handleCriticalAlertsChange}
+                />
             </div>
         </CardContent>
       </Card>
@@ -188,13 +219,13 @@ export default function GeneralSettingsPage() {
                 </div>
             </div>
         </CardContent>
-        <CardFooter>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Settings
-          </Button>
-        </CardFooter>
       </Card>
+      <div className="flex justify-end mt-4">
+        <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save All General Settings
+        </Button>
+      </div>
     </div>
   );
 }
