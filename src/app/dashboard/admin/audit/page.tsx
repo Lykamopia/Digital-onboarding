@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { FullMemo, User, DateRange, Label as LabelType } from "@/lib/types";
 import { getAuditMemos, getUsers, getLabels } from "@/app/actions/memo";
 import { useDebouncedCallback } from 'use-debounce';
