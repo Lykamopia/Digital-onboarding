@@ -72,6 +72,59 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
         onChange(e.currentTarget.innerHTML);
     }
   };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (readOnly || !editorRef.current) return;
+    
+    e.preventDefault();
+    
+    // Get pasted HTML or fallback to plain text
+    let pastedHtml = e.clipboardData.getData('text/html');
+    const pastedText = e.clipboardData.getData('text/plain');
+
+    if (pastedHtml && pastedHtml.trim() !== '') {
+      // Create a temporary element to parse the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = pastedHtml;
+
+      // Remove script, style, and meta tags
+      tempDiv.querySelectorAll('script, style, meta, link').forEach(el => el.remove());
+
+      // Remove unwanted attributes like class, style, id, etc. from all elements
+      const elements = tempDiv.querySelectorAll('*');
+      elements.forEach(el => {
+        // Keep href for links and src/alt for images
+        const allowedAttrs = ['href', 'src', 'alt'];
+        for (let i = el.attributes.length - 1; i >= 0; i--) {
+          const attr = el.attributes[i];
+          if (!allowedAttrs.includes(attr.name.toLowerCase())) {
+            el.removeAttribute(attr.name);
+          }
+        }
+      });
+      
+      // Unwrap meaningless spans
+      tempDiv.querySelectorAll('span').forEach(el => {
+        if (el.attributes.length === 0) {
+          el.replaceWith(...Array.from(el.childNodes));
+        }
+      });
+
+      pastedHtml = tempDiv.innerHTML;
+    } else if (pastedText) {
+      // If only plain text is available, convert newlines to paragraphs
+      pastedHtml = pastedText.split(/\r\n|\r|\n/g)
+        .map(line => line.trim() ? `<p>${line}</p>` : '<p><br></p>')
+        .join('');
+    } else {
+      return; // Nothing to paste
+    }
+    
+    // Insert the cleaned HTML
+    document.execCommand('insertHTML', false, pastedHtml);
+    onChange(editorRef.current.innerHTML);
+  }, [readOnly, onChange]);
+
   
   const handleCommand = (command: string) => (e: React.MouseEvent) => {
       e.preventDefault();
@@ -163,6 +216,7 @@ export function Editor({ value, onChange, readOnly = false }: EditorProps) {
         ref={editorRef}
         contentEditable={!readOnly}
         onInput={handleInput}
+        onPaste={handlePaste}
         className={cn(
             "prose dark:prose-invert max-w-none min-h-[250px] p-4 font-serif text-sm focus:outline-none",
             readOnly && "min-h-fit"
