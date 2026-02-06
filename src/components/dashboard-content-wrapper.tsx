@@ -4,7 +4,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle } from 'lucide-react';
+import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle, Info } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
@@ -39,7 +39,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   const [isMounted, setIsMounted] = useState(false);
   const { update: updateSession } = useSession();
 
-  const permissions = useMemo(() => user?.role?.permissions || [], [user?.role?.permissions]);
+  const permissions = useMemo(() => user?.role?.permissions?.split(',') || [], [user?.role?.permissions]);
 
   const adminPermissions = useMemo(() => [
     'manage_general_settings', 'manage_email_settings', 'manage_divisions', 
@@ -68,7 +68,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   const navItems = useMemo(() => {
     if (!user) return [];
     return [
-      ...(user.mustChangePassword
+      ...((user as any).onboardingCompleted === false
         ? [
             { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
             { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
@@ -105,9 +105,11 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
 
+  const mustCompleteOnboarding = (user as any).onboardingCompleted === false;
+
   return (
     <>
-    {!user.mustChangePassword && <SessionTimeoutManager />}
+    {!mustCompleteOnboarding && <SessionTimeoutManager />}
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
@@ -176,7 +178,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
-            {canCreateMemo && !user.mustChangePassword && (
+            {canCreateMemo && !mustCompleteOnboarding && (
               <Link href="/dashboard/new">
                 <Button>
                   <FilePlus className="mr-2 h-4 w-4" />
