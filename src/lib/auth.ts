@@ -4,6 +4,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { headers } from 'next/headers';
 import type { User, DelegationPermission } from "./types";
 import { LogSeverity } from './types';
 import { logSecurityEvent, SecurityEvent } from './security-logger';
@@ -133,6 +134,9 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user, trigger, session }) {
+      const headerList = headers();
+      const ipAddress = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip');
+
       if (trigger === "update" && session?.onboardingCompleted === true) {
         token.onboardingCompleted = true;
       }
@@ -208,8 +212,20 @@ export const authOptions: NextAuthOptions = {
             token.onboardingCompleted = dbUser.onboardingCompleted;
         }
         token.id = user.id;
+        token.ip = ipAddress;
       }
       
+      // On subsequent requests, validate IP address
+      if (token.ip && token.ip !== ipAddress) {
+          await logSecurityEvent({
+              event: SecurityEvent.SESSION_HIJACK_ATTEMPT,
+              severity: LogSeverity.CRITICAL,
+              actor: { id: token.id as string, name: token.name },
+              details: `Session token for user ${token.name} used from a different IP address. Original: ${token.ip}, New: ${ipAddress}. Session invalidated.`,
+          });
+          return {}; // Invalidate session
+      }
+
       // On subsequent requests, validate the token version
       const userIdToCheck = (token.realUser?.id || token.id) as string;
       if (userIdToCheck && typeof token.tokenVersion === 'number') {

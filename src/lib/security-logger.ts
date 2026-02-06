@@ -23,6 +23,7 @@ export enum SecurityEvent {
   PASSWORD_RESET_REQUEST = 'PASSWORD_RESET_REQUEST',
   PASSWORD_RESET_SUCCESS = 'PASSWORD_RESET_SUCCESS',
   PASSWORD_CHANGE_SUCCESS = 'PASSWORD_CHANGE_SUCCESS',
+  SESSION_HIJACK_ATTEMPT = 'SESSION_HIJACK_ATTEMPT',
 
   // Role Management
   ROLE_CREATED = 'ROLE_CREATED',
@@ -141,4 +142,5 @@ export async function logSecurityEvent(log: LogDetails) {
         console.error('Failed to write security log:', error);
     }
 }
+
     
