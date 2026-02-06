@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
@@ -22,13 +21,14 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 
 
-function useAdminNavigation(user: (User & { role: { permissions: Permission[] } }) | null) {
+function useAdminNavigation(user: (User & { role: { permissions: string } }) | null) {
   const pathname = usePathname();
   const router = useRouter();
 
   const accessibleNavItems = useMemo(() => {
-    if (!user) return [];
-    return navItemsConfig.filter(item => user.role.permissions.includes(item.permission as Permission));
+    if (!user || !user.role?.permissions) return [];
+    const userPermissions = user.role.permissions.split(',');
+    return navItemsConfig.filter(item => userPermissions.includes(item.permission as Permission));
   }, [user]);
 
   const activeTab = useMemo(() => {
@@ -55,7 +55,7 @@ function useAdminNavigation(user: (User & { role: { permissions: Permission[] } 
 }
 
 function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange, children }: {
-    user: (User & { role: { permissions: Permission[] } }) | null;
+    user: (User & { role: { permissions: string } }) | null;
     activeTab: string | null;
     accessibleNavItems: { value: string; label: string; permission: string; }[];
     handleTabChange: (value: string) => void;
@@ -70,12 +70,12 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         
         const container = tabsListRef.current;
         const containerWidth = container.offsetWidth;
-        const moreButtonWidth = 80;
         
         let totalWidth = 0;
         let newVisible = [];
         let newHidden = [];
         let needsDropdown = false;
+        const moreButtonWidth = hiddenItems.length > 0 ? 40 : 0; // Approx width of 'More' button
 
         const tempTabContainer = document.createElement('div');
         tempTabContainer.style.position = 'absolute';
@@ -112,29 +112,28 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
              setHiddenItems([]);
         }
 
-    }, [accessibleNavItems]);
+    }, [accessibleNavItems, hiddenItems.length]);
 
     useEffect(() => {
         const observer = new ResizeObserver(() => {
             updateVisibleTabs();
         });
-        if (tabsListRef.current) {
-            observer.observe(tabsListRef.current);
+        const container = tabsListRef.current;
+        if (container) {
+            observer.observe(container);
         }
         updateVisibleTabs(); // Initial calculation
-        return () => observer.disconnect();
+        return () => {
+            if (container) {
+                observer.unobserve(container);
+            }
+        }
     }, [updateVisibleTabs]);
 
     if (!user) {
         return <Skeleton className="h-[200px] w-full" />;
     }
-
-    if (accessibleNavItems.length === 0) {
-        // This state is handled by the redirect in the hook, but as a fallback, show nothing.
-        return null;
-    }
     
-    // While redirecting from an invalid tab, show a loader.
     if (!activeTab) {
         return <Skeleton className="h-[200px] w-full" />;
     }
@@ -196,7 +195,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
-  const [user, setUser] = useState<(User & { role: { permissions: Permission[] } }) | null>(null);
+  const [user, setUser] = useState<(User & { role: { permissions: string } }) | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { activeTab, accessibleNavItems } = useAdminNavigation(user);
@@ -212,15 +211,30 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     router.push(value);
   };
   
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Admin Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[200px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // This check prevents a flash of the admin UI for unauthorized users.
+  // The redirect is handled by the useAdminNavigation hook.
+  const canAccessAdmin = user && accessibleNavItems.length > 0;
+  
   return (
     <Card>
        <CardHeader>
         <CardTitle>Admin Settings</CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
-            <Skeleton className="h-[200px] w-full" />
-        ) : (
+        {canAccessAdmin ? (
             <AdminPageContent
                 user={user}
                 activeTab={activeTab}
@@ -229,6 +243,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             >
                 {children}
             </AdminPageContent>
+        ) : (
+            // Render a loader/skeleton while the redirect is in progress.
+            <Skeleton className="h-[200px] w-full" />
         )}
       </CardContent>
     </Card>
