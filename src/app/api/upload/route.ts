@@ -1,8 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, normalize } from 'path';
 import { stat, mkdir, rm } from 'fs/promises';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 // Set a body size limit for file uploads to 10MB
 export const config = {
@@ -15,9 +18,29 @@ export const config = {
 
 // Main POST handler for file uploads
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  
   const data = await req.formData();
   const file: File | null = data.get('file') as unknown as File;
-  const type = data.get('type') as string || 'attachments'; // default to attachments
+  const type = data.get('type') as string || 'attachments';
+
+  // --- RBAC Check ---
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: { select: { permissions: true } } }
+  });
+
+  const canManageMemos = user?.role?.permissions?.includes('manage_memos');
+
+  if (type === 'attachments' && !canManageMemos) {
+     return NextResponse.json({ success: false, error: 'You do not have permission to upload attachments.' }, { status: 403 });
+  }
+  // Any authenticated user can upload profile/signature images for themselves.
+  // --- End RBAC Check ---
+
 
   if (!file) {
     return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
@@ -69,12 +92,26 @@ export async function POST(req: NextRequest) {
 
 // DELETE handler for removing uploaded files
 export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  
   const data = await req.json();
   const relativePath = data.path as string;
 
   if (!relativePath) {
     return NextResponse.json({ success: false, error: 'No file path provided' }, { status: 400 });
   }
+
+  // --- Ownership Check ---
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  // A user can only delete a file if it's their current avatar or signature.
+  // This prevents deleting arbitrary files.
+  if (relativePath !== user?.avatar && relativePath !== user?.signature) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  // --- End Ownership Check ---
 
   // Path received will be like "/uploads/profile/some-file.png"
   // We need to map it to the root "uploads" folder
