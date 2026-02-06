@@ -1,3 +1,4 @@
+
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
@@ -17,6 +18,8 @@ export enum SecurityEvent {
   USER_UPDATED = 'USER_UPDATED',
   USER_DELETED = 'USER_DELETED',
   PROFILE_UPDATED = 'PROFILE_UPDATED',
+  EMAIL_CHANGE_REQUEST = 'EMAIL_CHANGE_REQUEST',
+  EMAIL_CHANGE_SUCCESS = 'EMAIL_CHANGE_SUCCESS',
   BULK_USER_IMPORT = 'BULK_USER_IMPORT',
   
   // Passwords & Security

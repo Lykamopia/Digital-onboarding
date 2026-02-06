@@ -10,7 +10,7 @@ import { LogSeverity } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
-import { sendEmail, sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
+import { sendEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeVerificationEmail, sendEmailChangeNotificationEmail } from '@/lib/email';
 import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
@@ -1515,21 +1515,132 @@ export async function updateUserProfile(userId: string, data: { name: string, em
       throw new Error("Unauthorized");
     }
 
-    if (data.email) {
-        const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-        if (currentUser && currentUser.email !== data.email) {
-            const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
-            if (existingUser) {
-                return { success: false, error: "Email is already in use by another account." };
-            }
-        }
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+        return { success: false, error: "User not found." };
     }
 
-    await prisma.user.update({ where: { id: userId }, data: data });
-    await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their own profile.`, targetId: userId, targetType: 'User' });
-    revalidatePath('/dashboard/profile');
-    revalidatePath('/dashboard');
-    return { success: true };
+    // Handle email change request
+    if (data.email && currentUser.email !== data.email) {
+        const newEmail = data.email;
+        const existingUser = await prisma.user.findFirst({ where: { email: newEmail } });
+        if (existingUser) {
+            return { success: false, error: "Email is already in use by another account." };
+        }
+        
+        const isEmailPendingForOther = await prisma.passwordResetToken.findFirst({
+            where: {
+                email: { endsWith: `::${newEmail}` },
+                NOT: { email: { startsWith: `email-change::${userId}::` } }
+            }
+        });
+        if (isEmailPendingForOther) {
+            return { success: false, error: "This email address is pending verification for another account." };
+        }
+        
+        const existingToken = await prisma.passwordResetToken.findFirst({
+            where: {
+                email: { startsWith: `email-change::${userId}::` }
+            }
+        });
+        if (existingToken) {
+            return { success: false, error: "You already have a pending email change request. Please check your email or wait for the previous request to expire." };
+        }
+        
+        const token = randomBytes(32).toString('hex');
+        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+        const compositeKey = `email-change::${userId}::${newEmail}`;
+
+        await prisma.passwordResetToken.create({
+            data: { email: compositeKey, token: hashedToken, expires },
+        });
+
+        await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: user, details: `User requested email change from ${currentUser.email} to ${newEmail}.`, targetId: userId, targetType: 'User' });
+        
+        try {
+            await sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token });
+            await sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail });
+        } catch (error) {
+            console.error(`Failed to send email change emails:`, error);
+        }
+
+        // Update other profile data but not the email
+        const { email, ...otherData } = data;
+        if (Object.keys(otherData).length > 0 || data.name !== currentUser.name) {
+             await prisma.user.update({ where: { id: userId }, data: { name: data.name, avatar: data.avatar, signature: data.signature } });
+             await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their profile (name/avatar/signature).`, targetId: userId, targetType: 'User' });
+        }
+
+        return { success: true, message: `Verification email sent to ${newEmail}. Please check your inbox to confirm the change.` };
+
+    } else {
+        // No email change, just update other data
+        const { email, ...otherData } = data;
+        await prisma.user.update({ where: { id: userId }, data: otherData });
+        await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their profile.`, targetId: userId, targetType: 'User' });
+        revalidatePath('/dashboard/profile');
+        revalidatePath('/dashboard');
+        return { success: true };
+    }
+}
+
+export async function verifyEmailChange(token: string): Promise<{ success: boolean; error?: string; message?: string }> {
+    if (!token) {
+        return { success: false, error: 'Invalid verification token.' };
+    }
+
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const tokenEntry = await prisma.passwordResetToken.findFirst({
+        where: {
+            token: hashedToken,
+            email: { startsWith: 'email-change::' },
+            expires: { gt: new Date() }
+        }
+    });
+
+    if (!tokenEntry) {
+        return { success: false, error: "This link is invalid or has expired. Please request a new one." };
+    }
+    
+    const parts = tokenEntry.email.split('::');
+    if (parts.length !== 3) {
+        return { success: false, error: "Invalid token format." };
+    }
+    const userId = parts[1];
+    const newEmail = parts[2];
+    
+    const userToUpdate = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userToUpdate) {
+        return { success: false, error: "User not found." };
+    }
+
+    const existingUserWithNewEmail = await prisma.user.findUnique({ where: { email: newEmail } });
+    if (existingUserWithNewEmail) {
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        return { success: false, error: "This email address has been registered by another user. Please try a different email." };
+    }
+
+    await prisma.$transaction([
+        prisma.user.update({
+            where: { id: userId },
+            data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
+        }),
+        prisma.passwordResetToken.delete({
+            where: { id: tokenEntry.id }
+        })
+    ]);
+
+    await logSecurityEvent({
+        event: SecurityEvent.EMAIL_CHANGE_SUCCESS,
+        severity: LogSeverity.WARN,
+        actor: userToUpdate,
+        details: `User email successfully changed from ${userToUpdate.email} to ${newEmail}.`,
+        targetId: userId,
+        targetType: 'User'
+    });
+    
+    return { success: true, message: `Your email has been successfully updated to ${newEmail}.` };
 }
 
 export type BulkImportResult = {

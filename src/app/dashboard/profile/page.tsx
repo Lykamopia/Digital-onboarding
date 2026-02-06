@@ -145,45 +145,35 @@ export default function ProfilePage() {
       });
 
       if (result.success) {
-        toast.success('Profile Updated', {
-          description: 'Your profile has been successfully updated.',
+        toast.success(result.message ? "Request Submitted" : 'Profile Updated', {
+          description: result.message || 'Your profile has been successfully updated.',
         });
 
-        // Now delete old files if they were replaced
-        const deleteOldFile = async (path: string | null | undefined) => {
-          if (!path || path.startsWith('http')) return;
-          try {
-            await fetch('/api/upload', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path }),
-            });
-          } catch (e) {
-            console.error("Failed to delete old file:", path, e); // Log and continue
-          }
-        };
-        
-        if (pendingAvatar && oldAvatar) {
-          await deleteOldFile(oldAvatar);
-        }
-        if ((signatureCleared || pendingSignature) && oldSignature) {
-          await deleteOldFile(oldSignature);
-        }
-
-        // Reload local user data and reset pending states
-        await loadUserAndData();
-
-        // Notify other parts of the app
-        try {
-          const fresh = await getLoggedInUser();
-          if (fresh) {
-            const detail: any = { ...fresh };
-            if (detail.avatar) detail.avatar = `${detail.avatar.split('?')[0]}?t=${Date.now()}`;
-            if (detail.signature) detail.signature = `${detail.signature.split('?')[0]}?t=${Date.now()}`;
-            window.dispatchEvent(new CustomEvent('profile-updated', { detail }));
-          }
-        } catch (e) {
-          // no-op
+        // Only delete files and reload data if it wasn't an email change request
+        if (!result.message) {
+            if (pendingAvatar && oldAvatar) {
+                await fetch('/api/upload', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ path: oldAvatar }),
+                });
+            }
+            if ((signatureCleared || pendingSignature) && oldSignature) {
+                await fetch('/api/upload', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ path: oldSignature }),
+                });
+            }
+            await loadUserAndData(); // Reload all data
+            // Notify other parts of the app
+            const fresh = await getLoggedInUser();
+            if (fresh) {
+                const detail: any = { ...fresh };
+                if (detail.avatar) detail.avatar = `${detail.avatar.split('?')[0]}?t=${Date.now()}`;
+                if (detail.signature) detail.signature = `${detail.signature.split('?')[0]}?t=${Date.now()}`;
+                window.dispatchEvent(new CustomEvent('profile-updated', { detail }));
+            }
         }
       } else {
         toast.error('Update Failed', {

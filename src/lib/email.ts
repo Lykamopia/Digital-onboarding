@@ -51,6 +51,18 @@ interface PasswordResetEmailOptions {
     token: string;
 }
 
+interface EmailChangeVerificationOptions {
+    to: string; // new email
+    name: string;
+    token: string;
+}
+
+interface EmailChangeNotificationOptions {
+    to: string; // old email
+    name: string;
+    newEmail: string;
+}
+
 async function logEmail(data: Omit<Prisma.EmailLogCreateInput, 'from'>) {
     try {
         await prisma.emailLog.create({
@@ -315,6 +327,78 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
             relatedEntityId: user?.id,
             errorMessage: error.message,
         });
+        throw error;
+    }
+}
+
+export async function sendEmailChangeVerificationEmail({ to, name, token }: EmailChangeVerificationOptions) {
+    const verificationLink = `${baseUrl}/verify-email?token=${token}`;
+    const expirationHours = 1;
+
+    const title = "Confirm Your New Email Address";
+    const content = `
+        <p>Hello ${name},</p>
+        <p>You requested to change your email address for the Nib Memo platform to this one. Please confirm this change by clicking the link below.</p>
+        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
+        <div class="button-container">
+            <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Confirm New Email</a>
+        </div>
+        <p>If you did not request this change, you can safely ignore this email.</p>
+    `;
+    
+    const htmlBody = generateAuthEmailBody(title, content);
+
+    const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: to,
+        subject: title,
+        html: htmlBody,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email change verification sent: %s', info.messageId);
+        return info;
+    } catch (error: any) {
+        console.error('Error sending email change verification:', error);
+        throw error;
+    }
+}
+
+export async function sendEmailChangeNotificationEmail({ to, name, newEmail }: EmailChangeNotificationOptions) {
+    const title = "Email Change Request for Your Nib Memo Account";
+    const content = `
+        <p>Hello ${name},</p>
+        <p>This is a notification that a request has been made to change the email address associated with your Nib Memo account to <strong>${newEmail}</strong>.</p>
+        <p>A verification email has been sent to the new address. Your email will not be changed until it is verified.</p>
+        <p><strong>If you did not make this request, please change your password immediately and contact an administrator.</strong></p>
+    `;
+
+    const htmlBody = generateAuthEmailBody(title, content);
+    
+    const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: to,
+        subject: title,
+        html: htmlBody,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email change notification sent: %s', info.messageId);
+        const user = await prisma.user.findUnique({ where: { email: to } });
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'sent',
+            triggerEvent: 'email_change_notice',
+            relatedEntityId: user?.id,
+            messageId: info.messageId,
+        });
+        return info;
+    } catch (error: any) {
+        console.error('Error sending email change notification:', error);
         throw error;
     }
 }
