@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronsLeft, ChevronsRight, Search, Shield, AlertTriangle, Info } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Search, Shield, AlertTriangle, Info, Loader2 } from "lucide-react";
 import { formatTimestamp } from "@/lib/data";
 import { useDebouncedCallback } from "use-debounce";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -70,9 +70,10 @@ function SecurityLogViewer() {
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search by event, IP, user ID..."
-                            className="pl-8"
+                            className="pl-8 pr-8"
                             onChange={(e) => debouncedSetQuery(e.target.value)}
                         />
+                        {loading && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                     <Select value={filters.severity || 'all'} onValueChange={(value) => {
                         setPage(1);
@@ -102,7 +103,7 @@ function SecurityLogViewer() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? (
+                            {loading && !data ? ( // Show skeleton only on initial load
                                 Array.from({ length: limit }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -207,7 +208,7 @@ export function MemoFilters({
                     <Input
                     type="search"
                     placeholder="Search memos..."
-                    className="w-full rounded-lg bg-background pl-8"
+                    className="w-full rounded-lg bg-background pl-8 pr-8"
                     value={search}
                     onChange={(e) => {
                         setSearch(e.target.value);
@@ -215,6 +216,9 @@ export function MemoFilters({
                         }
                     }
                     />
+                    {loading && (
+                        <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
                 </div>
             )}
              <Button variant="outline" size="icon" onClick={onRefresh} disabled={loading} className="shrink-0">

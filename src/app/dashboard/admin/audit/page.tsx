@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { FullMemo, User, DateRange, Label as LabelType } from "@/lib/types";
 import { getAuditMemos, getUsers, getLabels } from "@/app/actions/memo";
 import { useDebouncedCallback } from 'use-debounce';
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Search, ChevronsLeft, ChevronsRight, X, Download } from "lucide-react";
+import { Calendar as CalendarIcon, Search, ChevronsLeft, ChevronsRight, X, Download, Loader2 } from "lucide-react";
 import { format, formatDistanceToNow, isSameDay } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -21,11 +21,12 @@ import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { LabelSelector } from "@/components/label-selector";
 import Papa from "papaparse";
+import { toast } from "sonner";
 
 type FilterKey = 'sender' | 'recipient' | 'status';
 
 export default function AuditPage() {
-    const [allMemos, setAllMemos] = useState<FullMemo[]>([]);
+    const [data, setData] = useState<{ memos: FullMemo[], total: number, totalPages: number } | null>(null);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allLabels, setAllLabels] = useState<LabelType[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,86 +34,58 @@ export default function AuditPage() {
 
     // Filter State
     const [searchTerm, setSearchTerm] = useState('');
-    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [filters, setFilters] = useState<Record<FilterKey, string>>({ sender: '', recipient: '', status: '' });
     const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
     
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 10;
+    const ITEMS_PER_PAGE = 15;
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const [memos, users, labels] = await Promise.all([getAuditMemos(), getUsers(), getLabels()]);
-            setAllMemos(memos as FullMemo[]);
+        const fetchFilterData = async () => {
+            const [users, labels] = await Promise.all([getUsers(), getLabels()]);
             setAllUsers(users);
             setAllLabels(labels as LabelType[]);
-            setLoading(false);
         };
-        fetchData();
+        fetchFilterData();
     }, []);
 
-    const filteredMemos = useMemo(() => {
-        let memos = allMemos;
-
-        if (appliedSearchTerm) {
-            memos = memos.filter(m =>
-                m.subject.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-                m.memo_reference_number?.toLowerCase().includes(appliedSearchTerm.toLowerCase())
-            );
-        }
-
-        if (dateRange?.from) {
-            memos = memos.filter(m => new Date(m.createdAt) >= dateRange.from!);
-        }
-        if (dateRange?.to) {
-            memos = memos.filter(m => new Date(m.createdAt) <= dateRange.to!);
-        }
-
-        if (filters.sender) {
-            memos = memos.filter(m => m.fromId === filters.sender);
-        }
-        if (filters.recipient) {
-            memos = memos.filter(m => m.to.some(u => u.id === filters.recipient) || m.cc.some(u => u.id === filters.recipient));
-        }
-        if (filters.status) {
-            memos = memos.filter(m => filters.status === 'acknowledged' 
-                ? (m.acknowledgedBy?.length ?? 0) > 0 
-                : m.status === filters.status);
-        }
-
-        if (selectedLabels.length > 0) {
-            memos = memos.filter(m => 
-                m.labels.some(label => selectedLabels.includes(label.id))
-            );
-        }
-
-        return memos;
-    }, [allMemos, appliedSearchTerm, dateRange, filters, selectedLabels]);
-    
-    const handleSearch = () => {
-        setAppliedSearchTerm(searchTerm);
+    const debouncedSearchTerm = useDebouncedCallback((value) => {
+        setSearchTerm(value);
         setCurrentPage(1);
-    }
-    
+    }, 500);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await getAuditMemos(currentPage, ITEMS_PER_PAGE, {
+                query: searchTerm,
+                sender: filters.sender,
+                recipient: filters.recipient,
+                status: filters.status,
+                labels: selectedLabels,
+                dateRange: dateRange ? { from: dateRange.from?.toISOString(), to: dateRange.to?.toISOString() } : undefined,
+            });
+            setData(result as any);
+        } catch (error) {
+            toast.error("Failed to fetch audit logs.");
+        } finally {
+            setLoading(false);
+        }
+    }, [currentPage, searchTerm, filters, selectedLabels, dateRange]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
     const clearFilters = () => {
         setSearchTerm('');
-        setAppliedSearchTerm('');
         setDateRange(undefined);
         setFilters({ sender: '', recipient: '', status: '' });
         setSelectedLabels([]);
         setCurrentPage(1);
     }
-
-    const paginatedMemos = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        const end = start + ITEMS_PER_PAGE;
-        return filteredMemos.slice(start, end);
-    }, [filteredMemos, currentPage]);
-    
-    const totalPages = Math.ceil(filteredMemos.length / ITEMS_PER_PAGE);
 
     const userOptions = useMemo(() => allUsers.map(u => ({ value: u.id, label: u.name })), [allUsers]);
     const statusOptions = useMemo(() => [
@@ -132,10 +105,10 @@ export default function AuditPage() {
     }
     
     const handleExport = () => {
-        if (filteredMemos.length === 0) {
+        if (!data || data.memos.length === 0) {
             return;
         }
-        const dataToExport = filteredMemos.map(memo => ({
+        const dataToExport = data.memos.map(memo => ({
             "Reference No": memo.memo_reference_number,
             "Subject": memo.subject,
             "From": memo.from.name,
@@ -156,7 +129,7 @@ export default function AuditPage() {
         document.body.removeChild(link);
     };
 
-    if (loading) {
+    if (allUsers.length === 0) {
         return <div className="flex h-64 items-center justify-center"><HoneycombLoader /></div>;
     }
 
@@ -164,15 +137,15 @@ export default function AuditPage() {
         <AnimatedContent>
             <Card>
                 <div className="p-4 space-y-4">
-                    <div className="flex gap-2">
+                    <div className="relative flex-grow">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search by subject or reference..."
-                            className="flex-grow"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            className="w-full pl-8 pr-8"
+                            defaultValue={searchTerm}
+                            onChange={(e) => debouncedSearchTerm(e.target.value)}
                         />
-                        <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4"/> Search</Button>
+                        {loading && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <Combobox options={userOptions} value={filters.sender} onChange={(v) => handleFilterChange('sender', v)} placeholder="Filter by Sender" searchPlaceholder="Search sender..." />
@@ -205,7 +178,7 @@ export default function AuditPage() {
                                     mode="range"
                                     defaultMonth={dateRange?.from}
                                     selected={dateRange}
-                                    onSelect={setDateRange}
+                                    onSelect={(range) => { setDateRange(range); setCurrentPage(1); }}
                                     numberOfMonths={2}
                                 />
                             </PopoverContent>
@@ -216,7 +189,7 @@ export default function AuditPage() {
                     </div>
                     <div className="flex justify-between items-center">
                         <Button variant="ghost" onClick={clearFilters} className="text-muted-foreground hover:text-foreground"><X className="mr-2 h-4 w-4"/> Clear All Filters</Button>
-                        <Button variant="outline" onClick={handleExport} disabled={filteredMemos.length === 0}>
+                        <Button variant="outline" onClick={handleExport} disabled={!data || data.memos.length === 0}>
                             <Download className="mr-2 h-4 w-4" /> Export Results
                         </Button>
                     </div>
@@ -234,7 +207,13 @@ export default function AuditPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {paginatedMemos.length > 0 ? paginatedMemos.map((memo, index) => (
+                                {loading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell colSpan={5}><div className="h-8 w-full animate-pulse bg-muted rounded-md" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : data && data.memos.length > 0 ? data.memos.map((memo, index) => (
                                     <TableRow
                                         key={memo.id}
                                         onClick={() => setSelectedMemo(memo)}
@@ -257,12 +236,15 @@ export default function AuditPage() {
                 </CardContent>
                  <div className="flex justify-between items-center p-4">
                     <div className="text-sm text-muted-foreground">
-                        Showing {paginatedMemos.length} of {filteredMemos.length} results. Page {currentPage} of {totalPages}.
+                        Showing {data?.memos.length ?? 0} of {data?.total ?? 0} results.
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
-                    </div>
+                    {data && data.totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">Page {data.page} of {data.totalPages}</span>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(data.totalPages, p + 1))} disabled={currentPage === data.totalPages}>Next <ChevronsRight/></Button>
+                        </div>
+                    )}
                 </div>
             </Card>
 
@@ -286,5 +268,3 @@ export default function AuditPage() {
         </AnimatedContent>
     );
 }
-
-    

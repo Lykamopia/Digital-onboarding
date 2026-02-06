@@ -215,43 +215,106 @@ export async function getDashboardData(tab: string, query: string, category: str
     return memos;
 }
 
-export async function getAuditMemos() {
-    await hasPermission('manage_audit_log');
-    return await prisma.memo.findMany({
-        where: {
-            status: { not: 'draft' }
-        },
-        include: {
-            from: { include: { role: true } },
-            to: { include: { role: true } },
-            cc: { include: { role: true } },
-            labels: true,
-            attachments: true,
-            activity: {
-                include: {
-                    actor: true
-                },
-                orderBy: { timestamp: 'asc' }
-            },
-            current_holder: { include: { role: true } },
-            previous_holders: { include: { role: true } },
-            acknowledgedBy: { include: { role: true } },
-            replies: {
-                include: {
-                  from: {
-                    include: {
-                      role: true,
-                    },
-                  },
-                },
-              },
-            replyTo: { include: { from: { include: { role: true } } } },
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
+export async function getAuditMemos(
+  page = 1,
+  limit = 10,
+  filters: {
+    query?: string;
+    sender?: string;
+    recipient?: string;
+    status?: string;
+    labels?: string[];
+    dateRange?: { from?: string; to?: string };
+  } = {}
+) {
+  await hasPermission('manage_audit_log');
+
+  const whereClause: Prisma.MemoWhereInput = {
+    status: { not: 'draft' }
+  };
+  
+  const andClauses: Prisma.MemoWhereInput[] = [];
+
+  if (filters.query) {
+    andClauses.push({
+      OR: [
+        { subject: { contains: filters.query, mode: 'insensitive' } },
+        { memo_reference_number: { contains: filters.query, mode: 'insensitive' } }
+      ]
     });
+  }
+
+  if (filters.sender) {
+    andClauses.push({ fromId: filters.sender });
+  }
+
+  if (filters.recipient) {
+    andClauses.push({
+        OR: [
+            { to: { some: { id: filters.recipient } } },
+            { cc: { some: { id: filters.recipient } } }
+        ]
+    });
+  }
+
+  if (filters.status) {
+    if (filters.status === 'acknowledged') {
+      andClauses.push({ acknowledgedBy: { some: {} } });
+    } else {
+      andClauses.push({ status: filters.status });
+    }
+  }
+
+  if (filters.labels && filters.labels.length > 0) {
+    andClauses.push({ labels: { some: { id: { in: filters.labels } } } });
+  }
+
+  const dateFilter: { gte?: Date, lte?: Date } = {};
+  if (filters.dateRange?.from) {
+    dateFilter.gte = new Date(filters.dateRange.from);
+  }
+  if (filters.dateRange?.to) {
+    dateFilter.lte = new Date(filters.dateRange.to);
+  }
+  if (Object.keys(dateFilter).length > 0) {
+      andClauses.push({ createdAt: dateFilter });
+  }
+
+  if (andClauses.length > 0) {
+      whereClause.AND = andClauses;
+  }
+
+  const [memos, total] = await prisma.$transaction([
+    prisma.memo.findMany({
+      where: whereClause,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        from: { include: { role: true } },
+        to: { include: { role: true } },
+        cc: { include: { role: true } },
+        labels: true,
+        attachments: true,
+        activity: {
+          include: { actor: true },
+          orderBy: { timestamp: 'asc' }
+        },
+        current_holder: { include: { role: true } },
+        previous_holders: { include: { role: true } },
+        acknowledgedBy: { include: { role: true } },
+        replies: {
+          include: { from: { include: { role: true } } },
+        },
+        replyTo: { include: { from: { include: { role: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.memo.count({ where: whereClause })
+  ]);
+
+  return { memos, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
+
 
 export async function toggleFavorite(memoId: string) {
     const user = await getLoggedInUser();
@@ -1849,4 +1912,5 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 

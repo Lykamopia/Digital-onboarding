@@ -232,9 +232,10 @@ function EmailLogViewer() {
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search by recipient, subject, or ID..."
-                            className="pl-8"
+                            className="pl-8 pr-8"
                             onChange={(e) => debouncedSetQuery(e.target.value)}
                         />
+                        {loading && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                     <Select value={filters.status || 'all'} onValueChange={(value) => {
                         setFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value }));
