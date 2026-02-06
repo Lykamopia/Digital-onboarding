@@ -229,3 +229,5 @@ export default function GeneralSettingsPage() {
     </div>
   );
 }
+
+    

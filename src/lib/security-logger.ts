@@ -120,3 +120,5 @@ export async function logSecurityEvent(log: LogDetails) {
         console.error('Failed to write security log:', error);
     }
 }
+
+    

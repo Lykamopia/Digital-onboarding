@@ -76,3 +76,5 @@ export async function getEmailSettings(): Promise<EmailSettings> {
     }
     return defaultEmailSettings;
 }
+
+    
