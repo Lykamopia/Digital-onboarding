@@ -75,7 +75,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         let totalWidth = 0;
         let newVisible = [];
         let newHidden = [];
-        let needsMoreButton = false;
+        let needsDropdown = false;
 
         const tempTabContainer = document.createElement('div');
         tempTabContainer.style.position = 'absolute';
@@ -236,3 +236,4 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default AdminLayout;
+    
