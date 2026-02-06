@@ -15,7 +15,7 @@ import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
-import { getGeneralSettings } from '@/lib/settings';
+import { getGeneralSettings, getEmailSettings } from '@/lib/settings';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -564,7 +564,7 @@ async function generateReferenceNumber(user: User): Promise<string> {
 }
 
 
-export async function sendMemo(formData: FormData): Promise<{ success: boolean; error?: string; memo?: Memo; }> {
+export async function sendMemo(formData: FormData): Promise<{ success: boolean; error?: any; memo?: Memo; }> {
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: "Not authenticated" };
 
@@ -586,7 +586,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     const validation = memoSchema.safeParse(data);
     if (!validation.success) {
         console.error(validation.error.flatten().fieldErrors);
-        return { success: false, error: 'Invalid memo data', details: validation.error.flatten().fieldErrors };
+        return { success: false, error: validation.error.flatten().fieldErrors };
     }
     
     const validatedData = validation.data;
@@ -711,6 +711,11 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
 
     await sendToWebSocket({ type: 'new-memo', payload: newMemo });
     
+    const [emailSettings, generalSettings] = await Promise.all([
+        getEmailSettings(),
+        getGeneralSettings(),
+    ]);
+
     const allRecipients = [...newMemo.to, ...newMemo.cc];
     for (const recipient of allRecipients) {
         try {
@@ -719,7 +724,9 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
                 subject: `New Memo: ${newMemo.subject}`,
                 memo: newMemo,
                 sender: user,
-                type: newMemo.to.some(u => u.id === recipient.id) ? 'direct' : 'cc'
+                type: newMemo.to.some(u => u.id === recipient.id) ? 'direct' : 'cc',
+                emailSettings,
+                generalSettings,
             });
         } catch (error) {
             console.error(`Failed to send email to ${recipient.email}:`, error);
@@ -783,7 +790,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
-export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] } = {}) {
+export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -980,7 +987,7 @@ export async function getLabels() {
 
 export async function getLoggedInUser(): Promise<LoggedInUser | null> {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.id) {
         return null;
     }
     const sessionUser = session.user as any;
@@ -1553,7 +1560,6 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
     return result;
 }
 
-
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
     await hasPermission('manage_email_settings');
     await prisma.setting.upsert({
@@ -1736,6 +1742,8 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
+
 
 
 

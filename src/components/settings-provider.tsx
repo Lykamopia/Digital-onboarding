@@ -3,7 +3,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { saveGeneralSettings } from '@/app/actions/memo';
-import { getGeneralSettings } from '@/lib/settings';
 import type { AcknowledgementType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
 
@@ -24,60 +23,43 @@ type SettingsContextType = {
   updateSettings: (newSettings: Partial<GeneralSettings>) => Promise<void>;
 };
 
+type SettingsProviderProps = {
+  children: ReactNode;
+  initialSettings: GeneralSettings;
+};
+
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<GeneralSettings>({ 
-    acknowledgementType: 'SIGNATURE',
-    referenceFormat: {
-        separator: '-',
-        numberLength: 4
-    },
-    acknowledgementMode: 'manual',
-  });
-  const [loading, setLoading] = useState(true);
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      const data = await getGeneralSettings();
-      setSettings(data);
-    } catch (error) {
-      console.error("Failed to fetch general settings:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSettings();
-    // Listen for changes from other tabs/windows if needed, e.g., via BroadcastChannel
-  }, [fetchSettings]);
+export function SettingsProvider({ children, initialSettings }: SettingsProviderProps) {
+  const [settings, setSettings] = useState<GeneralSettings>(initialSettings);
+  const [loading, setLoading] = useState(!initialSettings);
 
   const updateSettings = async (newSettings: Partial<GeneralSettings>) => {
+    const oldSettings = settings;
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings); // Optimistic update
     try {
       await saveGeneralSettings(updatedSettings as GeneralSettings);
-      // Optional: broadcast change to other tabs
       window.dispatchEvent(new CustomEvent('settings-updated'));
     } catch (error) {
       console.error("Failed to save settings:", error);
-      // Revert on failure
-      fetchSettings();
+      setSettings(oldSettings); // Revert on failure
     }
   };
   
   useEffect(() => {
-    const handleSettingsUpdate = () => fetchSettings();
+    const handleSettingsUpdate = () => {
+        window.location.reload(); 
+    };
     window.addEventListener('settings-updated', handleSettingsUpdate);
     return () => window.removeEventListener('settings-updated', handleSettingsUpdate);
-  }, [fetchSettings]);
+  }, []);
 
   const value = { settings, loading, updateSettings };
 
   return (
     <SettingsContext.Provider value={value}>
-      {loading ? <div className="h-screen w-full flex items-center justify-center bg-background"><Skeleton className="h-full w-full" /></div> : children}
+      {children}
     </SettingsContext.Provider>
   );
 }

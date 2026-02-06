@@ -1,7 +1,6 @@
 
 import nodemailer from 'nodemailer';
 import type { Memo, User, Role, Prisma } from './types';
-import { getEmailSettings, getGeneralSettings } from './settings';
 import prisma from './prisma';
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
@@ -17,12 +16,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+type EmailSettings = {
+    notificationsEnabled: boolean;
+    headerText: string;
+    bodyText: string;
+    footerText: string;
+};
+
+type GeneralSettings = {
+    acknowledgementType: 'BADGE' | 'SIGNATURE';
+};
+
 interface MemoEmailOptions {
   to: string;
   subject: string;
   memo: Memo;
   sender: User & { role: Role | null };
   type: 'direct' | 'cc';
+  emailSettings: EmailSettings;
+  generalSettings: GeneralSettings;
 }
 
 interface VerificationEmailOptions {
@@ -51,13 +63,19 @@ async function logEmail(data: Omit<Prisma.EmailLogCreateInput, 'from'>) {
 }
 
 
-async function generateMemoEmailBody(memo: Memo, sender: User & { role: Role | null }, type: 'direct' | 'cc'): Promise<string> {
-    const { notificationsEnabled, headerText, bodyText, footerText } = await getEmailSettings();
+async function generateMemoEmailBody(
+    memo: Memo, 
+    sender: User & { role: Role | null }, 
+    type: 'direct' | 'cc',
+    emailSettings: EmailSettings,
+    generalSettings: GeneralSettings
+): Promise<string> {
+    const { notificationsEnabled, headerText, bodyText, footerText } = emailSettings;
     if (!notificationsEnabled) {
         return '';
     }
 
-    const { acknowledgementType } = await getGeneralSettings();
+    const { acknowledgementType } = generalSettings;
     const useSignature = acknowledgementType === 'SIGNATURE';
 
     const memoUrl = `${baseUrl}/dashboard/inbox?id=${memo.id}`;
@@ -299,14 +317,13 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
     }
 }
 
-export async function sendEmail({ to, subject, memo, sender, type }: MemoEmailOptions) {
-  const { notificationsEnabled } = await getEmailSettings();
-  if (!notificationsEnabled) {
+export async function sendEmail({ to, subject, memo, sender, type, emailSettings, generalSettings }: MemoEmailOptions) {
+  if (!emailSettings.notificationsEnabled) {
     console.log('Email notifications are disabled. Skipping email to', to);
     return;
   }
 
-  const htmlBody = await generateMemoEmailBody(memo, sender, type);
+  const htmlBody = await generateMemoEmailBody(memo, sender, type, emailSettings, generalSettings);
   if (!htmlBody) return;
 
   const mailOptions = {
