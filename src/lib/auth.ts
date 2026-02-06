@@ -173,7 +173,7 @@ export const authOptions: NextAuthOptions = {
       if (userIdToCheck && token.tokenVersion !== undefined) {
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }});
           if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
-              return null; // Invalidate session
+              return {}; // Invalidate session by returning an empty token
           }
           if(!token.realUser) {
               token.onboardingCompleted = dbUser.onboardingCompleted;

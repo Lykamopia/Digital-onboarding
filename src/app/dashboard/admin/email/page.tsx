@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -8,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getEmailSettings, saveEmailSettings, getEmailLogs } from "@/app/actions/memo";
+import { saveEmailSettings, getEmailLogs } from "@/app/actions/memo";
+import { getEmailSettings } from "@/lib/settings";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Save, Search, ChevronsLeft, ChevronsRight, Eye } from "lucide-react";
@@ -31,7 +31,12 @@ function EmailTemplateSettings() {
     async function fetchSettings() {
       setLoading(true);
       const data = await getEmailSettings();
-      setSettings(data);
+      setSettings({
+        notificationsEnabled: data.notificationsEnabled ?? true,
+        headerText: data.headerText || '',
+        bodyText: data.bodyText || '',
+        footerText: data.footerText || '',
+      });
       setLoading(false);
     }
     fetchSettings();
@@ -49,7 +54,7 @@ function EmailTemplateSettings() {
   };
 
   const processTextForPreview = (text: string) => {
-    const memoUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/dashboard/inbox?id=...`;
+    const memoUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3010'}/dashboard/inbox?id=...`;
     
     const notificationType = `You have received a new memo from <strong>Sender Name</strong>.`;
 
