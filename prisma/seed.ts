@@ -2,6 +2,10 @@
 import { PrismaClient } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 import { sendVerificationEmail } from '../src/lib/email';
+import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -174,42 +178,33 @@ async function main() {
   console.log(`Seeded ${labels.length} labels.`);
 
 
-  // Seed Admin User via email invitation
-  const adminEmail = 'admin@example.com';
+  // Seed Admin User from .env
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    throw new Error('Please set ADMIN_EMAIL and ADMIN_PASSWORD in your .env file');
+  }
+
+  console.log(`Seeding admin user: ${adminEmail}...`);
+  
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
   const adminUser = await prisma.user.create({
       data: {
           id: 'user-admin',
           name: 'Admin User',
           email: adminEmail,
-          hashedPassword: null,
-          roleId: 'role-1',
+          hashedPassword: hashedPassword,
+          roleId: 'role-1', // Assuming 'role-1' is the Admin role
           officeId: 'off-1', // Assign to a default office
-          onboardingCompleted: false, // User must set password
+          onboardingCompleted: false, // Force password change on first login
+          status: 'active',
       }
   });
+  console.log(`Admin user ${adminUser.name} created. Onboarding required on first login.`);
 
-  const token = randomBytes(32).toString('hex');
-  const hashedToken = createHash('sha256').update(token).digest('hex');
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours to set up
-
-  await prisma.passwordResetToken.create({
-    data: {
-        email: adminEmail,
-        token: hashedToken,
-        expires: expires,
-    },
-  });
-
-  console.log(`Admin user created. Sending setup email to ${adminEmail}...`);
-  try {
-      await sendVerificationEmail({ to: adminEmail, name: adminUser.name!, token: token });
-      console.log('Admin setup email sent successfully.');
-  } catch (error) {
-      console.error('Failed to send admin setup email:', error);
-  }
-
-
-  // Seed other users without passwords (they can't log in until one is set)
+  // Seed other users without passwords (they must be invited by an admin)
   for (const user of users) {
       const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId } = user;
       await prisma.user.create({
@@ -225,10 +220,11 @@ async function main() {
               branchId: branchId || null,
               roleId,
               hashedPassword: null,
+              onboardingCompleted: false,
           }
       });
   }
-  console.log(`Seeded ${users.length} users.`);
+  console.log(`Seeded ${users.length} other users.`);
 
 
   // Seed Memos (more complex due to relations)

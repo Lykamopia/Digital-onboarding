@@ -15,7 +15,7 @@ import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
-import { getEmailSettings, getGeneralSettings } from '@/lib/settings';
+import { getGeneralSettings } from '@/lib/settings';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -1019,6 +1019,7 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     const finalUser: LoggedInUser = {
         ...currentUser,
+        onboardingCompleted: currentUser.onboardingCompleted,
         delegatedTo: realUserWithDelegations.delegatedTo, // Always use the real user's delegatedTo list
     };
     
@@ -1212,12 +1213,13 @@ export async function saveUser(data: {
         }
 
         payload.hashedPassword = null;
+        payload.onboardingCompleted = false;
         
         const newUser = await prisma.user.create({ data: payload });
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
         await prisma.passwordResetToken.upsert({
             where: { email: newUser.email! },
@@ -1526,7 +1528,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             
             const token = randomBytes(32).toString('hex');
             const hashedToken = createHash('sha256').update(token).digest('hex');
-            const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+            const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
             await prisma.passwordResetToken.upsert({
                 where: { email: newUser.email! },
@@ -1734,6 +1736,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 
 
 
