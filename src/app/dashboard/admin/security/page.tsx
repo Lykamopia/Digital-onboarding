@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getSecurityLogs } from "@/app/actions/memo";
-import type { SecurityLog, User } from "@/lib/types";
-import { LogSeverity } from "@/lib/security-logger";
+import type { SecurityLog, User, LogSeverity } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -50,11 +49,11 @@ function SecurityLogViewer() {
 
     const getSeverityBadge = (severity: LogSeverity) => {
         switch (severity) {
-            case LogSeverity.CRITICAL:
+            case 'CRITICAL':
                 return <Badge variant="destructive" className="items-center gap-1"><AlertTriangle className="h-3 w-3" /> CRITICAL</Badge>;
-            case LogSeverity.WARN:
+            case 'WARN':
                 return <Badge variant="secondary" className="bg-yellow-500/80 text-background items-center gap-1"><Shield className="h-3 w-3" /> WARN</Badge>;
-            case LogSeverity.INFO:
+            case 'INFO':
             default:
                 return <Badge variant="outline" className="items-center gap-1"><Info className="h-3 w-3" /> INFO</Badge>;
         }
@@ -85,9 +84,9 @@ function SecurityLogViewer() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Severities</SelectItem>
-                            <SelectItem value={LogSeverity.INFO}>Info</SelectItem>
-                            <SelectItem value={LogSeverity.WARN}>Warning</SelectItem>
-                            <SelectItem value={LogSeverity.CRITICAL}>Critical</SelectItem>
+                            <SelectItem value={'INFO'}>Info</SelectItem>
+                            <SelectItem value={'WARN'}>Warning</SelectItem>
+                            <SelectItem value={'CRITICAL'}>Critical</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -113,7 +112,7 @@ function SecurityLogViewer() {
                             ) : data && data.logs.length > 0 ? (
                                 data.logs.map(log => (
                                     <TableRow key={log.id}>
-                                        <TableCell>{getSeverityBadge(log.severity)}</TableCell>
+                                        <TableCell>{getSeverityBadge(log.severity as LogSeverity)}</TableCell>
                                         <TableCell><Badge variant="secondary" className="font-mono">{log.event}</Badge></TableCell>
                                         <TableCell className="max-w-xs truncate">
                                             <TooltipProvider>

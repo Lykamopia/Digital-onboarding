@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
+import { LogSeverity } from './types';
 import { sendEmail } from './email';
 import { getEmailSettings, getGeneralSettings } from '@/app/actions/settings';
 
@@ -29,12 +30,6 @@ export enum SecurityEvent {
   DELEGATION_SESSION_END = 'DELEGATION_SESSION_END',
 
   SETTINGS_UPDATED = 'SETTINGS_UPDATED',
-}
-
-export enum LogSeverity {
-    INFO = 'INFO',
-    WARN = 'WARN',
-    CRITICAL = 'CRITICAL',
 }
 
 type LogDetails = {

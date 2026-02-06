@@ -129,4 +129,10 @@ export type UserWithStatus = User & {
     status: 'active' | 'inactive';
 }
 
+export enum LogSeverity {
+    INFO = 'INFO',
+    WARN = 'WARN',
+    CRITICAL = 'CRITICAL',
+}
+
 export type { Prisma };

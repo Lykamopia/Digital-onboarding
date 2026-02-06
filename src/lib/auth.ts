@@ -4,8 +4,8 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
-import type { User, DelegationPermission } from "./types";
-import { logSecurityEvent, SecurityEvent, LogSeverity } from './security-logger';
+import type { User, DelegationPermission, LogSeverity } from "./types";
+import { logSecurityEvent, SecurityEvent } from './security-logger';
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
