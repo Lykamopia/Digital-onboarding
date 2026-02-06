@@ -228,7 +228,18 @@ export const authOptions: NextAuthOptions = {
 
       // On subsequent requests, validate the token version
       const userIdToCheck = (token.realUser?.id || token.id) as string;
-      if (userIdToCheck && typeof token.tokenVersion === 'number') {
+      if (userIdToCheck) {
+          // Any valid token must have a version number. If not, invalidate it.
+          if (typeof token.tokenVersion !== 'number') {
+              await logSecurityEvent({
+                  event: SecurityEvent.LOGOUT,
+                  severity: LogSeverity.WARN,
+                  actor: { id: userIdToCheck, name: token.name },
+                  details: 'User session invalidated due to missing token version.',
+              });
+              return {}; // Invalidate session
+          }
+          
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { tokenVersion: true, onboardingCompleted: true } });
           
           if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
