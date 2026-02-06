@@ -44,9 +44,7 @@ const roles = [
     id: 'role-1',
     name: 'Admin',
     permissions: [
-      'view_dashboard',
       'manage_memos',
-      'view_admin',
       'manage_general_settings',
       'manage_email_settings',
       'manage_divisions',
@@ -61,7 +59,7 @@ const roles = [
       'manage_audit_log'
     ].join(','),
   },
-  { id: 'role-2', name: 'Member', permissions: ['view_dashboard', 'manage_memos'].join(',') },
+  { id: 'role-2', name: 'Member', permissions: ['manage_memos'].join(',') },
 ];
 
 const labels = [

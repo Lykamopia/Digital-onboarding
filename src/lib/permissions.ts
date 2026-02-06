@@ -2,8 +2,7 @@
 import type { Permission } from '@/lib/types';
 
 export const permissions: { id: Permission, label: string, description: string }[] = [
-    { id: 'view_dashboard', label: 'View Dashboard', description: 'Can view memo folders like Inbox, Sent, Favorites, and Archive.' },
-    { id: 'manage_memos', label: 'Manage Memos', description: 'Can create, edit, and send new memos and drafts.' },
+    { id: 'manage_memos', label: 'Manage Memos', description: 'Can create, send, and manage memos across all folders (Inbox, Sent, etc.).' },
     { id: 'manage_general_settings', label: 'Manage General Settings', description: 'Can manage general application settings' },
     { id: 'manage_email_settings', label: 'Manage Email Settings', description: 'Can manage email notification settings' },
     { id: 'manage_divisions', label: 'Manage Divisions', description: 'Can create, edit, and delete divisions' },

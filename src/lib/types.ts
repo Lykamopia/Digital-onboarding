@@ -18,9 +18,9 @@ import type {
 import { delegationPermissions } from './permissions';
 
 export type Permission = 
-    | 'view_dashboard' 
     | 'manage_memos' 
-    | 'view_admin' 
+    | 'manage_general_settings'
+    | 'manage_email_settings'
     | 'manage_divisions' 
     | 'manage_departments' 
     | 'manage_offices' 
@@ -30,9 +30,7 @@ export type Permission =
     | 'manage_audit_log'
     | 'manage_branches' 
     | 'manage_districts' 
-    | 'manage_labels' 
-    | 'manage_general_settings'
-    | 'manage_email_settings';
+    | 'manage_labels';
 
 export type DelegationPermission = typeof delegationPermissions[number]['id'];
 

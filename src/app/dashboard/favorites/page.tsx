@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 export default async function FavoritesPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
     const user = await getLoggedInUser();
-    if (!user || !user.role?.permissions.includes('view_dashboard')) {
+    if (!user || !user.role?.permissions.includes('manage_memos')) {
         redirect('/dashboard/access-denied');
     }
 

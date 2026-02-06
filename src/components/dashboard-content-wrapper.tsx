@@ -39,11 +39,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   const [isMounted, setIsMounted] = useState(false);
   const { update: updateSession } = useSession();
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const permissions = useMemo(() => user?.role?.permissions?.split(',') || [], [user?.role?.permissions]);
+  const permissions = useMemo(() => user?.role?.permissions || [], [user?.role?.permissions]);
 
   const adminPermissions = useMemo(() => [
     'manage_general_settings', 'manage_email_settings', 'manage_divisions', 
@@ -54,11 +50,10 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
   const hasAdminAccess = useMemo(() => {
     if (!user) return false;
-    return adminPermissions.some(p => permissions.includes(p));
+    return adminPermissions.some(p => permissions.includes(p as any));
   }, [user, permissions, adminPermissions]);
 
-  const canViewDashboard = useMemo(() => user ? permissions.includes('view_dashboard') : false, [user, permissions]);
-  const canManageMemos = useMemo(() => user ? permissions.includes('manage_memos') : false, [user, permissions]);
+  const canManageMemos = useMemo(() => user ? permissions.includes('manage_memos' as Permission) : false, [user, permissions]);
 
   const canCreateMemo = useMemo(() => {
     if (!user) return false;
@@ -79,17 +74,21 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
           ]
         : [
-            { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: (!user.actingUser && canViewDashboard) || isDelegatedView },
-            { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: (!user.actingUser && canViewDashboard) || isDelegatedView },
+            { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+            { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
             { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: (!user.actingUser && canManageMemos) || isDelegatedDraft },
-            { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: (!user.actingUser && canViewDashboard) || isDelegatedView },
-            { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: (!user.actingUser && canViewDashboard) || isDelegatedView },
+            { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+            { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
             { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
             { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: hasAdminAccess && !user.actingUser },
             { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
           ]),
     ];
-  }, [user, pathname, canViewDashboard, canManageMemos, hasAdminAccess, isDelegatedView, isDelegatedDraft]);
+  }, [user, pathname, canManageMemos, hasAdminAccess, isDelegatedView, isDelegatedDraft]);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleReturnToOwnAccount = async () => {
     toast.loading("Returning to your account...", { id: 'account-switch' });
@@ -100,6 +99,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         toast.error("Failed to return to your account.", { id: 'account-switch' });
     }
   }
+
 
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
