@@ -1,3 +1,4 @@
+
 "use client"
 
 import { LogOut, User as UserIcon, Repeat, ShieldQuestion, Info } from "lucide-react"
@@ -33,7 +34,7 @@ export function UserNav({ user }: { user: User }) {
 
   const handleSwitchAccount = async (delegatorId: string) => {
     toast.loading("Switching accounts...", { id: 'account-switch' });
-    const res = await update({ switch_to_delegator_id: delegatorId });
+    const res = await update({ switch_to_delegator_id: delegatorId, redirect: false });
     if (res) {
         window.location.href = '/dashboard/inbox';
     } else {
@@ -153,3 +154,5 @@ export function UserNav({ user }: { user: User }) {
       </DropdownMenu>
   )
 }
+
+    

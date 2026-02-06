@@ -199,6 +199,7 @@ export const authOptions: NextAuthOptions = {
       if (user) { // This runs on initial sign-in
         const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
         if (dbUser) {
+            // NOTE: The version is incremented on login to invalidate any other sessions that might exist.
             await prisma.user.update({
                 where: { id: dbUser.id },
                 data: { tokenVersion: { increment: 1 } }
@@ -206,14 +207,14 @@ export const authOptions: NextAuthOptions = {
             token.tokenVersion = dbUser.tokenVersion + 1;
             token.onboardingCompleted = dbUser.onboardingCompleted;
         }
-
         token.id = user.id;
       }
       
       // On subsequent requests, validate the token version
       const userIdToCheck = (token.realUser?.id || token.id) as string;
-      if (userIdToCheck && token.tokenVersion !== undefined) {
-          const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }});
+      if (userIdToCheck && typeof token.tokenVersion === 'number') {
+          const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { tokenVersion: true, onboardingCompleted: true } });
+          
           if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
               await logSecurityEvent({
                   event: SecurityEvent.LOGOUT,
@@ -221,9 +222,9 @@ export const authOptions: NextAuthOptions = {
                   actor: { id: userIdToCheck, name: token.name },
                   details: 'User session invalidated due to token version mismatch (likely remote logout).',
               });
-              return {}; // Invalidate session by returning an empty token
+              return {}; // Invalidate session
           }
-          if(!token.realUser) {
+          if (!token.realUser) { // Don't overwrite delegator's onboarding status
               token.onboardingCompleted = dbUser.onboardingCompleted;
           }
       }

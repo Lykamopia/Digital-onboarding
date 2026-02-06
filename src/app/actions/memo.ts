@@ -1018,11 +1018,10 @@ export async function getUsers() {
     });
 
     // Sanitize user data to remove password hashes before returning
-    users.forEach(user => {
-        (user as any).hashedPassword = null;
+    return users.map(user => {
+        const { hashedPassword, ...userWithoutPassword } = user;
+        return userWithoutPassword;
     });
-
-    return users;
 }
 
 export async function getAllMemosForAdmin() {
@@ -1763,8 +1762,8 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
 
 export async function revokeUserTokens(userId: string) {
     const user = await getLoggedInUser();
-    if (!user || (user.id !== userId && !user.role?.permissions.includes('manage_users'))) {
-        throw new Error("Unauthorized");
+    if (!user || (user.id !== userId && !(user.role?.permissions?.includes('manage_users')))) {
+        throw new Error("Unauthorized to revoke tokens.");
     }
     
     await prisma.user.update({
@@ -1932,11 +1931,5 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' successfully set their password via reset link.`, targetId: user.id, targetType: 'User' });
     return { success: true };
 }
-    
 
     
-
-    
-
-
-
