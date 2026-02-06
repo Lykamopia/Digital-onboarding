@@ -1617,7 +1617,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
 
     const existingUserWithNewEmail = await prisma.user.findUnique({ where: { email: newEmail } });
     if (existingUserWithNewEmail) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { token: hashedToken } });
         return { success: false, error: "This email address has been registered by another user. Please try a different email." };
     }
 
@@ -1627,7 +1627,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
             data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
         }),
         prisma.passwordResetToken.delete({
-            where: { id: tokenEntry.id }
+            where: { token: hashedToken }
         })
     ]);
 
@@ -2007,11 +2007,15 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if(tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email }});
+            await prisma.passwordResetToken.delete({ where: { token: hashedToken }});
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
+    if (tokenEntry.email.startsWith('email-change::')) {
+        return { error: "This is an email verification link, not a password reset link. Please use the link sent to your new email address to verify the change." };
+    }
+
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
     if (!user) {
         return { error: "User not found." };
@@ -2035,12 +2039,10 @@ export async function setPasswordWithToken({ token, password }: { token: string,
             }
         }),
         prisma.passwordResetToken.delete({
-            where: { email: tokenEntry.email }
+            where: { token: hashedToken }
         })
     ]);
 
     await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' successfully set their password via reset link.`, targetId: user.id, targetType: 'User' });
     return { success: true };
 }
-
-    
