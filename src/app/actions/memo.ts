@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation';
 import { passwordSchema } from '@/lib/password-policy';
 import Papa from 'papaparse';
 import { randomBytes, createHash } from 'crypto';
+import { getEmailSettings, getGeneralSettings } from '@/lib/settings';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -1551,17 +1552,6 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
 }
 
 
-export async function getEmailSettings() {
-    const settings = await prisma.setting.findUnique({ where: { key: 'email' } });
-    const defaultSettings = { 
-        notificationsEnabled: true, 
-        headerText: 'New Memo Notification', 
-        bodyText: 'Hello,\n\n{{notificationType}}\n\nPlease find the details of the memo below.',
-        footerText: 'This is an automated message. Please do not reply.' 
-    };
-    return settings ? { ...defaultSettings, ...(settings.value as any) } : defaultSettings;
-}
-
 export async function saveEmailSettings(settings: { notificationsEnabled: boolean, headerText: string, bodyText: string, footerText: string }) {
     await hasPermission('manage_email_settings');
     await prisma.setting.upsert({
@@ -1571,26 +1561,6 @@ export async function saveEmailSettings(settings: { notificationsEnabled: boolea
     });
     revalidatePath('/dashboard/admin/email');
     return { success: true };
-}
-
-const defaultGeneralSettings = { 
-    acknowledgementType: 'SIGNATURE' as AcknowledgementType,
-    referenceFormat: {
-        separator: '-' as '-' | '/',
-        numberLength: 4,
-    },
-    acknowledgementMode: 'manual' as 'auto' | 'manual',
-};
-
-export async function getGeneralSettings() {
-    const settings = await prisma.setting.findUnique({ where: { key: 'general' } });
-    if (settings) {
-        const dbSettings = settings.value as any;
-        const mergedSettings = { ...defaultGeneralSettings, ...dbSettings };
-        mergedSettings.referenceFormat = { ...defaultGeneralSettings.referenceFormat, ...dbSettings.referenceFormat };
-        return mergedSettings;
-    }
-    return defaultGeneralSettings;
 }
 
 export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual' }) {
@@ -1764,6 +1734,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 
 
 
