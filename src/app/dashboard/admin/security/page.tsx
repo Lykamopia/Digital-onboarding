@@ -18,12 +18,11 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/comp
 
 type SecurityLogWithActor = SecurityLog & { actor: User | null };
 
-const ITEMS_PER_PAGE = 15;
-
 function SecurityLogViewer() {
     const [data, setData] = useState<{ logs: SecurityLogWithActor[], total: number, totalPages: number } | null>(null);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(15);
     const [filters, setFilters] = useState<{ severity?: string; query?: string }>({});
 
     const debouncedSetQuery = useDebouncedCallback((query: string) => {
@@ -34,14 +33,14 @@ function SecurityLogViewer() {
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await getSecurityLogs(page, ITEMS_PER_PAGE, filters);
+            const result = await getSecurityLogs(page, limit, filters);
             setData(result as any);
         } catch (error) {
             console.error("Failed to fetch security logs:", error);
         } finally {
             setLoading(false);
         }
-    }, [page, filters]);
+    }, [page, limit, filters]);
 
     useEffect(() => {
         fetchLogs();
@@ -104,7 +103,7 @@ function SecurityLogViewer() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
+                                Array.from({ length: limit }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
                                     </TableRow>
@@ -139,14 +138,44 @@ function SecurityLogViewer() {
                         </TableBody>
                     </Table>
                 </div>
-                {data && data.totalPages > 1 && (
+                {data && data.total > 0 && (
                     <div className="flex justify-between items-center mt-4">
                         <div className="text-sm text-muted-foreground">
-                            Page {page} of {data.totalPages} ({data.total} results)
+                            {data.total} total logs.
                         </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}><ChevronsLeft /> Previous</Button>
-                            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}>Next <ChevronsRight /></Button>
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">Rows per page</p>
+                                <Select
+                                    value={`${limit}`}
+                                    onValueChange={(value) => {
+                                        setLimit(Number(value));
+                                        setPage(1); // Reset to first page
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={`${limit}`} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[15, 25, 50, 100].map((pageSize) => (
+                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                            {pageSize}
+                                        </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-sm font-medium">
+                                Page {page} of {data.totalPages}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                                    <ChevronsLeft className="h-4 w-4 mr-1" /> Previous
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}>
+                                    Next <ChevronsRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}
