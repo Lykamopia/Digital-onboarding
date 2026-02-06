@@ -1,11 +1,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
-import { join, normalize } from 'path';
+import { join } from 'path';
 import { stat, mkdir, rm } from 'fs/promises';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
+import { LogSeverity } from '@/lib/types';
+import mime from 'mime-types';
 
 // Set a body size limit for file uploads to 10MB
 export const config = {
@@ -15,6 +18,14 @@ export const config = {
         },
     },
 };
+
+const BLOCKED_EXTENSIONS = [
+  '.exe', '.msi', '.bat', '.cmd', '.sh', '.js', '.jsx', '.ts', '.tsx',
+  '.vbs', '.ps1', '.jar', '.py', '.php', '.pl', '.rb', '.swf', '.html', '.htm'
+];
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB, matching config
 
 // Main POST handler for file uploads
 export async function POST(req: NextRequest) {
@@ -45,6 +56,34 @@ export async function POST(req: NextRequest) {
   if (!file) {
     return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
   }
+
+  // --- File Validation ---
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ success: false, error: 'File size exceeds the 10MB limit.' }, { status: 413 });
+  }
+
+  const filename = file.name.toLowerCase();
+  const fileExtension = `.${filename.split('.').pop()}`;
+
+  if (BLOCKED_EXTENSIONS.includes(fileExtension)) {
+    return NextResponse.json({ success: false, error: `File type (${fileExtension}) is not allowed.` }, { status: 400 });
+  }
+  
+  if ((type === 'profile' || type === 'signatures') && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return NextResponse.json({ success: false, error: 'Only image files (JPEG, PNG, GIF, WEBP) are allowed for profiles and signatures.' }, { status: 400 });
+  }
+  
+  // Verify MIME type server-side, as client-sent type can be spoofed.
+  const serverMimeType = mime.lookup(filename);
+  if (serverMimeType && serverMimeType !== file.type) {
+      if ((type === 'profile' || type === 'signatures') && !ALLOWED_IMAGE_TYPES.includes(serverMimeType)) {
+          return NextResponse.json({ success: false, error: `Invalid image file type. Server detected: ${serverMimeType}.` }, { status: 400 });
+      }
+      if (BLOCKED_EXTENSIONS.includes(`.${mime.extension(serverMimeType) || ''}`)) {
+          return NextResponse.json({ success: false, error: 'Disallowed file type detected on server.' }, { status: 400 });
+      }
+  }
+  // --- End File Validation ---
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
@@ -79,6 +118,14 @@ export async function POST(req: NextRequest) {
   
   // Return the public path relative to the root
   const publicPath = `/uploads/${type}/${uniqueFilename}`;
+  
+  await logSecurityEvent({
+    event: SecurityEvent.FILE_UPLOAD_SUCCESS,
+    severity: LogSeverity.INFO,
+    actor: session.user,
+    details: `User uploaded file '${file.name}' (${file.size} bytes) of type '${type}'.`,
+    targetId: publicPath
+  });
 
   return NextResponse.json({ 
     success: true, 
