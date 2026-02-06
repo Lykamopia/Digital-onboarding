@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getLoggedInUser, updateUserProfile, getUsers } from '@/app/actions/memo';
 import type { User, Office, Department, Division, District, Branch, Delegation, LoggedInUser } from '@/lib/types';
-import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud, Users } from 'lucide-react';
+import { Camera, Briefcase, Building, Globe, Loader2, Image as ImageIcon, Edit, UploadCloud, Users, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChangePasswordForm } from '@/components/change-password-form';
@@ -23,6 +23,7 @@ import { SignaturePreview } from '@/components/signature-preview';
 import { UserProfileLoader } from '@/components/user-profile-loader';
 import { DelegationSettings } from '@/components/delegation-settings';
 import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 type UserWithRelations = LoggedInUser & {
@@ -308,9 +309,19 @@ export default function ProfilePage() {
   const orgPath = getUserOrgPath();
 
   const signatureToDisplay = signaturePreview ?? (!signatureCleared ? user?.signature : null);
+  const mustCompleteOnboarding = (user as any).onboardingCompleted === false;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+        {mustCompleteOnboarding && (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Account Setup Required</AlertTitle>
+                <AlertDescription>
+                    For security, you must set a new password before you can use the application.
+                </AlertDescription>
+            </Alert>
+        )}
         <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold">Account Settings</h1>
             <p className="text-muted-foreground">Manage your profile and account settings.</p>
@@ -319,7 +330,7 @@ export default function ProfilePage() {
         <Tabs defaultValue="profile" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">My Profile</TabsTrigger>
-                <TabsTrigger value="delegation" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Delegation</TabsTrigger>
+                <TabsTrigger value="delegation" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={mustCompleteOnboarding}>Delegation</TabsTrigger>
                 <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
             </TabsList>
             <TabsContent value="profile">
@@ -476,7 +487,10 @@ export default function ProfilePage() {
                         <CardDescription>Change your password here. It's a good practice to use a strong password that you're not using elsewhere.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ChangePasswordForm onPasswordChanged={() => {}} />
+                        <ChangePasswordForm onPasswordChanged={async () => {
+                            // After password change, re-fetch user data to get updated onboarding status
+                            await loadUserAndData();
+                        }} />
                     </CardContent>
                 </Card>
             </TabsContent>

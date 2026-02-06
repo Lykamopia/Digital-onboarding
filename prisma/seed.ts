@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { randomBytes, createHash } from 'crypto';
+import { sendVerificationEmail } from '../src/lib/email';
 
 const prisma = new PrismaClient();
 
@@ -173,20 +174,39 @@ async function main() {
   console.log(`Seeded ${labels.length} labels.`);
 
 
-  // Seed Admin User
-  const adminPassword = 'Admin@123';
-  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+  // Seed Admin User via email invitation
+  const adminEmail = 'admin@example.com';
   const adminUser = await prisma.user.create({
       data: {
           id: 'user-admin',
           name: 'Admin User',
-          email: 'admin@example.com',
-          hashedPassword: hashedPassword,
+          email: adminEmail,
+          hashedPassword: null,
           roleId: 'role-1',
           officeId: 'off-1', // Assign to a default office
+          onboardingCompleted: false, // User must set password
       }
   });
-  console.log('Seeded admin user.');
+
+  const token = randomBytes(32).toString('hex');
+  const hashedToken = createHash('sha256').update(token).digest('hex');
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours to set up
+
+  await prisma.passwordResetToken.create({
+    data: {
+        email: adminEmail,
+        token: hashedToken,
+        expires: expires,
+    },
+  });
+
+  console.log(`Admin user created. Sending setup email to ${adminEmail}...`);
+  try {
+      await sendVerificationEmail({ to: adminEmail, name: adminUser.name!, token: token });
+      console.log('Admin setup email sent successfully.');
+  } catch (error) {
+      console.error('Failed to send admin setup email:', error);
+  }
 
 
   // Seed other users without passwords (they can't log in until one is set)

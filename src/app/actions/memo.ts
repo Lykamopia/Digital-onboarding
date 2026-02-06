@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
 import { z } from 'zod';
@@ -686,7 +686,22 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     }
 
     const draftId = formData.get('draftId') as string;
-    if (draftId) await prisma.memo.delete({ where: { id: draftId } });
+    if (draftId) {
+        // First, disconnect many-to-many relations and delete related one-to-many records
+        await prisma.memo.update({
+            where: { id: draftId },
+            data: {
+                to: { set: [] },
+                cc: { set: [] },
+                labels: { set: [] },
+            },
+        });
+        await prisma.attachment.deleteMany({ where: { memoId: draftId } });
+        await prisma.activity.deleteMany({ where: { memoId: draftId } });
+
+        // Now, safely delete the memo
+        await prisma.memo.delete({ where: { id: draftId } });
+    }
     
     if (isScheduled) {
         revalidatePath('/dashboard/scheduled');
@@ -1284,6 +1299,7 @@ export async function changeUserPassword(password: string) {
             where: { id: user.id },
             data: {
                 hashedPassword,
+                onboardingCompleted: true, // Mark onboarding as complete
                 tokenVersion: { increment: 1 },
             }
         });
@@ -1731,6 +1747,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
             data: {
                 hashedPassword: newHashedPassword,
                 status: 'active',
+                onboardingCompleted: true,
                 tokenVersion: { increment: 1 }
             }
         }),
@@ -1747,5 +1764,6 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
 
     
+
 
 

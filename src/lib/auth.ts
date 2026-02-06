@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user.hashedPassword) {
-            throw new Error("Password not set for this account. Please contact an administrator.");
+            throw new Error("Password not set for this account. Please use the setup link sent to your email.");
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -109,8 +109,8 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      if (trigger === "update" && session?.mustChangePassword === false) {
-        token.mustChangePassword = false;
+      if (trigger === "update" && session?.onboardingCompleted === true) {
+        token.onboardingCompleted = true;
       }
       
       if (trigger === "update" && session?.switch_to_delegator_id) {
@@ -133,7 +133,7 @@ export const authOptions: NextAuthOptions = {
                   token.name = delegator.name;
                   token.email = delegator.email;
                   token.picture = delegator.avatar;
-                  token.mustChangePassword = delegator.mustChangePassword;
+                  token.onboardingCompleted = delegator.onboardingCompleted;
                   token.delegationPermissions = (delegation.permissions?.split(',') || []) as DelegationPermission[];
               }
           }
@@ -147,7 +147,7 @@ export const authOptions: NextAuthOptions = {
               token.name = realUser.name;
               token.email = realUser.email;
               token.picture = realDbUser?.avatar;
-              token.mustChangePassword = realDbUser?.mustChangePassword;
+              token.onboardingCompleted = realDbUser?.onboardingCompleted;
               
               delete token.realUser;
               delete token.delegationPermissions;
@@ -162,10 +162,10 @@ export const authOptions: NextAuthOptions = {
                 data: { tokenVersion: { increment: 1 } }
             });
             token.tokenVersion = dbUser.tokenVersion + 1;
+            token.onboardingCompleted = dbUser.onboardingCompleted;
         }
 
         token.id = user.id;
-        token.mustChangePassword = (user as User).mustChangePassword;
       }
       
       // On subsequent requests, validate the token version
@@ -176,7 +176,7 @@ export const authOptions: NextAuthOptions = {
               return null; // Invalidate session
           }
           if(!token.realUser) {
-              token.mustChangePassword = dbUser.mustChangePassword;
+              token.onboardingCompleted = dbUser.onboardingCompleted;
           }
       }
 
@@ -188,7 +188,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name;
         session.user.email = token.email;
         session.user.image = token.picture;
-        (session.user as any).mustChangePassword = token.mustChangePassword;
+        (session.user as any).onboardingCompleted = token.onboardingCompleted;
 
         if (token.realUser) {
             (session.user as any).isDelegated = true;
