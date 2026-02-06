@@ -13,6 +13,7 @@ import type {
     Label as PrismaLabel,
     EmailLog as PrismaEmailLog,
     Delegation as PrismaDelegation,
+    SecurityLog as PrismaSecurityLog,
     Prisma,
 } from '@prisma/client';
 import { delegationPermissions } from './permissions';
@@ -30,7 +31,8 @@ export type Permission =
     | 'manage_audit_log'
     | 'manage_branches' 
     | 'manage_districts' 
-    | 'manage_labels';
+    | 'manage_labels'
+    | 'manage_security_logs';
 
 export type DelegationPermission = typeof delegationPermissions[number]['id'];
 
@@ -84,6 +86,7 @@ export type LoggedInUser = User & {
 
 export type Attachment = PrismaAttachment;
 export type EmailLog = PrismaEmailLog;
+export type SecurityLog = PrismaSecurityLog;
 export type Delegation = PrismaDelegation & {
     delegator: User;
     delegate: User;

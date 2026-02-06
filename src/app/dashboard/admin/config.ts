@@ -11,5 +11,6 @@ export const navItemsConfig = [
   { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels' },
   { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive' },
   { value: '/dashboard/admin/audit', label: 'Audit', permission: 'manage_audit_log' },
+  { value: '/dashboard/admin/security', label: 'Security', permission: 'manage_security_logs' },
   { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_email_settings' },
 ];

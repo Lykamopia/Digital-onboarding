@@ -1663,6 +1663,35 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
     return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
+export async function getSecurityLogs(page = 1, limit = 15, filters: { severity?: string; query?: string } = {}) {
+    await hasPermission('manage_security_logs');
+    
+    const where: Prisma.SecurityLogWhereInput = {};
+    if (filters.severity) where.severity = filters.severity as LogSeverity;
+    if (filters.query) {
+        where.OR = [
+            { event: { contains: filters.query, mode: 'insensitive' } },
+            { details: { contains: filters.query, mode: 'insensitive' } },
+            { actorId: { contains: filters.query, mode: 'insensitive' } },
+            { targetId: { contains: filters.query, mode: 'insensitive' } },
+            { ipAddress: { contains: filters.query, mode: 'insensitive' } },
+        ];
+    }
+
+    const [logs, total] = await prisma.$transaction([
+        prisma.securityLog.findMany({ 
+            where, 
+            skip: (page - 1) * limit, 
+            take: limit, 
+            orderBy: { createdAt: 'desc' },
+            include: { actor: true }
+        }),
+        prisma.securityLog.count({ where })
+    ]);
+
+    return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
 export async function completeOnboardingTour() {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");

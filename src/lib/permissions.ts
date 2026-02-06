@@ -15,6 +15,7 @@ export const permissions: { id: Permission, label: string, description: string }
     { id: 'manage_archive', label: 'Manage Archive', description: 'Can manage archive settings and permanently delete memos' },
     { id: 'manage_audit_log', label: 'Manage Audit Log', description: 'Can view the full audit trail of all memos' },
     { id: 'manage_labels', label: 'Manage Labels', description: 'Can create, edit, and delete memo labels' },
+    { id: 'manage_security_logs', label: 'View Security Logs', description: 'Can view security-related event logs.' },
 ];
 
 
