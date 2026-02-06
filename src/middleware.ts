@@ -34,6 +34,10 @@ const securityHeaders = [
         value: 'max-age=63072000; includeSubDomains; preload',
     },
     {
+        key: 'X-Content-Type-Options',
+        value: 'nosniff',
+    },
+    {
         key: 'X-Permitted-Cross-Domain-Policies',
         value: 'none',
     },
