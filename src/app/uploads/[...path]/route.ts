@@ -1,7 +1,6 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { join, normalize } from 'path';
 import mime from 'mime-types';
 
 export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
@@ -10,8 +9,14 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         return new NextResponse('File not found', { status: 404 });
     }
 
+    const uploadsDir = join(process.cwd(), 'uploads');
     const relativePath = join(...filePathParts);
-    const absolutePath = join(process.cwd(), 'uploads', relativePath);
+    const absolutePath = normalize(join(uploadsDir, relativePath));
+
+    // Security check: Prevent path traversal attacks
+    if (!absolutePath.startsWith(uploadsDir)) {
+        return new NextResponse('Invalid file path', { status: 403 });
+    }
 
     try {
         const fileBuffer = await readFile(absolutePath);
