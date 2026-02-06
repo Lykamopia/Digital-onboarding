@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -1871,6 +1872,68 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     return { success: true };
 }
 
+export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ success: boolean; error?: string, count?: number }> {
+    const user = await hasPermission('manage_archive');
+
+    if (!archiveDate) {
+        return { success: false, error: 'A valid date must be provided.' };
+    }
+
+    try {
+        const memosToArchive = await prisma.memo.findMany({
+            where: {
+                createdAt: { lt: archiveDate },
+                status: { not: 'draft' },
+            },
+            include: {
+                to: { select: { id: true } },
+                cc: { select: { id: true } },
+                archivedBy: { select: { id: true } },
+            },
+        });
+        
+        const updates = memosToArchive.map(memo => {
+            const recipientIds = [...new Set([...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)])];
+            const alreadyArchivedIds = new Set(memo.archivedBy.map(u => u.id));
+            
+            const idsToConnect = recipientIds.filter(id => !alreadyArchivedIds.has(id));
+
+            if (idsToConnect.length > 0) {
+                return prisma.memo.update({
+                    where: { id: memo.id },
+                    data: {
+                        archivedBy: {
+                            connect: idsToConnect.map(id => ({ id }))
+                        }
+                    }
+                });
+            }
+            return null;
+        }).filter(Boolean) as Prisma.Prisma__MemoClient<Memo>[];
+
+        if (updates.length > 0) {
+            await prisma.$transaction(updates);
+        }
+
+        await logSecurityEvent({
+            event: SecurityEvent.BULK_ARCHIVE_ACTION,
+            severity: LogSeverity.WARN,
+            actor: user,
+            details: `Admin bulk archived ${updates.length} memos older than ${archiveDate.toLocaleDateString()}.`
+        });
+
+        revalidatePath('/dashboard/admin/archive');
+        revalidatePath('/dashboard/archive');
+        revalidatePath('/dashboard/inbox');
+
+        return { success: true, count: updates.length };
+
+    } catch (error: any) {
+        console.error("Bulk archive failed:", error);
+        return { success: false, error: 'An unexpected error occurred during the bulk archive process.' };
+    }
+}
+
 export async function revokeUserTokens(userId: string) {
     const user = await getLoggedInUser();
     if (!user || (user.id !== userId && !(user.role?.permissions?.includes('manage_users')))) {
@@ -2001,7 +2064,7 @@ export async function verifyPasswordResetToken(token: string) {
 
 export async function setPasswordWithToken({ token, password }: { token: string, password: string}) {
     const hashedToken = createHash('sha256').update(token).digest('hex');
-    const tokenEntry = await prisma.passwordResetToken.findUnique({
+    const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { token: hashedToken }
     });
 

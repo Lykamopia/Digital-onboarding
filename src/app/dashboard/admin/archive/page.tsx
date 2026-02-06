@@ -29,13 +29,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAllMemosForAdmin, performBulkArchiveActions } from "@/app/actions/memo";
+import { getAllMemosForAdmin, performBulkArchiveActions, archiveMemosOlderThan } from "@/app/actions/memo";
 import type { Memo } from "@/lib/types";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
-import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Calendar as CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type MemoWithRelations = Memo & { from: { name: string }, to: { name: string }[], archivedBy: { id: string }[] };
 
@@ -56,6 +60,9 @@ export default function ArchiveSettingsPage() {
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [archiveDate, setArchiveDate] = useState<Date | undefined>();
+  const [isArchiveAlertOpen, setIsArchiveAlertOpen] = useState(false);
+  const [isArchivingByDate, setIsArchivingByDate] = useState(false);
 
   const filteredMemos = useMemo(() => {
       return memos.filter(memo => memo.archivedBy.length > 0)
@@ -117,6 +124,23 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(false);
   }
 
+    const handleBulkArchiveByDate = async () => {
+        if (!archiveDate) {
+            toast.error("No Date Selected", { description: "Please select a date to archive memos older than." });
+            return;
+        }
+        setIsArchivingByDate(true);
+        const result = await archiveMemosOlderThan(archiveDate);
+        if (result.success) {
+            toast.success("Bulk Archive Successful", { description: `${result.count || 0} memo(s) have been archived.`});
+            await fetchMemos();
+        } else {
+            toast.error("Bulk Archive Failed", { description: result.error });
+        }
+        setIsArchivingByDate(false);
+        setIsArchiveAlertOpen(false);
+    }
+
   const handleDeleteAlertClose = (open: boolean) => {
     setIsDeleteAlertOpen(open);
     if (!open) {
@@ -144,6 +168,40 @@ export default function ArchiveSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+            <CardTitle>Bulk Archive by Date</CardTitle>
+            <CardDescription>
+                Automatically archive all memos for all their recipients created before a specific date. This action cannot be easily undone.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn("w-full sm:w-[280px] justify-start text-left font-normal", !archiveDate && "text-muted-foreground")}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {archiveDate ? format(archiveDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        mode="single"
+                        selected={archiveDate}
+                        onSelect={setArchiveDate}
+                        initialFocus
+                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                    />
+                </PopoverContent>
+            </Popover>
+            <Button onClick={() => setIsArchiveAlertOpen(true)} disabled={!archiveDate || isArchivingByDate}>
+                 {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
+                Archive Memos
+            </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Archived Memos</CardTitle>
@@ -249,6 +307,23 @@ export default function ArchiveSettingsPage() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
                   Delete Permanently
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isArchiveAlertOpen} onOpenChange={setIsArchiveAlertOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will archive all memos older than <strong>{archiveDate ? format(archiveDate, "PPP") : ''}</strong> for all of their respective recipients. This action can affect many users.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isArchivingByDate}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkArchiveByDate} disabled={isArchivingByDate}>
+                  {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Archive'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
