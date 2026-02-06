@@ -1,6 +1,3 @@
-
-'use server';
-
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
@@ -120,5 +117,4 @@ export async function logSecurityEvent(log: LogDetails) {
         console.error('Failed to write security log:', error);
     }
 }
-
     
