@@ -1934,6 +1934,27 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
     }
 }
 
+export async function getMemosToArchiveCount(archiveDate: Date): Promise<number> {
+    await hasPermission('manage_archive');
+
+    if (!archiveDate) {
+        return 0;
+    }
+
+    try {
+        const count = await prisma.memo.count({
+            where: {
+                createdAt: { lt: archiveDate },
+                status: { not: 'draft' },
+            },
+        });
+        return count;
+    } catch (error) {
+        console.error("Failed to get memos to archive count:", error);
+        return 0;
+    }
+}
+
 export async function revokeUserTokens(userId: string) {
     const user = await getLoggedInUser();
     if (!user || (user.id !== userId && !(user.role?.permissions?.includes('manage_users')))) {
