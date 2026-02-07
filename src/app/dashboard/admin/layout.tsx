@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
@@ -10,7 +11,7 @@ import type { Permission, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AnimatePresence } from 'framer-motion';
 import { AnimatedContent } from '@/components/animated-content';
-import { navItemsConfig } from './config';
+import { navItemsConfig, type NavItemConfig } from './config';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +58,7 @@ function useAdminNavigation(user: (User & { role: { permissions: string } }) | n
 function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange, children }: {
     user: (User & { role: { permissions: string } }) | null;
     activeTab: string | null;
-    accessibleNavItems: { value: string; label: string; permission: string; }[];
+    accessibleNavItems: NavItemConfig[];
     handleTabChange: (value: string) => void;
     children: React.ReactNode;
 }) {
@@ -75,7 +76,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         let newVisible = [];
         let newHidden = [];
         let needsDropdown = false;
-        const moreButtonWidth = hiddenItems.length > 0 ? 40 : 0; // Approx width of 'More' button
+        const moreButtonWidth = 80; // Approx width of 'More' button
 
         const tempTabContainer = document.createElement('div');
         tempTabContainer.style.position = 'absolute';
@@ -85,8 +86,11 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 
         const tabElements = accessibleNavItems.map(item => {
             const el = document.createElement('button');
-            el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium';
+            el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium gap-2';
             el.textContent = item.label;
+            const iconEl = document.createElement('span');
+            iconEl.className = 'w-4 h-4';
+            el.prepend(iconEl);
             tempTabContainer.appendChild(el);
             return el;
         });
@@ -112,7 +116,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
              setHiddenItems([]);
         }
 
-    }, [accessibleNavItems, hiddenItems.length]);
+    }, [accessibleNavItems]);
 
     useEffect(() => {
         const observer = new ResizeObserver(() => {
@@ -148,8 +152,9 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                         <TabsTrigger 
                             key={item.value} 
                             value={item.value}
-                            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2"
                         >
+                            {item.icon}
                             {item.label}
                         </TabsTrigger>
                     ))}
@@ -159,11 +164,12 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                                 <Button
                                     variant="ghost"
                                     className={cn(
-                                        "h-9 px-3 data-[state=open]:bg-muted",
+                                        "h-9 px-3 data-[state=open]:bg-muted flex items-center gap-2",
                                         isMoreMenuActive && "bg-primary/10 text-primary"
                                     )}
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
+                                    More
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -171,8 +177,9 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                                     <DropdownMenuItem
                                         key={item.value}
                                         onClick={() => handleTabChange(item.value)}
-                                        className={cn(activeTab === item.value && 'bg-accent')}
+                                        className={cn("flex items-center gap-2", activeTab === item.value && 'bg-accent')}
                                     >
+                                        {item.icon}
                                         {item.label}
                                     </DropdownMenuItem>
                                 ))}
@@ -253,4 +260,3 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default AdminLayout;
-    
