@@ -152,7 +152,10 @@ export const authOptions: NextAuthOptions = {
           
           if (delegation) {
               const delegator = await prisma.user.findUnique({ where: { id: delegatorId } });
-              if (delegator) {
+              
+              const isDelegatorActive = delegator && delegator.status === 'active' && (!delegator.lockoutUntil || new Date() > delegator.lockoutUntil);
+
+              if (delegator && isDelegatorActive) {
                   // If not already delegated, store current user as realUser
                   if (!token.realUser) {
                       token.realUser = { id: token.id, name: token.name, email: token.email };
@@ -266,6 +269,33 @@ export const authOptions: NextAuthOptions = {
           }
           if (!token.realUser) { // Don't overwrite delegator's onboarding status
               token.onboardingCompleted = dbUser.onboardingCompleted;
+          }
+
+          // If this is a delegated session, perform continuous validation
+          if (token.realUser) {
+              const [delegation, delegator] = await Promise.all([
+                  prisma.delegation.findFirst({
+                      where: { delegatorId: token.id as string, delegateId: token.realUser.id as string }
+                  }),
+                  prisma.user.findUnique({ 
+                      where: { id: token.id as string }, 
+                      select: { status: true, lockoutUntil: true } 
+                  })
+              ]);
+              
+              const isDelegatorActive = delegator && delegator.status === 'active' && (!delegator.lockoutUntil || new Date() > delegator.lockoutUntil);
+
+              if (!delegation || !isDelegatorActive) {
+                  await logSecurityEvent({
+                      event: SecurityEvent.DELEGATION_SESSION_END,
+                      severity: LogSeverity.WARN,
+                      actor: token.realUser,
+                      details: `Delegated session for ${token.name} ended automatically because delegation was revoked or delegator account became inactive.`,
+                      targetId: token.id as string,
+                      targetType: 'User'
+                  });
+                  return {}; // Invalidate the delegated session
+              }
           }
       }
 

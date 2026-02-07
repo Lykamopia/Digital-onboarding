@@ -2049,6 +2049,10 @@ export async function addOrUpdateDelegate(data: { delegateId: string, permission
         const delegateUser = await prisma.user.findUnique({where: {id: data.delegateId}});
         await logSecurityEvent({ event: SecurityEvent.DELEGATION_GRANTED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' granted delegation to '${delegateUser?.name}'. Permissions: ${data.permissions.join(',')}`, targetId: data.delegateId, targetType: 'User' });
     }
+    
+    // Invalidate the delegate's sessions to force a re-login and permission refresh
+    await revokeUserTokens(data.delegateId);
+    
     revalidatePath('/dashboard/profile');
 }
 
@@ -2087,6 +2091,10 @@ export async function verifyPasswordResetToken(token: string) {
 
     if (!tokenEntry) {
         return { error: "This link is invalid or has expired. Please request a new one." };
+    }
+
+    if (tokenEntry.email.startsWith('email-change::')) {
+        return { error: "This is an email verification link, not a password reset link." };
     }
 
     return { success: true, email: tokenEntry.email };
