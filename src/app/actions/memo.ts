@@ -1618,7 +1618,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
 
     const existingUserWithNewEmail = await prisma.user.findUnique({ where: { email: newEmail } });
     if (existingUserWithNewEmail) {
-        await prisma.passwordResetToken.delete({ where: { token: hashedToken } });
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         return { success: false, error: "This email address has been registered by another user. Please try a different email." };
     }
 
@@ -1628,7 +1628,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
             data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
         }),
         prisma.passwordResetToken.delete({
-            where: { token: hashedToken }
+            where: { id: tokenEntry.id }
         })
     ]);
 
@@ -2057,17 +2057,26 @@ export async function removeDelegate(delegationId: string) {
     if (!user) throw new Error("Not authenticated");
 
     const delegation = await prisma.delegation.findUnique({ where: { id: delegationId }, include: { delegate: true } });
-    if (delegation?.delegatorId !== user.id) {
+    if (!delegation || delegation.delegatorId !== user.id) {
         throw new Error("You are not authorized to remove this delegation.");
     }
     
     await logSecurityEvent({ event: SecurityEvent.DELEGATION_REVOKED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' revoked delegation from '${delegation.delegate.name}'.`, targetId: delegation.delegateId, targetType: 'User' });
+    
     await prisma.delegation.delete({ where: { id: delegationId } });
+
+    // Invalidate all of the delegate's sessions to prevent unauthorized access
+    // if they were in a delegated session when access was revoked.
+    await revokeUserTokens(delegation.delegateId);
 
     revalidatePath('/dashboard/profile');
 }
 
+
 export async function verifyPasswordResetToken(token: string) {
+    if (!token) {
+        return { error: 'Invalid verification token.' };
+    }
     const hashedToken = createHash('sha256').update(token).digest('hex');
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { 
@@ -2084,6 +2093,9 @@ export async function verifyPasswordResetToken(token: string) {
 }
 
 export async function setPasswordWithToken({ token, password }: { token: string, password: string}) {
+    if (!token) {
+        return { error: "Invalid token provided." };
+    }
     const hashedToken = createHash('sha256').update(token).digest('hex');
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { token: hashedToken }
@@ -2091,13 +2103,13 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if(tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { token: hashedToken }});
+            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id }});
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
     if (tokenEntry.email.startsWith('email-change::')) {
-        return { error: "This is an email verification link, not a password reset link. Please use the link sent to your new email address to verify the change." };
+        return { error: "This is an email verification link, not a password reset link." };
     }
 
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
@@ -2123,7 +2135,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
             }
         }),
         prisma.passwordResetToken.delete({
-            where: { token: hashedToken }
+            where: { id: tokenEntry.id }
         })
     ]);
 
