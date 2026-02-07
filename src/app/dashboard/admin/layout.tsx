@@ -71,33 +71,31 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         
         const container = tabsListRef.current;
         const containerWidth = container.offsetWidth;
-        
-        let totalWidth = 0;
-        let newVisible = [];
-        let newHidden = [];
-        let needsDropdown = false;
-        const moreButtonWidth = 80; // Approx width of 'More' button
+        const moreButtonWidth = 80; // Approx width for "More" button
 
-        const tempTabContainer = document.createElement('div');
-        tempTabContainer.style.position = 'absolute';
-        tempTabContainer.style.visibility = 'hidden';
-        tempTabContainer.style.display = 'flex';
-        container.appendChild(tempTabContainer);
+        let totalWidth = 0;
+        let newVisible: NavItemConfig[] = [];
+        let newHidden: NavItemConfig[] = [];
+        let needsDropdown = false;
+
+        // Create a hidden temporary container to measure tab widths without affecting the layout
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.visibility = 'hidden';
+        tempContainer.style.display = 'flex';
+        document.body.appendChild(tempContainer);
 
         const tabElements = accessibleNavItems.map(item => {
             const el = document.createElement('button');
             el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium gap-2';
-            el.textContent = item.label;
-            const iconEl = document.createElement('span');
-            iconEl.className = 'w-4 h-4';
-            el.prepend(iconEl);
-            tempTabContainer.appendChild(el);
+            el.innerHTML = `<span class="w-4 h-4"></span>${item.label}`;
+            tempContainer.appendChild(el);
             return el;
         });
 
-        for(let i=0; i < tabElements.length; i++) {
+        for (let i = 0; i < tabElements.length; i++) {
             const itemWidth = tabElements[i].offsetWidth;
-            if (totalWidth + itemWidth > containerWidth - moreButtonWidth) {
+            if (needsDropdown || (totalWidth + itemWidth > containerWidth - moreButtonWidth)) {
                 needsDropdown = true;
                 newHidden.push(accessibleNavItems[i]);
             } else {
@@ -106,22 +104,15 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
             }
         }
         
-        container.removeChild(tempTabContainer);
-        
-        if (needsDropdown) {
-             setVisibleItems(newVisible);
-             setHiddenItems(newHidden);
-        } else {
-             setVisibleItems(accessibleNavItems);
-             setHiddenItems([]);
-        }
+        document.body.removeChild(tempContainer);
+
+        setVisibleItems(newVisible);
+        setHiddenItems(newHidden);
 
     }, [accessibleNavItems]);
 
     useEffect(() => {
-        const observer = new ResizeObserver(() => {
-            updateVisibleTabs();
-        });
+        const observer = new ResizeObserver(updateVisibleTabs);
         const container = tabsListRef.current;
         if (container) {
             observer.observe(container);
@@ -154,7 +145,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                             value={item.value}
                             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2"
                         >
-                            {item.icon}
+                            {React.cloneElement(item.icon as React.ReactElement, { className: 'h-4 w-4' })}
                             {item.label}
                         </TabsTrigger>
                     ))}
@@ -179,7 +170,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
                                         onClick={() => handleTabChange(item.value)}
                                         className={cn("flex items-center gap-2", activeTab === item.value && 'bg-accent')}
                                     >
-                                        {item.icon}
+                                        {React.cloneElement(item.icon as React.ReactElement, { className: 'h-4 w-4' })}
                                         {item.label}
                                     </DropdownMenuItem>
                                 ))}
@@ -241,7 +232,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         <CardTitle>Admin Settings</CardTitle>
       </CardHeader>
       <CardContent>
-        {canAccessAdmin ? (
+        {canAccessAdmin && activeTab ? (
             <AdminPageContent
                 user={user}
                 activeTab={activeTab}
