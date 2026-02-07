@@ -6,7 +6,7 @@ function generateCsp(nonce: string) {
     const policies = {
         'default-src': ["'self'"],
         'script-src': ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk='"],
-        'style-src': ["'self'", "https://fonts.googleapis.com", `'nonce-${nonce}'`],
+        'style-src': ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
         'img-src': ["'self'", "data:", "https://images.unsplash.com", "https://picsum.photos", "https://cdn.brandfetch.io"],
         'connect-src': ["'self'", "ws://localhost:3011", "http://localhost:3011"],
         'font-src': ["'self'", "https://fonts.gstatic.com"],
