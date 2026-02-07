@@ -136,6 +136,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger, session }) {
       const headerList = headers();
       const ipAddress = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip');
+      const userAgent = headerList.get('user-agent');
 
       if (trigger === "update" && session?.onboardingCompleted === true) {
         token.onboardingCompleted = true;
@@ -213,6 +214,7 @@ export const authOptions: NextAuthOptions = {
         }
         token.id = user.id;
         token.ip = ipAddress;
+        token.userAgent = userAgent;
       }
       
       // On subsequent requests, validate IP address
@@ -222,6 +224,17 @@ export const authOptions: NextAuthOptions = {
               severity: LogSeverity.CRITICAL,
               actor: { id: token.id as string, name: token.name },
               details: `Session token for user ${token.name} used from a different IP address. Original: ${token.ip}, New: ${ipAddress}. Session invalidated.`,
+          });
+          return {}; // Invalidate session
+      }
+      
+      // On subsequent requests, validate User Agent
+      if (token.userAgent && token.userAgent !== userAgent) {
+          await logSecurityEvent({
+              event: SecurityEvent.USER_AGENT_MISMATCH,
+              severity: LogSeverity.CRITICAL,
+              actor: { id: token.id as string, name: token.name },
+              details: `Session for user ${token.name} used with a different User-Agent, which could indicate a session hijack. Session invalidated. Original: ${token.userAgent}, New: ${userAgent}`,
           });
           return {}; // Invalidate session
       }
@@ -278,5 +291,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
-
-    
