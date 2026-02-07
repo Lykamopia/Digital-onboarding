@@ -25,25 +25,25 @@ export type NavItemConfig = {
 
 export const navItemsConfig: NavItemConfig[] = [
   // Core Settings
-  { value: '/dashboard/admin/general', label: 'General', permission: 'manage_general_settings', icon: <Settings /> },
-  { value: '/dashboard/admin/security', label: 'Security', permission: 'manage_security_logs', icon: <ShieldAlert /> },
+  { value: '/dashboard/admin/general', label: 'General', permission: 'manage_general_settings', icon: React.createElement(Settings) },
+  { value: '/dashboard/admin/security', label: 'Security', permission: 'manage_security_logs', icon: React.createElement(ShieldAlert) },
   
   // User & Access Management
-  { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users', icon: <Users /> },
-  { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles', icon: <ShieldCheck /> },
+  { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users', icon: React.createElement(Users) },
+  { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles', icon: React.createElement(ShieldCheck) },
 
   // Organizational Structure
-  { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices', icon: <Briefcase /> },
-  { value: '/dashboard/admin/departments', label: 'Departments', permission: 'manage_departments', icon: <Building /> },
-  { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions', icon: <Network /> },
-  { value: '/dashboard/admin/districts', label: 'Districts', permission: 'manage_districts', icon: <MapPin /> },
-  { value: '/dashboard/admin/branches', label: 'Branches', permission: 'manage_branches', icon: <Store /> },
+  { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices', icon: React.createElement(Briefcase) },
+  { value: '/dashboard/admin/departments', label: 'Departments', permission: 'manage_departments', icon: React.createElement(Building) },
+  { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions', icon: React.createElement(Network) },
+  { value: '/dashboard/admin/districts', label: 'Districts', permission: 'manage_districts', icon: React.createElement(MapPin) },
+  { value: '/dashboard/admin/branches', label: 'Branches', permission: 'manage_branches', icon: React.createElement(Store) },
 
   // Memo Configuration
-  { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels', icon: <Tags /> },
-  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_email_settings', icon: <Mail /> },
+  { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels', icon: React.createElement(Tags) },
+  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_email_settings', icon: React.createElement(Mail) },
   
   // System Maintenance
-  { value: '/dashboard/admin/audit', label: 'Audit', permission: 'manage_audit_log', icon: <ScrollText /> },
-  { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive', icon: <Archive /> },
+  { value: '/dashboard/admin/audit', label: 'Audit', permission: 'manage_audit_log', icon: React.createElement(ScrollText) },
+  { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive', icon: React.createElement(Archive) },
 ];
