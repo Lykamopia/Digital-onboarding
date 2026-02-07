@@ -76,25 +76,31 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         let totalWidth = 0;
         let newVisible: NavItemConfig[] = [];
         let newHidden: NavItemConfig[] = [];
-        let needsDropdown = false;
 
         // Create a hidden temporary container to measure tab widths without affecting the layout
         const tempContainer = document.createElement('div');
         tempContainer.style.position = 'absolute';
         tempContainer.style.visibility = 'hidden';
         tempContainer.style.display = 'flex';
+        tempContainer.style.height = '0';
+        tempContainer.style.overflow = 'hidden';
         document.body.appendChild(tempContainer);
 
         const tabElements = accessibleNavItems.map(item => {
             const el = document.createElement('button');
+            // This class must match the TabsTrigger for accurate measurement
             el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium gap-2';
-            el.innerHTML = `<span class="w-4 h-4"></span>${item.label}`;
+            // Simulate the icon taking up its space. The `w-4` class won't work in innerHTML, so use inline style.
+            el.innerHTML = `<span style="width:1rem; height:1rem; flex-shrink: 0;"></span><span>${item.label}</span>`;
             tempContainer.appendChild(el);
             return el;
         });
 
+        // Determine which items fit and which should be in the "More" menu
+        let needsDropdown = false;
         for (let i = 0; i < tabElements.length; i++) {
             const itemWidth = tabElements[i].offsetWidth;
+            // The check is against the container width minus the space needed for the "More" button
             if (needsDropdown || (totalWidth + itemWidth > containerWidth - moreButtonWidth)) {
                 needsDropdown = true;
                 newHidden.push(accessibleNavItems[i]);
