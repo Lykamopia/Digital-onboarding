@@ -1557,12 +1557,12 @@ export async function updateUserProfile(userId: string, data: { name: string, em
 
         await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: user, details: `User requested email change from ${currentUser.email} to ${newEmail}.`, targetId: userId, targetType: 'User' });
         
-        try {
-            await sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token });
-            await sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail });
-        } catch (error) {
-            console.error(`Failed to send email change emails:`, error);
-        }
+        // Send emails without awaiting to make the UI response faster
+        sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token })
+            .catch(error => console.error(`Failed to send email change verification to ${newEmail}:`, error));
+            
+        sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail })
+            .catch(error => console.error(`Failed to send email change notification to ${currentUser.email!}:`, error));
 
         // Update other profile data but not the email
         const { email, ...otherData } = data;
@@ -1604,6 +1604,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
     
     const parts = tokenEntry.email.split('::');
     if (parts.length !== 3) {
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         return { success: false, error: "Invalid token format." };
     }
     const userId = parts[1];
@@ -1611,6 +1612,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
     
     const userToUpdate = await prisma.user.findUnique({ where: { id: userId } });
     if (!userToUpdate) {
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         return { success: false, error: "User not found." };
     }
 
@@ -1626,7 +1628,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
             data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
         }),
         prisma.passwordResetToken.delete({
-            where: { email: tokenEntry.email }
+            where: { id: tokenEntry.id }
         })
     ]);
 
@@ -2110,7 +2112,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if (tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
+            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
@@ -2121,14 +2123,14 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
     if (!user) {
-        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
         // Invalidate the token on failed password policy to prevent brute-force
-        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         const errorMessage = validation.error.issues.map(i => i.message).join(' ');
         return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
     }
@@ -2147,7 +2149,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
                 }
             }),
             prisma.passwordResetToken.delete({
-                where: { email: tokenEntry.email }
+                where: { id: tokenEntry.id }
             })
         ]);
 
