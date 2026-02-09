@@ -54,11 +54,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
     const value = { ...data, loading, mutate: fetchData };
 
-    return (
-        <AdminDataContext.Provider value={value}>
-            {children}
-        </AdminDataContext.Provider>
-    );
+    return React.createElement(AdminDataContext.Provider, { value: value }, children);
 }
 
 function useAdminData() {
