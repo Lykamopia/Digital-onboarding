@@ -225,13 +225,13 @@ function generateAuthEmailBody(title: string, content: string): string {
 
 export async function sendVerificationEmail({ to, name, token }: VerificationEmailOptions) {
     const verificationLink = `${baseUrl}/set-password?token=${token}`;
-    const expirationHours = 24;
+    const expirationHours = 1;
 
     const title = "Welcome to Nib Memo! Please Verify Your Account";
     const content = `
         <p>Hello ${name},</p>
         <p>An account has been created for you on the Nib Memo platform. To get started, please set your password by clicking the link below.</p>
-        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
+        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Set Your Password</a>
         </div>

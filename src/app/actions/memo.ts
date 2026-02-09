@@ -1048,7 +1048,7 @@ export async function getBranches() {
     return await prisma.branch.findMany({ include: { district: true }});
 }
 export async function getDistricts() {
-    return await prisma.district.findMany({ include: { office: true }});
+    return await prisma.district.findMany({ include: { office: true } });
 }
 export async function getOffices() {
     return await prisma.office.findMany({ include: { departments: true, districts: true } });
@@ -2146,7 +2146,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
                 }
             }),
             prisma.passwordResetToken.delete({
-                where: { id: tokenEntry.id }
+                where: { email: tokenEntry.email }
             })
         ]);
 
@@ -2157,3 +2157,4 @@ export async function setPasswordWithToken({ token, password }: { token: string,
         return { error: "An unexpected server error occurred. Please try again." };
     }
 }
+
