@@ -55,6 +55,7 @@ interface EmailChangeVerificationOptions {
     to: string; // new email
     name: string;
     token: string;
+    userId: string;
 }
 
 interface EmailChangeNotificationOptions {
@@ -331,7 +332,7 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
     }
 }
 
-export async function sendEmailChangeVerificationEmail({ to, name, token }: EmailChangeVerificationOptions) {
+export async function sendEmailChangeVerificationEmail({ to, name, token, userId }: EmailChangeVerificationOptions) {
     const verificationLink = `${baseUrl}/verify-email?token=${token}`;
     const expirationHours = 1;
 
@@ -358,9 +359,27 @@ export async function sendEmailChangeVerificationEmail({ to, name, token }: Emai
     try {
         const info = await transporter.sendMail(mailOptions);
         console.log('Email change verification sent: %s', info.messageId);
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'sent',
+            triggerEvent: 'email_change_verification',
+            relatedEntityId: userId,
+            messageId: info.messageId,
+        });
         return info;
     } catch (error: any) {
         console.error('Error sending email change verification:', error);
+        await logEmail({
+            to,
+            subject: title,
+            body: htmlBody,
+            status: 'failed',
+            triggerEvent: 'email_change_verification',
+            relatedEntityId: userId,
+            errorMessage: error.message,
+        });
         throw error;
     }
 }

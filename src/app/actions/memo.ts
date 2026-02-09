@@ -1558,7 +1558,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: user, details: `User requested email change from ${currentUser.email} to ${newEmail}.`, targetId: userId, targetType: 'User' });
         
         // Send emails without awaiting to make the UI response faster
-        sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token })
+        sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token, userId })
             .catch(error => console.error(`Failed to send email change verification to ${newEmail}:`, error));
             
         sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail })
