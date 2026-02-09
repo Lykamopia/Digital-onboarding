@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronsLeft, ChevronsRight, Search, Shield, AlertTriangle, Info, Loader2 } from "lucide-react";
 import { formatTimestamp } from "@/lib/data";
 import { useDebouncedCallback } from "use-debounce";
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type SecurityLogWithActor = SecurityLog & { actor: User | null };
 
@@ -24,6 +24,7 @@ function SecurityLogViewer() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(15);
     const [filters, setFilters] = useState<{ severity?: string; query?: string }>({});
+    const [selectedLog, setSelectedLog] = useState<SecurityLogWithActor | null>(null);
 
     const debouncedSetQuery = useDebouncedCallback((query: string) => {
         setPage(1);
@@ -59,6 +60,7 @@ function SecurityLogViewer() {
     };
     
     return (
+         <>
          <Card>
             <CardHeader>
                 <CardTitle>Security Event Logs</CardTitle>
@@ -115,16 +117,12 @@ function SecurityLogViewer() {
                                         <TableCell>{getSeverityBadge(log.severity as LogSeverity)}</TableCell>
                                         <TableCell><Badge variant="secondary" className="font-mono">{log.event}</Badge></TableCell>
                                         <TableCell className="max-w-xs truncate">
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <span className="cursor-help">{log.details}</span>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent className="max-w-md">
-                                                        <p>{log.details}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                            <span
+                                                className="cursor-pointer hover:underline"
+                                                onClick={() => setSelectedLog(log)}
+                                            >
+                                                {log.details}
+                                            </span>
                                         </TableCell>
                                         <TableCell>{log.actor?.name || log.actorId || 'System'}</TableCell>
                                         <TableCell className="font-mono">{log.ipAddress}</TableCell>
@@ -182,6 +180,22 @@ function SecurityLogViewer() {
                 )}
             </CardContent>
         </Card>
+        <Dialog open={!!selectedLog} onOpenChange={(isOpen) => !isOpen && setSelectedLog(null)}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Full Log Details</DialogTitle>
+                    <DialogDescription>
+                       Event: <Badge variant="secondary" className="font-mono text-xs">{selectedLog?.event}</Badge>
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4 max-h-[60vh] overflow-y-auto rounded-md border bg-muted/50 p-4">
+                    <p className="text-sm font-sans whitespace-pre-wrap break-words">
+                        {selectedLog?.details}
+                    </p>
+                </div>
+            </DialogContent>
+        </Dialog>
+        </>
     )
 }
 
