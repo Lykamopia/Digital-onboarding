@@ -2103,13 +2103,14 @@ export async function setPasswordWithToken({ token, password }: { token: string,
         return { error: "Invalid token provided." };
     }
     const hashedToken = createHash('sha256').update(token).digest('hex');
+    
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { token: hashedToken }
     });
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
-        if(tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email }});
+        if (tokenEntry) {
+            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
@@ -2120,31 +2121,39 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
     if (!user) {
-        return { error: "User not found." };
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
-        return { error: validation.error.issues.map(i => i.message).join(' ') };
+        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        const errorMessage = validation.error.issues.map(i => i.message).join(' ');
+        return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
     }
 
     const newHashedPassword = await bcrypt.hash(password, 10);
     
-    await prisma.$transaction([
-        prisma.user.update({
-            where: { id: user.id },
-            data: {
-                hashedPassword: newHashedPassword,
-                status: 'active',
-                onboardingCompleted: true,
-                tokenVersion: { increment: 1 }
-            }
-        }),
-        prisma.passwordResetToken.delete({
-            where: { email: tokenEntry.email }
-        })
-    ]);
+    try {
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    hashedPassword: newHashedPassword,
+                    status: 'active',
+                    onboardingCompleted: true,
+                    tokenVersion: { increment: 1 }
+                }
+            }),
+            prisma.passwordResetToken.delete({
+                where: { id: tokenEntry.id }
+            })
+        ]);
 
-    await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' successfully set their password via reset link.`, targetId: user.id, targetType: 'User' });
-    return { success: true };
+        await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_SUCCESS, severity: LogSeverity.INFO, actor: user, details: `User '${user.name}' successfully set their password via reset link.`, targetId: user.id, targetType: 'User' });
+        return { success: true };
+    } catch(error) {
+        console.error("Error in setPasswordWithToken transaction:", error);
+        return { error: "An unexpected server error occurred. Please try again." };
+    }
 }
