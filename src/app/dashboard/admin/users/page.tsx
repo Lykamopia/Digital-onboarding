@@ -511,7 +511,7 @@ export default function UsersPage() {
 
   const branchOptions = branches
     .filter(b => b.districtId === formState.districtId)
-    .map(b => ({ value: d.id, label: d.name }));
+    .map(b => ({ value: b.id, label: b.name }));
 
 
   const getUserAssignment = (user: UserWithRelations) => {
