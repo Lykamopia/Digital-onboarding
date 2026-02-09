@@ -153,8 +153,14 @@ export default function SetPasswordClientPage() {
                 <PasswordStrengthIndicator password={password} rules={passwordRules} />
                 
                 <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Set Password and Login
+                    {loading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Setting Password...
+                        </>
+                    ) : (
+                        'Set Password and Login'
+                    )}
                 </Button>
             </form>
         );
