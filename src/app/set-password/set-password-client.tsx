@@ -80,7 +80,7 @@ export default function SetPasswordClientPage() {
             toast.success('Password Set Successfully', {
                 description: 'You can now log in with your new password.',
             });
-            router.push(`/login?email=${encodeURIComponent(email || '')}`);
+            router.push('/login');
         } else {
             setLoading(false);
             setError(result.error || 'An unknown error occurred.');
