@@ -191,22 +191,19 @@ export async function getDashboardData(tab: string, query: string, category: str
     const memos = await prisma.memo.findMany({
         where,
         include: {
-            from: { include: { role: true } },
-            to: { include: { role: true } },
-            cc: { include: { role: true } },
+            from: { select: { id: true, name: true, avatar: true } },
+            to: { select: { id: true, name: true } },
+            cc: { select: { id: true, name: true } },
             labels: true,
-            attachments: true,
+            acknowledgedBy: { where: { id: userId }, select: { id: true } },
+            archivedBy: { where: { id: userId }, select: { id: true } },
             activity: {
-                include: {
-                    actor: true
-                }
+                where: { action: { in: ['viewed', 'replied', 'assigned'] } },
+                select: { action: true, actorId: true },
             },
-            current_holder: { include: { role: true } },
-            previous_holders: { include: { role: true } },
-            acknowledgedBy: { include: { role: true } },
-            archivedBy: { include: { role: true } },
             favoritedBy: { where: { id: userId }, select: { id: true } },
             flaggedBy: { where: { id: userId }, select: { id: true } },
+            current_holder: { select: { id: true } },
         },
         orderBy: [
             { favoritedBy: { _count: 'desc' } }, // favorited memos first

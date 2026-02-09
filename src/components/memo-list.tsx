@@ -4,7 +4,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import type { MemoWithActivity, User, LoggedInUser } from "@/lib/types"
+import type { DashboardMemo, User, LoggedInUser } from "@/lib/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -13,11 +13,10 @@ import { useEffect, useState, MouseEvent, useMemo } from "react"
 import { getLoggedInUser, archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo, toggleFlag } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, Mail, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Pin, PinOff } from "lucide-react"
+import { Archive, Reply, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Pin, PinOff } from "lucide-react"
 import { toast } from "sonner"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
-import { ForwardDialog } from "./forward-dialog"
 import { Badge } from "./ui/badge"
 import { useSettings } from "./settings-provider"
 
@@ -34,13 +33,13 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 interface MemoItemProps {
-    memo: MemoWithActivity;
+    memo: DashboardMemo;
     selectedMemoId: string | null;
     onSelectMemo: (id: string) => void;
     loggedInUser: LoggedInUser | null;
     tab: string;
     onUpdate: () => void;
-    setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>;
+    setMemos: React.Dispatch<React.SetStateAction<DashboardMemo[]>>;
 }
 
 const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo, loggedInUser, tab, onUpdate, setMemos }) => {
@@ -48,16 +47,16 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
     if (!loggedInUser) return null;
 
-    const getMemoStatus = (memo: MemoWithActivity) => {
+    const getMemoStatus = (memo: DashboardMemo) => {
         if (memo.status === 'draft') return 'draft';
         if (memo.status === 'scheduled') return 'scheduled';
 
-        const lastActivity = memo.activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        if(lastActivity?.action === 'assigned' && memo.current_holderId === loggedInUser.id) {
+        const lastActivity = memo.activity.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        if(lastActivity?.action === 'assigned' && memo.current_holder?.id === loggedInUser.id) {
             return 'delegated';
         }
 
-        const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser!.id;
+        const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser.id;
         if (!isRecipient) return memo.status;
 
         const hasReplied = memo.activity.some(act => act.action === 'replied' && act.actorId === loggedInUser!.id);
@@ -72,7 +71,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         return 'unread';
     }
     
-    const getOrigin = (memo: MemoWithActivity) => {
+    const getOrigin = (memo: DashboardMemo) => {
         if (memo.fromId === loggedInUser.id) return "From Sent";
         if (memo.status === 'draft') return "From Drafts";
         if (memo.archivedBy?.some(u => u.id === loggedInUser.id)) return "From Archive";
@@ -123,10 +122,10 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         }
     }
     
-    const handleMarkAsRead = async (memo: MemoWithActivity) => {
+    const handleMarkAsRead = async (memo: DashboardMemo) => {
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
-                const newActivity = { id: 'temp', actorId: loggedInUser.id, action: 'viewed' as const, timestamp: new Date().toISOString(), actor: loggedInUser, details: '' };
+                const newActivity = { actorId: loggedInUser.id, action: 'viewed' as const };
                 return { ...m, activity: [...m.activity, newActivity]};
             }
             return m;
@@ -185,7 +184,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         onUpdate();
     }
 
-    const getDisplayName = (memo: MemoWithActivity) => {
+    const getDisplayName = (memo: DashboardMemo) => {
         if (tab === 'sent' || tab === 'drafts' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId === loggedInUser.id)) {
             if (memo.to.length > 0) {
                 const mainRecipient = memo.to[0].name;
@@ -200,7 +199,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         return memo.from.name;
     }
 
-    const MemoActions = ({ memo }: { memo: MemoWithActivity }) => {
+    const MemoActions = ({ memo }: { memo: DashboardMemo }) => {
         const { settings } = useSettings();
         const memoStatus = getMemoStatus(memo);
         
@@ -359,7 +358,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         )
     }
 
-    const MemoContextMenu = ({ memo }: { memo: MemoWithActivity }) => {
+    const MemoContextMenu = ({ memo }: { memo: DashboardMemo }) => {
         const { settings } = useSettings();
         const memoStatus = getMemoStatus(memo);
         
@@ -537,11 +536,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     )
 }
 
-const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: MemoWithActivity[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: LoggedInUser | null }) => {
+const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: DashboardMemo[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: LoggedInUser | null }) => {
     
     if (!loggedInUser) return null;
     
-    const isUnread = (memo: MemoWithActivity) => {
+    const isUnread = (memo: DashboardMemo) => {
         const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
         return isRecipient && !memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser.id);
     }
@@ -579,8 +578,8 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
 }
 
 interface MemoListProps {
-  memos: MemoWithActivity[]
-  setMemos: React.Dispatch<React.SetStateAction<MemoWithActivity[]>>
+  memos: DashboardMemo[]
+  setMemos: React.Dispatch<React.SetStateAction<DashboardMemo[]>>
   selectedMemoId: string | null
   onSelectMemo: (id: string) => void
   isExpanded: boolean

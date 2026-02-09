@@ -136,4 +136,22 @@ export enum LogSeverity {
     CRITICAL = 'CRITICAL',
 }
 
+export type DashboardMemo = Prisma.MemoGetPayload<{
+  include: {
+    from: { select: { id: true, name: true, avatar: true } },
+    to: { select: { id: true, name: true } },
+    cc: { select: { id: true, name: true } },
+    labels: true,
+    acknowledgedBy: { select: { id: true } },
+    archivedBy: { select: { id: true } },
+    activity: {
+        select: { action: true, actorId: true },
+    },
+    favoritedBy: { select: { id: true } },
+    flaggedBy: { select: { id: true } },
+    current_holder: { select: { id: true } },
+  }
+}>;
+
+
 export type { Prisma };

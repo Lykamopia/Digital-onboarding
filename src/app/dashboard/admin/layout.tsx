@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
@@ -21,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
+import { AdminDataProvider } from './hooks';
 
 
 function useAdminNavigation(user: (User & { role: { permissions: string } }) | null) {
@@ -92,8 +94,8 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
             const el = document.createElement('button');
             // This class must match the TabsTrigger for accurate measurement
             el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium gap-2';
-            // Simulate the icon taking up its space. The `w-4` class won't work in innerHTML, so use inline style.
-            el.innerHTML = `<span style="width:1rem; height:1rem; flex-shrink: 0;"></span><span>${'item.label'}</span>`;
+            // Simulate the icon taking up its space.
+            el.innerHTML = `<span style="width:1rem; height:1rem; flex-shrink: 0;"></span><span>${item.label}</span>`;
             tempContainer.appendChild(el);
             return el;
         });
@@ -243,20 +245,22 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         <CardTitle>Admin Settings</CardTitle>
       </CardHeader>
       <CardContent>
-        {canAccessAdmin && activeTab ? (
-            <AdminPageContent
-                user={user}
-                activeTab={activeTab}
-                accessibleNavItems={accessibleNavItems}
-                handleTabChange={handleTabChange}
-                sidebarState={sidebarState}
-            >
-                {children}
-            </AdminPageContent>
-        ) : (
-            // Render a loader/skeleton while the redirect is in progress.
-            <Skeleton className="h-[200px] w-full" />
-        )}
+        <AdminDataProvider>
+            {canAccessAdmin && activeTab ? (
+                <AdminPageContent
+                    user={user}
+                    activeTab={activeTab}
+                    accessibleNavItems={accessibleNavItems}
+                    handleTabChange={handleTabChange}
+                    sidebarState={sidebarState}
+                >
+                    {children}
+                </AdminPageContent>
+            ) : (
+                // Render a loader/skeleton while the redirect is in progress.
+                <Skeleton className="h-[200px] w-full" />
+            )}
+        </AdminDataProvider>
       </CardContent>
     </Card>
   );
