@@ -1626,7 +1626,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
             data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
         }),
         prisma.passwordResetToken.delete({
-            where: { id: tokenEntry.id }
+            where: { email: tokenEntry.email }
         })
     ]);
 
@@ -2110,7 +2110,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if (tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
@@ -2121,13 +2121,14 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
     if (!user) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        // Invalidate the token on failed password policy to prevent brute-force
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         const errorMessage = validation.error.issues.map(i => i.message).join(' ');
         return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
     }
@@ -2157,4 +2158,3 @@ export async function setPasswordWithToken({ token, password }: { token: string,
         return { error: "An unexpected server error occurred. Please try again." };
     }
 }
-

@@ -252,18 +252,25 @@ export const authOptions: NextAuthOptions = {
       if (userIdToCheck) {
           // Any valid token must have a version number. If not, invalidate it.
           if (typeof token.tokenVersion !== 'number') {
+              // No user found to attribute this to, so log without an actor.
               await logSecurityEvent({
                   event: SecurityEvent.LOGOUT,
                   severity: LogSeverity.WARN,
-                  actor: { id: userIdToCheck, name: token.name },
-                  details: 'User session invalidated due to missing token version.',
+                  actor: null,
+                  details: 'A session was invalidated due to a missing token version.',
               });
               return {}; // Invalidate session
           }
           
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { tokenVersion: true, onboardingCompleted: true } });
           
-          if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
+          if (!dbUser) {
+              // User has been deleted. Invalidate the session without logging,
+              // as the user's deletion is the primary logged event.
+              return {}; 
+          }
+          
+          if (dbUser.tokenVersion !== token.tokenVersion) {
               await logSecurityEvent({
                   event: SecurityEvent.LOGOUT,
                   severity: LogSeverity.INFO,
@@ -272,6 +279,7 @@ export const authOptions: NextAuthOptions = {
               });
               return {}; // Invalidate session
           }
+
           if (!token.realUser) { // Don't overwrite delegator's onboarding status
               token.onboardingCompleted = dbUser.onboardingCompleted;
           }
