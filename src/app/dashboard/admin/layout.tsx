@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
-import { AdminDataProvider } from './hooks';
+import { AdminDataProvider, useUsers } from './hooks';
 
 
 function useAdminNavigation(user: (User & { role: { permissions: string } }) | null) {
@@ -202,12 +202,12 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
     );
 }
 
-
-const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<(User & { role: { permissions: string } }) | null>(null);
   const [loading, setLoading] = useState(true);
   const { state: sidebarState } = useSidebar();
+  const { mutate } = useUsers();
 
   const { activeTab, accessibleNavItems } = useAdminNavigation(user);
 
@@ -220,25 +220,36 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   
   const handleTabChange = (value: string) => {
     router.push(value);
+    mutate();
   };
   
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[200px] w-full" />
-        </CardContent>
-      </Card>
-    );
+    return <Skeleton className="h-[200px] w-full" />;
   }
 
-  // This check prevents a flash of the admin UI for unauthorized users.
-  // The redirect is handled by the useAdminNavigation hook.
   const canAccessAdmin = user && accessibleNavItems.length > 0;
   
+  return (
+      <>
+        {canAccessAdmin && activeTab ? (
+            <AdminPageContent
+                user={user}
+                activeTab={activeTab}
+                accessibleNavItems={accessibleNavItems}
+                handleTabChange={handleTabChange}
+                sidebarState={sidebarState}
+            >
+                {children}
+            </AdminPageContent>
+        ) : (
+            <Skeleton className="h-[200px] w-full" />
+        )}
+      </>
+  );
+};
+
+
+const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <Card>
        <CardHeader>
@@ -246,20 +257,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       </CardHeader>
       <CardContent>
         <AdminDataProvider>
-            {canAccessAdmin && activeTab ? (
-                <AdminPageContent
-                    user={user}
-                    activeTab={activeTab}
-                    accessibleNavItems={accessibleNavItems}
-                    handleTabChange={handleTabChange}
-                    sidebarState={sidebarState}
-                >
-                    {children}
-                </AdminPageContent>
-            ) : (
-                // Render a loader/skeleton while the redirect is in progress.
-                <Skeleton className="h-[200px] w-full" />
-            )}
+            <AdminLayoutContent>
+                {children}
+            </AdminLayoutContent>
         </AdminDataProvider>
       </CardContent>
     </Card>
