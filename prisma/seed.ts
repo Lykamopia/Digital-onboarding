@@ -1,4 +1,5 @@
 
+
 import { PrismaClient } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 import { sendVerificationEmail } from '../src/lib/email';
@@ -85,6 +86,7 @@ const users = [
     departmentId: 'dept-1',
     divisionId: 'div-1',
     roleId: 'role-2',
+    status: 'pending',
   },
   {
     id: 'user-2',
@@ -95,6 +97,7 @@ const users = [
     departmentId: 'dept-4',
     divisionId: 'div-5',
     roleId: 'role-2',
+    status: 'pending',
   },
   {
     id: 'user-3',
@@ -105,6 +108,7 @@ const users = [
     districtId: 'dist-1',
     branchId: 'branch-1',
     roleId: 'role-2',
+    status: 'pending',
   },
   {
     id: 'user-4',
@@ -115,6 +119,7 @@ const users = [
     districtId: 'dist-1',
     branchId: 'branch-2',
     roleId: 'role-2',
+    status: 'pending',
   },
   {
     id: 'user-5',
@@ -125,6 +130,7 @@ const users = [
     departmentId: 'dept-1',
     divisionId: 'div-2',
     roleId: 'role-2',
+    status: 'pending',
   },
   {
     id: 'user-6',
@@ -135,6 +141,7 @@ const users = [
     districtId: 'dist-2',
     branchId: 'branch-3',
     roleId: 'role-2',
+    status: 'pending',
   },
 ];
 
@@ -199,15 +206,15 @@ async function main() {
           hashedPassword: hashedPassword,
           roleId: 'role-1', // Assuming 'role-1' is the Admin role
           officeId: 'off-1', // Assign to a default office
-          onboardingCompleted: false, // Force password change on first login
+          onboardingCompleted: true,
           status: 'active',
       }
   });
-  console.log(`Admin user ${adminUser.name} created. Onboarding required on first login.`);
+  console.log(`Admin user ${adminUser.name} created.`);
 
   // Seed other users without passwords (they must be invited by an admin)
   for (const user of users) {
-      const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId } = user;
+      const { id, name, email, avatar, officeId, departmentId, divisionId, districtId, branchId, roleId, status } = user;
       await prisma.user.create({
           data: {
               id,
@@ -222,6 +229,7 @@ async function main() {
               roleId,
               hashedPassword: null,
               onboardingCompleted: false,
+              status,
           }
       });
   }

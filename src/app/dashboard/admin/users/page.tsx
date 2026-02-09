@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
@@ -315,7 +316,7 @@ export default function UsersPage() {
     const userData = {
         id: editingUser?.id,
         ...formState,
-        status: editingUser?.status ?? 'active',
+        status: editingUser?.status ?? 'pending',
     };
 
         setIsSaving(true);
@@ -327,7 +328,7 @@ export default function UsersPage() {
                 return;
             }
             await mutateUsers();
-            toast.success("Success", { description: isNewUser ? `User created and a welcome email has been sent to ${formState.email}.` : "User updated successfully." });
+            toast.success("Success", { description: isNewUser ? `User created and a setup email has been sent to ${formState.email}.` : "User updated successfully." });
             setIsFormDialogOpen(false);
             setEditingUser(null);
             setFormState(initialFormState);
@@ -443,6 +444,10 @@ export default function UsersPage() {
     }
 
   const handleStatusChange = async (user: UserWithRelations) => {
+      if (user.status === 'pending') {
+          toast.info("Cannot change status", { description: "This user is pending activation. They must set their password first." });
+          return;
+      }
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
             try {
                 await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
@@ -457,7 +462,7 @@ export default function UsersPage() {
             try {
                 await Promise.all(selectedUsers.map(id => {
                         const user = users.find(u => u.id === id) as UserWithRelations | undefined;
-                        if (user) {
+                        if (user && user.status !== 'pending') {
                             return saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status });
                         }
                         return Promise.resolve();
@@ -506,7 +511,7 @@ export default function UsersPage() {
 
   const branchOptions = branches
     .filter(b => b.districtId === formState.districtId)
-    .map(b => ({ value: b.id, label: b.name }));
+    .map(b => ({ value: d.id, label: d.name }));
 
 
   const getUserAssignment = (user: UserWithRelations) => {
@@ -593,7 +598,10 @@ export default function UsersPage() {
                         <TableCell>{user.role?.name}</TableCell>
                         <TableCell>{getUserAssignment(user)}</TableCell>
                         <TableCell>
-                            <Badge variant={user.status === 'active' ? 'secondary' : 'destructive'} className={cn(user.status === 'active' && 'bg-green-100 text-green-800')}>
+                            <Badge variant={user.status === 'active' ? 'secondary' : user.status === 'pending' ? 'outline' : 'destructive'} className={cn(
+                                user.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+                                user.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
+                            )}>
                                 {user.status}
                             </Badge>
                         </TableCell>
@@ -610,10 +618,10 @@ export default function UsersPage() {
                                         Edit User
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setResetUser(user)}>
-                                        <KeyRound className="mr-2"/>Reset Password
+                                        <KeyRound className="mr-2"/>{user.status === 'pending' ? 'Resend Setup Link' : 'Reset Password'}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onSelect={() => handleStatusChange(user)}>
+                                    <DropdownMenuItem onSelect={() => handleStatusChange(user)} disabled={user.status === 'pending'}>
                                         {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setDeleteUserAlert(user)} className="text-destructive">
@@ -729,7 +737,7 @@ export default function UsersPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                This will reset the password for {resetUser?.name}. A new temporary password will be emailed to the user. This action cannot be undone.
+                This will send a password setup link to {resetUser?.name}. This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -742,7 +750,7 @@ export default function UsersPage() {
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={handleResetPassword}>
-                Reset Password
+                Send Link
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>

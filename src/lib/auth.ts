@@ -1,4 +1,5 @@
 
+
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -32,6 +33,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           throw new Error("Invalid credentials");
+        }
+        
+        if (user.status === 'pending') {
+             throw new Error("Account is pending activation. Please use the setup link in your email to set your password.");
         }
 
         if (user.lockoutUntil && new Date() < user.lockoutUntil) {

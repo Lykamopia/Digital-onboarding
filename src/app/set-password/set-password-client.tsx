@@ -35,6 +35,7 @@ export default function SetPasswordClientPage() {
     const [loading, setLoading] = useState(false);
     const [verifying, setVerifying] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [email, setEmail] = useState<string | null>(null);
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -62,6 +63,8 @@ export default function SetPasswordClientPage() {
             const result = await verifyPasswordResetToken(token!);
             if (result.error) {
                 setError(result.error);
+            } else if (result.success && result.email) {
+                setEmail(result.email);
             }
             setVerifying(false);
         }
@@ -77,7 +80,7 @@ export default function SetPasswordClientPage() {
             toast.success('Password Set Successfully', {
                 description: 'You can now log in with your new password.',
             });
-            router.push('/login');
+            router.push(`/login?email=${encodeURIComponent(email || '')}`);
         } else {
             setLoading(false);
             setError(result.error || 'An unknown error occurred.');
@@ -151,7 +154,7 @@ export default function SetPasswordClientPage() {
                 
                 <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Set Password
+                    Set Password and Login
                 </Button>
             </form>
         );

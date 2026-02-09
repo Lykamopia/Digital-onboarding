@@ -1,4 +1,5 @@
 
+
 import type { 
     User as PrismaUser, 
     Role as PrismaRole,
@@ -126,7 +127,7 @@ export type FullMemo = MemoWithActivity & {
 
 // Add status to User type for better type safety
 export type UserWithStatus = User & {
-    status: 'active' | 'inactive';
+    status: 'active' | 'inactive' | 'pending';
 }
 
 export enum LogSeverity {

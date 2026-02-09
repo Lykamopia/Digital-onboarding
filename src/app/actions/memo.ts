@@ -809,7 +809,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     return { success: true, memo: newMemo };
 }
 
-export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] }, draftId?: string | null): Promise<{ success: boolean; error?: string; draft?: Memo; }> {
+export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] }, draftId?: string | null): Promise<{ success: boolean; error?: string; draft?: Memo; }> {
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: "Not authenticated" };
 
@@ -862,7 +862,7 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
-export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: Label[] } = {}) {
+export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] } = {}) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -1321,7 +1321,7 @@ export async function saveUser(data: {
         name: data.name,
         email: data.email,
         roleId: data.roleId,
-        status: data.status ?? 'active',
+        status: data.status,
         officeId: data.officeId || null,
         departmentId: data.departmentId || null,
         divisionId: data.divisionId || null,
@@ -1353,6 +1353,7 @@ export async function saveUser(data: {
 
         payload.hashedPassword = null;
         payload.onboardingCompleted = false;
+        payload.status = 'pending';
         
         const newUser = await prisma.user.create({ data: payload });
         await logSecurityEvent({ event: SecurityEvent.USER_CREATED, severity: LogSeverity.WARN, actor: user, details: `Admin created new user '${newUser.name}' (ID: ${newUser.id}).`, targetId: newUser.id, targetType: 'User' });
@@ -1786,7 +1787,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
                     name, email, roleId, officeId,
                     departmentId: departmentId || null, divisionId: divisionId || null,
                     districtId: districtId || null, branchId: branchId || null,
-                    hashedPassword: null, status: 'active',
+                    hashedPassword: null, status: 'pending',
                 },
             });
             
