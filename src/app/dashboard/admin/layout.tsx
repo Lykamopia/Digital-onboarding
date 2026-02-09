@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
+import { useSidebar } from '@/components/ui/sidebar';
 
 
 function useAdminNavigation(user: (User & { role: { permissions: string } }) | null) {
@@ -55,12 +56,13 @@ function useAdminNavigation(user: (User & { role: { permissions: string } }) | n
   return { activeTab, accessibleNavItems };
 }
 
-function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange, children }: {
+function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange, children, sidebarState }: {
     user: (User & { role: { permissions: string } }) | null;
     activeTab: string | null;
     accessibleNavItems: NavItemConfig[];
     handleTabChange: (value: string) => void;
     children: React.ReactNode;
+    sidebarState: 'expanded' | 'collapsed';
 }) {
     const tabsListRef = useRef<HTMLDivElement>(null);
     const [visibleItems, setVisibleItems] = useState(accessibleNavItems);
@@ -91,17 +93,19 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
             // This class must match the TabsTrigger for accurate measurement
             el.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium gap-2';
             // Simulate the icon taking up its space. The `w-4` class won't work in innerHTML, so use inline style.
-            el.innerHTML = `<span style="width:1rem; height:1rem; flex-shrink: 0;"></span><span>${item.label}</span>`;
+            el.innerHTML = `<span style="width:1rem; height:1rem; flex-shrink: 0;"></span><span>${'item.label'}</span>`;
             tempContainer.appendChild(el);
             return el;
         });
 
         // Determine which items fit and which should be in the "More" menu
+        const maxVisibleTabs = sidebarState === 'expanded' ? 10 : 12;
         let needsDropdown = false;
         for (let i = 0; i < tabElements.length; i++) {
             const itemWidth = tabElements[i].offsetWidth;
             // The check is against the container width minus the space needed for the "More" button
-            if (needsDropdown || (totalWidth + itemWidth > containerWidth - moreButtonWidth)) {
+            // AND also check against the max number of tabs.
+            if (needsDropdown || (totalWidth + itemWidth > containerWidth - moreButtonWidth) || newVisible.length >= maxVisibleTabs) {
                 needsDropdown = true;
                 newHidden.push(accessibleNavItems[i]);
             } else {
@@ -115,7 +119,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         setVisibleItems(newVisible);
         setHiddenItems(newHidden);
 
-    }, [accessibleNavItems]);
+    }, [accessibleNavItems, sidebarState]);
 
     useEffect(() => {
         const observer = new ResizeObserver(updateVisibleTabs);
@@ -201,6 +205,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [user, setUser] = useState<(User & { role: { permissions: string } }) | null>(null);
   const [loading, setLoading] = useState(true);
+  const { state: sidebarState } = useSidebar();
 
   const { activeTab, accessibleNavItems } = useAdminNavigation(user);
 
@@ -244,6 +249,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                 activeTab={activeTab}
                 accessibleNavItems={accessibleNavItems}
                 handleTabChange={handleTabChange}
+                sidebarState={sidebarState}
             >
                 {children}
             </AdminPageContent>
