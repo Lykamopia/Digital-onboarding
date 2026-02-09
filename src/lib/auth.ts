@@ -252,7 +252,6 @@ export const authOptions: NextAuthOptions = {
       if (userIdToCheck) {
           // Any valid token must have a version number. If not, invalidate it.
           if (typeof token.tokenVersion !== 'number') {
-              // No user found to attribute this to, so log without an actor.
               await logSecurityEvent({
                   event: SecurityEvent.LOGOUT,
                   severity: LogSeverity.WARN,
@@ -265,18 +264,19 @@ export const authOptions: NextAuthOptions = {
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { tokenVersion: true, onboardingCompleted: true } });
           
           if (!dbUser) {
-              // User has been deleted. Invalidate the session without logging,
-              // as the user's deletion is the primary logged event.
               return {}; 
           }
           
           if (dbUser.tokenVersion !== token.tokenVersion) {
-              await logSecurityEvent({
-                  event: SecurityEvent.LOGOUT,
-                  severity: LogSeverity.INFO,
-                  actor: { id: userIdToCheck, name: token.name },
-                  details: 'User session invalidated due to token version mismatch (likely remote logout).',
-              });
+              const actorUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { id: true, name: true } });
+              if (actorUser) {
+                  await logSecurityEvent({
+                      event: SecurityEvent.LOGOUT,
+                      severity: LogSeverity.INFO,
+                      actor: actorUser,
+                      details: 'User session invalidated due to token version mismatch (likely remote logout).',
+                  });
+              }
               return {}; // Invalidate session
           }
 

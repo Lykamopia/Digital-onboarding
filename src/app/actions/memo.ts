@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { Memo, User, Label, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
+import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, Prisma, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
@@ -1604,7 +1604,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
     
     const parts = tokenEntry.email.split('::');
     if (parts.length !== 3) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         return { success: false, error: "Invalid token format." };
     }
     const userId = parts[1];
@@ -1612,23 +1612,23 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
     
     const userToUpdate = await prisma.user.findUnique({ where: { id: userId } });
     if (!userToUpdate) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         return { success: false, error: "User not found." };
     }
 
     const existingUserWithNewEmail = await prisma.user.findUnique({ where: { email: newEmail } });
     if (existingUserWithNewEmail) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         return { success: false, error: "This email address has been registered by another user. Please try a different email." };
     }
 
     await prisma.$transaction([
         prisma.user.update({
             where: { id: userId },
-            data: { email: newEmail, tokenVersion: { increment: 1 } } // Increment token to log out other sessions
+            data: { email: newEmail, tokenVersion: { increment: 1 } }
         }),
         prisma.passwordResetToken.delete({
-            where: { id: tokenEntry.id }
+            where: { email: tokenEntry.email }
         })
     ]);
 
