@@ -1358,7 +1358,7 @@ export async function saveUser(data: {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
 
         await prisma.passwordResetToken.upsert({
             where: { email: newUser.email! },
@@ -1790,7 +1790,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             
             const token = randomBytes(32).toString('hex');
             const hashedToken = createHash('sha256').update(token).digest('hex');
-            const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+            const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
 
             await prisma.passwordResetToken.upsert({
                 where: { email: newUser.email! },
@@ -2109,7 +2109,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if(tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id }});
+            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email }});
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
@@ -2141,7 +2141,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
             }
         }),
         prisma.passwordResetToken.delete({
-            where: { id: tokenEntry.id }
+            where: { email: tokenEntry.email }
         })
     ]);
 
