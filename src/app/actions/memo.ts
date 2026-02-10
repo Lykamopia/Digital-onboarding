@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -1385,7 +1384,8 @@ export async function deleteUser(userId: string) {
     }
     
     try {
-        await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user with ID: ${userId}.`, targetId: userId, targetType: 'User' });
+        const deletedUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true }});
+        await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user '${deletedUser?.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
         await prisma.user.delete({ where: { id: userId }});
         revalidatePath('/dashboard/admin/users');
         return { success: true };
@@ -1641,7 +1641,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
         targetType: 'User'
     });
     
-    return { success: true, message: `Your email has been successfully updated to ${newEmail}.` };
+    return { success: true, message: `Your email has been successfully updated to ${newEmail}. Please log in again.` };
 }
 
 export type BulkImportResult = {
@@ -2112,7 +2112,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     if (!tokenEntry || tokenEntry.expires < new Date()) {
         if (tokenEntry) {
-            await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+            await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         }
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
@@ -2123,14 +2123,14 @@ export async function setPasswordWithToken({ token, password }: { token: string,
 
     const user = await prisma.user.findUnique({ where: { email: tokenEntry.email }});
     if (!user) {
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
         // Invalidate the token on failed password policy to prevent brute-force
-        await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
+        await prisma.passwordResetToken.delete({ where: { email: tokenEntry.email } });
         const errorMessage = validation.error.issues.map(i => i.message).join(' ');
         return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
     }
@@ -2149,7 +2149,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
                 }
             }),
             prisma.passwordResetToken.delete({
-                where: { id: tokenEntry.id }
+                where: { email: tokenEntry.email }
             })
         ]);
 
