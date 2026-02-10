@@ -16,7 +16,13 @@ export const passwordSchema = z.string()
     .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter." })
     .regex(/[a-z]/, { message: "Password must contain at least one lowercase letter." })
     .regex(/[0-9]/, { message: "Password must contain at least one number." })
-    .regex(/[!@#$%^&*]/, { message: "Password must contain at least one special character (!@#$%^&*)." });
+    .regex(/[!@#$%^&*]/, { message: "Password must contain at least one special character (!@#$%^&*)." })
+    .refine(async (password) => {
+        const isPwned = await isPasswordPwned(password);
+        return !isPwned;
+    }, {
+        message: "This password has been exposed in a data breach. Please choose a more secure password."
+    });
 
 // Function to generate a random password that meets the policy
 export function generateStrongPassword(length = 12): string {
