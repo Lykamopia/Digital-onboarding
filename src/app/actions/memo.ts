@@ -1354,7 +1354,6 @@ export async function saveUser(data: {
         const newUser = await prisma.user.create({ data: payload });
         await logSecurityEvent({ event: SecurityEvent.USER_CREATED, severity: LogSeverity.WARN, actor: user, details: `Admin created new user '${newUser.name}' (ID: ${newUser.id}).`, targetId: newUser.id, targetType: 'User' });
 
-
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
         const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
@@ -1365,11 +1364,10 @@ export async function saveUser(data: {
             create: { email: newUser.email!, token: hashedToken, expires },
         });
         
-        try {
-            await sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token: token });
-        } catch (error) {
-            console.error(`Failed to send welcome email to ${newUser.email}:`, error);
-        }
+        sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token: token })
+            .catch(error => {
+                console.error(`Failed to send welcome email to ${newUser.email}:`, error);
+            });
     }
     
     revalidatePath('/dashboard/admin/users');
@@ -1385,7 +1383,9 @@ export async function deleteUser(userId: string) {
     
     try {
         const deletedUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true }});
-        await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user '${deletedUser?.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
+        if (deletedUser) {
+            await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user '${deletedUser?.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
+        }
         await prisma.user.delete({ where: { id: userId }});
         revalidatePath('/dashboard/admin/users');
         return { success: true };
@@ -1416,11 +1416,10 @@ export async function resetUserPassword(userId: string) {
         
         await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_REQUEST, severity: LogSeverity.WARN, actor: admin, details: `Admin initiated password reset for user '${user.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
 
-        try {
-            await sendPasswordResetEmail({ to: user.email, name: user.name!, token: token });
-        } catch (error) {
-             console.error(`Failed to send password reset email to ${user.email}:`, error);
-        }
+        sendPasswordResetEmail({ to: user.email, name: user.name!, token: token })
+            .catch(error => {
+                 console.error(`Failed to send password reset email to ${user.email}:`, error);
+            });
 
         revalidatePath('/dashboard/admin/users');
         return { success: true };
