@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
@@ -101,7 +99,7 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
         });
 
         // Determine which items fit and which should be in the "More" menu
-        const maxVisibleTabs = sidebarState === 'expanded' ? 10 : 12;
+        const maxVisibleTabs = sidebarState === 'expanded' ? 9 : 11;
         let needsDropdown = false;
         for (let i = 0; i < tabElements.length; i++) {
             const itemWidth = tabElements[i].offsetWidth;
