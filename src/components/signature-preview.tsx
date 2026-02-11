@@ -32,6 +32,14 @@ export function SignaturePreview({
     }
   }, [src]);
 
+  // Normalize src: ensure internal paths are absolute from root and handle data URLs
+  const normalizedSrc = React.useMemo(() => {
+    if (!src) return src;
+    const t = src.trim();
+    if (t.startsWith('http') || t.startsWith('data:') || t.startsWith('/')) return t;
+    return `/${t}`;
+  }, [src]);
+
   const compactWidth = width ?? (compact ? 40 : 60);
   const compactHeight = height ?? (compact ? 20 : 30);
 
@@ -39,7 +47,7 @@ export function SignaturePreview({
     ? 'inline-flex items-center justify-center rounded-md border px-2 py-1 bg-muted/5'
     : 'inline-block';
 
-  if (!src || error) {
+  if (!normalizedSrc || error) {
       const fallbackWidth = width ? `${width}px` : '100%';
       const fallbackHeight = height ? `${height}px` : '100%';
       return (
@@ -56,13 +64,16 @@ export function SignaturePreview({
   return (
     <div className={cn(wrapperClass, className)}>
       <Image
-        src={src}
+        src={normalizedSrc as string}
         alt={alt}
         width={compactWidth}
         height={compactHeight}
         className="object-contain animate-in fade-in duration-300"
         priority={priority}
-        unoptimized={src.startsWith('data:')} // Important for data URLs
+        unoptimized={
+          // Use unoptimized for data URLs and for same-origin upload routes
+          !normalizedSrc || (normalizedSrc as string).startsWith('data:') || !(normalizedSrc as string).startsWith('http')
+        }
         onError={() => setError(true)}
       />
     </div>

@@ -126,7 +126,8 @@ const getImageUrl = (path: string | null | undefined): string => {
         return trimmed;
     }
     // Return empty for invalid or relative paths we can't handle
-    return '';
+    // If the DB stored a relative path like "uploads/..", convert to absolute root path
+    return `/${trimmed}`;
 }
 
 const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {

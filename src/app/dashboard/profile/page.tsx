@@ -41,6 +41,7 @@ const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     const trimmed = path.trim();
+    if (trimmed.startsWith('data:')) return trimmed;
     if (trimmed.startsWith('http')) {
         return trimmed;
     }
@@ -48,8 +49,8 @@ const getImageUrl = (path: string | null | undefined): string => {
     if (trimmed.startsWith('/')) {
         return trimmed;
     }
-    // Return empty for invalid or relative paths we can't handle
-    return '';
+    // If the DB stored a relative path like "uploads/..", convert to absolute root path
+    return `/${trimmed}`;
 }
 
 export default function ProfilePage() {
