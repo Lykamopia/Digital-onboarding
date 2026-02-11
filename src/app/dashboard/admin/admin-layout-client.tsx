@@ -191,7 +191,8 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
     );
 }
 
-export default function AdminLayoutClient({ user, children }: { user: LoggedInUser; children: React.ReactNode }) {
+
+function AdminLayoutComponent({ user, children }: { user: LoggedInUser; children: React.ReactNode }) {
   const router = useRouter();
   const { state: sidebarState } = useSidebar();
   const { mutate } = useUsers();
@@ -209,18 +210,27 @@ export default function AdminLayoutClient({ user, children }: { user: LoggedInUs
         <CardTitle>Admin Settings</CardTitle>
       </CardHeader>
       <CardContent>
-        <AdminDataProvider>
-            <AdminPageContent
-                user={user}
-                activeTab={activeTab}
-                accessibleNavItems={accessibleNavItems}
-                handleTabChange={handleTabChange}
-                sidebarState={sidebarState}
-            >
-                {children}
-            </AdminPageContent>
-        </AdminDataProvider>
+        <AdminPageContent
+            user={user}
+            activeTab={activeTab}
+            accessibleNavItems={accessibleNavItems}
+            handleTabChange={handleTabChange}
+            sidebarState={sidebarState}
+        >
+            {children}
+        </AdminPageContent>
       </CardContent>
     </Card>
   );
 };
+
+
+export default function AdminLayoutClient({ user, children }: { user: LoggedInUser; children: React.ReactNode }) {
+    return (
+        <AdminDataProvider>
+            <AdminLayoutComponent user={user}>
+                {children}
+            </AdminLayoutComponent>
+        </AdminDataProvider>
+    )
+}
