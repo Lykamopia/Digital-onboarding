@@ -1384,7 +1384,7 @@ export async function saveUser(data: {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
         await prisma.passwordResetToken.upsert({
             where: { email: newUser.email! },
@@ -1436,7 +1436,7 @@ export async function saveUser(data: {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const compositeKey = `email-change::${data.id}::${newEmail}`;
 
         await prisma.passwordResetToken.create({
@@ -1451,7 +1451,7 @@ export async function saveUser(data: {
         sendEmailChangeNotificationEmail({ to: existingUser.email!, name: existingUser.name!, newEmail: newEmail })
             .catch(error => console.error(`Failed to send email change notification to ${existingUser.email!}:`, error));
         
-        emailChangeMessage = `A verification email has been sent to ${newEmail} to confirm the change. This link is valid for 24 hours.`;
+        emailChangeMessage = `A verification email has been sent to ${newEmail} to confirm the change. This link is valid for 1 hour.`;
     }
 
     const payload: any = {
@@ -1513,7 +1513,7 @@ export async function resetUserPassword(userId: string) {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
         await prisma.passwordResetToken.upsert({
             where: { email: user.email },
@@ -1654,7 +1654,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         const compositeKey = `email-change::${userId}::${newEmail}`;
 
         await prisma.passwordResetToken.create({
@@ -1677,7 +1677,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
              await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their profile (name/avatar/signature).`, targetId: userId, targetType: 'User' });
         }
 
-        return { success: true, message: `Verification email sent to ${newEmail}. This link is valid for 24 hours.` };
+        return { success: true, message: `Verification email sent to ${newEmail}. This link is valid for 1 hour.` };
 
     } else {
         // No email change, just update other data
@@ -1734,7 +1734,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
             data: { email: newEmail, tokenVersion: { increment: 1 } }
         }),
         prisma.passwordResetToken.delete({
-            where: { id: tokenEntry.id }
+            where: { email: tokenEntry.email }
         })
     ]);
 
@@ -1898,7 +1898,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             
             const token = randomBytes(32).toString('hex');
             const hashedToken = createHash('sha256').update(token).digest('hex');
-            const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+            const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
             await prisma.passwordResetToken.upsert({
                 where: { email: newUser.email! },
@@ -2255,7 +2255,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
                 }
             }),
             prisma.passwordResetToken.delete({
-                where: { id: tokenEntry.id }
+                where: { email: tokenEntry.email }
             })
         ]);
 
