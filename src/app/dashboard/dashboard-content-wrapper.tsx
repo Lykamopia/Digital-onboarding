@@ -70,7 +70,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return [
       ...((user as any).onboardingCompleted === false
         ? [
-            { href: "/dashboard/profile", icon: <Lock />, label: "Setup Account", active: pathname === '/dashboard/profile', visible: true },
+            { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
             { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
           ]
         : [
@@ -109,7 +109,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
   return (
     <>
-    {!mustCompleteOnboarding && <SessionTimeoutManager />}
+    <SessionTimeoutManager disabled={mustCompleteOnboarding} />
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>

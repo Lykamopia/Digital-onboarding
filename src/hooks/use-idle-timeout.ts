@@ -9,9 +9,10 @@ const CHANNEL_NAME = 'session-timeout-channel';
 
 interface IdleTimerProps {
   onLogout: () => void;
+  disabled?: boolean;
 }
 
-export const useIdleTimer = ({ onLogout }: IdleTimerProps) => {
+export const useIdleTimer = ({ onLogout, disabled = false }: IdleTimerProps) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
@@ -52,7 +53,10 @@ export const useIdleTimer = ({ onLogout }: IdleTimerProps) => {
   }, [logout, onLogout]);
 
   useEffect(() => {
-    // Initialize the BroadcastChannel
+    if (disabled) {
+      return;
+    }
+
     channelRef.current = new BroadcastChannel(CHANNEL_NAME);
     channelRef.current.onmessage = handleChannelMessage;
 
@@ -70,9 +74,10 @@ export const useIdleTimer = ({ onLogout }: IdleTimerProps) => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (channelRef.current) {
         channelRef.current.close();
+        channelRef.current = null;
       }
     };
-  }, [reset, handleChannelMessage]);
+  }, [reset, handleChannelMessage, disabled]);
 
   return { reset };
 };
