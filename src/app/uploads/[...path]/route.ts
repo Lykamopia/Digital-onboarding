@@ -81,7 +81,7 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
                 targetId: attachment.id,
                 targetType: 'Attachment'
              });
-             return new NextResponse('Forbidden', { status: 403 });
+             return NextResponse.redirect(new URL('/dashboard/access-denied', req.url));
         }
     } else if (fileType !== 'profile' && fileType !== 'signatures') {
         // Any authenticated user can view profile pics and signatures.
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             headers: {
                 'Content-Type': contentType,
                 'Content-Length': fileBuffer.length.toString(),
-                'Content-Disposition': `inline; filename="${fileNameParts.join('')}"`,
+                'Content-Disposition': `attachment; filename="${fileNameParts.join('')}"`,
             },
         });
     } catch (error: any) {
