@@ -27,6 +27,28 @@ import { FavoritesEmptyIllustration } from "@/components/favorites-empty-illustr
 import { useSettings } from "@/components/settings-provider"
 import { toast } from "sonner"
 
+const determineCorrectFolder = (memo: MemoWithActivity, user: LoggedInUser | null): string | null => {
+    if (!user) return null;
+
+    const isArchived = memo.archivedBy?.some(u => u.id === user.id);
+    if (isArchived) return 'archive';
+
+    if (memo.fromId === user.id) {
+        if (memo.status === 'draft') return 'drafts';
+        if (memo.status === 'scheduled') return 'scheduled';
+        return 'sent';
+    }
+
+    const isRecipient = memo.to.some(u => u.id === user.id) ||
+                        memo.cc.some(u => u.id === user.id) ||
+                        memo.current_holder?.id === user.id;
+
+    if (isRecipient) return 'inbox';
+
+    // Fallback if the user has access for other reasons (e.g., admin) but doesn't fit a folder
+    return null;
+}
+
 function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMemos: DashboardMemo[]; user: LoggedInUser | null; }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -176,6 +198,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       
       getMemo(memoIdFromUrl).then(fullMemo => {
         if (fullMemo) {
+            const correctFolder = determineCorrectFolder(fullMemo as MemoWithActivity, user);
+            if (correctFolder && tab !== correctFolder) {
+                router.replace(`/dashboard/${correctFolder}?id=${memoIdFromUrl}`);
+                return;
+            }
+
             setSelectedMemo(fullMemo as MemoWithActivity);
             if (user && tab === 'inbox' && !fullMemo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
                 markAsRead(fullMemo.id);
