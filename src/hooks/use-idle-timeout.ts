@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 
-const DEFAULT_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const DEFAULT_TIMEOUT = 60 * 60 * 1000; // 60 minutes
 const CHANNEL_NAME = 'session-timeout-channel';
 
 interface IdleTimerProps {

@@ -12,6 +12,8 @@ import { logSecurityEvent, SecurityEvent } from './security-logger';
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
+const SESSION_TIMEOUT_MINUTES = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
+const SESSION_TIMEOUT_SECONDS = SESSION_TIMEOUT_MINUTES * 60;
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -130,7 +132,7 @@ export const authOptions: NextAuthOptions = {
   })(),
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60, // 1 hour
+    maxAge: SESSION_TIMEOUT_SECONDS,
     updateAge: 20 * 60, // 20 minutes
   },
   pages: {
