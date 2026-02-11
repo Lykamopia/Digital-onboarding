@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join, normalize } from 'path';
@@ -28,6 +29,13 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
 
     // --- Authorization Check ---
     if (fileType === 'attachments') {
+        const userWithRole = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { role: { select: { permissions: true } } }
+        });
+        const userPermissions = userWithRole?.role?.permissions?.split(',') || [];
+        const isAdminWithAuditLog = userPermissions.includes('manage_audit_log');
+
         attachment = await prisma.attachment.findFirst({
             where: { url: dbPath }
         });
@@ -50,22 +58,29 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
              return new NextResponse('Forbidden: Associated memo not found.', { status: 403 });
         }
 
-        // The session.user.id is the ID of the user context (could be a delegator)
         const currentUserId = session.user.id;
         
         let hasAccess = 
             memo.fromId === currentUserId ||
             memo.current_holderId === currentUserId ||
             memo.to.some(user => user.id === currentUserId) ||
-            memo.cc.some(user => user.id === currentUserId);
+            memo.cc.some(user => user.id === currentUserId) ||
+            isAdminWithAuditLog;
         
-        // For delegated sessions, we must also check for view permission
         const sessionUser = session.user as LoggedInUser;
         if (sessionUser.actingUser && !sessionUser.delegationPermissions?.includes('delegation:view')) {
             hasAccess = false;
         }
             
         if (!hasAccess) {
+             await logSecurityEvent({
+                event: SecurityEvent.PERMISSION_DENIED,
+                severity: LogSeverity.WARN,
+                actor: session.user,
+                details: `User attempted to access unauthorized attachment: ${dbPath}`,
+                targetId: attachment.id,
+                targetType: 'Attachment'
+             });
              return new NextResponse('Forbidden', { status: 403 });
         }
     } else if (fileType !== 'profile' && fileType !== 'signatures') {

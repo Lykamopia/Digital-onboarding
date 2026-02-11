@@ -379,7 +379,9 @@ export async function toggleFlag(memoId: string) {
 export async function getMemo(id: string) {
   if (!id) return null;
   const user = await getLoggedInUser();
-  const userId = user?.id;
+  if (!user) {
+    return null;
+  }
 
   const memo = await prisma.memo.findUnique({
     where: { id },
@@ -404,10 +406,52 @@ export async function getMemo(id: string) {
         },
       },
       replyTo: { include: { from: { include: { role: true } } } },
-      favoritedBy: { where: { id: userId }, select: { id: true } },
-      flaggedBy: { where: { id: userId }, select: { id: true } },
+      favoritedBy: { where: { id: user.id }, select: { id: true } },
+      flaggedBy: { where: { id: user.id }, select: { id: true } },
     },
   });
+
+  if (!memo) {
+    return null;
+  }
+
+  // Authorization Check
+  const userId = user.id;
+  const userPermissions = user.role?.permissions?.split(',') || [];
+  const isAdminWithAuditLog = userPermissions.includes('manage_audit_log');
+
+  // Delegated sessions must have 'delegation:view' permission to see any memo.
+  if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
+      await logSecurityEvent({
+          event: SecurityEvent.PERMISSION_DENIED,
+          severity: LogSeverity.WARN,
+          actor: user.actingUser,
+          details: `Delegated user '${user.actingUser.name}' (ID: ${user.actingUser.id}) on behalf of '${user.name}' tried to access memo '${id}' without 'delegation:view' permission.`,
+          targetId: id,
+          targetType: 'Memo'
+      });
+      return null;
+  }
+
+  const isSender = memo.fromId === userId;
+  const isRecipient = memo.to.some(u => u.id === userId);
+  const isCc = memo.cc.some(u => u.id === userId);
+  const isCurrentHolder = memo.current_holderId === userId;
+
+  const isAuthorized = isSender || isRecipient || isCc || isCurrentHolder || isAdminWithAuditLog;
+
+  if (!isAuthorized) {
+    await logSecurityEvent({
+        event: SecurityEvent.PERMISSION_DENIED,
+        severity: LogSeverity.WARN,
+        actor: user,
+        details: `User '${user.name}' (ID: ${user.id}) attempted to access unauthorized memo '${id}'.`,
+        targetId: id,
+        targetType: 'Memo'
+    });
+    return null;
+  }
+
   return memo;
 }
 
