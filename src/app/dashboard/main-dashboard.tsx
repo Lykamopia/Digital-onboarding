@@ -182,11 +182,14 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                 markMemoAsReadInState(fullMemo.id);
             }
         } else {
-            toast.error("Memo not found", { description: "It may have been deleted or you may not have access."});
+            toast.error("Memo not found", {
+                id: `memo-not-found-${memoIdFromUrl}`,
+                description: "It may have been deleted or you may not have access."
+            });
             handleDeselectMemo();
         }
       }).catch(err => {
-        toast.error("Failed to load memo");
+        toast.error("Failed to load memo", { id: `memo-load-error-${memoIdFromUrl}` });
         console.error(err);
         handleDeselectMemo();
       }).finally(() => {
