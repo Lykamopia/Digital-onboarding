@@ -142,21 +142,6 @@ function UserImportDialog() {
     setOpen(isOpen);
     if (!isOpen) {
       resetState();
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
     }
   }
 
@@ -304,7 +289,10 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
+  const [isResetAlertOpen, setIsResetAlertOpen] = useState(false);
   const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -357,9 +345,7 @@ export default function UsersPage() {
         }
 
         toast.success("Success", { description: successDescription });
-        setIsFormDialogOpen(false);
-        setEditingUser(null);
-        setFormState(initialFormState);
+        handleDialogChange(false);
     } catch (error: any) {
         toast.error('Error', { description: error?.message || 'Failed to save user.' });
     } finally {
@@ -372,45 +358,22 @@ export default function UsersPage() {
     if (!open) {
       setEditingUser(null);
       setFormState(initialFormState);
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
     }
   };
 
-  const handleAlertChange = (open: boolean) => {
+  const handleResetAlertChange = (open: boolean) => {
+    setIsResetAlertOpen(open);
     if (!open) {
-      setResetUser(null);
-      setDeleteUserAlert(null);
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
+        setResetUser(null);
     }
-  };
+  }
+
+  const handleDeleteAlertChange = (open: boolean) => {
+      setIsDeleteAlertOpen(open);
+      if (!open) {
+          setDeleteUserAlert(null);
+      }
+  }
 
 
   const handleEdit = (user: UserWithRelations) => {
@@ -439,36 +402,36 @@ export default function UsersPage() {
         setIsResetting(true);
         try {
             const result = await resetUserPassword(resetUser.id);
-            setResetUser(null); // Close the alert dialog
             if(result.success) {
-                    toast.success("Success", { description: `A password reset email has been sent to ${resetUser.email}.` });
+                toast.success("Success", { description: `A password reset email has been sent to ${resetUser.email}.` });
             } else {
-                    toast.error("Error", { description: result.error });
+                toast.error("Error", { description: result.error });
             }
         } catch (error: any) {
             toast.error('Error', { description: error?.message || 'Failed to reset password.' });
         } finally {
             setIsResetting(false);
+            handleResetAlertChange(false);
         }
   }
 
     const handleDelete = async () => {
         if (!deleteUserAlert) return;
-                setIsDeleting(true);
-                try {
-                    const result = await deleteUser(deleteUserAlert.id);
-                    setDeleteUserAlert(null);
-                    if (result.success) {
-                            await mutateUsers();
-                            toast.success("Success", { description: "User has been deleted." });
-                    } else {
-                            toast.error("Error", { description: result.error });
-                    }
-                } catch (error: any) {
-                    toast.error('Error', { description: error?.message || 'Failed to delete user.' });
-                } finally {
-                    setIsDeleting(false);
+            setIsDeleting(true);
+            try {
+                const result = await deleteUser(deleteUserAlert.id);
+                if (result.success) {
+                        await mutateUsers();
+                        toast.success("Success", { description: "User has been deleted." });
+                } else {
+                        toast.error("Error", { description: result.error });
                 }
+            } catch (error: any) {
+                toast.error('Error', { description: error?.message || 'Failed to delete user.' });
+            } finally {
+                setIsDeleting(false);
+                handleDeleteAlertChange(false);
+            }
     }
 
   const handleStatusChange = async (user: UserWithRelations) => {
@@ -645,14 +608,14 @@ export default function UsersPage() {
                                         <Pencil className="mr-2 h-4 w-4" />
                                         Edit User
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setResetUser(user)}>
+                                    <DropdownMenuItem onSelect={() => {setResetUser(user); setIsResetAlertOpen(true);}}>
                                         <KeyRound className="mr-2"/>{user.status === 'pending' ? 'Resend Setup Link' : 'Reset Password'}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onSelect={() => handleStatusChange(user)} disabled={user.status === 'pending'}>
                                         {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setDeleteUserAlert(user)} className="text-destructive">
+                                    <DropdownMenuItem onSelect={() => {setDeleteUserAlert(user); setIsDeleteAlertOpen(true);}} className="text-destructive">
                                         <Trash2 className="mr-2 h-4 w-4" />
                                         Delete User
                                     </DropdownMenuItem>
@@ -677,90 +640,94 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent className="sm:max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-                <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
-                </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="roleId">Role</Label>
-                        <Combobox
-                            options={roleOptions}
-                            value={formState.roleId}
-                            onChange={v => handleFormChange('roleId', v)}
-                            placeholder="Select a role"
-                            searchPlaceholder="Search roles..."
-                        />
-                    </div>
-                    
-                    <Separator className="md:col-span-2" />
+    {isFormDialogOpen && (
+        <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
+            <DialogContent className="sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+                    <DialogDescription>
+                        {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSave}>
+                    <fieldset disabled={isSaving}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Full Name</Label>
+                                <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="roleId">Role</Label>
+                                <Combobox
+                                    options={roleOptions}
+                                    value={formState.roleId}
+                                    onChange={v => handleFormChange('roleId', v)}
+                                    placeholder="Select a role"
+                                    searchPlaceholder="Search roles..."
+                                />
+                            </div>
+                            
+                            <Separator className="md:col-span-2" />
 
-                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="officeId">Office</Label>
-                            <Combobox
-                                options={officeOptions}
-                                value={formState.officeId}
-                                onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
-                                placeholder="Select an office"
-                                searchPlaceholder="Search offices..."
-                            />
-                        </div>
-                        {selectedOffice && (
-                            <div className="space-y-4">
-                                {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="departmentId">Department</Label>
-                                        <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
-                                    </div>
-                                )}
-                                {formState.departmentId && divisionOptions.length > 0 && (
-                                     <div className="space-y-2">
-                                        <Label htmlFor="divisionId">Division</Label>
-                                        <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
-                                    </div>
-                                )}
-                                {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="districtId">District</Label>
-                                        <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
-                                    </div>
-                                )}
-                                {formState.districtId && branchOptions.length > 0 && (
-                                     <div className="space-y-2">
-                                        <Label htmlFor="branchId">Branch</Label>
-                                        <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="officeId">Office</Label>
+                                    <Combobox
+                                        options={officeOptions}
+                                        value={formState.officeId}
+                                        onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
+                                        placeholder="Select an office"
+                                        searchPlaceholder="Search offices..."
+                                    />
+                                </div>
+                                {selectedOffice && (
+                                    <div className="space-y-4">
+                                        {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="departmentId">Department</Label>
+                                                <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
+                                            </div>
+                                        )}
+                                        {formState.departmentId && divisionOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="divisionId">Division</Label>
+                                                <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
+                                            </div>
+                                        )}
+                                        {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="districtId">District</Label>
+                                                <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
+                                            </div>
+                                        )}
+                                        {formState.districtId && branchOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="branchId">Branch</Label>
+                                                <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save User
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
+                        </div>
+                    </fieldset>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save User
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )}
     
-    <AlertDialog open={!!resetUser} onOpenChange={handleAlertChange}>
+    <AlertDialog open={isResetAlertOpen} onOpenChange={handleResetAlertChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -769,17 +736,18 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleAlertChange(false); }} >
+                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleResetAlertChange(false); }} disabled={isResetting}>
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetPassword}>
-                Send Link
+                <AlertDialogAction onClick={handleResetPassword} disabled={isResetting}>
+                    {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Link
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
     
-    <AlertDialog open={!!deleteUserAlert} onOpenChange={handleAlertChange}>
+    <AlertDialog open={isDeleteAlertOpen} onOpenChange={handleDeleteAlertChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -788,10 +756,13 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleAlertChange(false); }} >
+                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleDeleteAlertChange(false); }} disabled={isDeleting}>
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete User</AlertDialogAction>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Delete User
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

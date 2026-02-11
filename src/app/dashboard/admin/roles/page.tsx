@@ -146,8 +146,7 @@ export default function RoleManagementPage() {
       await saveRole(roleData);
       await mutateRoles();
       toast.success("Success", { description: `Role ${editingRole?.id ? 'updated' : 'created'}.` });
-      setIsDialogOpen(false);
-      setEditingRole(null);
+      handleDialogChange(false);
     } catch (error: any) {
       toast.error('Error', { description: error?.message || 'Failed to save role.' });
     } finally {
@@ -165,21 +164,6 @@ export default function RoleManagementPage() {
       setIsDialogOpen(open);
       if (!open) {
           setEditingRole(null);
-          // Force cleanup of any remaining overlay elements
-          setTimeout(() => {
-            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-            allOverlays.forEach(overlay => {
-              const state = overlay.getAttribute('data-state');
-              if (!state || state === 'closed') {
-                (overlay as HTMLElement).style.display = 'none';
-                overlay.remove();
-              }
-            });
-            // Ensure body styles are reset
-            document.body.style.pointerEvents = '';
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-          }, 200);
       }
   }
 
@@ -187,21 +171,6 @@ export default function RoleManagementPage() {
       setIsAlertOpen(open);
       if (!open) {
           setDeletingRole(null);
-          // Force cleanup of any remaining overlay elements
-          setTimeout(() => {
-            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-            allOverlays.forEach(overlay => {
-              const state = overlay.getAttribute('data-state');
-              if (!state || state === 'closed') {
-                (overlay as HTMLElement).style.display = 'none';
-                overlay.remove();
-              }
-            });
-            // Ensure body styles are reset
-            document.body.style.pointerEvents = '';
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-          }, 200);
       }
   }
 
@@ -266,60 +235,64 @@ export default function RoleManagementPage() {
             </div>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role-name" className="text-right">
-                  Role Name
-                </Label>
-                <Input
-                  id="role-name"
-                  value={roleName}
-                  onChange={(e) => setRoleName(e.target.value)}
-                  className="col-span-3"
-                  disabled={editingRole?.name === 'Admin'}
-                />
-              </div>
-              <div>
-                <Label className="text-lg font-semibold">Permissions</Label>
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-1">
-                  {permissions.map((permission) => (
-                    <div key={permission.id} className="flex items-start gap-3 rounded-lg border p-3">
-                      <Checkbox
-                        id={`perm-${permission.id}`}
-                        checked={selectedPermissions.includes(permission.id)}
-                        onCheckedChange={(checked) => onPermissionChange(permission.id, !!checked)}
-                        disabled={editingRole?.name === 'Admin'}
-                      />
-                      <div className="grid gap-1.5 leading-none">
-                        <label
-                          htmlFor={`perm-${permission.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {permission.label}
-                        </label>
-                        <p className="text-xs text-muted-foreground">
-                          {permission.description}
-                        </p>
-                      </div>
+        {isDialogOpen && (
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>
+              </DialogHeader>
+              <fieldset disabled={isSaving}>
+                <div className="grid gap-6 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="role-name" className="text-right">
+                      Role Name
+                    </Label>
+                    <Input
+                      id="role-name"
+                      value={roleName}
+                      onChange={(e) => setRoleName(e.target.value)}
+                      className="col-span-3"
+                      disabled={editingRole?.name === 'Admin'}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-lg font-semibold">Permissions</Label>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-1">
+                      {permissions.map((permission) => (
+                        <div key={permission.id} className="flex items-start gap-3 rounded-lg border p-3">
+                          <Checkbox
+                            id={`perm-${permission.id}`}
+                            checked={selectedPermissions.includes(permission.id)}
+                            onCheckedChange={(checked) => onPermissionChange(permission.id, !!checked)}
+                            disabled={editingRole?.name === 'Admin'}
+                          />
+                          <div className="grid gap-1.5 leading-none">
+                            <label
+                              htmlFor={`perm-${permission.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {permission.label}
+                            </label>
+                            <p className="text-xs text-muted-foreground">
+                              {permission.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Role
-                </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </fieldset>
+              <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Role
+                  </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </CardContent>
     </Card>
 

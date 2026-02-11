@@ -113,9 +113,7 @@ export default function DistrictsPage() {
       await saveDistrict(districtData);
       await mutateDistricts();
       toast.success("Success", { description: `District ${editingDistrict ? 'updated' : 'created'} successfully.` });
-      setIsDialogOpen(false);
-      setEditingDistrict(null);
-      setSelectedOfficeId(undefined);
+      handleDialogChange(false);
     } catch (error: any) {
       toast.error('Error', { description: error?.message || 'Failed to save district.' });
     } finally {
@@ -154,8 +152,7 @@ export default function DistrictsPage() {
       toast.error('Error', { description: error?.message || 'Failed to delete district.' });
     } finally {
       setIsDeleting(false);
-      setIsAlertOpen(false);
-      setDeletingDistrict(null);
+      handleAlertChange(false);
     }
   };
 
@@ -164,21 +161,6 @@ export default function DistrictsPage() {
     if (!open) {
       setEditingDistrict(null);
       setSelectedOfficeId(undefined);
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
     }
   }
   
@@ -186,21 +168,6 @@ export default function DistrictsPage() {
     setIsAlertOpen(open);
     if (!open) {
       setDeletingDistrict(null);
-      // Force cleanup of any remaining overlay elements
-      setTimeout(() => {
-        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-        allOverlays.forEach(overlay => {
-          const state = overlay.getAttribute('data-state');
-          if (!state || state === 'closed') {
-            (overlay as HTMLElement).style.display = 'none';
-            overlay.remove();
-          }
-        });
-        // Ensure body styles are reset
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-      }, 200);
     }
   }
 
@@ -275,43 +242,47 @@ export default function DistrictsPage() {
       </CardContent>
     </Card>
     
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent>
-        <DialogHeader>
-            <DialogTitle>{editingDistrict ? "Edit District" : "Add New District"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSave}>
-            <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" defaultValue={editingDistrict?.name} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="code" className="text-right">Code</Label>
-                <Input id="code" name="code" defaultValue={editingDistrict?.code} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="officeId" className="text-right">Office</Label>
-                <Combobox
-                    options={officeOptions}
-                    value={selectedOfficeId}
-                    onChange={setSelectedOfficeId}
-                    placeholder="Select an office"
-                    searchPlaceholder="Search offices..."
-                    className="col-span-3"
-                />
-            </div>
-            </div>
-            <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
-            </DialogFooter>
-        </form>
-        </DialogContent>
-    </Dialog>
+    {isDialogOpen && (
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+            <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{editingDistrict ? "Edit District" : "Add New District"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSave}>
+                <fieldset disabled={isSaving}>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-right">Name</Label>
+                            <Input id="name" name="name" defaultValue={editingDistrict?.name} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="code" className="text-right">Code</Label>
+                            <Input id="code" name="code" defaultValue={editingDistrict?.code} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="officeId" className="text-right">Office</Label>
+                            <Combobox
+                                options={officeOptions}
+                                value={selectedOfficeId}
+                                onChange={setSelectedOfficeId}
+                                placeholder="Select an office"
+                                searchPlaceholder="Search offices..."
+                                className="col-span-3"
+                            />
+                        </div>
+                    </div>
+                </fieldset>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                    <Button type="submit" disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save
+                    </Button>
+                </DialogFooter>
+            </form>
+            </DialogContent>
+        </Dialog>
+    )}
 
     <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
         <AlertDialogContent>
