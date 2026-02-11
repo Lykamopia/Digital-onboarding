@@ -79,6 +79,34 @@ type LogDetails = {
     targetType?: string;
 };
 
+// A simple in-memory cache to debounce identical log entries within a short timeframe.
+// This is primarily to prevent duplicate logs from React 18's Strict Mode double-invoking effects in development.
+const logCache = new Map<string, number>();
+const DEBOUNCE_WINDOW_MS = 1000; // 1 second
+
+function shouldDebounce(key: string): boolean {
+    const now = Date.now();
+    const lastLogTime = logCache.get(key);
+
+    if (lastLogTime && (now - lastLogTime) < DEBOUNCE_WINDOW_MS) {
+        return true; // Debounce this log
+    }
+    
+    logCache.set(key, now);
+    
+    // Periodically clean up old entries from the cache to prevent memory leaks.
+    if (logCache.size > 50) {
+        for (const [k, v] of logCache.entries()) {
+            if ((now - v) > DEBOUNCE_WINDOW_MS * 5) {
+                logCache.delete(k);
+            }
+        }
+    }
+    
+    return false;
+}
+
+
 async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: string | null; userAgent: string | null }) {
     const { enableCriticalAlerts } = await getGeneralSettings();
     if (!enableCriticalAlerts) {
@@ -127,6 +155,14 @@ export async function logSecurityEvent(log: LogDetails) {
     const headerList = headers();
     const ipAddress = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip');
     const userAgent = headerList.get('user-agent');
+
+    // Create a unique key for the event to allow for debouncing.
+    // This is particularly useful for events that might be triggered rapidly,
+    // like PERMISSION_DENIED from a double-invoked `useEffect` in React Strict Mode.
+    const debounceKey = `${log.event}:${log.actor?.id}:${log.targetId || ''}`;
+    if (shouldDebounce(debounceKey)) {
+        return; // Skip logging this event as it's a likely duplicate.
+    }
 
     try {
         await prisma.securityLog.create({
