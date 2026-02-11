@@ -15,6 +15,7 @@ import { UserProfileLoader } from "@/components/user-profile-loader";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { OnboardingTour } from "@/components/onboarding-tour";
+import { useSettings } from "@/components/settings-provider";
 
 
 interface DashboardLayoutClientProps {
@@ -29,6 +30,7 @@ export function DashboardLayoutClient({ children, user: initialUser }: Dashboard
   const [user, setUser] = useState(initialUser);
   const { initializeNotifications, addNotification } = useNotification();
   const [loading, setLoading] = useState(true);
+  const { settings } = useSettings();
 
   // WebSocket connection logic is now here to prevent conditional hook rendering
   useEffect(() => {
@@ -113,7 +115,7 @@ export function DashboardLayoutClient({ children, user: initialUser }: Dashboard
             {children}
         </DashboardContentWrapper>
         {isMobile && user && <BottomNavigation user={user} />}
-        {user && !user.onboardingCompleted && (
+        {user && settings.showOnboardingTour && !user.onboardingCompleted && (
           <OnboardingTour />
         )}
     </SidebarProvider>

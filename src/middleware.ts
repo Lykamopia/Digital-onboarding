@@ -67,11 +67,6 @@ export default withAuth(
   function middleware(req: NextRequest) {
     const { token } = req.nextauth;
     const { pathname } = req.nextUrl;
-
-    // Enforce password change if onboarding is not complete
-    if ((token as any)?.onboardingCompleted === false && pathname !== '/dashboard/change-password' && !pathname.startsWith('/api')) {
-        return NextResponse.redirect(new URL('/dashboard/change-password', req.url));
-    }
     
     const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
     const csp = generateCsp(nonce);

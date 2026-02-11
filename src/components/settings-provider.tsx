@@ -15,6 +15,8 @@ type GeneralSettings = {
   acknowledgementType: AcknowledgementType;
   referenceFormat: ReferenceFormatSettings;
   acknowledgementMode: 'auto' | 'manual';
+  enableCriticalAlerts: boolean;
+  showOnboardingTour: boolean;
 };
 
 type SettingsContextType = {

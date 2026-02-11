@@ -39,6 +39,7 @@ export default function GeneralSettingsPage() {
           numberLength: 4
         },
         enableCriticalAlerts: settings.enableCriticalAlerts ?? true,
+        showOnboardingTour: settings.showOnboardingTour ?? true,
       });
     }
   }, [settings]);
@@ -65,6 +66,10 @@ export default function GeneralSettingsPage() {
 
   const handleCriticalAlertsChange = (checked: boolean) => {
     setLocalSettings(prev => ({ ...prev, enableCriticalAlerts: checked }));
+  }
+
+  const handleOnboardingTourChange = (checked: boolean) => {
+    setLocalSettings(prev => ({ ...prev, showOnboardingTour: checked }));
   }
 
   const handleReferenceFormatChange = (field: string, value: string | number) => {
@@ -156,6 +161,32 @@ export default function GeneralSettingsPage() {
                     id="critical-alerts"
                     checked={localSettings.enableCriticalAlerts}
                     onCheckedChange={handleCriticalAlertsChange}
+                />
+            </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Onboarding Settings</CardTitle>
+          <CardDescription>
+            Manage the initial user experience.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label htmlFor="onboarding-tour" className="text-base">
+                        Show Onboarding Tour
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                        Enable or disable the guided tour for new users upon their first login.
+                    </p>
+                </div>
+                <Switch
+                    id="onboarding-tour"
+                    checked={localSettings.showOnboardingTour}
+                    onCheckedChange={handleOnboardingTourChange}
                 />
             </div>
         </CardContent>

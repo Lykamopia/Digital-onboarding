@@ -1503,7 +1503,7 @@ export async function deleteUser(userId: string) {
         revalidatePath('/dashboard/admin/users');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
             return { error: 'This user cannot be deleted because they are referenced in existing memos or activities. Please reassign their records before deleting.' };
         }
         console.error('Error deleting user:', error);
@@ -1559,7 +1559,6 @@ export async function changeUserPassword(password: string) {
             where: { id: user.id },
             data: {
                 hashedPassword,
-                onboardingCompleted: true, // Mark onboarding as complete
                 tokenVersion: { increment: 1 },
             }
         });
@@ -1587,21 +1586,21 @@ export async function saveRole(data: { id?: string, name: string, permissions: a
     revalidatePath('/dashboard/admin/roles');
 }
 
-export async function deleteRole(roleId: string) {
+export async function deleteRole(id: string) {
     const user = await hasPermission('manage_roles');
     try {
-        const roleToDelete = await prisma.role.findUnique({ where: { id: roleId }});
+        const roleToDelete = await prisma.role.findUnique({ where: { id }});
         if (roleToDelete?.name === 'Admin') {
             return { error: 'The default Admin role cannot be deleted.' };
         }
 
         await prisma.role.delete({ where: { id: roleId } });
 
-        await logSecurityEvent({ event: SecurityEvent.ROLE_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted role '${roleToDelete?.name}' (ID: ${roleId}).`, targetId: roleId, targetType: 'Role' });
+        await logSecurityEvent({ event: SecurityEvent.ROLE_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted role '${roleToDelete?.name}' (ID: ${id}).`, targetId: id, targetType: 'Role' });
         revalidatePath('/dashboard/admin/roles');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error as any).code === 'P2003' || (error as any).message?.includes('foreign key constraint')) {
             return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
         }
         console.error('Error deleting role:', error);
@@ -1635,7 +1634,7 @@ export async function deleteLabel(id: string) {
         revalidatePath('/dashboard/admin/labels');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error as any).code === 'P2003' || (error as any).message?.includes('foreign key constraint')) {
             return { error: 'Cannot delete label. It is currently in use on one or more memos.' };
         }
         console.error('Error deleting label:', error);
@@ -1971,7 +1970,7 @@ export async function saveEmailSettings(settings: { notificationsEnabled: boolea
     return { success: true };
 }
 
-export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual', enableCriticalAlerts: boolean }) {
+export async function saveGeneralSettings(settings: { acknowledgementType: AcknowledgementType; referenceFormat: any; acknowledgementMode: 'auto' | 'manual', enableCriticalAlerts: boolean, showOnboardingTour: boolean }) {
     const user = await hasPermission('manage_general_settings');
     await prisma.setting.upsert({
         where: { key: 'general' },
@@ -2279,7 +2278,6 @@ export async function setPasswordWithToken({ token, password }: { token: string,
                 data: {
                     hashedPassword: newHashedPassword,
                     status: 'active',
-                    onboardingCompleted: true,
                     tokenVersion: { increment: 1 }
                 }
             }),
