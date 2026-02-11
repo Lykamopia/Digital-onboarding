@@ -326,7 +326,7 @@ export default function LabelsPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                         <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => handleAlertChange(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
                             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
                         </AlertDialogAction>

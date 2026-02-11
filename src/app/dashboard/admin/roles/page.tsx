@@ -66,7 +66,9 @@ export default function RoleManagementPage() {
   const { data: users, loading: loadingUsers } = useUsers();
 
   const [editingRole, setEditingRole] = useState<Partial<Role> | null>(null);
+  const [deletingRole, setDeletingRole] = useState<Role | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
@@ -101,21 +103,27 @@ export default function RoleManagementPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (roleId: string) => {
-    if (!roleId) return;
+  const handleDelete = (role: Role) => {
+    setDeletingRole(role);
+    setIsAlertOpen(true);
+  }
+  
+  const handleConfirmDelete = async () => {
+    if (!deletingRole) return;
     setIsSaving(true);
     try {
-      const result = await deleteRole(roleId);
+      const result = await deleteRole(deletingRole.id);
       if(result?.error) {
           toast.error("Cannot delete role", { description: result.error });
-          return;
+      } else {
+        await mutateRoles();
+        toast.success("Role Deleted", { description: "The role has been successfully deleted." });
       }
-      await mutateRoles();
-      toast.success("Role Deleted", { description: "The role has been successfully deleted." });
     } catch (error: any) {
       toast.error('Error', { description: error?.message || 'Failed to delete role.' });
     } finally {
       setIsSaving(false);
+      handleAlertChange(false);
     }
   };
 
@@ -175,6 +183,28 @@ export default function RoleManagementPage() {
       }
   }
 
+  const handleAlertChange = (open: boolean) => {
+      setIsAlertOpen(open);
+      if (!open) {
+          setDeletingRole(null);
+          // Force cleanup of any remaining overlay elements
+          setTimeout(() => {
+            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+            allOverlays.forEach(overlay => {
+              const state = overlay.getAttribute('data-state');
+              if (!state || state === 'closed') {
+                (overlay as HTMLElement).style.display = 'none';
+                overlay.remove();
+              }
+            });
+            // Ensure body styles are reset
+            document.body.style.pointerEvents = '';
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+          }, 200);
+      }
+  }
+
   const usersInRole = (roleId: string) => {
     return users.filter(user => user.roleId === roleId).length;
   }
@@ -184,6 +214,7 @@ export default function RoleManagementPage() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Role Management</CardTitle>
@@ -214,28 +245,10 @@ export default function RoleManagementPage() {
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the role.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(role.id)}>
-                            Continue
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <Button variant="destructive" size="sm" disabled={role.name === 'Admin' || usersInRole(role.id) > 0} onClick={() => handleDelete(role)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                    </Button>
                     </TableCell>
                 </TableRow>
                 ))}
@@ -309,5 +322,23 @@ export default function RoleManagementPage() {
         </Dialog>
       </CardContent>
     </Card>
+
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
+        <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the role '{deletingRole?.name}'.
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Continue'}
+            </AlertDialogAction>
+        </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
