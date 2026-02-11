@@ -141,6 +141,7 @@ function UserImportDialog() {
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
+      setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
       resetState();
     }
   }
@@ -356,6 +357,7 @@ export default function UsersPage() {
   const handleDialogChange = (open: boolean) => {
     setIsFormDialogOpen(open);
     if (!open) {
+      setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
       setEditingUser(null);
       setFormState(initialFormState);
     }
@@ -364,6 +366,7 @@ export default function UsersPage() {
   const handleResetAlertChange = (open: boolean) => {
     setIsResetAlertOpen(open);
     if (!open) {
+        setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
         setResetUser(null);
     }
   }
@@ -371,6 +374,7 @@ export default function UsersPage() {
   const handleDeleteAlertChange = (open: boolean) => {
       setIsDeleteAlertOpen(open);
       if (!open) {
+          setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
           setDeleteUserAlert(null);
       }
   }
@@ -640,92 +644,90 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    {isFormDialogOpen && (
-        <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
-            <DialogContent className="sm:max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-                    <DialogDescription>
-                        {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSave}>
-                    <fieldset disabled={isSaving}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
+        <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+                <DialogDescription>
+                    {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
+                </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSave}>
+                <fieldset disabled={isSaving}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Full Name</Label>
+                            <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="roleId">Role</Label>
+                            <Combobox
+                                options={roleOptions}
+                                value={formState.roleId}
+                                onChange={v => handleFormChange('roleId', v)}
+                                placeholder="Select a role"
+                                searchPlaceholder="Search roles..."
+                            />
+                        </div>
+                        
+                        <Separator className="md:col-span-2" />
+
+                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label htmlFor="name">Full Name</Label>
-                                <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email Address</Label>
-                                <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="roleId">Role</Label>
+                                <Label htmlFor="officeId">Office</Label>
                                 <Combobox
-                                    options={roleOptions}
-                                    value={formState.roleId}
-                                    onChange={v => handleFormChange('roleId', v)}
-                                    placeholder="Select a role"
-                                    searchPlaceholder="Search roles..."
+                                    options={officeOptions}
+                                    value={formState.officeId}
+                                    onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
+                                    placeholder="Select an office"
+                                    searchPlaceholder="Search offices..."
                                 />
                             </div>
-                            
-                            <Separator className="md:col-span-2" />
-
-                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="officeId">Office</Label>
-                                    <Combobox
-                                        options={officeOptions}
-                                        value={formState.officeId}
-                                        onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
-                                        placeholder="Select an office"
-                                        searchPlaceholder="Search offices..."
-                                    />
+                            {selectedOffice && (
+                                <div className="space-y-4">
+                                    {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="departmentId">Department</Label>
+                                            <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
+                                        </div>
+                                    )}
+                                    {formState.departmentId && divisionOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="divisionId">Division</Label>
+                                            <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
+                                        </div>
+                                    )}
+                                    {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="districtId">District</Label>
+                                            <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
+                                        </div>
+                                    )}
+                                    {formState.districtId && branchOptions.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="branchId">Branch</Label>
+                                            <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
+                                        </div>
+                                    )}
                                 </div>
-                                {selectedOffice && (
-                                    <div className="space-y-4">
-                                        {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="departmentId">Department</Label>
-                                                <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
-                                            </div>
-                                        )}
-                                        {formState.departmentId && divisionOptions.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="divisionId">Division</Label>
-                                                <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
-                                            </div>
-                                        )}
-                                        {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="districtId">District</Label>
-                                                <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
-                                            </div>
-                                        )}
-                                        {formState.districtId && branchOptions.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="branchId">Branch</Label>
-                                                <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            )}
                         </div>
-                    </fieldset>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                        <Button type="submit" disabled={isSaving}>
-                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save User
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    )}
+                    </div>
+                </fieldset>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save User
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
     
     <AlertDialog open={isResetAlertOpen} onOpenChange={handleResetAlertChange}>
         <AlertDialogContent>

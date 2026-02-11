@@ -152,6 +152,7 @@ export default function LabelsPage() {
     const handleDialogChange = (open: boolean) => {
         setIsDialogOpen(open);
         if (!open) {
+            setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
             setEditingLabel(null);
         }
     };
@@ -159,6 +160,7 @@ export default function LabelsPage() {
     const handleAlertChange = (open: boolean) => {
         setIsAlertOpen(open);
         if (!open) {
+            setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
             setDeletingLabel(null);
         }
     };
@@ -235,59 +237,57 @@ export default function LabelsPage() {
                 </CardContent>
             </Card>
 
-            {isDialogOpen && (
-                <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{editingLabel?.id ? "Edit Label" : "Add New Label"}</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleSave}>
-                            <fieldset disabled={isSaving}>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="name" className="text-right">Name</Label>
-                                        <Input id="name" name="name" defaultValue={editingLabel?.name} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label className="text-right">Color</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="col-span-3 justify-start">
-                                                    <div className="w-5 h-5 rounded-full mr-2" style={{ backgroundColor: selectedColor }} />
-                                                    {selectedColor}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <div className="grid grid-cols-6 gap-2 p-2">
-                                                    {COLORS.map(color => (
-                                                        <Button
-                                                            key={color}
-                                                            variant="outline"
-                                                            size="icon"
-                                                            className="w-8 h-8 rounded-full"
-                                                            style={{ backgroundColor: color }}
-                                                            onClick={() => setSelectedColor(color)}
-                                                        >
-                                                            {selectedColor === color && <Check className="h-4 w-4 text-white" />}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editingLabel?.id ? "Edit Label" : "Add New Label"}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSave}>
+                        <fieldset disabled={isSaving}>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="name" className="text-right">Name</Label>
+                                    <Input id="name" name="name" defaultValue={editingLabel?.name} className="col-span-3" />
                                 </div>
-                            </fieldset>
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                                <Button type="submit" disabled={isSaving}>
-                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Save
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            )}
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">Color</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="col-span-3 justify-start">
+                                                <div className="w-5 h-5 rounded-full mr-2" style={{ backgroundColor: selectedColor }} />
+                                                {selectedColor}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <div className="grid grid-cols-6 gap-2 p-2">
+                                                {COLORS.map(color => (
+                                                    <Button
+                                                        key={color}
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="w-8 h-8 rounded-full"
+                                                        style={{ backgroundColor: color }}
+                                                        onClick={() => setSelectedColor(color)}
+                                                    >
+                                                        {selectedColor === color && <Check className="h-4 w-4 text-white" />}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                            </div>
+                        </fieldset>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
                 <AlertDialogContent>

@@ -159,6 +159,7 @@ export default function DepartmentsPage() {
   const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
     if (!open) {
+      setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
       setEditingDepartment(null);
       setSelectedOfficeId(undefined);
     }
@@ -167,6 +168,7 @@ export default function DepartmentsPage() {
   const handleAlertChange = (open: boolean) => {
     setIsAlertOpen(open);
     if (!open) {
+      setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
       setDeletingDepartment(null);
     }
   }
@@ -242,47 +244,45 @@ export default function DepartmentsPage() {
       </CardContent>
     </Card>
     
-    {isDialogOpen && (
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-            <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{editingDepartment ? "Edit Department" : "Add New Department"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-                <fieldset disabled={isSaving}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="name" className="text-right">Name</Label>
-                            <Input id="name" name="name" defaultValue={editingDepartment?.name} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="code" className="text-right">Code</Label>
-                            <Input id="code" name="code" defaultValue={editingDepartment?.code} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="officeId" className="text-right">Office</Label>
-                            <Combobox
-                                options={officeOptions}
-                                value={selectedOfficeId}
-                                onChange={setSelectedOfficeId}
-                                placeholder="Select an office"
-                                searchPlaceholder="Search offices..."
-                                className="col-span-3"
-                            />
-                        </div>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+        <DialogContent>
+        <DialogHeader>
+            <DialogTitle>{editingDepartment ? "Edit Department" : "Add New Department"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave}>
+            <fieldset disabled={isSaving}>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Name</Label>
+                        <Input id="name" name="name" defaultValue={editingDepartment?.name} className="col-span-3" />
                     </div>
-                </fieldset>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save
-                    </Button>
-                </DialogFooter>
-            </form>
-            </DialogContent>
-        </Dialog>
-    )}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="code" className="text-right">Code</Label>
+                        <Input id="code" name="code" defaultValue={editingDepartment?.code} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="officeId" className="text-right">Office</Label>
+                        <Combobox
+                            options={officeOptions}
+                            value={selectedOfficeId}
+                            onChange={setSelectedOfficeId}
+                            placeholder="Select an office"
+                            searchPlaceholder="Search offices..."
+                            className="col-span-3"
+                        />
+                    </div>
+                </div>
+            </fieldset>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+                </Button>
+            </DialogFooter>
+        </form>
+        </DialogContent>
+    </Dialog>
 
     <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
         <AlertDialogContent>

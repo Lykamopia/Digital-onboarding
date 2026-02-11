@@ -163,6 +163,7 @@ export default function RoleManagementPage() {
   const handleDialogChange = (open: boolean) => {
       setIsDialogOpen(open);
       if (!open) {
+          setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
           setEditingRole(null);
       }
   }
@@ -170,6 +171,7 @@ export default function RoleManagementPage() {
   const handleAlertChange = (open: boolean) => {
       setIsAlertOpen(open);
       if (!open) {
+          setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
           setDeletingRole(null);
       }
   }
@@ -235,64 +237,62 @@ export default function RoleManagementPage() {
             </div>
         </div>
 
-        {isDialogOpen && (
-          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>
-              </DialogHeader>
-              <fieldset disabled={isSaving}>
-                <div className="grid gap-6 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="role-name" className="text-right">
-                      Role Name
-                    </Label>
-                    <Input
-                      id="role-name"
-                      value={roleName}
-                      onChange={(e) => setRoleName(e.target.value)}
-                      className="col-span-3"
-                      disabled={editingRole?.name === 'Admin'}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-lg font-semibold">Permissions</Label>
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-1">
-                      {permissions.map((permission) => (
-                        <div key={permission.id} className="flex items-start gap-3 rounded-lg border p-3">
-                          <Checkbox
-                            id={`perm-${permission.id}`}
-                            checked={selectedPermissions.includes(permission.id)}
-                            onCheckedChange={(checked) => onPermissionChange(permission.id, !!checked)}
-                            disabled={editingRole?.name === 'Admin'}
-                          />
-                          <div className="grid gap-1.5 leading-none">
-                            <label
-                              htmlFor={`perm-${permission.id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {permission.label}
-                            </label>
-                            <p className="text-xs text-muted-foreground">
-                              {permission.description}
-                            </p>
-                          </div>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingRole?.id ? "Edit Role" : "Add New Role"}</DialogTitle>
+            </DialogHeader>
+            <fieldset disabled={isSaving}>
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="role-name" className="text-right">
+                    Role Name
+                  </Label>
+                  <Input
+                    id="role-name"
+                    value={roleName}
+                    onChange={(e) => setRoleName(e.target.value)}
+                    className="col-span-3"
+                    disabled={editingRole?.name === 'Admin'}
+                  />
+                </div>
+                <div>
+                  <Label className="text-lg font-semibold">Permissions</Label>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-1">
+                    {permissions.map((permission) => (
+                      <div key={permission.id} className="flex items-start gap-3 rounded-lg border p-3">
+                        <Checkbox
+                          id={`perm-${permission.id}`}
+                          checked={selectedPermissions.includes(permission.id)}
+                          onCheckedChange={(checked) => onPermissionChange(permission.id, !!checked)}
+                          disabled={editingRole?.name === 'Admin'}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor={`perm-${permission.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {permission.label}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {permission.description}
+                          </p>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </fieldset>
-              <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Role
-                  </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+              </div>
+            </fieldset>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Role
+                </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
 

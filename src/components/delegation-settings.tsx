@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -69,46 +70,14 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
     const handleDialogChange = (open: boolean) => {
         setIsDialogOpen(open);
         if (!open) {
-          // Force cleanup of any remaining overlay elements
-          setTimeout(() => {
-            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-            allOverlays.forEach(overlay => {
-              const state = overlay.getAttribute('data-state');
-              if (!state || state === 'closed') {
-                (overlay as HTMLElement).style.display = 'none';
-                overlay.remove();
-              }
-            });
-            // Ensure body styles are reset
-            document.body.style.pointerEvents = '';
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-          }, 200);
+            setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
         }
     };
 
     const handleAlertChange = (open: boolean) => {
         if (!open) {
+            setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
             setDelegationToDelete(null);
-        }
-
-        // Always manage the state for AlertDialog, but only run cleanup when closing.
-        // This is to correctly handle the `open` state derived from `delegationToDelete`.
-        if(open === false) {
-             // Force cleanup
-            setTimeout(() => {
-                const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-                allOverlays.forEach(overlay => {
-                const state = overlay.getAttribute('data-state');
-                if (!state || state === 'closed') {
-                    (overlay as HTMLElement).style.display = 'none';
-                    overlay.remove();
-                }
-                });
-                document.body.style.pointerEvents = '';
-                document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
-            }, 200);
         }
     };
 
@@ -357,46 +326,48 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                         <DialogTitle>{editingDelegation ? `Edit Delegation for ${editingDelegation.delegate.name}` : 'Add a New Delegate'}</DialogTitle>
                         <DialogDescription>Select a user and grant them specific permissions to act on your behalf.</DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 space-y-6">
-                        <div className="space-y-2">
-                            <Label>Select User</Label>
-                            <RecipientSelector 
-                                allUsers={editingDelegation ? [editingDelegation.delegate] : availableUsersToDelegate}
-                                selected={selectedDelegate ? [selectedDelegate] : []}
-                                setSelected={(users) => setSelectedDelegate(users[0] || null)}
-                                placeholder="Search for a user to delegate..."
-                                className={editingDelegation ? "bg-muted pointer-events-none" : ""}
-                            />
-                        </div>
-                        {selectedDelegate && (
-                            <div className="space-y-4">
-                                <Label>Permissions</Label>
-                                <div className="space-y-3 rounded-md border p-4 max-h-64 overflow-y-auto">
-                                    {delegationPermissions.map(permission => (
-                                        <div key={permission.id} className="flex items-start gap-3">
-                                            <Checkbox
-                                                id={`perm-${permission.id}`}
-                                                checked={selectedPermissions.includes(permission.id)}
-                                                onCheckedChange={(checked) => {
-                                                    setSelectedPermissions(prev => 
-                                                        checked
-                                                        ? [...prev, permission.id]
-                                                        : prev.filter(p => p !== permission.id)
-                                                    );
-                                                }}
-                                            />
-                                            <div className="grid gap-1.5 leading-none">
-                                                <label htmlFor={`perm-${permission.id}`} className="text-sm font-medium">{permission.label}</label>
-                                                <p className="text-xs text-muted-foreground">{permission.description}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                    <fieldset disabled={isSaving}>
+                        <div className="py-4 space-y-6">
+                            <div className="space-y-2">
+                                <Label>Select User</Label>
+                                <RecipientSelector 
+                                    allUsers={editingDelegation ? [editingDelegation.delegate] : availableUsersToDelegate}
+                                    selected={selectedDelegate ? [selectedDelegate] : []}
+                                    setSelected={(users) => setSelectedDelegate(users[0] || null)}
+                                    placeholder="Search for a user to delegate..."
+                                    className={editingDelegation ? "bg-muted pointer-events-none" : ""}
+                                />
                             </div>
-                        )}
-                    </div>
+                            {selectedDelegate && (
+                                <div className="space-y-4">
+                                    <Label>Permissions</Label>
+                                    <div className="space-y-3 rounded-md border p-4 max-h-64 overflow-y-auto">
+                                        {delegationPermissions.map(permission => (
+                                            <div key={permission.id} className="flex items-start gap-3">
+                                                <Checkbox
+                                                    id={`perm-${permission.id}`}
+                                                    checked={selectedPermissions.includes(permission.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedPermissions(prev => 
+                                                            checked
+                                                            ? [...prev, permission.id]
+                                                            : prev.filter(p => p !== permission.id)
+                                                        );
+                                                    }}
+                                                />
+                                                <div className="grid gap-1.5 leading-none">
+                                                    <label htmlFor={`perm-${permission.id}`} className="text-sm font-medium">{permission.label}</label>
+                                                    <p className="text-xs text-muted-foreground">{permission.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </fieldset>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => handleDialogChange(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
                         <Button onClick={handleSave} disabled={!selectedDelegate || isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingDelegation ? 'Update Delegation' : 'Save Delegation'}
