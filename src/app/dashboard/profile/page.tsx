@@ -38,6 +38,20 @@ type UserWithRelations = LoggedInUser & {
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 
+const getImageUrl = (path: string | null | undefined): string => {
+    if (!path) return '';
+    const trimmed = path.trim();
+    if (trimmed.startsWith('http')) {
+        return trimmed;
+    }
+    // All internal assets should be absolute paths from the root
+    if (trimmed.startsWith('/')) {
+        return trimmed;
+    }
+    // Return empty for invalid or relative paths we can't handle
+    return '';
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<UserWithRelations | null>(null);
@@ -334,7 +348,7 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center md:w-1/3 md:border-r md:pr-8">
                                 <div className="relative group mb-4">
                                     <Avatar className="h-32 w-32">
-                                        <AvatarImage src={avatarPreview || user?.avatar || ''} alt={name} />
+                                        <AvatarImage src={getImageUrl(avatarPreview || user?.avatar)} alt={name} />
                                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div 
@@ -375,14 +389,7 @@ export default function ProfilePage() {
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
                                             <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2 overflow-hidden">
-                                                {signatureToDisplay ? (
-                                                    <SignaturePreview src={signatureToDisplay} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
-                                                ) : (
-                                                    <div className="text-center text-xs text-muted-foreground">
-                                                        <ImageIcon className="mx-auto h-6 w-6" />
-                                                        <p>No Signature Set</p>
-                                                    </div>
-                                                )}
+                                                <SignaturePreview src={getImageUrl(signatureToDisplay)} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
                                             </div>
                                             <div className="flex-1">
                                                 <Dialog open={isSignatureDialogOpen} onOpenChange={handleSignatureDialogOpenChange}>

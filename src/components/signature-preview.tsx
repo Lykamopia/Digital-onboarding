@@ -24,7 +24,13 @@ export function SignaturePreview({
   compact = false,
   priority = false,
 }: SignaturePreviewProps) {
-  if (!src) return null;
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    if (src) {
+      setError(false);
+    }
+  }, [src]);
 
   const compactWidth = width ?? (compact ? 40 : 60);
   const compactHeight = height ?? (compact ? 20 : 30);
@@ -33,8 +39,20 @@ export function SignaturePreview({
     ? 'inline-flex items-center justify-center rounded-md border px-2 py-1 bg-muted/5'
     : 'inline-block';
 
-  // The src can be a data URL (from drawing) or a path (from upload).
-  // Next.js Image component can handle both.
+  if (!src || error) {
+      const fallbackWidth = width ? `${width}px` : '100%';
+      const fallbackHeight = height ? `${height}px` : '100%';
+      return (
+          <div className={cn(
+              wrapperClass,
+              'flex items-center justify-center bg-muted/50 text-muted-foreground',
+              className
+          )} style={{width: fallbackWidth, height: fallbackHeight, display: 'flex'}}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          </div>
+      );
+  }
+
   return (
     <div className={cn(wrapperClass, className)}>
       <Image
@@ -45,6 +63,7 @@ export function SignaturePreview({
         className="object-contain animate-in fade-in duration-300"
         priority={priority}
         unoptimized={src.startsWith('data:')} // Important for data URLs
+        onError={() => setError(true)}
       />
     </div>
   );

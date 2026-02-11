@@ -60,15 +60,17 @@ export function UserNav({ user }: { user: User }) {
 
   const getAvatarUrl = () => {
     const p = user.avatar?.toString().trim();
-    if (!p) return user.image || undefined;
+    if (!p) return user.image || undefined; // user.image is from oauth provider
     
-    if (p.startsWith('http')) return p;
-    
-    if (p.startsWith('/uploads')) {
+    if (p.startsWith('http')) {
       return p;
     }
     
-    return p.startsWith('/') ? `/api${p}` : `/api/${p}`;
+    if (p.startsWith('/')) {
+      return p;
+    }
+    
+    return undefined; // Invalid path
   }
 
   return (

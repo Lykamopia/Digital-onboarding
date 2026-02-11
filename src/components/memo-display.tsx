@@ -118,11 +118,15 @@ const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) =>
 const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     const trimmed = path.trim();
-    if (trimmed.startsWith('http')) return trimmed;
-    // For public files, just use the path directly.
-    if (trimmed.startsWith('/uploads')) return trimmed;
-    // Fallback for other potential API paths, though uploads should be the main use case.
-    return trimmed.startsWith('/') ? `/api${trimmed}` : `/api/${trimmed}`;
+    if (trimmed.startsWith('http')) {
+        return trimmed;
+    }
+    // All internal assets should be absolute paths from the root
+    if (trimmed.startsWith('/')) {
+        return trimmed;
+    }
+    // Return empty for invalid or relative paths we can't handle
+    return '';
 }
 
 const AcknowledgementDisplay = ({ user, timestamp, useSignature, className }: { user: User; timestamp: string; useSignature: boolean; className?: string; }) => {
