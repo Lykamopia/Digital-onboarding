@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -67,18 +66,65 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
         return allUsers.filter(u => u.id !== user.id && !delegatedIds.has(u.id));
     }, [allUsers, user.id, myDelegates]);
 
+    const handleDialogChange = (open: boolean) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          // Force cleanup of any remaining overlay elements
+          setTimeout(() => {
+            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+            allOverlays.forEach(overlay => {
+              const state = overlay.getAttribute('data-state');
+              if (!state || state === 'closed') {
+                (overlay as HTMLElement).style.display = 'none';
+                overlay.remove();
+              }
+            });
+            // Ensure body styles are reset
+            document.body.style.pointerEvents = '';
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+          }, 200);
+        }
+    };
+
+    const handleAlertChange = (open: boolean) => {
+        if (!open) {
+            setDelegationToDelete(null);
+        }
+
+        // Always manage the state for AlertDialog, but only run cleanup when closing.
+        // This is to correctly handle the `open` state derived from `delegationToDelete`.
+        if(open === false) {
+             // Force cleanup
+            setTimeout(() => {
+                const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+                allOverlays.forEach(overlay => {
+                const state = overlay.getAttribute('data-state');
+                if (!state || state === 'closed') {
+                    (overlay as HTMLElement).style.display = 'none';
+                    overlay.remove();
+                }
+                });
+                document.body.style.pointerEvents = '';
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, 200);
+        }
+    };
+
+
     const handleEdit = (delegation: Delegation) => {
         setEditingDelegation(delegation);
         setSelectedDelegate(delegation.delegate);
         setSelectedPermissions((delegation.permissions?.split(',') as DelegationPermission[]) || []);
-        setIsDialogOpen(true);
+        handleDialogChange(true);
     };
     
     const handleAddNew = () => {
         setEditingDelegation(null);
         setSelectedDelegate(null);
         setSelectedPermissions([]);
-        setIsDialogOpen(true);
+        handleDialogChange(true);
     };
     
     const handleSave = async () => {
@@ -94,7 +140,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
             });
             toast.success(`Delegation for ${selectedDelegate.name} has been ${editingDelegation ? 'updated' : 'saved'}.`);
             onUpdate();
-            setIsDialogOpen(false);
+            handleDialogChange(false);
         } catch (error: any) {
             toast.error('Failed to save delegation', { description: error.message });
         } finally {
@@ -109,7 +155,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
             await removeDelegate(delegationToDelete.id);
             toast.success(`Delegation for ${delegationToDelete.delegate.name} has been revoked.`);
             onUpdate();
-            setDelegationToDelete(null);
+            handleAlertChange(false);
         } catch (error: any) {
             toast.error('Failed to revoke delegation', { description: error.message });
         } finally {
@@ -305,7 +351,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                 </Card>
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingDelegation ? `Edit Delegation for ${editingDelegation.delegate.name}` : 'Add a New Delegate'}</DialogTitle>
@@ -350,7 +396,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => handleDialogChange(false)}>Cancel</Button>
                         <Button onClick={handleSave} disabled={!selectedDelegate || isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingDelegation ? 'Update Delegation' : 'Save Delegation'}
@@ -359,7 +405,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={!!delegationToDelete} onOpenChange={(open) => !open && setDelegationToDelete(null)}>
+            <AlertDialog open={!!delegationToDelete} onOpenChange={handleAlertChange}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -368,7 +414,15 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleAlertChange(false);
+                            }} 
+                            disabled={isSaving}
+                        >
+                            Cancel
+                        </AlertDialogCancel>
                         <AlertDialogAction onClick={handleRemove} className="bg-destructive hover:bg-destructive/90" disabled={isSaving}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Revoke Access'}
                         </AlertDialogAction>
