@@ -23,21 +23,20 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     const [fileType, ...fileNameParts] = filePathParts;
     // Construct DB path with forward slashes for universal matching
     const dbPath = `/uploads/${filePathParts.join('/')}`;
-    let attachment: Attachment | null = null;
+    let isAuthorized = false;
+    let eventTarget: { id: string, type: string } | null = null;
 
 
     // --- Authorization Check ---
     if (fileType === 'attachments') {
-        const userPermissions = user.role?.permissions?.split(',') || [];
-        const isAdminWithAuditLog = userPermissions.includes('manage_audit_log');
-
-        attachment = await prisma.attachment.findFirst({
+        const attachment = await prisma.attachment.findFirst({
             where: { url: dbPath }
         });
 
         if (!attachment || !attachment.memoId) {
             return new NextResponse('Forbidden: Attachment record not found.', { status: 403 });
         }
+        eventTarget = { id: attachment.id, type: 'Attachment' };
 
         const memo = await prisma.memo.findUnique({
             where: { id: attachment.memoId },
@@ -54,8 +53,9 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         }
 
         const currentUserId = user.id;
+        const isAdminWithAuditLog = user.role?.permissions?.includes('manage_audit_log');
         
-        let hasAccess = 
+        let hasMemoAccess = 
             memo.fromId === currentUserId ||
             memo.current_holderId === currentUserId ||
             memo.to.some(u => u.id === currentUserId) ||
@@ -63,25 +63,46 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             isAdminWithAuditLog;
         
         if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
-            hasAccess = false;
+            hasMemoAccess = false;
         }
-            
-        if (!hasAccess) {
-             await logSecurityEvent({
-                event: SecurityEvent.PERMISSION_DENIED,
-                severity: LogSeverity.WARN,
-                actor: user.actingUser || user,
-                details: `User attempted to access unauthorized attachment: ${dbPath}`,
-                targetId: attachment.id,
-                targetType: 'Attachment'
-             });
-             return new NextResponse('Forbidden: You do not have permission to access this file.', { status: 403 });
+
+        if (hasMemoAccess) {
+            isAuthorized = true;
         }
-    } else if (fileType !== 'profile' && fileType !== 'signatures') {
-        // Any authenticated user can view profile pics and signatures.
-        return new NextResponse('Forbidden: Invalid file category.', { status: 403 });
+
+    } else if (fileType === 'profile') {
+        // Profile pictures are viewable by any authenticated user for UI purposes.
+        isAuthorized = true;
+        eventTarget = { id: dbPath, type: 'Profile' };
+
+    } else if (fileType === 'signatures') {
+        // Signatures are private and can only be accessed by the owner.
+        const fileOwner = await prisma.user.findFirst({
+            where: { signature: dbPath },
+            select: { id: true },
+        });
+
+        if (fileOwner) {
+            eventTarget = { id: fileOwner.id, type: 'Signature' };
+            if (fileOwner.id === user.id) {
+                isAuthorized = true;
+            }
+        }
+        // If fileOwner is not found, isAuthorized remains false, access will be denied.
     }
     // --- End Authorization Check ---
+
+    if (!isAuthorized) {
+        await logSecurityEvent({
+            event: SecurityEvent.PERMISSION_DENIED,
+            severity: LogSeverity.WARN,
+            actor: user.actingUser || user,
+            details: `User attempted to access unauthorized file: ${dbPath}`,
+            targetId: eventTarget?.id || dbPath,
+            targetType: eventTarget?.type || fileType,
+        });
+        return new NextResponse('Forbidden: You do not have permission to access this file.', { status: 403 });
+    }
 
     const uploadsDir = join(process.cwd(), 'uploads');
     const absolutePath = join(uploadsDir, ...filePathParts);
@@ -100,8 +121,8 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             severity: LogSeverity.INFO,
             actor: user.actingUser || user,
             details: `User downloaded file: ${dbPath}`,
-            targetId: attachment?.id || dbPath,
-            targetType: fileType,
+            targetId: eventTarget?.id || dbPath,
+            targetType: eventTarget?.type || fileType,
         });
 
         return new NextResponse(fileBuffer, {
