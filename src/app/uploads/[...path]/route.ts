@@ -70,25 +70,11 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             isAuthorized = true;
         }
 
-    } else if (fileType === 'profile') {
-        // Profile pictures are viewable by any authenticated user for UI purposes.
+    } else if (fileType === 'profile' || fileType === 'signatures') {
+        // Profile pictures and signatures are viewable by any authenticated user for UI purposes.
         isAuthorized = true;
-        eventTarget = { id: dbPath, type: 'Profile' };
-
-    } else if (fileType === 'signatures') {
-        // Signatures are private and can only be accessed by the owner.
-        const fileOwner = await prisma.user.findFirst({
-            where: { signature: dbPath },
-            select: { id: true },
-        });
-
-        if (fileOwner) {
-            eventTarget = { id: fileOwner.id, type: 'Signature' };
-            if (fileOwner.id === user.id) {
-                isAuthorized = true;
-            }
-        }
-        // If fileOwner is not found, isAuthorized remains false, access will be denied.
+        const type = fileType === 'profile' ? 'Profile' : 'Signature';
+        eventTarget = { id: dbPath, type };
     }
     // --- End Authorization Check ---
 
