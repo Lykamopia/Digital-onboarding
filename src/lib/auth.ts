@@ -12,8 +12,6 @@ import { logSecurityEvent, SecurityEvent } from './security-logger';
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
-const SESSION_TIMEOUT_MINUTES = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10);
-const SESSION_TIMEOUT_SECONDS = SESSION_TIMEOUT_MINUTES * 60;
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -132,7 +130,12 @@ export const authOptions: NextAuthOptions = {
   })(),
   session: {
     strategy: "jwt",
-    maxAge: SESSION_TIMEOUT_SECONDS,
+    // Set a long maxAge for the session, e.g., 24 hours.
+    // The session will be kept alive by `updateAge` as long as the user is active.
+    maxAge: 24 * 60 * 60, // 24 hours
+    
+    // The session will be updated in the background every 20 minutes
+    // if the user is active, creating a "sliding" session.
     updateAge: 20 * 60, // 20 minutes
   },
   pages: {
