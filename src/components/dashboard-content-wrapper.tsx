@@ -109,7 +109,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
 
   return (
     <>
-    {!mustCompleteOnboarding && <SessionTimeoutManager />}
+    <SessionTimeoutManager disabled={mustCompleteOnboarding} />
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
