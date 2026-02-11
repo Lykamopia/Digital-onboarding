@@ -3,16 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join, normalize } from 'path';
 import mime from 'mime-types';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getLoggedInUser } from '@/app/actions/memo';
 import prisma from '@/lib/prisma';
 import type { Attachment, LoggedInUser } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
 
 export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getLoggedInUser();
+    if (!user) {
         return new NextResponse('Authentication required', { status: 401 });
     }
 
@@ -22,18 +21,14 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     }
 
     const [fileType, ...fileNameParts] = filePathParts;
-    const relativePath = join(...filePathParts); // e.g., "attachments/123-file.pdf"
-    const dbPath = `/uploads/${relativePath}`; // e.g., "/uploads/attachments/123-file.pdf"
+    const relativePath = join(...filePathParts);
+    const dbPath = `/uploads/${relativePath}`;
     let attachment: Attachment | null = null;
 
 
     // --- Authorization Check ---
     if (fileType === 'attachments') {
-        const userWithRole = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { role: { select: { permissions: true } } }
-        });
-        const userPermissions = userWithRole?.role?.permissions?.split(',') || [];
+        const userPermissions = user.role?.permissions?.split(',') || [];
         const isAdminWithAuditLog = userPermissions.includes('manage_audit_log');
 
         attachment = await prisma.attachment.findFirst({
@@ -58,17 +53,16 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
              return new NextResponse('Forbidden: Associated memo not found.', { status: 403 });
         }
 
-        const currentUserId = session.user.id;
+        const currentUserId = user.id;
         
         let hasAccess = 
             memo.fromId === currentUserId ||
             memo.current_holderId === currentUserId ||
-            memo.to.some(user => user.id === currentUserId) ||
-            memo.cc.some(user => user.id === currentUserId) ||
+            memo.to.some(u => u.id === currentUserId) ||
+            memo.cc.some(u => u.id === currentUserId) ||
             isAdminWithAuditLog;
         
-        const sessionUser = session.user as LoggedInUser;
-        if (sessionUser.actingUser && !sessionUser.delegationPermissions?.includes('delegation:view')) {
+        if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
             hasAccess = false;
         }
             
@@ -76,12 +70,12 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
              await logSecurityEvent({
                 event: SecurityEvent.PERMISSION_DENIED,
                 severity: LogSeverity.WARN,
-                actor: session.user,
+                actor: user.actingUser || user,
                 details: `User attempted to access unauthorized attachment: ${dbPath}`,
                 targetId: attachment.id,
                 targetType: 'Attachment'
              });
-             return NextResponse.redirect(new URL('/dashboard/access-denied', req.url));
+             return new NextResponse('Forbidden: You do not have permission to access this file.', { status: 403 });
         }
     } else if (fileType !== 'profile' && fileType !== 'signatures') {
         // Any authenticated user can view profile pics and signatures.
@@ -104,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         await logSecurityEvent({
             event: SecurityEvent.FILE_DOWNLOAD_SUCCESS,
             severity: LogSeverity.INFO,
-            actor: session.user,
+            actor: user.actingUser || user,
             details: `User downloaded file: ${dbPath}`,
             targetId: attachment?.id || dbPath,
             targetType: fileType,
@@ -114,7 +108,6 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             status: 200,
             headers: {
                 'Content-Type': contentType,
-                'Content-Length': fileBuffer.length.toString(),
                 'Content-Disposition': `attachment; filename="${fileNameParts.join('')}"`,
             },
         });
