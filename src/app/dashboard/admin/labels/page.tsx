@@ -151,7 +151,7 @@ export default function LabelsPage() {
         }
     };
 
-    const handleDialogClose = (open: boolean) => {
+    const handleDialogChange = (open: boolean) => {
         setIsDialogOpen(open);
         if (!open) {
             setEditingLabel(null);
@@ -173,7 +173,7 @@ export default function LabelsPage() {
         }
     };
 
-    const handleAlertClose = (open: boolean) => {
+    const handleAlertChange = (open: boolean) => {
         setIsAlertOpen(open);
         if (!open) {
             setDeletingLabel(null);
@@ -267,7 +267,7 @@ export default function LabelsPage() {
                 </CardContent>
             </Card>
 
-            <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingLabel?.id ? "Edit Label" : "Add New Label"}</DialogTitle>
@@ -307,7 +307,7 @@ export default function LabelsPage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+                            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
                             <Button type="submit" disabled={isSaving}>
                                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Save
@@ -317,7 +317,7 @@ export default function LabelsPage() {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={isAlertOpen} onOpenChange={handleAlertClose}>
+            <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -326,7 +326,7 @@ export default function LabelsPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                         <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingLabel(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => handleAlertChange(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
                             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
                         </AlertDialogAction>

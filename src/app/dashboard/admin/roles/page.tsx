@@ -154,10 +154,25 @@ export default function RoleManagementPage() {
   };
   
   const handleDialogChange = (open: boolean) => {
+      setIsDialogOpen(open);
       if (!open) {
           setEditingRole(null);
+          // Force cleanup of any remaining overlay elements
+          setTimeout(() => {
+            const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+            allOverlays.forEach(overlay => {
+              const state = overlay.getAttribute('data-state');
+              if (!state || state === 'closed') {
+                (overlay as HTMLElement).style.display = 'none';
+                overlay.remove();
+              }
+            });
+            // Ensure body styles are reset
+            document.body.style.pointerEvents = '';
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+          }, 200);
       }
-      setIsDialogOpen(open);
   }
 
   const usersInRole = (roleId: string) => {
@@ -284,9 +299,7 @@ export default function RoleManagementPage() {
               </div>
             </div>
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline" disabled={isSaving}>Cancel</Button>
-                </DialogClose>
+                <Button variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
                 <Button onClick={handleSave} disabled={isSaving}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Role

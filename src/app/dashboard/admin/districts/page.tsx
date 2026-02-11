@@ -159,7 +159,7 @@ export default function DistrictsPage() {
     }
   };
 
-  const handleDialogClose = (open: boolean) => {
+  const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
     if (!open) {
       setEditingDistrict(null);
@@ -182,7 +182,7 @@ export default function DistrictsPage() {
     }
   }
   
-  const handleAlertClose = (open: boolean) => {
+  const handleAlertChange = (open: boolean) => {
     setIsAlertOpen(open);
     if (!open) {
       setDeletingDistrict(null);
@@ -275,7 +275,7 @@ export default function DistrictsPage() {
       </CardContent>
     </Card>
     
-    <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent>
         <DialogHeader>
             <DialogTitle>{editingDistrict ? "Edit District" : "Add New District"}</DialogTitle>
@@ -303,7 +303,7 @@ export default function DistrictsPage() {
             </div>
             </div>
             <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSaving}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
             <Button type="submit" disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save
@@ -313,7 +313,7 @@ export default function DistrictsPage() {
         </DialogContent>
     </Dialog>
 
-    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertClose}>
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -325,7 +325,7 @@ export default function DistrictsPage() {
                 <AlertDialogCancel 
                   onClick={(e) => {
                     e.preventDefault();
-                    handleAlertClose(false);
+                    handleAlertChange(false);
                   }}
                   disabled={isDeleting}
                 >

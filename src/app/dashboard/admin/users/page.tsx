@@ -137,12 +137,31 @@ function UserImportDialog() {
     setProcessing(false);
     setResult(null);
   };
+  
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      resetState();
+      // Force cleanup of any remaining overlay elements
+      setTimeout(() => {
+        const allOverlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+        allOverlays.forEach(overlay => {
+          const state = overlay.getAttribute('data-state');
+          if (!state || state === 'closed') {
+            (overlay as HTMLElement).style.display = 'none';
+            overlay.remove();
+          }
+        });
+        // Ensure body styles are reset
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 200);
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      setOpen(isOpen);
-      if (!isOpen) resetState();
-    }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline"><UploadCloud className="mr-2"/> Import</Button>
       </DialogTrigger>
@@ -236,7 +255,7 @@ function UserImportDialog() {
                   </div>
               )}
               <DialogFooter>
-                  <Button onClick={() => setOpen(false)}>Close</Button>
+                  <Button onClick={() => handleOpenChange(false)}>Close</Button>
               </DialogFooter>
           </div>
         )}
@@ -348,7 +367,7 @@ export default function UsersPage() {
     }
   };
   
-  const handleDialogClose = (open: boolean) => {
+  const handleDialogChange = (open: boolean) => {
     setIsFormDialogOpen(open);
     if (!open) {
       setEditingUser(null);
@@ -371,7 +390,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleAlertClose = (open: boolean) => {
+  const handleAlertChange = (open: boolean) => {
     if (!open) {
       setResetUser(null);
       setDeleteUserAlert(null);
@@ -658,7 +677,7 @@ export default function UsersPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogClose}>
+    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
@@ -731,7 +750,7 @@ export default function UsersPage() {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSaving}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
                     <Button type="submit" disabled={isSaving}>
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save User
@@ -741,7 +760,7 @@ export default function UsersPage() {
         </DialogContent>
     </Dialog>
     
-    <AlertDialog open={!!resetUser} onOpenChange={(open) => !open && handleAlertClose(false)}>
+    <AlertDialog open={!!resetUser} onOpenChange={handleAlertChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -750,12 +769,7 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleAlertClose(false);
-                  }}
-                >
+                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleAlertChange(false); }} >
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={handleResetPassword}>
@@ -765,7 +779,7 @@ export default function UsersPage() {
         </AlertDialogContent>
     </AlertDialog>
     
-    <AlertDialog open={!!deleteUserAlert} onOpenChange={(open) => !open && handleAlertClose(false)}>
+    <AlertDialog open={!!deleteUserAlert} onOpenChange={handleAlertChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -774,12 +788,7 @@ export default function UsersPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleAlertClose(false);
-                  }}
-                >
+                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleAlertChange(false); }} >
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete User</AlertDialogAction>
