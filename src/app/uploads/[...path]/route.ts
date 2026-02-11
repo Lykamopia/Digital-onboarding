@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { join, normalize } from 'path';
+import { join } from 'path';
 import mime from 'mime-types';
 import { getLoggedInUser } from '@/app/actions/memo';
 import prisma from '@/lib/prisma';
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     }
 
     const [fileType, ...fileNameParts] = filePathParts;
-    const relativePath = join(...filePathParts);
-    const dbPath = `/uploads/${relativePath}`;
+    // Construct DB path with forward slashes for universal matching
+    const dbPath = `/uploads/${filePathParts.join('/')}`;
     let attachment: Attachment | null = null;
 
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     // --- End Authorization Check ---
 
     const uploadsDir = join(process.cwd(), 'uploads');
-    const absolutePath = normalize(join(uploadsDir, relativePath));
+    const absolutePath = join(uploadsDir, ...filePathParts);
 
     // Security check: Prevent path traversal attacks by ensuring the path is within the uploads directory.
     if (!absolutePath.startsWith(uploadsDir)) {
