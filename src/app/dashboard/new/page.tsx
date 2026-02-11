@@ -128,6 +128,7 @@ export default function NewMemoPage() {
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
   const [assignFrom, setAssignFrom] = useState<string | undefined>(undefined);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   const isReplying = !!replyTo;
   const isAssigning = !!assignFrom;
@@ -676,38 +677,50 @@ export default function NewMemoPage() {
                             multiple
                           />
                            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {(attachments || []).map((att) => (
-                              <div key={att.id} className="relative group border rounded-lg overflow-hidden">
-                                {att.type.startsWith('image/') ? (
-                                    <Image src={att.previewUrl || (att.url.startsWith('http') ? att.url : att.url.startsWith('/uploads') ? att.url : `/api${att.url}`)} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" unoptimized={!!att.previewUrl} />
-                                ) : (
-                                    <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
-                                        <div className="relative">
-                                            {getIconForMimeType(att.type)}
-                                            <Badge variant="secondary" className="absolute -top-1 -right-2 text-xs">{getFileExtension(att.name)}</Badge>
-                                        </div>
-                                        <p className="text-xs text-center mt-2 text-muted-foreground break-all">{att.name}</p>
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/60 flex flex-col justify-between p-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div>
-                                        <p className="text-xs font-bold break-all">{att.name}</p>
-                                        <p className="text-xs">{formatFileSize(att.size)}</p>
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      className='w-full h-8 text-xs'
-                                      onClick={() => removeAttachment(att.id)}
-                                    >
-                                      <Trash2 className="mr-2 h-3 w-3" />
-                                      Remove
-                                    </Button>
-                                </div>
+                            {(attachments || []).map((att) => {
+                              const isBroken = brokenImages.has(att.id);
+                              const imageUrl = att.previewUrl || att.url;
 
-                              </div>
-                            ))}
+                              return (
+                                <div key={att.id} className="relative group border rounded-lg overflow-hidden">
+                                  {att.type.startsWith('image/') && imageUrl && !isBroken ? (
+                                      <Image 
+                                          src={imageUrl}
+                                          alt={att.name}
+                                          width={150} 
+                                          height={150} 
+                                          className="w-full h-32 object-cover" 
+                                          unoptimized={!!att.previewUrl}
+                                          onError={() => handleImageError(att.id)}
+                                      />
+                                  ) : (
+                                      <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
+                                          <div className="relative">
+                                              {getIconForMimeType(att.type)}
+                                              <Badge variant="secondary" className="absolute -top-1 -right-2 text-xs">{getFileExtension(att.name)}</Badge>
+                                          </div>
+                                          <p className="text-xs text-center mt-2 text-muted-foreground break-all">{att.name}</p>
+                                      </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/60 flex flex-col justify-between p-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div>
+                                          <p className="text-xs font-bold break-all">{att.name}</p>
+                                          <p className="text-xs">{formatFileSize(att.size)}</p>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        className='w-full h-8 text-xs'
+                                        onClick={() => removeAttachment(att.id)}
+                                      >
+                                        <Trash2 className="mr-2 h-3 w-3" />
+                                        Remove
+                                      </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                     </div>
@@ -773,3 +786,5 @@ export default function NewMemoPage() {
     </div>
   );
 }
+
+    
