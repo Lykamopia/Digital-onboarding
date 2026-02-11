@@ -7,7 +7,10 @@ import { redirect } from 'next/navigation';
 
 export default async function FavoritesPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
     const user = await getLoggedInUser();
-    if (!user || !user.role?.permissions.includes('manage_memos')) {
+    const userPermissions = user?.role?.permissions?.split(',') || [];
+    
+    // A user must have the base 'manage_memos' permission to access memo features.
+    if (!user || !userPermissions.includes('manage_memos')) {
         redirect('/dashboard/access-denied');
     }
 
