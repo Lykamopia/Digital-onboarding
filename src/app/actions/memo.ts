@@ -1204,17 +1204,21 @@ export async function saveDivision(data: { id?: string, name: string, code: stri
 
 export async function deleteDivision(id: string) {
     const user = await hasPermission('manage_divisions');
-    const users = await prisma.user.count({ where: { divisionId: id }});
-    if (users > 0) {
-        return { error: 'Cannot delete division. It has associated users. Please reassign them first.' };
+    try {
+        const division = await prisma.division.findUnique({ where: { id } });
+        await prisma.division.delete({ where: { id } });
+        if (division) {
+            await logSecurityEvent({ event: SecurityEvent.DIVISION_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted division '${division.name}' (ID: ${id}).`, targetId: id, targetType: 'Division' });
+        }
+        revalidatePath('/dashboard/admin/divisions');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete division. It has associated users or other records. Please reassign them first.' };
+        }
+        console.error('Error deleting division:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    const division = await prisma.division.findUnique({ where: { id } });
-    if (division) {
-        await logSecurityEvent({ event: SecurityEvent.DIVISION_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted division '${division.name}' (ID: ${id}).`, targetId: id, targetType: 'Division' });
-    }
-    await prisma.division.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/divisions');
-    return { success: true };
 }
 
 
@@ -1232,17 +1236,21 @@ export async function saveDepartment(data: { id?: string, name: string, code: st
 
 export async function deleteDepartment(id: string) {
     const user = await hasPermission('manage_departments');
-    const divisions = await prisma.division.count({ where: { departmentId: id } });
-    if (divisions > 0) {
-        return { error: 'Cannot delete department. It has associated divisions. Please delete them first.' };
+    try {
+        const department = await prisma.department.findUnique({ where: { id } });
+        await prisma.department.delete({ where: { id } });
+        if (department) {
+            await logSecurityEvent({ event: SecurityEvent.DEPARTMENT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted department '${department.name}' (ID: ${id}).`, targetId: id, targetType: 'Department' });
+        }
+        revalidatePath('/dashboard/admin/departments');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete department. It has associated divisions. Please reassign/delete them first.' };
+        }
+        console.error('Error deleting department:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    const department = await prisma.department.findUnique({ where: { id } });
-    if (department) {
-        await logSecurityEvent({ event: SecurityEvent.DEPARTMENT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted department '${department.name}' (ID: ${id}).`, targetId: id, targetType: 'Department' });
-    }
-    await prisma.department.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/departments');
-    return { success: true };
 }
 
 export async function saveBranch(data: { id?: string, name: string, code: string, districtId: string }) {
@@ -1259,17 +1267,21 @@ export async function saveBranch(data: { id?: string, name: string, code: string
 
 export async function deleteBranch(id: string) {
     const user = await hasPermission('manage_branches');
-    const users = await prisma.user.count({ where: { branchId: id }});
-    if (users > 0) {
-        return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
+    try {
+        const branch = await prisma.branch.findUnique({ where: { id } });
+        await prisma.branch.delete({ where: { id } });
+        if(branch) {
+            await logSecurityEvent({ event: SecurityEvent.BRANCH_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted branch '${branch.name}' (ID: ${id}).`, targetId: id, targetType: 'Branch' });
+        }
+        revalidatePath('/dashboard/admin/branches');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
+        }
+        console.error('Error deleting branch:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    const branch = await prisma.branch.findUnique({ where: { id } });
-    if(branch) {
-        await logSecurityEvent({ event: SecurityEvent.BRANCH_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted branch '${branch.name}' (ID: ${id}).`, targetId: id, targetType: 'Branch' });
-    }
-    await prisma.branch.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/branches');
-    return { success: true };
 }
 
 export async function saveDistrict(data: { id?: string, name: string, code: string, officeId: string }) {
@@ -1286,17 +1298,21 @@ export async function saveDistrict(data: { id?: string, name: string, code: stri
 
 export async function deleteDistrict(id: string) {
     const user = await hasPermission('manage_districts');
-    const branches = await prisma.branch.count({ where: { districtId: id } });
-    if (branches > 0) {
-        return { error: 'Cannot delete district. It has associated branches. Please delete them first.' };
+    try {
+        const district = await prisma.district.findUnique({ where: { id } });
+        await prisma.district.delete({ where: { id } });
+        if (district) {
+            await logSecurityEvent({ event: SecurityEvent.DISTRICT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted district '${district.name}' (ID: ${id}).`, targetId: id, targetType: 'District' });
+        }
+        revalidatePath('/dashboard/admin/districts');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete district. It has associated branches. Please reassign/delete them first.' };
+        }
+        console.error('Error deleting district:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    const district = await prisma.district.findUnique({ where: { id } });
-    if (district) {
-        await logSecurityEvent({ event: SecurityEvent.DISTRICT_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted district '${district.name}' (ID: ${id}).`, targetId: id, targetType: 'District' });
-    }
-    await prisma.district.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/districts');
-    return { success: true };
 }
 
 export async function saveOffice(data: { id?: string, name: string, code: string, type?: 'division_office' | 'branch_office' | 'head_office' }) {
@@ -1318,29 +1334,21 @@ export async function saveOffice(data: { id?: string, name: string, code: string
 
 export async function deleteOffice(id: string) {
     const user = await hasPermission('manage_offices');
-    const districts = await prisma.district.count({ where: { officeId: id } });
-    if (districts > 0) {
-        return { error: 'Cannot delete office. It has associated districts. Please delete them first.' };
+    try {
+        const office = await prisma.office.findUnique({ where: { id } });
+        await prisma.office.delete({ where: { id } });
+        if (office) {
+            await logSecurityEvent({ event: SecurityEvent.OFFICE_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted office '${office.name}' (ID: ${id}).`, targetId: id, targetType: 'Office' });
+        }
+        revalidatePath('/dashboard/admin/offices');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete office. It has associated users, departments, or districts. Please reassign/delete them first.' };
+        }
+        console.error('Error deleting office:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    
-    const departments = await prisma.department.count({ where: { officeId: id } });
-    if (departments > 0) {
-        return { error: 'Cannot delete office. It has associated departments. Please delete them first.' };
-    }
-    
-    const users = await prisma.user.count({ where: { officeId: id }});
-    if (users > 0) {
-        return { error: 'Cannot delete office. It has associated users. Please reassign them first.' };
-    }
-
-    const office = await prisma.office.findUnique({ where: { id } });
-    if (office) {
-        await logSecurityEvent({ event: SecurityEvent.OFFICE_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted office '${office.name}' (ID: ${id}).`, targetId: id, targetType: 'Office' });
-    }
-
-    await prisma.office.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/offices');
-    return { success: true };
 }
 
 
@@ -1483,21 +1491,23 @@ export async function saveUser(data: {
 
 export async function deleteUser(userId: string) {
     const user = await hasPermission('manage_users');
-    const memoCount = await prisma.memo.count({ where: { fromId: userId } });
-    if (memoCount > 0) {
-        return { error: `Cannot delete user. They are the author of ${memoCount} memo(s). Please reassign them first.` };
-    }
-    
     try {
-        const deletedUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true }});
-        if (deletedUser) {
-            await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user '${deletedUser?.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
-        }
+        const userToDelete = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+        
         await prisma.user.delete({ where: { id: userId }});
+        
+        if (userToDelete) {
+            await logSecurityEvent({ event: SecurityEvent.USER_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted user '${userToDelete.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
+        }
         revalidatePath('/dashboard/admin/users');
         return { success: true };
     } catch (error) {
-        console.error(error);
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            if (error.code === 'P2003') { // Foreign key constraint violation
+                return { error: 'This user cannot be deleted because they are referenced in existing memos or activities. Please reassign their records before deleting.' };
+            }
+        }
+        console.error('Error deleting user:', error);
         return { error: 'An unexpected error occurred while deleting the user.' };
     }
 }
@@ -1580,14 +1590,24 @@ export async function saveRole(data: { id?: string, name: string, permissions: a
 
 export async function deleteRole(roleId: string) {
     const user = await hasPermission('manage_roles');
-    const usersInRole = await prisma.user.count({ where: { roleId }});
-    if (usersInRole > 0) {
-        return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
+    try {
+        const roleToDelete = await prisma.role.findUnique({ where: { id: roleId }});
+        if (roleToDelete?.name === 'Admin') {
+            return { error: 'The default Admin role cannot be deleted.' };
+        }
+
+        await prisma.role.delete({ where: { id: roleId } });
+
+        await logSecurityEvent({ event: SecurityEvent.ROLE_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted role '${roleToDelete?.name}' (ID: ${roleId}).`, targetId: roleId, targetType: 'Role' });
+        revalidatePath('/dashboard/admin/roles');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
+        }
+        console.error('Error deleting role:', error);
+        return { error: 'An unexpected error occurred.' };
     }
-    await logSecurityEvent({ event: SecurityEvent.ROLE_DELETED, severity: LogSeverity.CRITICAL, actor: user, details: `Admin deleted role with ID: ${roleId}.`, targetId: roleId, targetType: 'Role' });
-    await prisma.role.delete({ where: { id: roleId } });
-    revalidatePath('/dashboard/admin/roles');
-    return { success: true };
 }
 
 export async function saveLabel(data: { id?: string, name: string, color: string, type: 'SYSTEM' | 'USER' }) {
@@ -1605,13 +1625,23 @@ export async function saveLabel(data: { id?: string, name: string, color: string
 
 export async function deleteLabel(id: string) {
     const user = await hasPermission('manage_labels');
-    const label = await prisma.label.findUnique({ where: { id }});
-    if (!label) return { error: "Label not found." };
-    if (label.type === 'SYSTEM') return { error: "Cannot delete a system label." };
-    await logSecurityEvent({ event: SecurityEvent.LABEL_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted label '${label.name}' (ID: ${id}).`, targetId: id, targetType: 'Label' });
-    await prisma.label.delete({ where: { id } });
-    revalidatePath('/dashboard/admin/labels');
-    return { success: true };
+    try {
+        const label = await prisma.label.findUnique({ where: { id }});
+        if (!label) return { error: "Label not found." };
+        if (label.type === 'SYSTEM') return { error: "System labels cannot be deleted." };
+
+        await prisma.label.delete({ where: { id } });
+
+        await logSecurityEvent({ event: SecurityEvent.LABEL_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted label '${label.name}' (ID: ${id}).`, targetId: id, targetType: 'Label' });
+        revalidatePath('/dashboard/admin/labels');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return { error: 'Cannot delete label. It is currently in use on one or more memos.' };
+        }
+        console.error('Error deleting label:', error);
+        return { error: 'An unexpected error occurred.' };
+    }
 }
 
 export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
