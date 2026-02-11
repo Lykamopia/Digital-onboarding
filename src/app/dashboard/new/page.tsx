@@ -97,6 +97,8 @@ const memoTemplates = [
     },
 ];
 
+type UIPendingAttachment = Attachment & { previewUrl?: string };
+
 export default function NewMemoPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -121,7 +123,7 @@ export default function NewMemoPage() {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [replyBody, setReplyBody] = useState('');
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<UIPendingAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [replyTo, setReplyTo] = useState<string | undefined>(undefined);
   const [assignFrom, setAssignFrom] = useState<string | undefined>(undefined);
@@ -259,6 +261,15 @@ export default function NewMemoPage() {
     }
   }, [subject, body, replyBody, to, cc, attachments, labels, debouncedSave]);
 
+  useEffect(() => {
+    return () => {
+        attachments.forEach(att => {
+            if (att.previewUrl) {
+                URL.revokeObjectURL(att.previewUrl);
+            }
+        });
+    };
+  }, [attachments]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -466,12 +477,14 @@ export default function NewMemoPage() {
             }
 
             const result = await response.json();
+            const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
             return {
                 id: `att-${Date.now()}-${result.name}`,
                 name: result.name,
                 size: result.size,
                 type: result.type,
                 url: result.path,
+                previewUrl,
             };
         } catch (error: any) {
             toast.error(`Upload failed for ${file.name}`, {
@@ -481,7 +494,7 @@ export default function NewMemoPage() {
         }
     });
 
-    const newAttachments = (await Promise.all(uploadPromises)).filter(Boolean) as Attachment[];
+    const newAttachments = (await Promise.all(uploadPromises)).filter(Boolean) as UIPendingAttachment[];
     setAttachments(prev => [...prev, ...newAttachments]);
     setIsUploading(false);
     
@@ -666,7 +679,7 @@ export default function NewMemoPage() {
                             {(attachments || []).map((att) => (
                               <div key={att.id} className="relative group border rounded-lg overflow-hidden">
                                 {att.type.startsWith('image/') ? (
-                                    <Image src={att.url.startsWith('http') ? att.url : att.url.startsWith('/uploads') ? att.url : `/api${att.url}`} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" />
+                                    <Image src={att.previewUrl || (att.url.startsWith('http') ? att.url : att.url.startsWith('/uploads') ? att.url : `/api${att.url}`)} alt={att.name} width={150} height={150} className="w-full h-32 object-cover" unoptimized={!!att.previewUrl} />
                                 ) : (
                                     <div className="w-full h-32 bg-muted flex flex-col items-center justify-center p-2">
                                         <div className="relative">
@@ -760,5 +773,3 @@ export default function NewMemoPage() {
     </div>
   );
 }
-
-    
