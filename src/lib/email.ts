@@ -226,13 +226,13 @@ function generateAuthEmailBody(title: string, content: string): string {
 
 export async function sendVerificationEmail({ to, name, token }: VerificationEmailOptions) {
     const verificationLink = `${baseUrl}/set-password?token=${token}`;
-    const expirationHours = 1;
+    const expirationHours = 24;
 
     const title = "Welcome to Nib Memo! Please Verify Your Account";
     const content = `
         <p>Hello ${name},</p>
         <p>An account has been created for you on the Nib Memo platform. To get started, please set your password by clicking the link below.</p>
-        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
+        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Set Your Password</a>
         </div>
@@ -280,13 +280,13 @@ export async function sendVerificationEmail({ to, name, token }: VerificationEma
 
 export async function sendPasswordResetEmail({ to, name, token }: PasswordResetEmailOptions) {
     const resetLink = `${baseUrl}/set-password?token=${token}`;
-    const expirationHours = 1;
+    const expirationHours = 24;
 
     const title = "Your Password Reset Request";
     const content = `
         <p>Hello ${name},</p>
         <p>We received a request to reset your password for the Nib Memo platform. You can reset your password by clicking the link below.</p>
-        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
+        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
         <div class="button-container">
             <a href="${resetLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Your Password</a>
         </div>
@@ -334,13 +334,13 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
 
 export async function sendEmailChangeVerificationEmail({ to, name, token, userId }: EmailChangeVerificationOptions) {
     const verificationLink = `${baseUrl}/verify-email?token=${token}`;
-    const expirationHours = 1;
+    const expirationHours = 24;
 
     const title = "Confirm Your New Email Address";
     const content = `
         <p>Hello ${name},</p>
         <p>You requested to change your email address for the Nib Memo platform to this one. Please confirm this change by clicking the link below.</p>
-        <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
+        <p>This link is valid for <strong>${expirationHours} hours</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Confirm New Email</a>
         </div>
@@ -418,6 +418,15 @@ export async function sendEmailChangeNotificationEmail({ to, name, newEmail }: E
         return info;
     } catch (error: any) {
         console.error('Error sending email change notification:', error);
+        await logEmail({
+            to: to,
+            subject: title,
+            body: htmlBody,
+            status: 'failed',
+            triggerEvent: 'email_change_notice',
+            relatedEntityId: (await prisma.user.findUnique({ where: { email: to } }))?.id,
+            errorMessage: error.message,
+        });
         throw error;
     }
 }

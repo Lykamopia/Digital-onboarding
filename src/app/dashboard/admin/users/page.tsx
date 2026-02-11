@@ -319,24 +319,33 @@ export default function UsersPage() {
         status: editingUser?.status ?? 'pending',
     };
 
-        setIsSaving(true);
-        try {
-            const result = await saveUser(userData);
-            if (result.error) {
-                toast.error(isNewUser ? 'Error Creating User' : 'Error Updating User', { description: result.error });
-                // We don't close the dialog on error so the user can fix it
-                return;
-            }
-            await mutateUsers();
-            toast.success("Success", { description: isNewUser ? `User created and a setup email has been sent to ${formState.email}.` : "User updated successfully." });
-            setIsFormDialogOpen(false);
-            setEditingUser(null);
-            setFormState(initialFormState);
-        } catch (error: any) {
-            toast.error('Error', { description: error?.message || 'Failed to save user.' });
-        } finally {
-            setIsSaving(false);
+    setIsSaving(true);
+    try {
+        const result = await saveUser(userData);
+        if (result.error) {
+            toast.error(isNewUser ? 'Error Creating User' : 'Error Updating User', { description: result.error });
+            return;
         }
+
+        await mutateUsers();
+        
+        let successDescription = isNewUser 
+            ? `User created. A setup email has been sent to ${formState.email}.` 
+            : "User updated successfully.";
+
+        if (result.message) {
+            successDescription = result.message;
+        }
+
+        toast.success("Success", { description: successDescription });
+        setIsFormDialogOpen(false);
+        setEditingUser(null);
+        setFormState(initialFormState);
+    } catch (error: any) {
+        toast.error('Error', { description: error?.message || 'Failed to save user.' });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   const handleDialogClose = (open: boolean) => {
