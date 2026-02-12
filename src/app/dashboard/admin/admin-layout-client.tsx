@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { AdminDataProvider, useUsers } from './hooks';
+import AccessDeniedPage from '../access-denied/page';
 
 
 function useAdminNavigation(user: LoggedInUser | null) {
@@ -192,12 +193,16 @@ function AdminPageContent({ user, activeTab, accessibleNavItems, handleTabChange
 }
 
 
-function AdminLayoutComponent({ user, children }: { user: LoggedInUser; children: React.ReactNode }) {
+function AdminLayoutComponent({ user, children, hasAdminAccess }: { user: LoggedInUser; children: React.ReactNode, hasAdminAccess: boolean }) {
   const router = useRouter();
   const { state: sidebarState } = useSidebar();
   const { mutate } = useUsers();
 
   const { activeTab, accessibleNavItems } = useAdminNavigation(user);
+
+  if (!hasAdminAccess) {
+    return <AccessDeniedPage />;
+  }
   
   const handleTabChange = (value: string) => {
     router.push(value);
@@ -225,10 +230,10 @@ function AdminLayoutComponent({ user, children }: { user: LoggedInUser; children
 };
 
 
-export default function AdminLayoutClient({ user, children }: { user: LoggedInUser; children: React.ReactNode }) {
+export default function AdminLayoutClient({ user, children, hasAdminAccess }: { user: LoggedInUser; children: React.ReactNode, hasAdminAccess: boolean }) {
     return (
         <AdminDataProvider>
-            <AdminLayoutComponent user={user}>
+            <AdminLayoutComponent user={user} hasAdminAccess={hasAdminAccess}>
                 {children}
             </AdminLayoutComponent>
         </AdminDataProvider>
