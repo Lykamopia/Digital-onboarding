@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -324,27 +323,39 @@ export function OnboardingTour() {
         
         const popupWidth = popupRef.current?.offsetWidth || 320;
         const popupHeight = popupRef.current?.offsetHeight || 250;
-    
+
         const spaceBelow = winHeight - targetRect.bottom;
         const spaceAbove = targetRect.top;
-    
+
         let top: number;
-        if (spaceBelow >= popupHeight + VIEWPORT_PADDING) {
+        
+        // Prefer below, if it fits
+        if (spaceBelow > popupHeight + VIEWPORT_PADDING) {
             top = targetRect.bottom + VIEWPORT_PADDING / 2;
-        } else if (spaceAbove >= popupHeight + VIEWPORT_PADDING) {
+        } 
+        // Fallback to above, if it fits
+        else if (spaceAbove > popupHeight + VIEWPORT_PADDING) {
             top = targetRect.top - popupHeight - VIEWPORT_PADDING / 2;
-        } else {
-            top = spaceAbove > spaceBelow ? VIEWPORT_PADDING : winHeight - popupHeight - VIEWPORT_PADDING;
+        } 
+        // If it doesn't fit nicely either way, put it where there's more space
+        else {
+            if (spaceBelow > spaceAbove) {
+                top = winHeight - popupHeight - VIEWPORT_PADDING; // Stick to bottom of viewport
+            } else {
+                top = VIEWPORT_PADDING; // Stick to top of viewport
+            }
         }
         
-        top = Math.max(VIEWPORT_PADDING, Math.min(top, winHeight - popupHeight - VIEWPORT_PADDING));
-    
         let left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
-    
-        left = Math.max(VIEWPORT_PADDING, Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING));
-    
+        
+        // Universal clamping for horizontal position
+        left = Math.max(
+            VIEWPORT_PADDING,
+            Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING)
+        );
+
         setPopupPosition({ top: `${top}px`, left: `${left}px`, transform: 'none' });
-    
+
     }, [currentStep.target, targetRect]);
 
     useEffect(() => {
