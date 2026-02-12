@@ -225,14 +225,10 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   
   const handleDuplicate = async () => {
     if (!memo) return;
-    try {
-        await duplicateMemo(memo.id);
-        toast.success("Memo Duplicated", {
-            description: "A new draft has been created from this memo."
-        });
-    } catch(e: any) {
-        toast.error("Duplication Failed", { description: e.message });
-    }
+    await duplicateMemo(memo.id);
+    toast.success("Memo Duplicated", {
+        description: "A new draft has been created from this memo."
+    });
   }
 
   const handleArchive = async () => {

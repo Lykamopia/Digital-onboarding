@@ -104,12 +104,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     }
 
     const handleDuplicate = async (memoId: string) => {
-        try {
-            await duplicateMemo(memoId);
-            toast.success("Memo Duplicated", { description: "A new draft has been created." });
-        } catch(e: any) {
-            toast.error("Duplication Failed", { description: e.message });
-        }
+        await duplicateMemo(memoId);
+        toast.success("Memo Duplicated", { description: "A new draft has been created." });
     }
 
     const handleAcknowledge = async (memoId: string) => {
