@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -204,7 +205,7 @@ export function OnboardingTour() {
     const [stepIndex, setStepIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-    const [highlighterStyle, setHighlighterStyle] = useState({});
+    const [highlighterStyle, setHighlighterStyle] = useState<React.CSSProperties>({});
     const [isSuppressed, setIsSuppressed] = useState(false);
 
     const pathname = usePathname();
@@ -273,9 +274,9 @@ export function OnboardingTour() {
             if (targetElement) {
                 clearInterval(intervalId);
 
-                targetElement.scrollIntoView({ block: 'center' });
+                targetElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 
-                // Use a short timeout to allow the scroll to complete
+                // Use a timeout to allow the scroll to complete
                 setTimeout(() => {
                     const newRect = targetElement.getBoundingClientRect();
                     setTargetRect(newRect);
@@ -287,7 +288,7 @@ export function OnboardingTour() {
                         left: `${newRect.left - 6}px`,
                         borderRadius: `calc(${borderRadius} + 6px)`,
                     });
-                }, 50); // Small delay after scrolling
+                }, 300); // Increased delay for smooth scroll
 
             } else {
                 attempts++;
@@ -426,22 +427,32 @@ export function OnboardingTour() {
             {!isWelcomeStep && targetRect && (
                  <motion.div
                     key="highlighter"
+                    layout
                     className="onboarding-highlight onboarding-pulse"
-                    initial={{ opacity: 0, ...highlighterStyle }}
-                    animate={{ opacity: 1, ...highlighterStyle }}
+                    style={highlighterStyle}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25, opacity: { duration: 0.2 } }}
                 />
             )}
 
             <motion.div
                 key={`popup-${stepIndex}`}
                 ref={popupRef}
+                layout="position"
                 className="fixed z-[9999] w-80 rounded-lg border bg-card text-card-foreground shadow-xl"
+                style={popupPosition}
                 initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ ...popupPosition, opacity: 1, scale: 1 }}
+                animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25,
+                    opacity: { duration: 0.2 },
+                    scale: { duration: 0.2 },
+                }}
             >
                 <div className="p-4">
                     <div className="flex items-start justify-between">
