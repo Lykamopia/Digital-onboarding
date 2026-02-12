@@ -332,23 +332,29 @@ export function OnboardingTour() {
         const popupHeight = popupRef.current.offsetHeight;
         const popupWidth = popupRef.current.offsetWidth;
 
-        let top, left;
+        let top;
+        let left;
 
-        // Try to position below the target first
-        if (targetRect.bottom + popupHeight + 8 < winHeight - VIEWPORT_PADDING) {
+        // Does it fit below?
+        if (targetRect.bottom + popupHeight + VIEWPORT_PADDING < winHeight) {
             top = targetRect.bottom + 8;
-        } else { // Otherwise, position above
+        } 
+        // Does it fit above?
+        else if (targetRect.top - popupHeight - VIEWPORT_PADDING > 0) {
             top = targetRect.top - popupHeight - 8;
+        } 
+        // If neither, fallback to centering
+        else {
+            setPopupPosition({
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+            });
+            return;
         }
 
-        // Clamp vertical position to stay within the viewport
-        top = Math.max(VIEWPORT_PADDING, top);
-        top = Math.min(top, winHeight - popupHeight - VIEWPORT_PADDING);
-
-        // Center horizontally relative to the target
+        // Center horizontally and clamp
         left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
-
-        // Clamp horizontal position
         left = Math.max(VIEWPORT_PADDING, left);
         left = Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING);
 
