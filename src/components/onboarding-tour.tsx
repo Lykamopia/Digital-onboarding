@@ -259,39 +259,47 @@ export function OnboardingTour() {
     }, [stepIndex, pathname, router]);
 
     const updateTarget = useCallback(() => {
-        let targetElement = document.querySelector(currentStep.target);
-        
-        if (currentStep.id === 'inbox-item' && !targetElement) {
-            targetElement = document.querySelector('[data-testid="empty-state"]');
-        }
+        const POLLING_INTERVAL = 100;
+        const MAX_ATTEMPTS = 50; // 5-second timeout
+        let attempts = 0;
 
-        if (targetElement) {
-            const rect = targetElement.getBoundingClientRect();
-            const isFullyInView = 
-                rect.top >= 0 &&
-                rect.left >= 0 &&
-                rect.bottom <= window.innerHeight &&
-                rect.right <= window.innerWidth;
-            
-            if (!isFullyInView) {
-                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const intervalId = setInterval(() => {
+            let targetElement = document.querySelector(currentStep.target) as HTMLElement;
+
+            if (currentStep.id === 'inbox-item' && !targetElement) {
+                targetElement = document.querySelector('[data-testid="empty-state"]') as HTMLElement;
             }
 
-            setTimeout(() => {
-                const newRect = targetElement!.getBoundingClientRect();
-                setTargetRect(newRect);
-                const borderRadius = window.getComputedStyle(targetElement!).borderRadius;
-                setHighlighterStyle({
-                    width: `${newRect.width + 12}px`,
-                    height: `${newRect.height + 12}px`,
-                    top: `${newRect.top - 6}px`,
-                    left: `${newRect.left - 6}px`,
-                    borderRadius: `calc(${borderRadius} + 6px)`,
-                });
-            }, isFullyInView ? 0 : 300);
-        } else {
-            setTargetRect(null);
-        }
+            if (targetElement) {
+                clearInterval(intervalId);
+
+                targetElement.scrollIntoView({ block: 'center' });
+                
+                // Use a short timeout to allow the scroll to complete
+                setTimeout(() => {
+                    const newRect = targetElement.getBoundingClientRect();
+                    setTargetRect(newRect);
+                    const borderRadius = window.getComputedStyle(targetElement).borderRadius;
+                    setHighlighterStyle({
+                        width: `${newRect.width + 12}px`,
+                        height: `${newRect.height + 12}px`,
+                        top: `${newRect.top - 6}px`,
+                        left: `${newRect.left - 6}px`,
+                        borderRadius: `calc(${borderRadius} + 6px)`,
+                    });
+                }, 50); // Small delay after scrolling
+
+            } else {
+                attempts++;
+                if (attempts > MAX_ATTEMPTS) {
+                    clearInterval(intervalId);
+                    setTargetRect(null);
+                    console.warn(`Onboarding tour: Could not find target element "${currentStep.target}" for step "${currentStep.id}".`);
+                }
+            }
+        }, POLLING_INTERVAL);
+
+        return () => clearInterval(intervalId); // Cleanup function
     }, [currentStep.target, currentStep.id]);
     
     const adjustedDescription = useMemo(() => {
@@ -325,31 +333,23 @@ export function OnboardingTour() {
 
         let top, left;
 
-        // Try to position below the target
-        top = targetRect.bottom + 8;
-        if (top + popupHeight > winHeight - VIEWPORT_PADDING) {
-            // If it doesn't fit below, try above
+        // Try to position below the target first
+        if (targetRect.bottom + popupHeight + 8 < winHeight - VIEWPORT_PADDING) {
+            top = targetRect.bottom + 8;
+        } else { // Otherwise, position above
             top = targetRect.top - popupHeight - 8;
         }
 
-        // Clamp vertical position to stay within viewport
-        if (top < VIEWPORT_PADDING) {
-            top = VIEWPORT_PADDING;
-        }
-        if (top + popupHeight > winHeight - VIEWPORT_PADDING) {
-            top = winHeight - popupHeight - VIEWPORT_PADDING;
-        }
+        // Clamp vertical position to stay within the viewport
+        top = Math.max(VIEWPORT_PADDING, top);
+        top = Math.min(top, winHeight - popupHeight - VIEWPORT_PADDING);
 
-        // Horizontal position
+        // Center horizontally relative to the target
         left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
 
         // Clamp horizontal position
-        if (left < VIEWPORT_PADDING) {
-            left = VIEWPORT_PADDING;
-        }
-        if (left + popupWidth > winWidth - popupWidth - VIEWPORT_PADDING) {
-            left = winWidth - popupWidth - VIEWPORT_PADDING;
-        }
+        left = Math.max(VIEWPORT_PADDING, left);
+        left = Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING);
 
         setPopupPosition({ top: `${top}px`, left: `${left}px`, transform: 'none' });
 
@@ -393,22 +393,22 @@ export function OnboardingTour() {
             setSidebarOpen(false);
         }
 
+        const cleanupPolling = updateTarget();
         const onResize = () => {
             updateTarget();
-            calculateAndSetPosition();
         };
-        const timer = setTimeout(updateTarget, 300);
+        
         window.addEventListener('resize', onResize);
 
         return () => {
-            clearTimeout(timer);
+            cleanupPolling();
             window.removeEventListener('resize', onResize);
         };
-    }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen, calculateAndSetPosition]);
+    }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen]);
 
     useEffect(() => {
         if (isVisible && currentStep) {
-            const timer = setTimeout(calculateAndSetPosition, 50);
+            const timer = setTimeout(calculateAndSetPosition, 100);
             return () => clearTimeout(timer);
         }
     }, [isVisible, currentStep, targetRect, calculateAndSetPosition]);
