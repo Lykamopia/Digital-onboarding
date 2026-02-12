@@ -182,7 +182,7 @@ const TourOverlay = ({ targetRect, isWelcomeStep }: { targetRect: DOMRect | null
     // Left overlay
     { key: 'left', top: Math.max(0, top - padding), left: 0, width: Math.max(0, left - padding), height: height + padding * 2 },
     // Right overlay
-    { key: 'right', top: Math.max(0, top - padding), left: Math.max(0, left + width + padding), right: 0, height: height + padding * 2 },
+    { key: 'right', top: Math.max(0, top - padding), left: 0, right: 0, height: height + padding * 2, transform: `translateX(${left + width + padding}px)` },
   ];
 
   return (
@@ -334,29 +334,27 @@ export function OnboardingTour() {
 
         let top;
         let left;
+        
+        const canFitBelow = targetRect.bottom + popupHeight + VIEWPORT_PADDING < winHeight;
+        const canFitAbove = targetRect.top - popupHeight - VIEWPORT_PADDING > 0;
 
-        // Does it fit below?
-        if (targetRect.bottom + popupHeight + VIEWPORT_PADDING < winHeight) {
+        if (canFitBelow) {
             top = targetRect.bottom + 8;
-        } 
-        // Does it fit above?
-        else if (targetRect.top - popupHeight - VIEWPORT_PADDING > 0) {
+        } else if (canFitAbove) {
             top = targetRect.top - popupHeight - 8;
-        } 
-        // If neither, fallback to centering
-        else {
-            setPopupPosition({
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-            });
-            return;
+        } else {
+            // Fallback: Position in the vertical center of the screen
+            top = (winHeight - popupHeight) / 2;
         }
 
         // Center horizontally and clamp
         left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
         left = Math.max(VIEWPORT_PADDING, left);
         left = Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING);
+
+        // Finally, ensure the final `top` is also within the viewport
+        top = Math.max(VIEWPORT_PADDING, top);
+        top = Math.min(top, winHeight - popupHeight - VIEWPORT_PADDING);
 
         setPopupPosition({ top: `${top}px`, left: `${left}px`, transform: 'none' });
 
@@ -454,8 +452,13 @@ export function OnboardingTour() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{
                     type: "spring",
-                    stiffness: 300,
-                    damping: 25,
+                    stiffness: 500,
+                    damping: 30,
+                    layout: {
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                    },
                     opacity: { duration: 0.2 },
                     scale: { duration: 0.2 },
                 }}
