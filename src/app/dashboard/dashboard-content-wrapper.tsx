@@ -68,21 +68,14 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   const navItems = useMemo(() => {
     if (!user) return [];
     return [
-      ...((user as any).onboardingCompleted === false
-        ? [
-            { href: "/dashboard/change-password", icon: <Lock />, label: "Change Password", active: pathname === '/dashboard/change-password', visible: true },
-            { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-          ]
-        : [
-            { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-            { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-            { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: (!user.actingUser && canManageMemos) || isDelegatedDraft },
-            { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-            { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-            { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
-            { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: hasAdminAccess && !user.actingUser },
-            { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
-          ]),
+      { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+      { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+      { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: (!user.actingUser && canManageMemos) || isDelegatedDraft },
+      { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+      { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
+      { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
+      { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: hasAdminAccess && !user.actingUser },
+      { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
     ];
   }, [user, pathname, canManageMemos, hasAdminAccess, isDelegatedView, isDelegatedDraft]);
   
@@ -105,11 +98,9 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
 
-  const mustCompleteOnboarding = (user as any).onboardingCompleted === false;
-
   return (
     <>
-    <SessionTimeoutManager disabled={mustCompleteOnboarding} />
+    <SessionTimeoutManager />
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent>
@@ -178,7 +169,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
             <div className="w-full flex-1">
               {/* Optional: Add a search bar here */}
             </div>
-            {canCreateMemo && !mustCompleteOnboarding && (
+            {canCreateMemo && (
               <Link href="/dashboard/new">
                 <Button>
                   <FilePlus className="mr-2 h-4 w-4" />

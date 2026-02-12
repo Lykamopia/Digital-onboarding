@@ -49,8 +49,9 @@ export default function ChangePasswordClientPage() {
 
         if (result.success) {
             toast.success('Password Changed', {
-                description: 'Your password has been updated. Please log in again to continue.',
+                description: 'Your password has been updated successfully.',
             });
+            // You might want to sign out the user to force them to log in with the new password
             signOut({ callbackUrl: '/login' });
         } else {
             setLoading(false);
@@ -69,19 +70,12 @@ export default function ChangePasswordClientPage() {
                             <KeyRound className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                            <CardTitle>Set Your New Password</CardTitle>
-                            <CardDescription>For security, please choose a new password to complete your account setup.</CardDescription>
+                            <CardTitle>Change Password</CardTitle>
+                            <CardDescription>Update your account password here.</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Alert variant="destructive" className="mb-6">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Action Required</AlertTitle>
-                        <AlertDescription>
-                            You must set a new password before you can access the application.
-                        </AlertDescription>
-                    </Alert>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="newPassword">New Password</Label>
@@ -130,7 +124,7 @@ export default function ChangePasswordClientPage() {
                         
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Update Password and Continue
+                            Update Password
                         </Button>
                     </form>
                 </CardContent>
