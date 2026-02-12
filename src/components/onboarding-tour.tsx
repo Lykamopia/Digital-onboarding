@@ -308,9 +308,9 @@ export function OnboardingTour() {
 
     const calculateAndSetPosition = useCallback(() => {
         const isWelcomeStep = currentStep.target === 'body';
-        const VIEWPORT_PADDING = 20;
+        const VIEWPORT_PADDING = 16;
 
-        if (isWelcomeStep || !targetRect) {
+        if (isWelcomeStep || !targetRect || !popupRef.current) {
             setPopupPosition({
                 top: '50%',
                 left: '50%',
@@ -320,43 +320,41 @@ export function OnboardingTour() {
         }
 
         const { innerWidth: winWidth, innerHeight: winHeight } = window;
-        
-        const popupWidth = popupRef.current?.offsetWidth || 320;
-        const popupHeight = popupRef.current?.offsetHeight || 250;
+        const popupHeight = popupRef.current.offsetHeight;
+        const popupWidth = popupRef.current.offsetWidth;
 
-        const spaceBelow = winHeight - targetRect.bottom;
-        const spaceAbove = targetRect.top;
+        let top, left;
 
-        let top: number;
-        
-        // Prefer below, if it fits
-        if (spaceBelow > popupHeight + VIEWPORT_PADDING) {
-            top = targetRect.bottom + VIEWPORT_PADDING / 2;
-        } 
-        // Fallback to above, if it fits
-        else if (spaceAbove > popupHeight + VIEWPORT_PADDING) {
-            top = targetRect.top - popupHeight - VIEWPORT_PADDING / 2;
-        } 
-        // If it doesn't fit nicely either way, put it where there's more space
-        else {
-            if (spaceBelow > spaceAbove) {
-                top = winHeight - popupHeight - VIEWPORT_PADDING; // Stick to bottom of viewport
-            } else {
-                top = VIEWPORT_PADDING; // Stick to top of viewport
-            }
+        // Try to position below the target
+        top = targetRect.bottom + 8;
+        if (top + popupHeight > winHeight - VIEWPORT_PADDING) {
+            // If it doesn't fit below, try above
+            top = targetRect.top - popupHeight - 8;
         }
-        
-        let left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
-        
-        // Universal clamping for horizontal position
-        left = Math.max(
-            VIEWPORT_PADDING,
-            Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING)
-        );
+
+        // Clamp vertical position to stay within viewport
+        if (top < VIEWPORT_PADDING) {
+            top = VIEWPORT_PADDING;
+        }
+        if (top + popupHeight > winHeight - VIEWPORT_PADDING) {
+            top = winHeight - popupHeight - VIEWPORT_PADDING;
+        }
+
+        // Horizontal position
+        left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
+
+        // Clamp horizontal position
+        if (left < VIEWPORT_PADDING) {
+            left = VIEWPORT_PADDING;
+        }
+        if (left + popupWidth > winWidth - popupWidth - VIEWPORT_PADDING) {
+            left = winWidth - popupWidth - VIEWPORT_PADDING;
+        }
 
         setPopupPosition({ top: `${top}px`, left: `${left}px`, transform: 'none' });
 
     }, [currentStep.target, targetRect]);
+
 
     useEffect(() => {
         const timer = setTimeout(() => setIsVisible(true), 1000);
