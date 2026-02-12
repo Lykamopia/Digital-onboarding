@@ -1214,7 +1214,7 @@ export async function deleteDivision(id: string) {
         revalidatePath('/dashboard/admin/divisions');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete division. It has associated users or other records. Please reassign them first.' };
         }
         console.error('Error deleting division:', error);
@@ -1246,7 +1246,7 @@ export async function deleteDepartment(id: string) {
         revalidatePath('/dashboard/admin/departments');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete department. It has associated divisions. Please reassign/delete them first.' };
         }
         console.error('Error deleting department:', error);
@@ -1277,7 +1277,7 @@ export async function deleteBranch(id: string) {
         revalidatePath('/dashboard/admin/branches');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete branch. It has associated users. Please reassign them first.' };
         }
         console.error('Error deleting branch:', error);
@@ -1308,7 +1308,7 @@ export async function deleteDistrict(id: string) {
         revalidatePath('/dashboard/admin/districts');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete district. It has associated branches. Please reassign/delete them first.' };
         }
         console.error('Error deleting district:', error);
@@ -1344,7 +1344,7 @@ export async function deleteOffice(id: string) {
         revalidatePath('/dashboard/admin/offices');
         return { success: true };
     } catch (error: any) {
-        if (error.code === 'P2003' || (error.message as string)?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete office. It has associated users, departments, or districts. Please reassign/delete them first.' };
         }
         console.error('Error deleting office:', error);
@@ -1503,7 +1503,7 @@ export async function deleteUser(userId: string) {
         revalidatePath('/dashboard/admin/users');
         return { success: true };
     } catch (error: any) {
-        if ((error as any).message?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'This user cannot be deleted because they are referenced in existing memos or activities. Please reassign their records before deleting.' };
         }
         console.error('Error deleting user:', error);
@@ -1600,7 +1600,7 @@ export async function deleteRole(id: string) {
         revalidatePath('/dashboard/admin/roles');
         return { success: true };
     } catch (error: any) {
-        if ((error as any).message?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete role. It is currently assigned to one or more users.' };
         }
         console.error('Error deleting role:', error);
@@ -1634,7 +1634,7 @@ export async function deleteLabel(id: string) {
         revalidatePath('/dashboard/admin/labels');
         return { success: true };
     } catch (error: any) {
-        if ((error as any).message?.includes('foreign key constraint')) {
+        if ((error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') || (error.message as string)?.includes('foreign key constraint')) {
             return { error: 'Cannot delete label. It is currently in use on one or more memos.' };
         }
         console.error('Error deleting label:', error);
@@ -2272,13 +2272,15 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     const newHashedPassword = await bcrypt.hash(password, 10);
     
     try {
+        const generalSettings = await getGeneralSettings();
+
         await prisma.$transaction([
             prisma.user.update({
                 where: { id: user.id },
                 data: {
                     hashedPassword: newHashedPassword,
                     status: 'active',
-                    onboardingCompleted: true,
+                    onboardingCompleted: !generalSettings.showOnboardingTour,
                     tokenVersion: { increment: 1 }
                 }
             }),
