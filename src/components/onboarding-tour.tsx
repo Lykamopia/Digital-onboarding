@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lightbulb } from 'lucide-react';
@@ -215,6 +215,9 @@ export function OnboardingTour() {
     
     const currentStep = useMemo(() => tourSteps[stepIndex], [stepIndex]);
 
+    const popupRef = useRef<HTMLDivElement>(null);
+    const [popupPosition, setPopupPosition] = useState<React.CSSProperties>({});
+
     const handleFinish = useCallback(async () => {
         setIsVisible(false);
         await completeOnboardingTour();
@@ -275,7 +278,6 @@ export function OnboardingTour() {
                 targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
 
-            // A timeout to allow scroll animation to finish before updating position
             setTimeout(() => {
                 const newRect = targetElement!.getBoundingClientRect();
                 setTargetRect(newRect);
@@ -287,7 +289,7 @@ export function OnboardingTour() {
                     left: `${newRect.left - 6}px`,
                     borderRadius: `calc(${borderRadius} + 6px)`,
                 });
-            }, isFullyInView ? 0 : 300); // No delay if already in view
+            }, isFullyInView ? 0 : 300);
         } else {
             setTargetRect(null);
         }
@@ -305,6 +307,45 @@ export function OnboardingTour() {
         return currentStep.description;
     }, [currentStep.id, currentStep.description]);
 
+    const calculateAndSetPosition = useCallback(() => {
+        const isWelcomeStep = currentStep.target === 'body';
+        const VIEWPORT_PADDING = 20;
+
+        if (isWelcomeStep || !targetRect) {
+            setPopupPosition({
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+            });
+            return;
+        }
+
+        const { innerWidth: winWidth, innerHeight: winHeight } = window;
+        
+        const popupWidth = popupRef.current?.offsetWidth || 320;
+        const popupHeight = popupRef.current?.offsetHeight || 250;
+    
+        const spaceBelow = winHeight - targetRect.bottom;
+        const spaceAbove = targetRect.top;
+    
+        let top: number;
+        if (spaceBelow >= popupHeight + VIEWPORT_PADDING) {
+            top = targetRect.bottom + VIEWPORT_PADDING / 2;
+        } else if (spaceAbove >= popupHeight + VIEWPORT_PADDING) {
+            top = targetRect.top - popupHeight - VIEWPORT_PADDING / 2;
+        } else {
+            top = spaceAbove > spaceBelow ? VIEWPORT_PADDING : winHeight - popupHeight - VIEWPORT_PADDING;
+        }
+        
+        top = Math.max(VIEWPORT_PADDING, Math.min(top, winHeight - popupHeight - VIEWPORT_PADDING));
+    
+        let left = targetRect.left + targetRect.width / 2 - popupWidth / 2;
+    
+        left = Math.max(VIEWPORT_PADDING, Math.min(left, winWidth - popupWidth - VIEWPORT_PADDING));
+    
+        setPopupPosition({ top: `${top}px`, left: `${left}px`, transform: 'none' });
+    
+    }, [currentStep.target, targetRect]);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsVisible(true), 1000);
@@ -343,7 +384,10 @@ export function OnboardingTour() {
             setSidebarOpen(false);
         }
 
-        const onResize = () => updateTarget();
+        const onResize = () => {
+            updateTarget();
+            calculateAndSetPosition();
+        };
         const timer = setTimeout(updateTarget, 300);
         window.addEventListener('resize', onResize);
 
@@ -351,43 +395,20 @@ export function OnboardingTour() {
             clearTimeout(timer);
             window.removeEventListener('resize', onResize);
         };
-    }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen]);
+    }, [stepIndex, pathname, isVisible, currentStep, updateTarget, sidebarState, setSidebarOpen, calculateAndSetPosition]);
+
+    useEffect(() => {
+        if (isVisible && currentStep) {
+            const timer = setTimeout(calculateAndSetPosition, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isVisible, currentStep, targetRect, calculateAndSetPosition]);
 
     if (isSuppressed || !isVisible || !currentStep || (!targetRect && currentStep.target !== 'body') || currentStep.path !== pathname) {
         return null;
     }
 
     const isWelcomeStep = currentStep.target === 'body';
-
-    const getPopupPosition = () => {
-        if (isWelcomeStep || !targetRect) {
-            return {
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-            };
-        }
-
-        const isTargetInBottomHalf = targetRect.top + targetRect.height / 2 > window.innerHeight / 2;
-        
-        let top: string | number = 'auto';
-        let bottom: string | number = 'auto';
-        
-        if (isTargetInBottomHalf) {
-            bottom = window.innerHeight - targetRect.top + 20;
-        } else {
-            top = targetRect.bottom + 20;
-        }
-
-        const baseLeft = targetRect.left + targetRect.width / 2 - 160; // 160 is half popup width
-        let left: number | string = Math.max(20, baseLeft);
-        if (left + 320 > window.innerWidth - 20) {
-            left = window.innerWidth - 320 - 20;
-        }
-
-        return { top, bottom, left };
-    };
-    const popupPositionStyle = getPopupPosition();
 
     return (
         <AnimatePresence>
@@ -406,11 +427,12 @@ export function OnboardingTour() {
 
             <motion.div
                 key={`popup-${stepIndex}`}
+                ref={popupRef}
                 className="fixed z-[9999] w-80 rounded-lg border bg-card text-card-foreground shadow-xl"
                 initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                animate={{ ...popupPosition, opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                style={popupPositionStyle}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
             >
                 <div className="p-4">
                     <div className="flex items-start justify-between">
