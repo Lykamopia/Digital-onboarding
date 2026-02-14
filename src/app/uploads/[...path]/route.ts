@@ -53,14 +53,12 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         }
 
         const currentUserId = user.id;
-        const isAdminWithAuditLog = user.role?.permissions?.includes('manage_audit_log');
         
         let hasMemoAccess = 
             memo.fromId === currentUserId ||
             memo.current_holderId === currentUserId ||
             memo.to.some(u => u.id === currentUserId) ||
-            memo.cc.some(u => u.id === currentUserId) ||
-            isAdminWithAuditLog;
+            memo.cc.some(u => u.id === currentUserId);
         
         if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
             hasMemoAccess = false;

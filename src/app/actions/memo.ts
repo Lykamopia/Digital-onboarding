@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
 import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
@@ -225,92 +225,9 @@ export async function getAuditMemos(
     dateRange?: { from?: string; to?: string };
   } = {}
 ) {
-  await hasPermission('manage_audit_log');
-
-  const whereClause: Prisma.MemoWhereInput = {
-    status: { not: 'draft' }
-  };
-  
-  const andClauses: Prisma.MemoWhereInput[] = [];
-
-  if (filters.query) {
-    andClauses.push({
-      OR: [
-        { subject: { contains: filters.query, mode: 'insensitive' } },
-        { memo_reference_number: { contains: filters.query, mode: 'insensitive' } }
-      ]
-    });
-  }
-
-  if (filters.sender) {
-    andClauses.push({ fromId: filters.sender });
-  }
-
-  if (filters.recipient) {
-    andClauses.push({
-        OR: [
-            { to: { some: { id: filters.recipient } } },
-            { cc: { some: { id: filters.recipient } } }
-        ]
-    });
-  }
-
-  if (filters.status) {
-    if (filters.status === 'acknowledged') {
-      andClauses.push({ acknowledgedBy: { some: {} } });
-    } else {
-      andClauses.push({ status: filters.status });
-    }
-  }
-
-  if (filters.labels && filters.labels.length > 0) {
-    andClauses.push({ labels: { some: { id: { in: filters.labels } } } });
-  }
-
-  const dateFilter: { gte?: Date, lte?: Date } = {};
-  if (filters.dateRange?.from) {
-    dateFilter.gte = new Date(filters.dateRange.from);
-  }
-  if (filters.dateRange?.to) {
-    dateFilter.lte = new Date(filters.dateRange.to);
-  }
-  if (Object.keys(dateFilter).length > 0) {
-      andClauses.push({ createdAt: dateFilter });
-  }
-
-  if (andClauses.length > 0) {
-      whereClause.AND = andClauses;
-  }
-
-  const [memos, total] = await prisma.$transaction([
-    prisma.memo.findMany({
-      where: whereClause,
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        from: { include: { role: true } },
-        to: { include: { role: true } },
-        cc: { include: { role: true } },
-        labels: true,
-        attachments: true,
-        activity: {
-          include: { actor: true },
-          orderBy: { timestamp: 'asc' }
-        },
-        current_holder: { include: { role: true } },
-        previous_holders: { include: { role: true } },
-        acknowledgedBy: { include: { role: true } },
-        replies: {
-          include: { from: { include: { role: true } } },
-        },
-        replyTo: { include: { from: { include: { role: true } } } },
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.memo.count({ where: whereClause })
-  ]);
-
-  return { memos, total, page, limit, totalPages: Math.ceil(total / limit) };
+  // This feature is disabled as per new security requirements.
+  // Admins can no longer view memos they do not own.
+  return { memos: [], total: 0, page: 1, limit, totalPages: 1 };
 }
 
 
@@ -418,8 +335,6 @@ export async function getMemo(id: string) {
 
   // Authorization Check
   const userId = user.id;
-  const userPermissions = user.role?.permissions?.split(',') || [];
-  const isAdminWithAuditLog = userPermissions.includes('manage_audit_log');
 
   // Delegated sessions must have 'delegation:view' permission to see any memo.
   if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
@@ -439,7 +354,7 @@ export async function getMemo(id: string) {
   const isCc = memo.cc.some(u => u.id === userId);
   const isCurrentHolder = memo.current_holderId === userId;
 
-  const isAuthorized = isSender || isRecipient || isCc || isCurrentHolder || isAdminWithAuditLog;
+  const isAuthorized = isSender || isRecipient || isCc || isCurrentHolder;
 
   if (!isAuthorized) {
     await logSecurityEvent({
@@ -1067,18 +982,9 @@ export async function getUsers() {
 }
 
 export async function getAllMemosForAdmin() {
-    await hasPermission('manage_archive');
-    return await prisma.memo.findMany({
-        include: {
-            from: true,
-            to: true,
-            cc: true,
-            archivedBy: true,
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
+    // This feature is disabled as per new security requirements.
+    // Admins can no longer view all memos in the system.
+    return [];
 }
 
 
