@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -45,7 +44,6 @@ const determineCorrectFolder = (memo: MemoWithActivity, user: LoggedInUser | nul
 
     if (isRecipient) return 'inbox';
 
-    // Fallback if the user has access for other reasons (e.g., admin) but doesn't fit a folder
     return null;
 }
 
@@ -65,13 +63,13 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
   const loadingRef = useRef(false);
 
-  // Filter states
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [category, setCategory] = useState(searchParams.get('category') || 'all');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
-    if (from) { // Only require 'from' to set a range
+    if (from) {
       return { from: new Date(from), to: to ? new Date(to) : undefined };
     }
     return undefined;
@@ -82,14 +80,12 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   });
   const [show, setShow] = useState(searchParams.get('show') || '');
   
-  // Cache labels - only fetch once
   useEffect(() => {
     if (allLabels.length === 0) {
       getLabels().then(setAllLabels);
     }
   }, [allLabels.length]);
 
-  // Client-side real-time memo updates
   useEffect(() => {
     const handleNewMemo = (event: Event) => {
         const customEvent = event as CustomEvent;
@@ -126,6 +122,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         
         if (settings.acknowledgementMode === 'auto') {
             updatedMemo.acknowledgedBy = [...(updatedMemo.acknowledgedBy || []), { id: user.id }];
+            updatedMemo.status = m.status === 'open' ? 'in_progress' : m.status;
         }
         return updatedMemo;
     }));
@@ -137,7 +134,11 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
         const actorId = user.actingUser ? user.actingUser.id : user.id;
         setMemos(prevMemos => prevMemos.map(m => {
             if (!m.activity.some(a => a.action === 'viewed' && a.actorId === actorId)) {
-                return { ...m, activity: [...m.activity, { action: 'viewed', actorId }] };
+                return { 
+                    ...m, 
+                    activity: [...m.activity, { action: 'viewed', actorId }],
+                    status: (settings.acknowledgementMode === 'auto' && m.status === 'open') ? 'in_progress' : m.status
+                };
             }
             return m;
         }));
@@ -146,7 +147,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     return () => {
         window.removeEventListener('mark-all-memos-as-read', handleMarkAllAsRead);
     };
-  }, [user]);
+  }, [user, settings.acknowledgementMode]);
 
   const handleSelectMemo = useCallback((id: string) => {
     const newParams = new URLSearchParams(searchParams.toString());
@@ -174,7 +175,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     };
     try {
       const currentShow = tab === 'favorites' ? '' : show;
-      const data = await getDashboardData(tab, search, category, dateRangeParams, selectedLabels, currentShow);
+      const data = await getDashboardData(tab, search, category, dateRangeParams, selectedLabels, currentShow, statusFilter);
       setMemos(data as DashboardMemo[]);
     } catch (error) {
       console.error("Failed to load memos:", error);
@@ -183,11 +184,11 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [tab, search, category, dateRange, user, selectedLabels, show]);
+  }, [tab, search, category, dateRange, user, selectedLabels, show, statusFilter]);
 
   useEffect(() => {
     loadMemos();
-  }, [search, category, dateRange, selectedLabels, show, loadMemos]);
+  }, [search, category, dateRange, selectedLabels, show, statusFilter, loadMemos]);
 
    useEffect(() => {
     if (memoIdFromUrl) {
@@ -227,12 +228,11 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     } else {
         setSelectedMemo(null);
     }
-   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memoIdFromUrl, user, tab]);
   
   
   const getEmptyState = () => {
-      if (search || category !== 'all' || dateRange || selectedLabels.length > 0 || (show && tab !== 'favorites')) {
+      if (search || category !== 'all' || dateRange || selectedLabels.length > 0 || (show && tab !== 'favorites') || statusFilter !== 'all') {
         return { 
             icon: <SearchEmptyIllustration />,
             title: "No Memos Found", 
@@ -318,6 +318,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               setSelectedLabels={setSelectedLabels}
               show={show}
               setShow={setShow}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
               toggle={memoListToggle}
               isExpanded={isListExpanded}
               onRefresh={() => loadMemos(true)}

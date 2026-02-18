@@ -2,7 +2,6 @@
 
 import { PrismaClient } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
-import { sendVerificationEmail } from '../src/lib/email';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 
@@ -114,7 +113,7 @@ const users = [
     id: 'user-4',
     name: 'Diana Prince',
     email: 'diana.p@bank.com',
-    avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
+    avatar: 'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHjaHwyfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-2',
     districtId: 'dist-1',
     branchId: 'branch-2',
@@ -136,7 +135,7 @@ const users = [
     id: 'user-6',
     name: 'Fiona Glenanne',
     email: 'fiona.g@bank.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NjA3MDMzMXww&ixlib=rb-4.1.0&q=80&w=1080',
     officeId: 'off-2',
     districtId: 'dist-2',
     branchId: 'branch-3',
@@ -244,7 +243,7 @@ async function main() {
       subject: 'Q3 Financial Report Review',
       body: '<p>Please review the attached Q3 financial report and provide your feedback by EOD Friday.</p><p>We need to finalize this for the board meeting next week.</p>',
       createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      status: 'sent',
+      status: 'open',
       fromId: 'user-2',
       current_holderId: 'user-1',
       to: { connect: [{ id: 'user-1' }, { id: 'user-3' }] },
@@ -302,7 +301,7 @@ async function main() {
       subject: 'New Security Protocol Implementation',
       body: '<p>Team,</p><p>We will be rolling out a new security protocol starting next Monday. Please ensure all your team members complete the mandatory training module by then. See attached document for details.</p><p>Thank you.</p>',
       createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'sent',
+      status: 'in_progress',
       fromId: 'user-4',
       current_holderId: 'user-4',
       to: { connect: [{ id: 'user-1' }] },
@@ -360,7 +359,7 @@ async function main() {
       subject: 'IT Maintenance Schedule for November',
       body: '<p>Hi Ethan, please find the proposed IT maintenance schedule for November. Let me know if your team foresees any conflicts.</p>',
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'sent',
+      status: 'open',
       fromId: adminUser.id,
       current_holderId: 'user-5',
       to: { connect: [{ id: 'user-5' }] },
@@ -388,7 +387,7 @@ async function main() {
       subject: 'Upcoming All-Hands Meeting',
       body: '<p>A reminder that our quarterly all-hands meeting is scheduled for this Thursday at 10:00 AM in the main auditorium. Please add it to your calendars.</p><p>An agenda will be sent out shortly.</p>',
       createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'sent',
+      status: 'closed',
       fromId: 'user-3',
       current_holderId: 'user-2',
       to: {

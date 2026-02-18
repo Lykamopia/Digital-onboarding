@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Book, BookCopy, Inbox, Users, Send, Reply, Share2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Book, BookCopy, Inbox, Users, Send, Reply, Share2, ClipboardList, PlayCircle, CheckCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, isSameDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -87,6 +87,8 @@ interface MemoFiltersProps {
   isExpanded: boolean;
   onRefresh: () => void;
   loading: boolean;
+  statusFilter?: string;
+  setStatusFilter?: (status: string) => void;
 }
 
 type QuickDateRange = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'lastYear';
@@ -94,7 +96,8 @@ type QuickDateRange = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYe
 export function MemoFilters({ 
     tab, search, setSearch, dateRange, setDateRange, 
     category, setCategory, allLabels, selectedLabels, 
-    setSelectedLabels, show, setShow, toggle, isExpanded, onRefresh, loading 
+    setSelectedLabels, show, setShow, toggle, isExpanded, onRefresh, loading,
+    statusFilter = 'all', setStatusFilter
 }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
   const [activeQuickDate, setActiveQuickDate] = useState<QuickDateRange | null>(null);
@@ -172,17 +175,23 @@ export function MemoFilters({
       setSearchParams({ show: newShow === 'all' ? null : newShow });
   }
 
+  const handleStatusFilterChange = (newStatus: string) => {
+      setStatusFilter?.(newStatus);
+      setSearchParams({ status: newStatus === 'all' ? null : newStatus });
+  }
+
   const clearFilters = () => {
     setSearch('');
     setDateRange(undefined);
     setCategory('all');
     setSelectedLabels([]);
     setShow('');
+    setStatusFilter?.('all');
     setActiveQuickDate(null);
-    setSearchParams({ q: null, from: null, to: null, category: null, labels: null, show: null });
+    setSearchParams({ q: null, from: null, to: null, category: null, labels: null, show: null, status: null });
   }
 
-  const hasActiveFilters = search || dateRange || category !== 'all' || selectedLabels.length > 0 || (show && tab !== 'favorites');
+  const hasActiveFilters = search || dateRange || category !== 'all' || selectedLabels.length > 0 || (show && tab !== 'favorites') || statusFilter !== 'all';
   
   const selectedLabelObjects = selectedLabels.map(id => {
       return allLabels.find(l => l.id === id);
@@ -288,6 +297,40 @@ export function MemoFilters({
                 </PopoverContent>
             </Popover>
             
+            {(tab !== 'drafts' && tab !== 'scheduled') && (
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                    <SelectTrigger className="w-full sm:w-auto flex-1">
+                        <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                                All Statuses
+                            </div>
+                        </SelectItem>
+                        <SelectItem value="open">
+                            <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4 text-blue-500" />
+                                Open
+                            </div>
+                        </SelectItem>
+                        <SelectItem value="in_progress">
+                            <div className="flex items-center gap-2">
+                                <PlayCircle className="h-4 w-4 text-amber-500" />
+                                In Progress
+                            </div>
+                        </SelectItem>
+                        <SelectItem value="closed">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                Closed
+                            </div>
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+            )}
+
             {tab !== 'favorites' && (
                 <Select value={show} onValueChange={handleShowChange}>
                     <SelectTrigger className="w-full sm:w-auto flex-1">

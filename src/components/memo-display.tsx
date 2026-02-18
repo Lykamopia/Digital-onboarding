@@ -18,6 +18,8 @@ import {
   Loader2,
   ArrowLeft,
   Trash2,
+  PlayCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -51,7 +53,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { EmptyState } from './empty-state';
-import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag } from '@/app/actions/memo';
+import { acknowledgeMemo, archiveMemo, getLoggedInUser, duplicateMemo, toggleFlag, updateMemoStatus } from '@/app/actions/memo';
 import { StatusBadge } from './status-badge';
 import { MemoEmptyIllustration } from './memo-empty-illustration';
 import { InboxEmptyIllustration } from './inbox-empty-illustration';
@@ -95,7 +97,7 @@ const formatFileSize = (bytes: number) => {
 
 function hexToRgba(hex: string, alpha: number) {
     if (!/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-        return `rgba(200, 200, 200, ${alpha})`; // fallback color
+        return `rgba(200, 200, 200, ${alpha})`;
     }
     let c = hex.substring(1).split('');
     if (c.length === 3) {
@@ -118,15 +120,8 @@ const AnimatedAcknowledgement = ({ children }: { children: React.ReactNode }) =>
 const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     const trimmed = path.trim();
-    if (trimmed.startsWith('http')) {
-        return trimmed;
-    }
-    // All internal assets should be absolute paths from the root
-    if (trimmed.startsWith('/')) {
-        return trimmed;
-    }
-    // Return empty for invalid or relative paths we can't handle
-    // If the DB stored a relative path like "uploads/..", convert to absolute root path
+    if (trimmed.startsWith('http')) return trimmed;
+    if (trimmed.startsWith('/')) return trimmed;
     return `/${trimmed}`;
 }
 
@@ -162,32 +157,41 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const [loggedInUser, setLoggedInUser] = React.useState<LoggedInUser | null>(null);
   const { settings } = useSettings();
   const [isAcknowledging, setIsAcknowledging] = React.useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
   }, []);
 
   const findAcknowledgementActivity = (recipient: User, allActivities: Activity[]): Activity | undefined => {
-    // The activity list is sorted by timestamp descending, so `find` will get the most recent one.
     return allActivities.find(act => {
-        if (act.action !== 'acknowledged') {
-            return false;
-        }
-        // Case 1: The recipient acknowledged it themselves.
-        if (act.actorId === recipient.id) {
-            return true;
-        }
-        // Case 2: A delegate acknowledged on their behalf.
-        // This relies on the specific string from the server action.
-        if (act.details?.includes(`on behalf of **${recipient.name}**`)) {
-            return true;
-        }
+        if (act.action !== 'acknowledged') return false;
+        if (act.actorId === recipient.id) return true;
+        if (act.details?.includes(`on behalf of **${recipient.name}**`)) return true;
         return false;
     });
   };
   
   const handlePrint = () => {
     window.print();
+  }
+
+  const handleUpdateStatus = async (status: string) => {
+      if (!memo) return;
+      setIsUpdatingStatus(true);
+      try {
+          const res = await updateMemoStatus(memo.id, status);
+          if (res.success) {
+              toast.success(`Workflow updated to ${status.replace('_', ' ').toUpperCase()}`);
+              onUpdate();
+          } else {
+              toast.error(res.error || "Failed to update workflow status.");
+          }
+      } catch (err) {
+          toast.error("An error occurred while updating the status.");
+      } finally {
+          setIsUpdatingStatus(false);
+      }
   }
 
   const handleAcknowledge = async () => {
@@ -198,7 +202,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     const result = await acknowledgeMemo(memo.id);
 
     if (result.success) {
-      // Optimistic UI Update
       const newActivity = {
           id: `temp-ack-${Date.now()}`,
           actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
@@ -207,8 +210,12 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
           details: 'Acknowledged receipt of this memo.',
           timestamp: new Date().toISOString()
       };
+      
+      const updatedStatus = memo.status === 'open' ? 'in_progress' : memo.status;
+
       const updatedMemo = {
           ...memo,
+          status: updatedStatus,
           acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
           activity: [...memo.activity, newActivity]
       };
@@ -579,13 +586,37 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   return (
     <Card className="h-full flex flex-col" id={!isPreview ? 'memo-content-wrapper' : ''}>
         <CardHeader className="flex flex-row items-center justify-between no-print border-b p-4 bg-gradient-to-br from-primary/5 to-accent/5">
-            <div className="flex items-center gap-2 overflow-hidden">
+            <div className="flex items-center gap-4 overflow-hidden">
                 {onBack && (
                   <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
-                <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
+                <div className="flex flex-col min-w-0">
+                    <CardTitle className="text-base truncate">{memo.subject}</CardTitle>
+                    {!isPreview && !isDraft && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <StatusBadge status={memo.status as any} />
+                            <div className="flex items-center gap-1 ml-2">
+                                {memo.status === 'open' && (
+                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('in_progress')} disabled={isUpdatingStatus}>
+                                        <PlayCircle className="mr-1 h-3 w-3" /> Start Working
+                                    </Button>
+                                )}
+                                {memo.status === 'in_progress' && (
+                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('closed')} disabled={isUpdatingStatus}>
+                                        <CheckCircle2 className="mr-1 h-3 w-3" /> Resolve
+                                    </Button>
+                                )}
+                                {memo.status === 'closed' && (
+                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('in_progress')} disabled={isUpdatingStatus}>
+                                        <Undo2 className="mr-1 h-3 w-3" /> Re-open
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
             {!isPreview && (
                  <Dialog>

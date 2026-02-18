@@ -28,11 +28,7 @@ async function hasPermission(permission: Permission | Permission[]): Promise<Log
 
     const requiredPermissions = Array.isArray(permission) ? permission : [permission];
 
-    // For delegated sessions, all permission checks happen inside the actions themselves.
-    // The `hasPermission` function is for standard role-based access control.
     if (user.actingUser) {
-        // This function is for RBAC, delegation checks are done in the actions.
-        // We return the user object to allow the action to proceed to its specific delegation check.
         return user;
     }
 
@@ -66,7 +62,6 @@ const memoSchema = z.object({
   scheduledFor: z.date().optional(),
 });
 
-// Function to send data to WebSocket server via HTTP
 async function sendToWebSocket(data: any) {
     try {
         const payload = {
@@ -86,14 +81,22 @@ async function sendToWebSocket(data: any) {
     }
 }
 
-export async function getDashboardData(tab: string, query: string, category: string, dateRange: { from?: string, to?: string}, labels: string[] = [], show: string) {
+export async function getDashboardData(
+    tab: string, 
+    query: string, 
+    category: string, 
+    dateRange: { from?: string, to?: string}, 
+    labels: string[] = [], 
+    show: string,
+    statusFilter: string = 'all'
+) {
     const user = await getLoggedInUser();
     if (!user) {
         return [];
     }
 
     if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
-      return []; // If no view permission, return nothing.
+      return [];
     }
     
     const userId = user.id;
@@ -110,7 +113,6 @@ export async function getDashboardData(tab: string, query: string, category: str
         where.AND.push({ NOT: isArchivedByCurrentUser });
         if (tab === 'inbox') {
             where.AND.push({
-                status: { in: ['sent', 'scheduled'] } ,
                 OR: [
                     { to: { some: { id: userId } } },
                     { cc: { some: { id: userId } } },
@@ -136,7 +138,7 @@ export async function getDashboardData(tab: string, query: string, category: str
                 });
             }
         } else if (tab === 'sent') {
-            where.AND.push({ fromId: userId, status: { not: 'draft' } });
+            where.AND.push({ fromId: userId });
             if (category === 'sent') {
                 where.AND.push({ replyToId: null, assignedFromId: null });
             } else if (category === 'replied') {
@@ -153,6 +155,14 @@ export async function getDashboardData(tab: string, query: string, category: str
         }
     }
     
+    if (tab !== 'drafts' && tab !== 'scheduled') {
+        if (statusFilter !== 'all') {
+            where.AND.push({ status: statusFilter });
+        } else if (tab === 'inbox' || tab === 'sent' || tab === 'favorites' || tab === 'archive') {
+            where.AND.push({ status: { in: ['open', 'in_progress', 'closed'] } });
+        }
+    }
+
     if (query) {
         where.AND.push({
              OR: [
@@ -184,10 +194,6 @@ export async function getDashboardData(tab: string, query: string, category: str
         where.AND.push({ flaggedBy: { some: { id: userId } } });
     }
     
-    if(user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
-      return []; // If no view permission, return nothing.
-    }
-
     const memos = await prisma.memo.findMany({
         where,
         include: {
@@ -206,30 +212,12 @@ export async function getDashboardData(tab: string, query: string, category: str
             current_holder: { select: { id: true } },
         },
         orderBy: [
-            { favoritedBy: { _count: 'desc' } }, // favorited memos first
+            { favoritedBy: { _count: 'desc' } },
             { createdAt: 'desc' }
         ]
     });
     return memos;
 }
-
-export async function getAuditMemos(
-  page = 1,
-  limit = 10,
-  filters: {
-    query?: string;
-    sender?: string;
-    recipient?: string;
-    status?: string;
-    labels?: string[];
-    dateRange?: { from?: string; to?: string };
-  } = {}
-) {
-  // This feature is disabled as per new security requirements.
-  // Admins can no longer view memos they do not own.
-  return { memos: [], total: 0, page: 1, limit, totalPages: 1 };
-}
-
 
 export async function toggleFavorite(memoId: string) {
     const user = await getLoggedInUser();
@@ -333,10 +321,8 @@ export async function getMemo(id: string) {
     return null;
   }
 
-  // Authorization Check
   const userId = user.id;
 
-  // Delegated sessions must have 'delegation:view' permission to see any memo.
   if (user.actingUser && !user.delegationPermissions?.includes('delegation:view')) {
       await logSecurityEvent({
           event: SecurityEvent.PERMISSION_DENIED,
@@ -539,19 +525,16 @@ async function generateReferenceNumber(user: User): Promise<string> {
 
     const orgParts: string[] = [];
 
-    // Always start with the office code if it exists
     if (userWithRelations.office) {
         orgParts.push(userWithRelations.office.code);
     }
 
-    // Add department and division if they exist and user is associated with a department
     if (userWithRelations.department) {
         orgParts.push(userWithRelations.department.code);
         if (userWithRelations.division) {
             orgParts.push(userWithRelations.division.code);
         }
     } 
-    // Otherwise, add district and branch if they exist
     else if (userWithRelations.district) {
         orgParts.push(userWithRelations.district.code);
         if (userWithRelations.branch) {
@@ -652,7 +635,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
         current_holderId: validatedData.to[0],
         subject: validatedData.subject,
         body: validatedData.body,
-        status: isScheduled ? 'scheduled' : 'sent',
+        status: isScheduled ? 'scheduled' : 'open',
         attachments: { create: validatedData.attachments.map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
         activity: { create: [{ actorId: actorId, action: actionVerb, details: activityDetails }] },
         replyToId: validatedData.replyTo,
@@ -691,6 +674,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
             where: { id: validatedData.assignFrom },
             data: {
                 acknowledgedBy: { connect: { id: user.id } },
+                status: 'in_progress',
                 activity: {
                     create: [
                         { actorId: actorId, action: 'assigned', details: assignDetails },
@@ -709,6 +693,7 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
         await prisma.memo.update({
             where: { id: validatedData.replyTo },
             data: {
+                status: 'in_progress',
                 activity: { create: { actorId: actorId, action: 'replied', details: replyDetails } }
             }
         });
@@ -716,7 +701,6 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
 
     const draftId = formData.get('draftId') as string;
     if (draftId) {
-        // First, disconnect many-to-many relations and delete related one-to-many records
         await prisma.memo.update({
             where: { id: draftId },
             data: {
@@ -727,8 +711,6 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
         });
         await prisma.attachment.deleteMany({ where: { memoId: draftId } });
         await prisma.activity.deleteMany({ where: { memoId: draftId } });
-
-        // Now, safely delete the memo
         await prisma.memo.delete({ where: { id: draftId } });
     }
     
@@ -919,6 +901,10 @@ export async function acknowledgeMemo(memoId: string): Promise<{ success: boolea
     activity: { create: { actorId: actorId, action: 'acknowledged', details: ackDetails } },
   };
   
+  if (memo.status === 'open') {
+      updateData.status = 'in_progress';
+  }
+
   if (isDirectRecipient) {
       updateData.current_holder = { connect: { id: user.id } };
   }
@@ -928,6 +914,46 @@ export async function acknowledgeMemo(memoId: string): Promise<{ success: boolea
   revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
   return { success: true };
+}
+
+export async function updateMemoStatus(memoId: string, status: string): Promise<{ success: boolean; error?: string }> {
+    const user = await getLoggedInUser();
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    const memo = await getMemo(memoId);
+    if (!memo) return { success: false, error: "Memo not found." };
+
+    const userId = user.id;
+    const isSender = memo.fromId === userId;
+    const isRecipient = memo.to.some(u => u.id === userId) || memo.cc.some(u => u.id === userId);
+
+    if (!isSender && !isRecipient) {
+        return { success: false, error: "You do not have permission to update the status of this memo." };
+    }
+
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+    let details = `Workflow status updated to **${status.replace('_', ' ').toUpperCase()}**.`;
+    if (user.actingUser) {
+        details = `Workflow status updated to **${status.replace('_', ' ').toUpperCase()}** by **${user.actingUser.name}** on behalf of **${user.name}**.`;
+    }
+
+    await prisma.memo.update({
+        where: { id: memoId },
+        data: {
+            status,
+            activity: {
+                create: {
+                    actorId: actorId,
+                    action: 'commented',
+                    details: details,
+                }
+            }
+        }
+    });
+
+    revalidatePath('/dashboard/inbox');
+    revalidatePath(`/dashboard?id=${memoId}`);
+    return { success: true };
 }
 
 export async function archiveMemo(memoId: string, archive: boolean) {
@@ -974,7 +1000,6 @@ export async function getUsers() {
         }
     });
 
-    // Sanitize user data to remove password hashes before returning
     return users.map(user => {
         const { hashedPassword, ...userWithoutPassword } = user;
         return userWithoutPassword;
@@ -982,8 +1007,6 @@ export async function getUsers() {
 }
 
 export async function getAllMemosForAdmin() {
-    // This feature is disabled as per new security requirements.
-    // Admins can no longer view all memos in the system.
     return [];
 }
 
@@ -1021,7 +1044,7 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
     const realUserId = sessionUser.isDelegated ? sessionUser.realUser.id : sessionUser.id;
 
     if (!currentUserId || !realUserId) {
-        return null; // One of the IDs is missing, invalid session state
+        return null;
     }
 
     const userInclude = {
@@ -1049,7 +1072,6 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     if (!currentUser || !realUserWithDelegations) return null;
     
-    // Sanitize passwords
     (currentUser as any).hashedPassword = null;
     if (currentUser.delegations) {
         for (const delegation of currentUser.delegations) {
@@ -1074,7 +1096,7 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
     const finalUser: LoggedInUser = {
         ...currentUser,
         onboardingCompleted: currentUser.onboardingCompleted,
-        delegatedTo: realUserWithDelegations.delegatedTo, // Always use the real user's delegatedTo list
+        delegatedTo: realUserWithDelegations.delegatedTo,
     };
     
     if (sessionUser.isDelegated) {
@@ -1096,7 +1118,6 @@ export async function getUserLockoutStatus(email: string) {
 }
 
 
-// Admin actions
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
     const user = await hasPermission('manage_divisions');
     if (data.id) {
@@ -1273,7 +1294,6 @@ export async function saveUser(data: {
 }): Promise<{ success: boolean; error?: string; message?: string; }> {
     const adminUser = await hasPermission('manage_users');
     
-    // For new users
     if (!data.id) {
         const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
         if (existingUser) {
@@ -1299,7 +1319,7 @@ export async function saveUser(data: {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
 
         await prisma.passwordResetToken.upsert({
             where: { email: newUser.email! },
@@ -1316,7 +1336,6 @@ export async function saveUser(data: {
         return { success: true };
     }
 
-    // For existing users (update)
     const existingUser = await prisma.user.findUnique({ where: { id: data.id } });
     if (!existingUser) {
         return { error: 'User not found.' };
@@ -1325,7 +1344,6 @@ export async function saveUser(data: {
     let emailChangeMessage: string | null = null;
     let emailChanged = false;
 
-    // Handle email change request separately
     if (existingUser.email !== data.email) {
         emailChanged = true;
         const newEmail = data.email;
@@ -1344,14 +1362,13 @@ export async function saveUser(data: {
             return { error: `This email address is pending verification for another account.` };
         }
         
-        // Invalidate any previous email change request for this user
         await prisma.passwordResetToken.deleteMany({
             where: { email: { startsWith: `email-change::${data.id}::` } }
         });
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
         const compositeKey = `email-change::${data.id}::${newEmail}`;
 
         await prisma.passwordResetToken.create({
@@ -1380,7 +1397,6 @@ export async function saveUser(data: {
         branchId: data.branchId || null,
     };
     
-    // Only include email in the update if it hasn't changed
     if (!emailChanged) {
         payload.email = data.email;
     }
@@ -1428,7 +1444,7 @@ export async function resetUserPassword(userId: string) {
 
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
 
         await prisma.passwordResetToken.upsert({
             where: { email: user.email },
@@ -1559,7 +1575,6 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         return { success: false, error: "User not found." };
     }
 
-    // Handle email change request
     if (data.email && currentUser.email !== data.email) {
         const newEmail = data.email;
         const existingUser = await prisma.user.findFirst({ where: { email: newEmail } });
@@ -1588,7 +1603,7 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         
         const token = randomBytes(32).toString('hex');
         const hashedToken = createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
         const compositeKey = `email-change::${userId}::${newEmail}`;
 
         await prisma.passwordResetToken.create({
@@ -1597,14 +1612,12 @@ export async function updateUserProfile(userId: string, data: { name: string, em
 
         await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: user, details: `User requested email change from ${currentUser.email} to ${newEmail}.`, targetId: userId, targetType: 'User' });
         
-        // Send emails without awaiting to make the UI response faster
         sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token, userId })
             .catch(error => console.error(`Failed to send email change verification to ${newEmail}:`, error));
             
         sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail })
             .catch(error => console.error(`Failed to send email change notification to ${currentUser.email!}:`, error));
 
-        // Update other profile data but not the email
         const { email, ...otherData } = data;
         if (Object.keys(otherData).length > 0 || data.name !== currentUser.name) {
              await prisma.user.update({ where: { id: userId }, data: { name: data.name, avatar: data.avatar, signature: data.signature } });
@@ -1614,7 +1627,6 @@ export async function updateUserProfile(userId: string, data: { name: string, em
         return { success: true, message: `Verification email sent to ${newEmail}. This link is valid for 1 hour.` };
 
     } else {
-        // No email change, just update other data
         const { email, ...otherData } = data;
         await prisma.user.update({ where: { id: userId }, data: otherData });
         await logSecurityEvent({ event: SecurityEvent.PROFILE_UPDATED, severity: LogSeverity.INFO, actor: user, details: `User updated their profile.`, targetId: userId, targetType: 'User' });
@@ -1832,7 +1844,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
             
             const token = randomBytes(32).toString('hex');
             const hashedToken = createHash('sha256').update(token).digest('hex');
-            const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+            const expires = new Date(Date.now() + 60 * 60 * 1000);
 
             await prisma.passwordResetToken.upsert({
                 where: { email: newUser.email! },
@@ -2090,7 +2102,6 @@ export async function addOrUpdateDelegate(data: { delegateId: string, permission
         await logSecurityEvent({ event: SecurityEvent.DELEGATION_GRANTED, severity: LogSeverity.WARN, actor: user, details: `User '${user.name}' granted delegation to '${delegateUser?.name}'. Permissions: ${data.permissions.join(',')}`, targetId: data.delegateId, targetType: 'User' });
     }
     
-    // Invalidate the delegate's sessions to force a re-login and permission refresh
     await revokeUserTokens(data.delegateId);
     
     revalidatePath('/dashboard/profile');
@@ -2109,8 +2120,6 @@ export async function removeDelegate(delegationId: string) {
     
     await prisma.delegation.delete({ where: { id: delegationId } });
 
-    // Invalidate all of the delegate's sessions to prevent unauthorized access
-    // if they were in a delegated session when access was revoked.
     await revokeUserTokens(delegation.delegateId);
 
     revalidatePath('/dashboard/profile');
@@ -2169,7 +2178,6 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
-        // Invalidate the token on failed password policy to prevent brute-force
         await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
         const errorMessage = validation.error.issues.map(i => i.message).join(' ');
         return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
