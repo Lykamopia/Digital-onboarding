@@ -1032,6 +1032,70 @@ export async function getAllMemosForAdmin() {
     return [];
 }
 
+export async function getAuditMemos(page = 1, limit = 15, filters: any = {}) {
+    const user = await getLoggedInUser();
+    if (!user) return { memos: [], total: 0, totalPages: 0, page, limit };
+
+    // Strict ownership check: only see memos you are involved in
+    const userId = user.id;
+    const where: any = {
+        AND: [
+            {
+                OR: [
+                    { fromId: userId },
+                    { to: { some: { id: userId } } },
+                    { cc: { some: { id: userId } } },
+                    { current_holderId: userId },
+                ]
+            }
+        ]
+    };
+
+    if (filters.query) {
+        where.AND.push({
+            OR: [
+                { subject: { contains: filters.query, mode: 'insensitive' } },
+                { memo_reference_number: { contains: filters.query, mode: 'insensitive' } },
+            ]
+        });
+    }
+
+    if (filters.sender) where.AND.push({ fromId: filters.sender });
+    if (filters.recipient) where.AND.push({ to: { some: { id: filters.recipient } } });
+    if (filters.status) where.AND.push({ status: filters.status });
+    if (filters.labels && filters.labels.length > 0) {
+        where.AND.push({ labels: { some: { id: { in: filters.labels } } } });
+    }
+    if (filters.dateRange?.from) where.AND.push({ createdAt: { gte: new Date(filters.dateRange.from) } });
+    if (filters.dateRange?.to) where.AND.push({ createdAt: { lte: new Date(filters.dateRange.to) } });
+
+    const [memos, total] = await prisma.$transaction([
+        prisma.memo.findMany({
+            where,
+            skip: (page - 1) * limit,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                from: true,
+                to: true,
+                cc: true,
+                labels: true,
+                activity: { include: { actor: true } },
+                acknowledgedBy: true,
+            }
+        }),
+        prisma.memo.count({ where })
+    ]);
+
+    return {
+        memos,
+        total,
+        totalPages: Math.ceil(total / limit),
+        page,
+        limit
+    };
+}
+
 
 export async function getDivisions() {
     return await prisma.division.findMany({ include: { department: true }});
