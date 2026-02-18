@@ -1,4 +1,3 @@
-
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -193,7 +192,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
 
@@ -259,16 +257,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Mark as Read</TooltipContent>
-                        </Tooltip>
-                    )}
-                    {canAcknowledge && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAcknowledge(memo.id))}>
-                                    <CheckCircle />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Acknowledge</TooltipContent>
                         </Tooltip>
                     )}
                     {canReply && tab !== 'sent' && (
@@ -352,7 +340,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         const memoStatus = getMemoStatus(memo);
         
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || (loggedInUser && memo.cc.some(u => u.id === loggedInUser!.id))) && memoStatus !== 'acknowledged' && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canDuplicate = (!loggedInUser.actingUser && loggedInUser.role?.permissions.includes('manage_memos')) || (loggedInUser.actingUser && loggedInUser.delegationPermissions?.includes('delegation:draft'));
@@ -408,12 +395,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
                         <MailOpen className="mr-2 h-4 w-4" />
                         <span>Mark as Read</span>
-                    </ContextMenuItem>
-                )}
-                {canAcknowledge && (
-                    <ContextMenuItem onSelect={() => handleAcknowledge(memo.id)}>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        <span>Acknowledge</span>
                     </ContextMenuItem>
                 )}
                 {canReply && tab !== 'sent' && (
