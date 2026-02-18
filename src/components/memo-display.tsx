@@ -291,7 +291,9 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
       );
   }
 
-  if (memo.status === 'draft' && !isPreview) {
+  const isDraft = memo.status === 'draft';
+
+  if (isDraft && !isPreview) {
     return (
       <div className="h-full p-2">
         <EmptyState
