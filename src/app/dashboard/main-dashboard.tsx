@@ -149,6 +149,28 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     };
   }, [user, settings.acknowledgementMode]);
 
+  // Handle optimistic acknowledgement updates from MemoDisplay
+  useEffect(() => {
+    const handleOptimisticAck = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const { memoId, status, acknowledgedBy } = customEvent.detail;
+        
+        setMemos(prevMemos => prevMemos.map(m => {
+            if (m.id !== memoId) return m;
+            return { 
+                ...m, 
+                status, 
+                acknowledgedBy,
+                activity: [{ action: 'acknowledged' as const, actorId: user?.id || '' }, ...m.activity]
+            };
+        }));
+    };
+    window.addEventListener('memo-acknowledged-locally', handleOptimisticAck);
+    return () => {
+        window.removeEventListener('memo-acknowledged-locally', handleOptimisticAck);
+    };
+  }, [user]);
+
   const handleSelectMemo = useCallback((id: string) => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);

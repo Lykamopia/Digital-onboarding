@@ -183,20 +183,49 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     const result = await acknowledgeMemo(memo.id);
 
     if (result.success) {
-      const newActivity = {
-          id: `temp-ack-${Date.now()}`,
-          actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
-          action: 'acknowledged' as const,
-          actor: loggedInUser.actingUser || loggedInUser,
-          details: 'Acknowledged receipt of this memo.',
-          timestamp: new Date().toISOString()
-      };
-      
-      // The status update logic is handled on the server now
+      // Optimistic update for immediate feedback
+      if (setMemo) {
+          const actor = loggedInUser.actingUser || loggedInUser;
+          const newActivity = {
+              id: `temp-ack-${Date.now()}`,
+              actorId: loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id,
+              action: 'acknowledged' as const,
+              actor: actor as User,
+              details: loggedInUser.actingUser ? `Acknowledged by **${loggedInUser.actingUser.name}** on behalf of **${loggedInUser.name}**.` : 'Acknowledged receipt of this memo.',
+              timestamp: new Date().toISOString()
+          };
+
+          // Determine next status optimistically
+          const currentAckIds = new Set(memo.acknowledgedBy?.map(u => u.id) || []);
+          currentAckIds.add(loggedInUser.id);
+          const toIds = memo.to.map(u => u.id);
+          const allToAcknowledged = toIds.every(id => currentAckIds.has(id));
+          
+          const nextStatus = allToAcknowledged ? 'closed' : 'in_progress';
+
+          setMemo({
+              ...memo,
+              status: nextStatus,
+              acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
+              activity: [newActivity, ...memo.activity],
+          });
+
+          // Dispatch event to update the sidebar list item instantly
+          window.dispatchEvent(new CustomEvent('memo-acknowledged-locally', {
+              detail: { 
+                  memoId: memo.id, 
+                  status: nextStatus, 
+                  acknowledgedBy: [...(memo.acknowledgedBy || []), { id: loggedInUser.id }]
+              }
+          }));
+      }
+
       toast.success("Memo Acknowledged", {
           description: "You have acknowledged receipt of this memo."
       });
-      onUpdate(); // Trigger a full update to get the latest status
+      
+      // Trigger background update to ensure full consistency with server
+      onUpdate(); 
     } else {
         toast.error("Acknowledgement Failed", { description: result.error });
     }
@@ -292,11 +321,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const isSender = loggedInUser && memo.fromId === loggedInUser.id;
   const hasAcknowledged = loggedInUser && memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
   
-  const canAcknowledge = settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
-  const canReply = isDirectRecipient && !isSender && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
-  const canReplyAll = canReply && (memo.to.length + memo.cc.length > 1);
-  const canAssign = isDirectRecipient && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
-  const canDuplicate = !loggedInUser?.actingUser ? loggedInUser?.role.permissions.includes('manage_memos') : loggedInUser?.delegationPermissions?.includes('delegation:draft');
+  const canAcknowledge = !isPreview && settings.acknowledgementMode === 'manual' && (isDirectRecipient || isCC) && !hasAcknowledged && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:acknowledge'));
+  const canReply = !isPreview && isDirectRecipient && !isSender && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+  const canReplyAll = !isPreview && canReply && (memo.to.length + memo.cc.length > 1);
+  const canAssign = !isPreview && isDirectRecipient && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
+  const canDuplicate = !isPreview && (!loggedInUser?.actingUser ? loggedInUser?.role.permissions.includes('manage_memos') : loggedInUser?.delegationPermissions?.includes('delegation:draft'));
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
   const useSignature = settings.acknowledgementType === 'SIGNATURE';
