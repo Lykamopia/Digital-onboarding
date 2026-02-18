@@ -9,16 +9,10 @@ import { Prisma } from '@prisma/client';
 import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
 import { z } from 'zod';
-import bcrypt from 'bcrypt';
-import { cookies } from 'next/headers';
-import { sendEmail, sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeVerificationEmail, sendEmailChangeNotificationEmail } from '@/lib/email';
-import WebSocket from 'ws';
 import { redirect } from 'next/navigation';
-import { passwordSchema } from '@/lib/password-policy';
-import Papa from 'papaparse';
-import { randomBytes, createHash } from 'crypto';
 import { getGeneralSettings, getEmailSettings } from './settings';
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
+import { sendEmail } from '@/lib/email';
 
 async function hasPermission(permission: Permission | Permission[]): Promise<LoggedInUser> {
     const user = await getLoggedInUser();
@@ -1029,7 +1023,29 @@ export async function getUsers() {
 }
 
 export async function getAllMemosForAdmin() {
-    return [];
+    const user = await getLoggedInUser();
+    if (!user) return [];
+
+    const userId = user.id;
+    // Strict ownership check: only show memos the user is part of that are archived
+    const memos = await prisma.memo.findMany({
+        where: {
+            archivedBy: { some: { id: userId } },
+            OR: [
+                { fromId: userId },
+                { to: { some: { id: userId } } },
+                { cc: { some: { id: userId } } },
+                { current_holderId: userId },
+            ]
+        },
+        include: {
+            from: { select: { name: true } },
+            to: { select: { name: true } },
+            archivedBy: { select: { id: true } },
+        },
+        orderBy: { updatedAt: 'desc' }
+    });
+    return memos;
 }
 
 export async function getAuditMemos(page = 1, limit = 15, filters: any = {}) {
@@ -1403,8 +1419,8 @@ export async function saveUser(data: {
         const newUser = await prisma.user.create({ data: newUserPayload });
         await logSecurityEvent({ event: SecurityEvent.USER_CREATED, severity: LogSeverity.WARN, actor: adminUser, details: `Admin created new user '${newUser.name}' (ID: ${newUser.id}).`, targetId: newUser.id, targetType: 'User' });
 
-        const token = randomBytes(32).toString('hex');
-        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const token = require('crypto').randomBytes(32).toString('hex');
+        const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
 
         await prisma.passwordResetToken.upsert({
@@ -1413,8 +1429,9 @@ export async function saveUser(data: {
             create: { email: newUser.email!, token: hashedToken, expires },
         });
         
+        const { sendVerificationEmail } = require('@/lib/email');
         sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token: token })
-            .catch(error => {
+            .catch((error: any) => {
                 console.error(`Failed to send welcome email to ${newUser.email}:`, error);
             });
         
@@ -1452,8 +1469,8 @@ export async function saveUser(data: {
             where: { email: { startsWith: `email-change::${data.id}::` } }
         });
 
-        const token = randomBytes(32).toString('hex');
-        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const token = require('crypto').randomBytes(32).toString('hex');
+        const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         const compositeKey = `email-change::${data.id}::${newEmail}`;
 
@@ -1463,11 +1480,12 @@ export async function saveUser(data: {
 
         await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: adminUser, details: `Admin initiated email change for user '${existingUser.name}' from ${existingUser.email} to ${newEmail}.`, targetId: data.id, targetType: 'User' });
         
+        const { sendEmailChangeVerificationEmail, sendEmailChangeNotificationEmail } = require('@/lib/email');
         sendEmailChangeVerificationEmail({ to: newEmail, name: existingUser.name!, token, userId: data.id })
-            .catch(error => console.error(`Failed to send email change verification to ${newEmail}:`, error));
+            .catch((error: any) => console.error(`Failed to send email change verification to ${newEmail}:`, error));
             
         sendEmailChangeNotificationEmail({ to: existingUser.email!, name: existingUser.name!, newEmail: newEmail })
-            .catch(error => console.error(`Failed to send email change notification to ${existingUser.email!}:`, error));
+            .catch((error: any) => console.error(`Failed to send email change notification to ${existingUser.email!}:`, error));
         
         emailChangeMessage = `A verification email has been sent to ${newEmail} to confirm the change. This link is valid for 1 hour.`;
     }
@@ -1528,8 +1546,8 @@ export async function resetUserPassword(userId: string) {
             return { success: false, error: 'User not found or has no email.' };
         }
 
-        const token = randomBytes(32).toString('hex');
-        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const token = require('crypto').randomBytes(32).toString('hex');
+        const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
 
         await prisma.passwordResetToken.upsert({
@@ -1540,8 +1558,9 @@ export async function resetUserPassword(userId: string) {
         
         await logSecurityEvent({ event: SecurityEvent.PASSWORD_RESET_REQUEST, severity: LogSeverity.WARN, actor: admin, details: `Admin initiated password reset for user '${user.name}' (ID: ${userId}).`, targetId: userId, targetType: 'User' });
 
+        const { sendPasswordResetEmail } = require('@/lib/email');
         sendPasswordResetEmail({ to: user.email, name: user.name!, token: token })
-            .catch(error => {
+            .catch((error: any) => {
                  console.error(`Failed to send password reset email to ${user.email}:`, error);
             });
 
@@ -1557,11 +1576,13 @@ export async function changeUserPassword(password: string) {
         const user = await getLoggedInUser();
         if (!user) return { success: false, error: 'Not authenticated.' };
 
+        const { passwordSchema } = require('@/lib/password-policy');
         const validation = await passwordSchema.safeParseAsync(password);
         if (!validation.success) {
-            return { success: false, error: validation.error.issues.map(i => i.message).join(' ') };
+            return { success: false, error: validation.error.issues.map((i: any) => i.message).join(' ') };
         }
 
+        const bcrypt = require('bcrypt');
         const hashedPassword = await bcrypt.hash(password, 10);
         await prisma.user.update({
             where: { id: user.id },
@@ -1687,8 +1708,8 @@ export async function updateUserProfile(userId: string, data: { name: string, em
             return { success: false, error: "You already have a pending email change request. Please check your email or wait for the previous request to expire." };
         }
         
-        const token = randomBytes(32).toString('hex');
-        const hashedToken = createHash('sha256').update(token).digest('hex');
+        const token = require('crypto').randomBytes(32).toString('hex');
+        const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         const compositeKey = `email-change::${userId}::${newEmail}`;
 
@@ -1698,11 +1719,12 @@ export async function updateUserProfile(userId: string, data: { name: string, em
 
         await logSecurityEvent({ event: SecurityEvent.EMAIL_CHANGE_REQUEST, severity: LogSeverity.WARN, actor: user, details: `User requested email change from ${currentUser.email} to ${newEmail}.`, targetId: userId, targetType: 'User' });
         
+        const { sendEmailChangeVerificationEmail, sendEmailChangeNotificationEmail } = require('@/lib/email');
         sendEmailChangeVerificationEmail({ to: newEmail, name: currentUser.name!, token, userId })
-            .catch(error => console.error(`Failed to send email change verification to ${newEmail}:`, error));
+            .catch((error: any) => console.error(`Failed to send email change verification to ${newEmail}:`, error));
             
         sendEmailChangeNotificationEmail({ to: currentUser.email!, name: currentUser.name!, newEmail: newEmail })
-            .catch(error => console.error(`Failed to send email change notification to ${currentUser.email!}:`, error));
+            .catch((error: any) => console.error(`Failed to send email change notification to ${currentUser.email!}:`, error));
 
         const { email, ...otherData } = data;
         if (Object.keys(otherData).length > 0 || data.name !== currentUser.name) {
@@ -1727,7 +1749,7 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
         return { success: false, error: 'Invalid verification token.' };
     }
 
-    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: {
             token: hashedToken,
@@ -1800,11 +1822,12 @@ type UserDataRow = {
 };
 
 async function parseFileData(fileData: string): Promise<UserDataRow[]> {
+    const Papa = require('papaparse');
     return new Promise((resolve) => {
         Papa.parse(fileData, {
             header: true,
             skipEmptyLines: true,
-            complete: (result) => resolve(result.data as UserDataRow[]),
+            complete: (result: any) => resolve(result.data as UserDataRow[]),
         });
     });
 }
@@ -1928,8 +1951,8 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
                 },
             });
             
-            const token = randomBytes(32).toString('hex');
-            const hashedToken = createHash('sha256').update(token).digest('hex');
+            const token = require('crypto').randomBytes(32).toString('hex');
+            const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
             const expires = new Date(Date.now() + 60 * 60 * 1000);
 
             await prisma.passwordResetToken.upsert({
@@ -1938,6 +1961,7 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
                 create: { email: newUser.email!, token: hashedToken, expires },
             });
 
+            const { sendVerificationEmail } = require('@/lib/email');
             try { await sendVerificationEmail({ to: newUser.email!, name: newUser.name!, token }); } 
             catch (emailError) { console.error(`Failed to send welcome email to ${newUser.email}:`, emailError); }
 
@@ -2020,7 +2044,7 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
     try {
         const memosToArchive = await prisma.memo.findMany({
             where: {
-                createdAt: { lt: archiveDate },
+                createdAt: { lt: new Date(archiveDate) },
                 status: { not: 'draft' },
             },
             include: {
@@ -2031,10 +2055,16 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
         });
         
         const updates = memosToArchive.map(memo => {
-            const recipientIds = [...new Set([...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)])];
+            // Bulk archive for EVERYONE involved: Sender, To, and CC
+            const participantIds = [
+                memo.fromId,
+                ...memo.to.map(u => u.id),
+                ...memo.cc.map(u => u.id)
+            ];
+            const uniqueParticipantIds = [...new Set(participantIds)];
             const alreadyArchivedIds = new Set(memo.archivedBy.map(u => u.id));
             
-            const idsToConnect = recipientIds.filter(id => !alreadyArchivedIds.has(id));
+            const idsToConnect = uniqueParticipantIds.filter(id => !alreadyArchivedIds.has(id));
 
             if (idsToConnect.length > 0) {
                 return prisma.memo.update({
@@ -2047,17 +2077,17 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
                 });
             }
             return null;
-        }).filter(Boolean) as Prisma.Prisma__MemoClient<Memo>[];
+        }).filter(Boolean);
 
         if (updates.length > 0) {
-            await prisma.$transaction(updates);
+            await prisma.$transaction(updates as any);
         }
 
         await logSecurityEvent({
             event: SecurityEvent.BULK_ARCHIVE_ACTION,
             severity: LogSeverity.WARN,
             actor: user,
-            details: `Admin bulk archived ${updates.length} memos older than ${archiveDate.toLocaleDateString()}.`
+            details: `Admin bulk archived ${updates.length} memos older than ${new Date(archiveDate).toLocaleDateString()}.`
         });
 
         revalidatePath('/dashboard/admin/archive');
@@ -2080,9 +2110,10 @@ export async function getMemosToArchiveCount(archiveDate: Date): Promise<number>
     }
 
     try {
+        // System-wide count for maintenance preview
         const count = await prisma.memo.count({
             where: {
-                createdAt: { lt: archiveDate },
+                createdAt: { lt: new Date(archiveDate) },
                 status: { not: 'draft' },
             },
         });
@@ -2216,7 +2247,7 @@ export async function verifyPasswordResetToken(token: string) {
     if (!token) {
         return { error: 'Invalid verification token.' };
     }
-    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { 
             token: hashedToken,
@@ -2239,7 +2270,7 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     if (!token) {
         return { error: "Invalid token provided." };
     }
-    const hashedToken = createHash('sha256').update(token).digest('hex');
+    const hashedToken = require('crypto').createHash('sha256').update(token).digest('hex');
     
     const tokenEntry = await prisma.passwordResetToken.findFirst({
         where: { token: hashedToken }
@@ -2262,13 +2293,15 @@ export async function setPasswordWithToken({ token, password }: { token: string,
         return { error: "This link is invalid or has expired. Please request a new one." };
     }
     
+    const { passwordSchema } = require('@/lib/password-policy');
     const validation = await passwordSchema.safeParseAsync(password);
     if (!validation.success) {
         await prisma.passwordResetToken.delete({ where: { id: tokenEntry.id } });
-        const errorMessage = validation.error.issues.map(i => i.message).join(' ');
+        const errorMessage = validation.error.issues.map((i: any) => i.message).join(' ');
         return { error: `${errorMessage} For security, this link has been invalidated. Please request a new one.` };
     }
 
+    const bcrypt = require('bcrypt');
     const newHashedPassword = await bcrypt.hash(password, 10);
     
     try {
