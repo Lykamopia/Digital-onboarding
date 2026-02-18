@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -47,28 +46,22 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
     if (!loggedInUser) return null;
 
+    const unread = useMemo(() => {
+        if (!loggedInUser) return false;
+        const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || 
+                            memo.cc.some(user => user.id === loggedInUser.id) || 
+                            memo.current_holder?.id === loggedInUser.id;
+        
+        if (!isRecipient) return false;
+
+        const hasViewed = memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser.id);
+        const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
+        
+        return !hasViewed && !hasAcknowledged;
+    }, [memo, loggedInUser]);
+
     const getMemoStatus = (memo: DashboardMemo) => {
-        if (memo.status === 'draft') return 'draft';
-        if (memo.status === 'scheduled') return 'scheduled';
-
-        const lastActivity = memo.activity.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        if(lastActivity?.action === 'assigned' && memo.current_holder?.id === loggedInUser.id) {
-            return 'delegated';
-        }
-
-        const isRecipient = memo.to.some(user => user.id === loggedInUser!.id) || memo.cc.some(user => user.id === loggedInUser!.id) || memo.current_holder?.id === loggedInUser.id;
-        if (!isRecipient) return memo.status;
-
-        const hasReplied = memo.activity.some(act => act.action === 'replied' && act.actorId === loggedInUser!.id);
-        if (hasReplied) return 'replied';
-
-        const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser!.id);
-        if (hasAcknowledged) return 'acknowledged';
-        
-        const hasViewed = memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser!.id);
-        if (hasViewed) return 'read';
-        
-        return 'unread';
+        return memo.status;
     }
     
     const getOrigin = (memo: DashboardMemo) => {
@@ -258,7 +251,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
-                    {memoStatus === 'unread' && (
+                    {unread && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
@@ -411,7 +404,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     </ContextMenuItem>
                 )}
                 <ContextMenuSeparator />
-                {memoStatus === 'unread' && (
+                {unread && (
                     <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
                         <MailOpen className="mr-2 h-4 w-4" />
                         <span>Mark as Read</span>
@@ -480,7 +473,14 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                 >
                     <div className="flex w-full items-start justify-between gap-2">
                         <div className="flex items-center gap-2 truncate min-w-0 flex-1">
-                            <div className="font-semibold truncate">{getDisplayName(memo)}</div>
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                {unread && (
+                                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                                )}
+                                <div className={cn("truncate", unread ? "font-bold" : "font-semibold")}>
+                                    {getDisplayName(memo)}
+                                </div>
+                            </div>
                             {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && <StatusBadge status={getMemoStatus(memo)} />}
                             {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
                         </div>
@@ -498,7 +498,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     </div>
 
                     <div className="w-full pr-20 overflow-hidden">
-                        <div className="text-sm font-medium truncate flex items-center gap-2">
+                        <div className={cn("text-sm truncate flex items-center gap-2", unread ? "font-semibold" : "font-medium")}>
                                 <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
                                 <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
                             </button>
