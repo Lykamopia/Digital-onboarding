@@ -901,15 +901,37 @@ export async function acknowledgeMemo(memoId: string): Promise<{ success: boolea
     activity: { create: { actorId: actorId, action: 'acknowledged', details: ackDetails } },
   };
   
-  if (memo.status === 'open') {
-      updateData.status = 'in_progress';
-  }
-
   if (isDirectRecipient) {
       updateData.current_holder = { connect: { id: user.id } };
   }
 
-  await prisma.memo.update({ where: { id: memoId }, data: updateData });
+  // Update acknowledgement first
+  const updatedMemo = await prisma.memo.update({
+      where: { id: memoId },
+      data: updateData,
+      include: {
+          to: { select: { id: true } },
+          acknowledgedBy: { select: { id: true } }
+      }
+  });
+
+  // Calculate automated status transition
+  const toUserIds = updatedMemo.to.map(u => u.id);
+  const ackUserIds = updatedMemo.acknowledgedBy.map(u => u.id);
+  
+  const allToAcknowledged = toUserIds.every(id => ackUserIds.includes(id));
+  
+  let nextStatus = 'in_progress';
+  if (allToAcknowledged) {
+      nextStatus = 'closed';
+  }
+
+  if (updatedMemo.status !== nextStatus) {
+      await prisma.memo.update({
+          where: { id: memoId },
+          data: { status: nextStatus }
+      });
+  }
 
   revalidatePath('/dashboard/inbox');
   revalidatePath(`/dashboard?id=${memoId}`);
@@ -1550,7 +1572,7 @@ export async function deleteLabel(id: string) {
         if (!label) return { error: "Label not found." };
         if (label.type === 'SYSTEM') return { error: "System labels cannot be deleted." };
 
-        await prisma.label.delete({ where: { id } });
+        await prisma.label.delete({ where: { id: id } });
 
         await logSecurityEvent({ event: SecurityEvent.LABEL_DELETED, severity: LogSeverity.WARN, actor: user, details: `Deleted label '${label.name}' (ID: ${id}).`, targetId: id, targetType: 'Label' });
         revalidatePath('/dashboard/admin/labels');

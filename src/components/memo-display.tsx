@@ -157,7 +157,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const [loggedInUser, setLoggedInUser] = React.useState<LoggedInUser | null>(null);
   const { settings } = useSettings();
   const [isAcknowledging, setIsAcknowledging] = React.useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
 
   React.useEffect(() => {
     getLoggedInUser().then(user => setLoggedInUser(user as any));
@@ -174,24 +173,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   
   const handlePrint = () => {
     window.print();
-  }
-
-  const handleUpdateStatus = async (status: string) => {
-      if (!memo) return;
-      setIsUpdatingStatus(true);
-      try {
-          const res = await updateMemoStatus(memo.id, status);
-          if (res.success) {
-              toast.success(`Workflow updated to ${status.replace('_', ' ').toUpperCase()}`);
-              onUpdate();
-          } else {
-              toast.error(res.error || "Failed to update workflow status.");
-          }
-      } catch (err) {
-          toast.error("An error occurred while updating the status.");
-      } finally {
-          setIsUpdatingStatus(false);
-      }
   }
 
   const handleAcknowledge = async () => {
@@ -211,18 +192,11 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
           timestamp: new Date().toISOString()
       };
       
-      const updatedStatus = memo.status === 'open' ? 'in_progress' : memo.status;
-
-      const updatedMemo = {
-          ...memo,
-          status: updatedStatus,
-          acknowledgedBy: [...(memo.acknowledgedBy || []), loggedInUser],
-          activity: [...memo.activity, newActivity]
-      };
-      setMemo?.(updatedMemo);
+      // The status update logic is handled on the server now
       toast.success("Memo Acknowledged", {
           description: "You have acknowledged receipt of this memo."
       });
+      onUpdate(); // Trigger a full update to get the latest status
     } else {
         toast.error("Acknowledgement Failed", { description: result.error });
     }
@@ -599,23 +573,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                     {!isPreview && !isDraft && (
                         <div className="flex items-center gap-2 mt-1">
                             <StatusBadge status={memo.status as any} />
-                            <div className="flex items-center gap-1 ml-2">
-                                {memo.status === 'open' && (
-                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('in_progress')} disabled={isUpdatingStatus}>
-                                        <PlayCircle className="mr-1 h-3 w-3" /> Start Working
-                                    </Button>
-                                )}
-                                {memo.status === 'in_progress' && (
-                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('closed')} disabled={isUpdatingStatus}>
-                                        <CheckCircle2 className="mr-1 h-3 w-3" /> Resolve
-                                    </Button>
-                                )}
-                                {memo.status === 'closed' && (
-                                    <Button size="xs" variant="outline" className="h-6 text-[10px]" onClick={() => handleUpdateStatus('in_progress')} disabled={isUpdatingStatus}>
-                                        <Undo2 className="mr-1 h-3 w-3" /> Re-open
-                                    </Button>
-                                )}
-                            </div>
                         </div>
                     )}
                 </div>
