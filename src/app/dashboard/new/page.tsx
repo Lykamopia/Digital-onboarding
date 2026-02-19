@@ -164,8 +164,8 @@ export default function NewMemoPage() {
   }, [loggedInUser]);
 
   const availableUsers = useMemo(() => {
-    if (!loggedInUser) return users;
-    return users.filter(user => user.id !== loggedInUser.id);
+    if (!loggedInUser) return users.filter(u => u.status === 'active');
+    return users.filter(user => user.id !== loggedInUser.id && user.status === 'active');
   }, [users, loggedInUser]);
   
   const availableForTo = useMemo(() => {
@@ -297,8 +297,9 @@ export default function NewMemoPage() {
                     bodyContent = draft.body;
                 }
                 
-                setTo(draft.to);
-                setCc(draft.cc);
+                // Filter to only active recipients just in case some were deactivated
+                setTo(draft.to.filter(u => u.status === 'active'));
+                setCc(draft.cc.filter(u => u.status === 'active'));
                 setLabels(draft.labels);
                 setSubject(draft.subject);
                 setBody(bodyContent);
@@ -333,10 +334,17 @@ export default function NewMemoPage() {
                     const ccSet = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
                     ccSet.delete(loggedInUser.id);
                     ccSet.delete(originalMemo.from.id);
-                    toRecipients = Array.from(toSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
-                    ccRecipients = Array.from(ccSet).map(id => users.find(u => u.id === id)).filter(Boolean) as User[];
+                    
+                    // Filter: Only include active users in the reply-all pre-population
+                    toRecipients = Array.from(toSet)
+                        .map(id => users.find(u => u.id === id))
+                        .filter(u => u && u.status === 'active') as User[];
+                    ccRecipients = Array.from(ccSet)
+                        .map(id => users.find(u => u.id === id))
+                        .filter(u => u && u.status === 'active') as User[];
                 } else {
-                    toRecipients = [originalMemo.from];
+                    // Only include the sender if they are still active
+                    toRecipients = originalMemo.from.status === 'active' ? [originalMemo.from] : [];
                     ccRecipients = [];
                 }
                 setTo(toRecipients);
@@ -543,6 +551,14 @@ export default function NewMemoPage() {
       return filename.split('.').pop()?.toUpperCase() || '';
   };
 
+  const handleImageError = (id: string) => {
+      setBrokenImages(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+      });
+  };
+
 
   if (!loggedInUser) {
       return <div className="flex justify-center items-center h-full"><UserProfileLoader /></div>;
@@ -643,19 +659,19 @@ export default function NewMemoPage() {
                     
                     <div id="memo-editor-container">
                         {isReplying || isAssigning ? (
-                            <>
-                            <div>
-                                <label>{isReplying ? 'Reply' : 'Remark'}</label>
-                                <Editor value={replyBody} onChange={setReplyBody} />
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">{isReplying ? 'Reply' : 'Remark'}</label>
+                                    <Editor value={replyBody} onChange={setReplyBody} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Original Message</label>
+                                    <Editor value={body} onChange={setBody} readOnly />
+                                </div>
                             </div>
-                            <div>
-                                <label>Original Message</label>
-                                <Editor value={body} onChange={setBody} readOnly />
-                            </div>
-                            </>
                         ) : (
                             <div>
-                                <label>Body</label>
+                                <label className="block text-sm font-medium mb-1">Body</label>
                                 <Editor value={body} onChange={setBody} />
                             </div>
                         )}
@@ -669,7 +685,7 @@ export default function NewMemoPage() {
                               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
                               {isUploading ? 'Uploading...' : 'Add Attachment'}
                           </Button>
-                          <Input
+                          <input
                             type="file"
                             ref={fileInputRef}
                             onChange={handleFileChange}
@@ -766,7 +782,7 @@ export default function NewMemoPage() {
                               <DialogTitle>Live Preview</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 overflow-y-auto rounded-lg border bg-card text-card-foreground shadow-sm mt-4">
-                                <MemoDisplay memo={previewMemo} onUpdate={() => {}} isPreview />
+                                <MemoDisplay memo={previewMemo} memoCount={1} onUpdate={() => {}} isPreview />
                             </div>
                           </DialogContent>
                         </Dialog>
@@ -786,5 +802,3 @@ export default function NewMemoPage() {
     </div>
   );
 }
-
-    

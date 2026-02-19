@@ -64,7 +64,8 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
 
     const availableUsersToDelegate = useMemo(() => {
         const delegatedIds = new Set(myDelegates.map(d => d.delegateId));
-        return allUsers.filter(u => u.id !== user.id && !delegatedIds.has(u.id));
+        // Requirement: Filter to only include active users
+        return allUsers.filter(u => u.id !== user.id && !delegatedIds.has(u.id) && u.status === 'active');
     }, [allUsers, user.id, myDelegates]);
 
     const handleDialogChange = (open: boolean) => {

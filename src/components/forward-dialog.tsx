@@ -83,7 +83,8 @@ export function ForwardDialog({ memo, onUpdate, children }: AssignDialogProps) {
         currentUser.id, // Exclude self
     ]);
 
-    return allUsers.filter(u => !existingRecipientIds.has(u.id));
+    // Requirement: Filter to only include active users
+    return allUsers.filter(u => !existingRecipientIds.has(u.id) && u.status === 'active');
   }, [allUsers, currentUser, memo]);
 
 
