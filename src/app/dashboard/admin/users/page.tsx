@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
@@ -35,12 +34,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import { saveUser, resetUserPassword, deleteUser, bulkImportUsers, type BulkImportResult } from "@/app/actions/memo";
+import { saveUser, resetUserPassword, deleteUser, bulkImportUsers, type BulkImportResult, getAdminUsers } from "@/app/actions/memo";
 import type { User, Role, Office, Department, Division, District, Branch } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUsers, useOffices, useRoles, useDepartments, useDivisions, useDistricts, useBranches } from "../hooks";
+import { useOffices, useRoles, useDepartments, useDivisions, useDistricts, useBranches } from "../hooks";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -49,11 +48,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet, Search, FilterX } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { useDebouncedCallback } from "use-debounce";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type UserWithRelations = User & {
     office: Office;
@@ -64,13 +65,12 @@ type UserWithRelations = User & {
     branch?: Branch;
 };
 
-function UserImportDialog() {
+function UserImportDialog({ onComplete }: { onComplete: () => void }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<BulkImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { mutate: mutateUsers } = useUsers();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -121,7 +121,7 @@ function UserImportDialog() {
             const importResult = await bulkImportUsers(fileData);
             setResult(importResult);
             if (importResult.successCount > 0) {
-              await mutateUsers();
+              onComplete();
             }
         } catch (error: any) {
             toast.error("Import Failed", { description: error.message });
@@ -270,15 +270,12 @@ function UsersLoadingSkeleton() {
     )
 }
 
-const ITEMS_PER_PAGE = 10;
-
 const initialFormState = { 
     name: '', email: '', roleId: '',
     officeId: '', departmentId: '', divisionId: '', districtId: '', branchId: ''
 };
 
 export default function UsersPage() {
-  const { data: users, loading: loadingUsers, mutate: mutateUsers } = useUsers();
   const { data: offices, loading: loadingOffices } = useOffices();
   const { data: roles, loading: loadingRoles } = useRoles();
   const { data: departments, loading: loadingDepts } = useDepartments();
@@ -286,9 +283,24 @@ export default function UsersPage() {
   const { data: districts, loading: loadingDistricts } = useDistricts();
   const { data: branches, loading: loadingBranches } = useBranches();
   
+  // Table Data State
+  const [users, setUsers] = useState<UserWithRelations[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+  
+  // Filter & Pagination State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [officeFilter, setOfficeFilter] = useState('all');
+  const [deptFilter, setDeptFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit] = useState(10);
+
+  // Dialog State
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
-  
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   const [isResetAlertOpen, setIsResetAlertOpen] = useState(false);
   const [deleteUserAlert, setDeleteUserAlert] = useState<UserWithRelations | null>(null);
@@ -299,17 +311,45 @@ export default function UsersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   const [formState, setFormState] = useState(initialFormState);
-
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
 
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-    return (users as UserWithRelations[]).slice(start, end);
-  }, [users, currentPage]);
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+        const result = await getAdminUsers(currentPage, limit, {
+            query: searchQuery,
+            status: statusFilter,
+            roleId: roleFilter,
+            officeId: officeFilter,
+            departmentId: deptFilter
+        });
+        setUsers(result.users as UserWithRelations[]);
+        setTotalUsers(result.total);
+        setTotalPages(result.totalPages);
+    } catch (error) {
+        toast.error("Failed to load users.");
+    } finally {
+        setLoading(false);
+    }
+  }, [currentPage, limit, searchQuery, statusFilter, roleFilter, officeFilter, deptFilter]);
 
-  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const debouncedSearch = useDebouncedCallback((value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  }, 500);
+
+  const clearFilters = () => {
+      setSearchQuery('');
+      setStatusFilter('all');
+      setRoleFilter('all');
+      setOfficeFilter('all');
+      setDeptFilter('all');
+      setCurrentPage(1);
+  }
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -335,7 +375,7 @@ export default function UsersPage() {
             return;
         }
 
-        await mutateUsers();
+        await fetchUsers();
         
         let successDescription = isNewUser 
             ? `User created. A setup email has been sent to ${formState.email}.` 
@@ -425,7 +465,7 @@ export default function UsersPage() {
             try {
                 const result = await deleteUser(deleteUserAlert.id);
                 if (result.success) {
-                        await mutateUsers();
+                        await fetchUsers();
                         toast.success("Success", { description: "User has been deleted." });
                 } else {
                         toast.error("Error", { description: result.error });
@@ -446,7 +486,7 @@ export default function UsersPage() {
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
             try {
                 await saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status: newStatus });
-                await mutateUsers();
+                await fetchUsers();
                 toast.success("Success", { description: `User has been ${newStatus}.` });
             } catch (error: any) {
                 toast.error('Error', { description: error?.message || 'Failed to change status.' });
@@ -456,13 +496,13 @@ export default function UsersPage() {
   const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
             try {
                 await Promise.all(selectedUsers.map(id => {
-                        const user = users.find(u => u.id === id) as UserWithRelations | undefined;
+                        const user = users.find(u => u.id === id);
                         if (user && user.status !== 'pending') {
                             return saveUser({ id: user.id, name: user.name || '', email: user.email || '', roleId: user.roleId || '', status });
                         }
                         return Promise.resolve();
                 }));
-                await mutateUsers();
+                await fetchUsers();
                 setSelectedUsers([]);
                 toast.success("Success", { description: `Selected users have been ${status}.`});
             } catch (error: any) {
@@ -518,257 +558,350 @@ export default function UsersPage() {
       return path.filter(Boolean).join(' / ');
   }
 
-  if (loadingUsers || loadingOffices || loadingRoles || loadingDepts || loadingDivisions || loadingDistricts || loadingBranches) {
+  if (loadingOffices || loadingRoles || loadingDepts || loadingDivisions || loadingDistricts || loadingBranches) {
     return <UsersLoadingSkeleton />;
   }
 
   return (
-    <>
-    <Card>
-      <CardHeader className="flex flex-row justify-between items-center">
-        <CardTitle>Users</CardTitle>
-        <div className="flex gap-2">
-            <UserImportDialog />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={selectedUsers.length === 0}>
-                  Bulk Actions ({selectedUsers.length})
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={handleExport}><FileDown className="mr-2" /> Export Selected</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleBulkStatusChange('active')}><ShieldCheck className="mr-2" /> Activate Selected</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button onClick={handleAddNew}><UserPlus className="mr-2"/>Add User</Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="border rounded-md">
-            <Table>
-            <TableHeader>
-                <TableRow>
-                <TableHead className="w-12">
-                    <Checkbox
-                        checked={selectedUsers.length === paginatedUsers.length && paginatedUsers.length > 0}
-                        onCheckedChange={(checked) => {
-                            setSelectedUsers(checked ? paginatedUsers.map(u => u.id) : []);
-                        }}
-                    />
-                </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Assignment</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right w-20">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {paginatedUsers.map((user) => (
-                    <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''} className="group">
-                        <TableCell>
-                             <div className="relative h-10 w-10 flex items-center justify-center">
-                                <Avatar className={cn("h-9 w-9 absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-0 scale-50" : "group-hover:opacity-0 group-hover:scale-50")}>
-                                    <AvatarImage src={user.avatar ?? undefined} alt={user.name ?? ''} />
-                                    <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <Checkbox
-                                    checked={selectedUsers.includes(user.id)}
-                                    onCheckedChange={(checked) => {
-                                        setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
-                                    }}
-                                    className={cn("absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-100 scale-100" : "opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100")}
-                                />
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-3">
-                                <div>
-                                    <div className="font-medium">{user.name}</div>
-                                    <div className="text-sm text-muted-foreground">{user.email}</div>
-                                </div>
-                            </div>
-                        </TableCell>
-                        <TableCell>{user.role?.name}</TableCell>
-                        <TableCell>{getUserAssignment(user)}</TableCell>
-                        <TableCell>
-                            <Badge variant={user.status === 'active' ? 'secondary' : user.status === 'pending' ? 'outline' : 'destructive'} className={cn(
-                                user.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
-                                user.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
-                            )}>
-                                {user.status}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <MoreHorizontal />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onSelect={() => handleEdit(user)}>
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        Edit User
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => {setResetUser(user); setIsResetAlertOpen(true);}}>
-                                        <KeyRound className="mr-2"/>{user.status === 'pending' ? 'Resend Setup Link' : 'Reset Password'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onSelect={() => handleStatusChange(user)} disabled={user.status === 'pending'}>
-                                        {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => {setDeleteUserAlert(user); setIsDeleteAlertOpen(true);}} className="text-destructive">
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete User
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-            </Table>
-        </div>
-
-        <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-            </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronsLeft/> Previous</Button>
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next <ChevronsRight/></Button>
-            </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent className="sm:max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-                <DialogDescription>
-                    {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
-                </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSave}>
-                <fieldset disabled={isSaving}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Full Name</Label>
-                            <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email Address</Label>
-                            <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="roleId">Role</Label>
-                            <Combobox
-                                options={roleOptions}
-                                value={formState.roleId}
-                                onChange={v => handleFormChange('roleId', v)}
-                                placeholder="Select a role"
-                                searchPlaceholder="Search roles..."
-                            />
-                        </div>
-                        
-                        <Separator className="md:col-span-2" />
-
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="officeId">Office</Label>
-                                <Combobox
-                                    options={officeOptions}
-                                    value={formState.officeId}
-                                    onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
-                                    placeholder="Select an office"
-                                    searchPlaceholder="Search offices..."
-                                />
-                            </div>
-                            {selectedOffice && (
-                                <div className="space-y-4">
-                                    {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="departmentId">Department</Label>
-                                            <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
-                                        </div>
-                                    )}
-                                    {formState.departmentId && divisionOptions.length > 0 && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="divisionId">Division</Label>
-                                            <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
-                                        </div>
-                                    )}
-                                    {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="districtId">District</Label>
-                                            <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
-                                        </div>
-                                    )}
-                                    {formState.districtId && branchOptions.length > 0 && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="branchId">Branch</Label>
-                                            <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <div className="flex flex-row justify-between items-center">
+                    <CardTitle>User Directory</CardTitle>
+                    <div className="flex gap-2">
+                        <UserImportDialog onComplete={fetchUsers} />
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" disabled={selectedUsers.length === 0}>
+                            Bulk Actions ({selectedUsers.length})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onSelect={handleExport}><FileDown className="mr-2" /> Export Selected</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleBulkStatusChange('active')}><ShieldCheck className="mr-2" /> Activate Selected</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleBulkStatusChange('inactive')}><ShieldOff className="mr-2" /> Deactivate Selected</DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button onClick={handleAddNew}><UserPlus className="mr-2"/>Add User</Button>
                     </div>
-                </fieldset>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save User
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
-    
-    <AlertDialog open={isResetAlertOpen} onOpenChange={handleResetAlertChange}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                This will send a password setup link to {resetUser?.name}. This action cannot be undone.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleResetAlertChange(false); }} disabled={isResetting}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetPassword} disabled={isResetting}>
-                    {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Send Link
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    
-    <AlertDialog open={isDeleteAlertOpen} onOpenChange={handleDeleteAlertChange}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the user account for {deleteUserAlert?.name}.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleDeleteAlertChange(false); }} disabled={isDeleting}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Delete User
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {/* Advanced Filtering UI */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search name or email..."
+                            className="pl-8 pr-8"
+                            defaultValue={searchQuery}
+                            onChange={(e) => debouncedSearch(e.target.value)}
+                        />
+                        {loading && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+                    </div>
+                    
+                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-    </>
+                    <Combobox
+                        options={[{ value: 'all', label: 'All Roles' }, ...roleOptions]}
+                        value={roleFilter}
+                        onChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}
+                        placeholder="Filter by Role"
+                        searchPlaceholder="Search roles..."
+                    />
+
+                    <Combobox
+                        options={[{ value: 'all', label: 'All Offices' }, ...officeOptions]}
+                        value={officeFilter}
+                        onChange={(v) => { 
+                            setOfficeFilter(v); 
+                            setDeptFilter('all');
+                            setCurrentPage(1); 
+                        }}
+                        placeholder="Filter by Office"
+                        searchPlaceholder="Search offices..."
+                    />
+
+                    <Combobox
+                        options={[
+                            { value: 'all', label: 'All Departments' },
+                            ...departments
+                                .filter(d => officeFilter === 'all' || d.officeId === officeFilter)
+                                .map(d => ({ value: d.id, label: d.name }))
+                        ]}
+                        value={deptFilter}
+                        onChange={(v) => { setDeptFilter(v); setCurrentPage(1); }}
+                        placeholder="Filter by Dept"
+                        searchPlaceholder="Search departments..."
+                    />
+                </div>
+                
+                <div className="flex justify-end">
+                    {(searchQuery || statusFilter !== 'all' || roleFilter !== 'all' || officeFilter !== 'all' || deptFilter !== 'all') && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-8 px-2 lg:px-3">
+                            Reset Filters
+                            <FilterX className="ml-2 h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+
+                <div className="border rounded-md">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead className="w-12">
+                            <Checkbox
+                                checked={selectedUsers.length === users.length && users.length > 0}
+                                onCheckedChange={(checked) => {
+                                    setSelectedUsers(checked ? users.map(u => u.id) : []);
+                                }}
+                            />
+                        </TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Assignment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right w-20">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({ length: limit }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell colSpan={6}><Skeleton className="h-12 w-full" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : users.length > 0 ? (
+                            users.map((user) => (
+                                <TableRow key={user.id} data-state={selectedUsers.includes(user.id) ? 'selected' : ''} className="group">
+                                    <TableCell>
+                                        <div className="relative h-10 w-10 flex items-center justify-center">
+                                            <Avatar className={cn("h-9 w-9 absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-0 scale-50" : "group-hover:opacity-0 group-hover:scale-50")}>
+                                                <AvatarImage src={user.avatar ?? undefined} alt={user.name ?? ''} />
+                                                <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <Checkbox
+                                                checked={selectedUsers.includes(user.id)}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
+                                                }}
+                                                className={cn("absolute transition-all duration-300", selectedUsers.includes(user.id) ? "opacity-100 scale-100" : "opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100")}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <div>
+                                                <div className="font-medium">{user.name}</div>
+                                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{user.role?.name}</TableCell>
+                                    <TableCell className="max-w-[200px] truncate">{getUserAssignment(user)}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={user.status === 'active' ? 'secondary' : user.status === 'pending' ? 'outline' : 'destructive'} className={cn(
+                                            user.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+                                            user.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
+                                        )}>
+                                            {user.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <MoreHorizontal />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onSelect={() => handleEdit(user)}>
+                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                    Edit User
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => {setResetUser(user); setIsResetAlertOpen(true);}}>
+                                                    <KeyRound className="mr-2"/>{user.status === 'pending' ? 'Resend Setup Link' : 'Reset Password'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onSelect={() => handleStatusChange(user)} disabled={user.status === 'pending'}>
+                                                    {user.status === 'active' ? <><ShieldOff className="mr-2"/>Deactivate</> : <><ShieldCheck className="mr-2"/>Activate</>}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => {setDeleteUserAlert(user); setIsDeleteAlertOpen(true);}} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete User
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                    No users found matching your criteria.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+
+                <div className="flex justify-between items-center mt-4">
+                    <div className="text-sm text-muted-foreground">
+                        Showing {Math.min(totalUsers, (currentPage - 1) * limit + 1)}-{Math.min(totalUsers, currentPage * limit)} of {totalUsers} users
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}>
+                            <ChevronsLeft className="mr-2 h-4 w-4" /> Previous
+                        </Button>
+                        <div className="flex items-center gap-1 text-sm font-medium">
+                            Page {currentPage} of {totalPages || 1}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0 || loading}>
+                            Next <ChevronsRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
+        {/* User Form Dialog */}
+        <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
+            <DialogContent className="sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+                    <DialogDescription>
+                        {editingUser ? 'Update the details for this user.' : 'A secure temporary password will be generated and emailed to the new user.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSave}>
+                    <fieldset disabled={isSaving}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Full Name</Label>
+                                <Input id="name" name="name" value={formState.name} onChange={e => handleFormChange('name', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <Input id="email" name="email" type="email" value={formState.email} onChange={e => handleFormChange('email', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="roleId">Role</Label>
+                                <Combobox
+                                    options={roleOptions}
+                                    value={formState.roleId}
+                                    onChange={v => handleFormChange('roleId', v)}
+                                    placeholder="Select a role"
+                                    searchPlaceholder="Search roles..."
+                                />
+                            </div>
+                            
+                            <Separator className="md:col-span-2" />
+
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="officeId">Office</Label>
+                                    <Combobox
+                                        options={officeOptions}
+                                        value={formState.officeId}
+                                        onChange={v => setFormState({...initialFormState, name: formState.name, email: formState.email, roleId: formState.roleId, officeId: v })}
+                                        placeholder="Select an office"
+                                        searchPlaceholder="Search offices..."
+                                    />
+                                </div>
+                                {selectedOffice && (
+                                    <div className="space-y-4">
+                                        {selectedOffice.type === 'division_office' && departmentOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="departmentId">Department</Label>
+                                                <Combobox options={departmentOptions} value={formState.departmentId} onChange={v => handleFormChange('departmentId', v)} placeholder="Select Department" />
+                                            </div>
+                                        )}
+                                        {formState.departmentId && divisionOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="divisionId">Division</Label>
+                                                <Combobox options={divisionOptions} value={formState.divisionId} onChange={v => handleFormChange('divisionId', v)} placeholder="Select Division" />
+                                            </div>
+                                        )}
+                                        {selectedOffice.type === 'branch_office' && districtOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="districtId">District</Label>
+                                                <Combobox options={districtOptions} value={formState.districtId} onChange={v => handleFormChange('districtId', v)} placeholder="Select District" />
+                                            </div>
+                                        )}
+                                        {formState.districtId && branchOptions.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="branchId">Branch</Label>
+                                                <Combobox options={branchOptions} value={formState.branchId} onChange={v => handleFormChange('branchId', v)} placeholder="Select Branch" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </fieldset>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => handleDialogChange(false)} disabled={isSaving}>Cancel</Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save User
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+        
+        {/* Reset Password Alert */}
+        <AlertDialog open={isResetAlertOpen} onOpenChange={handleResetAlertChange}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    This will send a password setup link to {resetUser?.name}. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleResetAlertChange(false); }} disabled={isResetting}>
+                    Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetPassword} disabled={isResetting}>
+                        {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Send Link
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Delete User Alert */}
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={handleDeleteAlertChange}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the user account for {deleteUserAlert?.name}.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => { e.preventDefault(); handleDeleteAlertChange(false); }} disabled={isDeleting}>
+                    Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Delete User
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    </div>
   );
 }

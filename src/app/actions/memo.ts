@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -1020,6 +1019,55 @@ export async function getUsers() {
         const { hashedPassword, ...userWithoutPassword } = user;
         return userWithoutPassword;
     });
+}
+
+export async function getAdminUsers(page = 1, limit = 10, filters: any = {}) {
+    await hasPermission('manage_users');
+
+    const where: any = { AND: [] };
+
+    if (filters.query) {
+        where.AND.push({
+            OR: [
+                { name: { contains: filters.query, mode: 'insensitive' } },
+                { email: { contains: filters.query, mode: 'insensitive' } },
+            ]
+        });
+    }
+
+    if (filters.status && filters.status !== 'all') where.AND.push({ status: filters.status });
+    if (filters.roleId && filters.roleId !== 'all') where.AND.push({ roleId: filters.roleId });
+    if (filters.officeId && filters.officeId !== 'all') where.AND.push({ officeId: filters.officeId });
+    if (filters.departmentId && filters.departmentId !== 'all') where.AND.push({ departmentId: filters.departmentId });
+
+    const [users, total] = await prisma.$transaction([
+        prisma.user.findMany({
+            where,
+            skip: (page - 1) * limit,
+            take: limit,
+            orderBy: { name: 'asc' },
+            include: {
+                role: true,
+                office: true,
+                department: true,
+                division: true,
+                district: true,
+                branch: true,
+            }
+        }),
+        prisma.user.count({ where })
+    ]);
+
+    return {
+        users: users.map(u => {
+            const { hashedPassword, ...rest } = u;
+            return rest as User;
+        }),
+        total,
+        totalPages: Math.ceil(total / limit),
+        page,
+        limit
+    };
 }
 
 export async function getAllMemosForAdmin() {
