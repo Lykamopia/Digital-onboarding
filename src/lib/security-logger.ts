@@ -1,3 +1,4 @@
+
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
@@ -27,6 +28,7 @@ export enum SecurityEvent {
   PASSWORD_CHANGE_SUCCESS = 'PASSWORD_CHANGE_SUCCESS',
   SESSION_HIJACK_ATTEMPT = 'SESSION_HIJACK_ATTEMPT',
   USER_AGENT_MISMATCH = 'USER_AGENT_MISMATCH',
+  SESSION_HIJACK_INVALIDATION = 'SESSION_HIJACK_INVALIDATION',
 
   // Role Management
   ROLE_CREATED = 'ROLE_CREATED',
@@ -78,22 +80,19 @@ type LogDetails = {
     targetType?: string;
 };
 
-// A simple in-memory cache to debounce identical log entries within a short timeframe.
-// This is primarily to prevent duplicate logs from React 18's Strict Mode double-invoking effects in development.
 const logCache = new Map<string, number>();
-const DEBOUNCE_WINDOW_MS = 1000; // 1 second
+const DEBOUNCE_WINDOW_MS = 1000;
 
 function shouldDebounce(key: string): boolean {
     const now = Date.now();
     const lastLogTime = logCache.get(key);
 
     if (lastLogTime && (now - lastLogTime) < DEBOUNCE_WINDOW_MS) {
-        return true; // Debounce this log
+        return true; 
     }
     
     logCache.set(key, now);
     
-    // Periodically clean up old entries from the cache to prevent memory leaks.
     if (logCache.size > 50) {
         for (const [k, v] of logCache.entries()) {
             if ((now - v) > DEBOUNCE_WINDOW_MS * 5) {
@@ -105,30 +104,54 @@ function shouldDebounce(key: string): boolean {
     return false;
 }
 
+/**
+ * Strips ports and standardizes IP addresses.
+ */
+function getCleanIp(raw: string | null | undefined): string | null {
+    if (!raw || raw === 'unknown') return null;
+    let ip = raw.split(',')[0].trim();
+    
+    // IPv4 with port: 1.2.3.4:5678 -> 1.2.3.4
+    const colonCount = (ip.match(/:/g) || []).length;
+    if (colonCount === 1) {
+        return ip.split(':')[0];
+    }
+    
+    // Bracketed IPv6 with port: [::1]:5678 -> ::1
+    if (ip.startsWith('[') && ip.includes(']:')) {
+        return ip.split(']:')[0].replace('[', '');
+    }
+    
+    // IPv4-mapped IPv6 with port: ::ffff:1.2.3.4:5678 -> 1.2.3.4
+    if (ip.includes('.') && colonCount > 1) {
+        const parts = ip.split(':');
+        const lastPart = parts[parts.length - 1];
+        if (/^\d+$/.test(lastPart)) {
+            const clean = parts.slice(0, -1).join(':');
+            return clean.replace(/^.*:/, ''); 
+        }
+        return ip.replace(/^.*:/, '');
+    }
+
+    return ip;
+}
 
 async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: string | null; userAgent: string | null }) {
     const { enableCriticalAlerts } = await getGeneralSettings();
-    if (!enableCriticalAlerts) {
-        return;
-    }
+    if (!enableCriticalAlerts) return;
 
     const adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) {
-        console.warn('Cannot send critical alert: ADMIN_EMAIL not set in .env');
-        return;
-    }
+    if (!adminEmail) return;
 
     try {
         const emailSettings = await getEmailSettings();
         const subject = `[CRITICAL ALERT] Security Event: ${log.event}`;
         const body = `
-            <h2>A critical security event has occurred in the Nib Memo System.</h2>
+            <h2>Critical security event detected.</h2>
             <p><strong>Event:</strong> ${log.event}</p>
-            <p><strong>Severity:</strong> ${log.severity}</p>
             <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
             <p><strong>Actor:</strong> ${log.actor?.name || 'System/Unknown'} (ID: ${log.actor?.id || 'N/A'})</p>
             <p><strong>Details:</strong> ${log.details}</p>
-            <p><strong>Target:</strong> ${log.targetType || 'N/A'} (ID: ${log.targetId || 'N/A'})</p>
             <p><strong>IP Address:</strong> ${context.ipAddress || 'N/A'}</p>
             <p><strong>User Agent:</strong> ${context.userAgent || 'N/A'}</p>
         `;
@@ -137,14 +160,8 @@ async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: strin
             to: adminEmail,
             subject: subject,
             html: `<html><body>${body}</body></html>`,
-            emailSettings: {
-                ...emailSettings,
-                bodyText: body
-            },
+            emailSettings: { ...emailSettings, bodyText: body },
         } as any);
-
-        console.log(`Critical alert for event '${log.event}' sent to ${adminEmail}`);
-
     } catch (error) {
         console.error('Failed to send critical alert email:', error);
     }
@@ -153,28 +170,11 @@ async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: strin
 export async function logSecurityEvent(log: LogDetails) {
     const headerList = headers();
     const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
-    let ipAddress: string | null = rawIp.split(',')[0].trim();
-    
-    // Strip port from IP address
-    if (ipAddress && ipAddress.includes(':')) {
-        const colonCount = (ipAddress.match(/:/g) || []).length;
-        if (colonCount === 1) {
-            // IPv4 with port: 1.2.3.4:5678
-            ipAddress = ipAddress.split(':')[0];
-        } else if (ipAddress.startsWith('[') && ipAddress.includes(']:')) {
-            // IPv6 with port: [::1]:5678
-            ipAddress = ipAddress.split(']:')[0].replace('[', '');
-        }
-    }
-    if (ipAddress === 'unknown') ipAddress = null;
-
+    const ipAddress = getCleanIp(rawIp);
     const userAgent = headerList.get('user-agent');
 
-    // Create a unique key for the event to allow for debouncing.
     const debounceKey = `${log.event}:${log.actor?.id}:${log.targetId || ''}`;
-    if (shouldDebounce(debounceKey)) {
-        return; // Skip logging this event as it's a likely duplicate.
-    }
+    if (shouldDebounce(debounceKey)) return;
 
     try {
         await prisma.securityLog.create({
@@ -193,7 +193,6 @@ export async function logSecurityEvent(log: LogDetails) {
         if (log.severity === LogSeverity.CRITICAL) {
             await triggerCriticalAlert(log, { ipAddress, userAgent });
         }
-
     } catch (error) {
         console.error('Failed to write security log:', error);
     }

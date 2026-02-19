@@ -1,3 +1,4 @@
+
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -10,6 +11,42 @@ import { logSecurityEvent, SecurityEvent } from './security-logger';
 
 const MAX_FAILED_ATTEMPTS = parseInt(process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5', 10);
 const LOCKOUT_DURATION_MINUTES = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10);
+
+/**
+ * Robustly extracts and cleans an IP address from headers, stripping ports and prefixes.
+ */
+function getCleanIp(raw: string | null | undefined): string {
+    if (!raw || raw === 'unknown') return 'unknown';
+    
+    // 1. Get the first IP if it's a comma-separated list (from proxies)
+    let ip = raw.split(',')[0].trim();
+    
+    // 2. Handle IPv4 with port (e.g., 172.23.37.9:64368 -> 172.23.37.9)
+    // We check for exactly one colon to avoid misidentifying raw IPv6
+    const colonCount = (ip.match(/:/g) || []).length;
+    if (colonCount === 1) {
+        return ip.split(':')[0];
+    }
+    
+    // 3. Handle bracketed IPv6 with port (e.g., [::1]:5678 -> ::1)
+    if (ip.startsWith('[') && ip.includes(']:')) {
+        return ip.split(']:')[0].replace('[', '');
+    }
+    
+    // 4. Handle IPv4-mapped IPv6 (e.g., ::ffff:172.23.37.9)
+    if (ip.includes('.') && ip.includes(':')) {
+        const parts = ip.split(':');
+        const lastPart = parts[parts.length - 1];
+        // If last part is digits, it might be a port, strip it
+        if (/^\d+$/.test(lastPart) && parts.length > 1) {
+            const withoutPort = parts.slice(0, -1).join(':');
+            return withoutPort.replace(/^.*:/, ''); // Also strip the ::ffff: prefix
+        }
+        return ip.replace(/^.*:/, '');
+    }
+
+    return ip;
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -138,24 +175,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       const headerList = headers();
-      
-      const getCleanIp = (headers: Headers) => {
-          const raw = headers.get('x-forwarded-for') || headers.get('cf-connecting-ip') || 'unknown';
-          let ip = raw.split(',')[0].trim();
-          if (ip.includes(':')) {
-              const colonCount = (ip.match(/:/g) || []).length;
-              if (colonCount === 1) {
-                  // IPv4 with port: 1.2.3.4:5678
-                  return ip.split(':')[0];
-              } else if (ip.startsWith('[') && ip.includes(']:')) {
-                  // IPv6 with port: [::1]:5678
-                  return ip.split(']:')[0].replace('[', '');
-              }
-          }
-          return ip;
-      };
-
-      const ipAddress = getCleanIp(headerList);
+      const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
+      const ipAddress = getCleanIp(rawIp);
       const userAgent = headerList.get('user-agent');
 
       if (trigger === "update" && session?.onboardingCompleted === true) {
@@ -176,7 +197,6 @@ export const authOptions: NextAuthOptions = {
               const isDelegatorActive = delegator && delegator.status === 'active' && (!delegator.lockoutUntil || new Date() > delegator.lockoutUntil);
 
               if (delegator && isDelegatorActive) {
-                  // If not already delegated, store current user as realUser
                   if (!token.realUser) {
                       token.realUser = { id: token.id, name: token.name, email: token.email };
                   }
@@ -224,7 +244,7 @@ export const authOptions: NextAuthOptions = {
           }
       }
 
-      if (user) { // This runs on initial sign-in
+      if (user) { // Initial sign-in
         const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
         if (dbUser) {
             await prisma.user.update({
@@ -239,7 +259,7 @@ export const authOptions: NextAuthOptions = {
         token.userAgent = userAgent;
       }
       
-      // On subsequent requests, validate IP address only if both exist and are not 'unknown'
+      // Validate IP address (ignoring ports)
       if (token.ip && ipAddress && ipAddress !== 'unknown' && token.ip !== 'unknown' && token.ip !== ipAddress) {
           await logSecurityEvent({
               event: SecurityEvent.SESSION_HIJACK_ATTEMPT,
@@ -250,7 +270,7 @@ export const authOptions: NextAuthOptions = {
           return {}; // Invalidate session
       }
       
-      // On subsequent requests, validate User Agent
+      // Validate User Agent
       if (token.userAgent && userAgent && token.userAgent !== userAgent) {
           await logSecurityEvent({
               event: SecurityEvent.USER_AGENT_MISMATCH,
@@ -261,21 +281,17 @@ export const authOptions: NextAuthOptions = {
           return {}; // Invalidate session
       }
 
-      // On subsequent requests, validate the token version
+      // Validate token version
       const userIdToCheck = (token.realUser?.id || token.id) as string;
       if (userIdToCheck) {
           if (typeof token.tokenVersion !== 'number') {
-              return {}; // Invalidate session
+              return {}; 
           }
           
           const dbUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { tokenVersion: true, onboardingCompleted: true } });
           
-          if (!dbUser) {
-              return {}; 
-          }
-          
-          if (dbUser.tokenVersion !== token.tokenVersion) {
-              return {}; // Invalidate session
+          if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) {
+              return {}; // Invalidate
           }
 
           if (!token.realUser) {
@@ -296,7 +312,7 @@ export const authOptions: NextAuthOptions = {
               const isDelegatorActive = delegator && delegator.status === 'active' && (!delegator.lockoutUntil || new Date() > delegator.lockoutUntil);
 
               if (!delegation || !isDelegatorActive) {
-                  return {}; // Invalidate the delegated session
+                  return {}; 
               }
           }
       }
