@@ -69,6 +69,7 @@ export enum SecurityEvent {
   // File Handling
   FILE_UPLOAD_SUCCESS = 'FILE_UPLOAD_SUCCESS',
   FILE_DOWNLOAD_SUCCESS = 'FILE_DOWNLOAD_SUCCESS',
+  FILE_PREVIEW_SUCCESS = 'FILE_PREVIEW_SUCCESS',
 }
 
 type LogDetails = {

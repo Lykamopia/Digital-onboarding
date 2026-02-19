@@ -100,11 +100,16 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         const fileBuffer = await readFile(absolutePath);
         const contentType = mime.lookup(absolutePath) || 'application/octet-stream';
         
+        // Success Classification: Identify if this is a Download or a Preview
+        const isDownload = fileType === 'attachments';
+        const event = isDownload ? SecurityEvent.FILE_DOWNLOAD_SUCCESS : SecurityEvent.FILE_PREVIEW_SUCCESS;
+        const actionVerb = isDownload ? 'downloaded' : 'previewed';
+
         await logSecurityEvent({
-            event: SecurityEvent.FILE_DOWNLOAD_SUCCESS,
+            event: event,
             severity: LogSeverity.INFO,
             actor: user.actingUser || user,
-            details: `User downloaded file: ${dbPath}`,
+            details: `User successfully ${actionVerb} file: ${dbPath}`,
             targetId: eventTarget?.id || dbPath,
             targetType: eventTarget?.type || fileType,
         });
@@ -112,15 +117,16 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         const headers = new Headers();
         headers.set('Content-Type', contentType);
         
+        // Enforce classification in the browser via Content-Disposition
+        const disposition = isDownload ? 'attachment' : 'inline';
+        headers.set('Content-Disposition', `${disposition}; filename="${fileNameParts.join('')}"`);
+        
         if (fileType === 'signatures') {
             // Hardened headers for signatures to prevent caching and direct downloading
-            headers.set('Content-Disposition', `inline; filename="${fileNameParts.join('')}"`);
             headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             headers.set('Pragma', 'no-cache');
             headers.set('Expires', '0');
             headers.set('X-Content-Type-Options', 'nosniff');
-        } else {
-            headers.set('Content-Disposition', `attachment; filename="${fileNameParts.join('')}"`);
         }
 
         return new NextResponse(fileBuffer, {
