@@ -1,5 +1,3 @@
-
-
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -130,12 +128,7 @@ export const authOptions: NextAuthOptions = {
   })(),
   session: {
     strategy: "jwt",
-    // Set a long maxAge for the session, e.g., 24 hours.
-    // The session will be kept alive by `updateAge` as long as the user is active.
     maxAge: 24 * 60 * 60, // 24 hours
-    
-    // The session will be updated in the background every 20 minutes
-    // if the user is active, creating a "sliding" session.
     updateAge: 20 * 60, // 20 minutes
   },
   pages: {
@@ -145,7 +138,9 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       const headerList = headers();
-      const ipAddress = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip');
+      // Extract the primary IP (first one if comma-separated)
+      const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
+      const ipAddress = rawIp.split(',')[0].trim();
       const userAgent = headerList.get('user-agent');
 
       if (trigger === "update" && session?.onboardingCompleted === true) {
@@ -217,7 +212,6 @@ export const authOptions: NextAuthOptions = {
       if (user) { // This runs on initial sign-in
         const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
         if (dbUser) {
-            // NOTE: The version is incremented on login to invalidate any other sessions that might exist.
             await prisma.user.update({
                 where: { id: dbUser.id },
                 data: { tokenVersion: { increment: 1 } }
@@ -230,24 +224,24 @@ export const authOptions: NextAuthOptions = {
         token.userAgent = userAgent;
       }
       
-      // On subsequent requests, validate IP address
-      if (token.ip && token.ip !== ipAddress) {
+      // On subsequent requests, validate IP address only if both exist and are not 'unknown'
+      if (token.ip && ipAddress && ipAddress !== 'unknown' && token.ip !== 'unknown' && token.ip !== ipAddress) {
           await logSecurityEvent({
               event: SecurityEvent.SESSION_HIJACK_ATTEMPT,
               severity: LogSeverity.CRITICAL,
               actor: { id: token.id as string, name: token.name },
-              details: `Session token for user ${token.name} used from a different IP address. Original: ${token.ip}, New: ${ipAddress}. Session invalidated.`,
+              details: `Session token mismatch for user ${token.name}. Possible hijack. Token IP: ${token.ip}, Request IP: ${ipAddress}.`,
           });
           return {}; // Invalidate session
       }
       
       // On subsequent requests, validate User Agent
-      if (token.userAgent && token.userAgent !== userAgent) {
+      if (token.userAgent && userAgent && token.userAgent !== userAgent) {
           await logSecurityEvent({
               event: SecurityEvent.USER_AGENT_MISMATCH,
               severity: LogSeverity.CRITICAL,
               actor: { id: token.id as string, name: token.name },
-              details: `Session for user ${token.name} used with a different User-Agent, which could indicate a session hijack. Session invalidated. Original: ${token.userAgent}, New: ${userAgent}`,
+              details: `User-Agent changed for user ${token.name}. Token UA: ${token.userAgent.substring(0, 50)}..., Request UA: ${userAgent.substring(0, 50)}...`,
           });
           return {}; // Invalidate session
       }
@@ -255,14 +249,7 @@ export const authOptions: NextAuthOptions = {
       // On subsequent requests, validate the token version
       const userIdToCheck = (token.realUser?.id || token.id) as string;
       if (userIdToCheck) {
-          // Any valid token must have a version number. If not, invalidate it.
           if (typeof token.tokenVersion !== 'number') {
-              await logSecurityEvent({
-                  event: SecurityEvent.LOGOUT,
-                  severity: LogSeverity.WARN,
-                  actor: null,
-                  details: 'A session was invalidated due to a missing token version.',
-              });
               return {}; // Invalidate session
           }
           
@@ -273,23 +260,13 @@ export const authOptions: NextAuthOptions = {
           }
           
           if (dbUser.tokenVersion !== token.tokenVersion) {
-              const actorUser = await prisma.user.findUnique({ where: { id: userIdToCheck }, select: { id: true, name: true } });
-              if (actorUser) {
-                  await logSecurityEvent({
-                      event: SecurityEvent.LOGOUT,
-                      severity: LogSeverity.INFO,
-                      actor: actorUser,
-                      details: 'User session invalidated due to token version mismatch (likely remote logout).',
-                  });
-              }
               return {}; // Invalidate session
           }
 
-          if (!token.realUser) { // Don't overwrite delegator's onboarding status
+          if (!token.realUser) {
               token.onboardingCompleted = dbUser.onboardingCompleted;
           }
 
-          // If this is a delegated session, perform continuous validation
           if (token.realUser) {
               const [delegation, delegator] = await Promise.all([
                   prisma.delegation.findFirst({
@@ -304,14 +281,6 @@ export const authOptions: NextAuthOptions = {
               const isDelegatorActive = delegator && delegator.status === 'active' && (!delegator.lockoutUntil || new Date() > delegator.lockoutUntil);
 
               if (!delegation || !isDelegatorActive) {
-                  await logSecurityEvent({
-                      event: SecurityEvent.DELEGATION_SESSION_END,
-                      severity: LogSeverity.WARN,
-                      actor: token.realUser,
-                      details: `Delegated session for ${token.name} ended automatically because delegation was revoked or delegator account became inactive.`,
-                      targetId: token.id as string,
-                      targetType: 'User'
-                  });
                   return {}; // Invalidate the delegated session
               }
           }
