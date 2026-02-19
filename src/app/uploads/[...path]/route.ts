@@ -109,12 +109,23 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             targetType: eventTarget?.type || fileType,
         });
 
+        const headers = new Headers();
+        headers.set('Content-Type', contentType);
+        
+        if (fileType === 'signatures') {
+            // Hardened headers for signatures to prevent caching and direct downloading
+            headers.set('Content-Disposition', `inline; filename="${fileNameParts.join('')}"`);
+            headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            headers.set('Pragma', 'no-cache');
+            headers.set('Expires', '0');
+            headers.set('X-Content-Type-Options', 'nosniff');
+        } else {
+            headers.set('Content-Disposition', `attachment; filename="${fileNameParts.join('')}"`);
+        }
+
         return new NextResponse(fileBuffer, {
             status: 200,
-            headers: {
-                'Content-Type': contentType,
-                'Content-Disposition': `attachment; filename="${fileNameParts.join('')}"`,
-            },
+            headers: headers,
         });
     } catch (error: any) {
         if (error.code === 'ENOENT') {

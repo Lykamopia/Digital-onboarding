@@ -15,6 +15,10 @@ interface SignaturePreviewProps {
   priority?: boolean;
 }
 
+/**
+ * SignaturePreview renders a digital signature image with built-in security features
+ * to prevent right-click downloading or direct file access interaction.
+ */
 export function SignaturePreview({
   src,
   alt = 'Signature',
@@ -47,6 +51,11 @@ export function SignaturePreview({
     ? 'inline-flex items-center justify-center rounded-md border px-2 py-1 bg-muted/5'
     : 'inline-block';
 
+  // Security handlers to prevent direct interaction with the signature image
+  const handleSecurity = (e: React.UIEvent) => {
+    e.preventDefault();
+  };
+
   if (!normalizedSrc || error) {
       const fallbackWidth = width ? `${width}px` : '100%';
       const fallbackHeight = height ? `${height}px` : '100%';
@@ -62,13 +71,17 @@ export function SignaturePreview({
   }
 
   return (
-    <div className={cn(wrapperClass, className)}>
+    <div 
+        className={cn(wrapperClass, "select-none relative group", className)}
+        onContextMenu={handleSecurity}
+        onDragStart={handleSecurity}
+    >
       <Image
         src={normalizedSrc as string}
         alt={alt}
         width={compactWidth}
         height={compactHeight}
-        className="object-contain animate-in fade-in duration-300"
+        className="object-contain animate-in fade-in duration-300 pointer-events-none"
         priority={priority}
         unoptimized={
           // Use unoptimized for data URLs and for same-origin upload routes
@@ -76,6 +89,8 @@ export function SignaturePreview({
         }
         onError={() => setError(true)}
       />
+      {/* Invisible overlay to further block interaction if needed */}
+      <div className="absolute inset-0 z-10 bg-transparent" aria-hidden="true" />
     </div>
   );
 }
