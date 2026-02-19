@@ -1,4 +1,3 @@
-
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
@@ -153,12 +152,25 @@ async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: strin
 
 export async function logSecurityEvent(log: LogDetails) {
     const headerList = headers();
-    const ipAddress = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip');
+    const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
+    let ipAddress: string | null = rawIp.split(',')[0].trim();
+    
+    // Strip port from IP address
+    if (ipAddress && ipAddress.includes(':')) {
+        const colonCount = (ipAddress.match(/:/g) || []).length;
+        if (colonCount === 1) {
+            // IPv4 with port: 1.2.3.4:5678
+            ipAddress = ipAddress.split(':')[0];
+        } else if (ipAddress.startsWith('[') && ipAddress.includes(']:')) {
+            // IPv6 with port: [::1]:5678
+            ipAddress = ipAddress.split(']:')[0].replace('[', '');
+        }
+    }
+    if (ipAddress === 'unknown') ipAddress = null;
+
     const userAgent = headerList.get('user-agent');
 
     // Create a unique key for the event to allow for debouncing.
-    // This is particularly useful for events that might be triggered rapidly,
-    // like PERMISSION_DENIED from a double-invoked `useEffect` in React Strict Mode.
     const debounceKey = `${log.event}:${log.actor?.id}:${log.targetId || ''}`;
     if (shouldDebounce(debounceKey)) {
         return; // Skip logging this event as it's a likely duplicate.

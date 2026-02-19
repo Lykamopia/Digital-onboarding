@@ -138,9 +138,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       const headerList = headers();
-      // Extract the primary IP (first one if comma-separated)
-      const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
-      const ipAddress = rawIp.split(',')[0].trim();
+      
+      const getCleanIp = (headers: Headers) => {
+          const raw = headers.get('x-forwarded-for') || headers.get('cf-connecting-ip') || 'unknown';
+          let ip = raw.split(',')[0].trim();
+          if (ip.includes(':')) {
+              const colonCount = (ip.match(/:/g) || []).length;
+              if (colonCount === 1) {
+                  // IPv4 with port: 1.2.3.4:5678
+                  return ip.split(':')[0];
+              } else if (ip.startsWith('[') && ip.includes(']:')) {
+                  // IPv6 with port: [::1]:5678
+                  return ip.split(']:')[0].replace('[', '');
+              }
+          }
+          return ip;
+      };
+
+      const ipAddress = getCleanIp(headerList);
       const userAgent = headerList.get('user-agent');
 
       if (trigger === "update" && session?.onboardingCompleted === true) {
