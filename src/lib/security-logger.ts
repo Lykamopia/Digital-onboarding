@@ -81,8 +81,9 @@ type LogDetails = {
     targetType?: string;
 };
 
+// Simple in-memory cache to prevent duplicate logs within a short timeframe
 const logCache = new Map<string, number>();
-const DEBOUNCE_WINDOW_MS = 1000;
+const DEBOUNCE_WINDOW_MS = 1000; // 1 second cooldown
 
 function shouldDebounce(key: string): boolean {
     const now = Date.now();
@@ -94,7 +95,8 @@ function shouldDebounce(key: string): boolean {
     
     logCache.set(key, now);
     
-    if (logCache.size > 50) {
+    // Cleanup old cache entries periodically
+    if (logCache.size > 100) {
         for (const [k, v] of logCache.entries()) {
             if ((now - v) > DEBOUNCE_WINDOW_MS * 5) {
                 logCache.delete(k);
@@ -112,18 +114,15 @@ function getCleanIp(raw: string | null | undefined): string | null {
     if (!raw || raw === 'unknown') return null;
     let ip = raw.split(',')[0].trim();
     
-    // IPv4 with port: 1.2.3.4:5678 -> 1.2.3.4
     const colonCount = (ip.match(/:/g) || []).length;
     if (colonCount === 1) {
         return ip.split(':')[0];
     }
     
-    // Bracketed IPv6 with port: [::1]:5678 -> ::1
     if (ip.startsWith('[') && ip.includes(']:')) {
         return ip.split(']:')[0].replace('[', '');
     }
     
-    // IPv4-mapped IPv6 with port: ::ffff:1.2.3.4:5678 -> 1.2.3.4
     if (ip.includes('.') && colonCount > 1) {
         const parts = ip.split(':');
         const lastPart = parts[parts.length - 1];
@@ -174,7 +173,8 @@ export async function logSecurityEvent(log: LogDetails) {
     const ipAddress = getCleanIp(rawIp);
     const userAgent = headerList.get('user-agent');
 
-    const debounceKey = `${log.event}:${log.actor?.id}:${log.targetId || ''}`;
+    // Debounce to prevent rapid duplicate logs (e.g. browser retries or React double-renders)
+    const debounceKey = `${log.event}:${log.actor?.id || 'system'}:${log.targetId || ''}`;
     if (shouldDebounce(debounceKey)) return;
 
     try {

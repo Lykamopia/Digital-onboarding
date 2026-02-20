@@ -26,6 +26,8 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     let isAuthorized = false;
     let eventTarget: { id: string, type: string } | null = null;
 
+    const requestHeaders = req.headers;
+    const fetchDest = requestHeaders.get('sec-fetch-dest');
 
     // --- Authorization Check ---
     if (fileType === 'attachments') {
@@ -69,10 +71,37 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         }
 
     } else if (fileType === 'profile' || fileType === 'signatures') {
-        // Profile pictures and signatures are viewable by any authenticated user for UI purposes.
-        isAuthorized = true;
+        // Profile pictures and signatures are viewable by any authenticated user for UI purposes...
+        // BUT direct access (entering the URL in address bar) is restricted for other users' signatures.
+        
         const type = fileType === 'profile' ? 'Profile' : 'Signature';
         eventTarget = { id: dbPath, type };
+
+        if (fileType === 'signatures') {
+            const signatureOwner = await prisma.user.findFirst({
+                where: { signature: dbPath },
+                select: { id: true }
+            });
+
+            const isOwnSignature = signatureOwner?.id === user.id;
+            
+            // sec-fetch-dest: document means the user typed the URL or clicked a direct link (not an <img> tag)
+            const isDirectAccessAttempt = fetchDest === 'document';
+
+            if (isDirectAccessAttempt && !isOwnSignature) {
+                await logSecurityEvent({
+                    event: SecurityEvent.PERMISSION_DENIED,
+                    severity: LogSeverity.WARN,
+                    actor: user.actingUser || user,
+                    details: `Unauthorized direct access attempt to signature: ${dbPath}. Destination: ${fetchDest}`,
+                    targetId: dbPath,
+                    targetType: 'Signature',
+                });
+                return new NextResponse('Forbidden: Direct access to other users signatures is prohibited.', { status: 403 });
+            }
+        }
+
+        isAuthorized = true;
     }
     // --- End Authorization Check ---
 
@@ -91,7 +120,6 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     const uploadsDir = join(process.cwd(), 'uploads');
     const absolutePath = join(uploadsDir, ...filePathParts);
 
-    // Security check: Prevent path traversal attacks by ensuring the path is within the uploads directory.
     if (!absolutePath.startsWith(uploadsDir)) {
         return new NextResponse('Invalid file path', { status: 403 });
     }
@@ -100,7 +128,6 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         const fileBuffer = await readFile(absolutePath);
         const contentType = mime.lookup(absolutePath) || 'application/octet-stream';
         
-        // Success Classification: Identify if this is a Download or a Preview
         const isDownload = fileType === 'attachments';
         const event = isDownload ? SecurityEvent.FILE_DOWNLOAD_SUCCESS : SecurityEvent.FILE_PREVIEW_SUCCESS;
         const actionVerb = isDownload ? 'downloaded' : 'previewed';
@@ -117,12 +144,10 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         const headers = new Headers();
         headers.set('Content-Type', contentType);
         
-        // Enforce classification in the browser via Content-Disposition
         const disposition = isDownload ? 'attachment' : 'inline';
         headers.set('Content-Disposition', `${disposition}; filename="${fileNameParts.join('')}"`);
         
         if (fileType === 'signatures') {
-            // Hardened headers for signatures to prevent caching and direct downloading
             headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             headers.set('Pragma', 'no-cache');
             headers.set('Expires', '0');
