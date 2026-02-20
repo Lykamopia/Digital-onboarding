@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -88,10 +87,12 @@ export default function AuditPage() {
     }
 
     const userOptions = useMemo(() => allUsers.map(u => ({ value: u.id, label: u.name })), [allUsers]);
+    
     const statusOptions = useMemo(() => [
-        { value: 'sent', label: 'Sent' },
-        { value: 'acknowledged', label: 'Acknowledged' },
-        { value: 'archived', label: 'Archived' },
+        { value: 'all', label: 'All Statuses' },
+        { value: 'open', label: 'Open' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'closed', label: 'Closed' },
     ], []);
 
     const handleFilterChange = (key: FilterKey, value: string) => {

@@ -1126,7 +1126,8 @@ export async function getAuditMemos(page = 1, limit = 15, filters: any = {}) {
 
     if (filters.sender) where.AND.push({ fromId: filters.sender });
     if (filters.recipient) where.AND.push({ to: { some: { id: filters.recipient } } });
-    if (filters.status) where.AND.push({ status: filters.status });
+    if (filters.status && filters.status !== 'all') where.AND.push({ status: filters.status });
+    
     if (filters.labels && filters.labels.length > 0) {
         where.AND.push({ labels: { some: { id: { in: filters.labels } } } });
     }
