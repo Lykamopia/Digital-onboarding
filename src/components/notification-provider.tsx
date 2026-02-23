@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getDashboardData } from '@/app/actions/memo';
-import type { MemoWithActivity, User } from '@/lib/types';
+import type { MemoWithActivity, User, LoggedInUser } from '@/lib/types';
 
 type Notification = {
   id: string;
@@ -29,7 +28,7 @@ type NotificationContextType = {
   unreadCount: number;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
-  initializeNotifications: (user: User) => Promise<void>;
+  initializeNotifications: (user: LoggedInUser) => Promise<void>;
 };
 
 type NotificationSettings = {
@@ -80,10 +79,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   };
   
-  const initializeNotifications = useCallback(async (user: User) => {
+  const initializeNotifications = useCallback(async (user: LoggedInUser) => {
     const inboxMemos: MemoWithActivity[] = await getDashboardData('inbox', '', 'all', {}, [], '', 'all');
+    
+    // Scoped unread check: Use the real user ID (delegate or delegator)
+    const actorId = user.actingUser ? user.actingUser.id : user.id;
+
     const unreadMemos = inboxMemos.filter(memo => 
-        !memo.activity.some(act => act.action === 'viewed' && act.actorId === user.id) &&
+        !memo.activity.some(act => act.action === 'viewed' && act.actorId === actorId) &&
         !memo.acknowledgedBy?.some(ackUser => ackUser.id === user.id)
     );
     

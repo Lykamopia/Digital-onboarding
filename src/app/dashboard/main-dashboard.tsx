@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -161,7 +160,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                 ...m, 
                 status, 
                 acknowledgedBy,
-                activity: [{ action: 'acknowledged' as const, actorId: user?.id || '' }, ...m.activity]
+                activity: [{ action: 'acknowledged' as const, actorId: user?.actingUser?.id || user?.id || '' }, ...m.activity]
             };
         }));
     };
@@ -228,7 +227,8 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
             }
 
             setSelectedMemo(fullMemo as MemoWithActivity);
-            if (user && tab === 'inbox' && !fullMemo.activity.some(a => a.action === 'viewed' && a.actorId === user.id)) {
+            const actorIdToCheck = user?.actingUser ? user.actingUser.id : user?.id;
+            if (user && tab === 'inbox' && !fullMemo.activity.some(a => a.action === 'viewed' && a.actorId === actorIdToCheck)) {
                 markAsRead(fullMemo.id);
                 markMemoAsReadInState(fullMemo.id);
             }

@@ -47,13 +47,17 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
     const unread = useMemo(() => {
         if (!loggedInUser) return false;
+        
+        // Use the real user ID (delegate or delegator) to check for viewed activity
+        const actorIdToCheck = loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id;
+
         const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || 
                             memo.cc.some(user => user.id === loggedInUser.id) || 
                             memo.current_holder?.id === loggedInUser.id;
         
         if (!isRecipient) return false;
 
-        const hasViewed = memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser.id);
+        const hasViewed = memo.activity.some(act => act.action === 'viewed' && act.actorId === actorIdToCheck);
         const hasAcknowledged = memo.acknowledgedBy?.some(u => u.id === loggedInUser.id);
         
         return !hasViewed && !hasAcknowledged;
@@ -111,9 +115,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     }
     
     const handleMarkAsRead = async (memo: DashboardMemo) => {
+        const actorId = loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id;
+        
         setMemos(prevMemos => prevMemos.map(m => {
             if (m.id === memo.id) {
-                const newActivity = { actorId: loggedInUser.id, action: 'viewed' as const };
+                const newActivity = { actorId: actorId, action: 'viewed' as const };
                 return { ...m, activity: [...m.activity, newActivity]};
             }
             return m;
@@ -520,8 +526,9 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     if (!loggedInUser) return null;
     
     const isUnread = (memo: DashboardMemo) => {
+        const actorIdToCheck = loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id;
         const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || memo.cc.some(user => user.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id;
-        return isRecipient && !memo.activity.some(act => act.action === 'viewed' && act.actorId === loggedInUser.id);
+        return isRecipient && !memo.activity.some(act => act.action === 'viewed' && act.actorId === actorIdToCheck);
     }
     return (
         <TooltipProvider>

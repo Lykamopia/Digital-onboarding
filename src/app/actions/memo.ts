@@ -384,7 +384,7 @@ export async function markAsRead(memoId: string) {
 
     if (!memo) return;
 
-    const hasAlreadyViewed = memo.activity.length > 0;
+    const hasAlreadyViewed = memo.activity.some(a => a.actorId === actorId);
     
     if (!hasAlreadyViewed) {
         await prisma.activity.create({
@@ -1895,34 +1895,6 @@ export async function verifyEmailChange(token: string): Promise<{ success: boole
     return { success: true, message: `Your email has been successfully updated to ${newEmail}. Please log in again.` };
 }
 
-export type BulkImportResult = {
-    successCount: number;
-    errorCount: number;
-    errors: { rowIndex: number; email: string; error: string }[];
-};
-
-type UserDataRow = { 
-    name?: string; 
-    email?: string; 
-    role?: string; 
-    office?: string;
-    department?: string;
-    division?: string;
-    district?: string;
-    branch?: string;
-};
-
-async function parseFileData(fileData: string): Promise<UserDataRow[]> {
-    const Papa = require('papaparse');
-    return new Promise((resolve) => {
-        Papa.parse(fileData, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (result: any) => resolve(result.data as UserDataRow[]),
-        });
-    });
-}
-
 export async function bulkImportUsers(fileData: string): Promise<BulkImportResult> {
     const user = await hasPermission('manage_users');
 
@@ -1947,14 +1919,9 @@ export async function bulkImportUsers(fileData: string): Promise<BulkImportResul
     const districtMap = new Map(allDistricts.map(d => [d.name.toLowerCase(), { id: d.id, officeId: d.officeId }]));
     const branchMap = new Map(allBranches.map(b => [b.name.toLowerCase(), { id: b.id, districtId: b.districtId }]));
 
-    let rows: UserDataRow[];
-    try {
-        rows = await parseFileData(fileData);
-    } catch(e: any) {
-        result.errorCount++;
-        result.errors.push({ rowIndex: 1, email: 'File Level', error: e.message || "Failed to parse file." });
-        return result;
-    }
+    const Papa = require('papaparse');
+    const parsed = Papa.parse(fileData, { header: true, skipEmptyLines: true });
+    const rows = parsed.data as any[];
 
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
