@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
@@ -528,7 +527,8 @@ export default function UsersPage() {
 
   const handleExport = () => {
     const selectedData = users.filter(u => selectedUsers.includes(u.id));
-    const dataToExport = selectedData.map(user => ({
+    const dataToExport = selectedData.map((user, index) => ({
+        "#": index + 1,
         "Name": user.name || '',
         "Email": user.email || '',
         "Role": user.role?.name || '',
