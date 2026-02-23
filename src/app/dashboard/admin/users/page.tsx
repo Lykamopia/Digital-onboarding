@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
@@ -47,14 +48,15 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet, Search, FilterX, Eye, User as UserIcon, Mail, Shield, Building, Fingerprint, Info, Globe } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet, Search, FilterX, Eye, User as UserIcon, Mail, Shield, Building, Fingerprint, Info, Globe, Calendar, Lock, AlertCircle, History, MousePointer2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedCallback } from "use-debounce";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SignaturePreview } from "@/components/signature-preview";
+import { formatTimestamp } from "@/lib/data";
+import { formatDistanceToNow } from "date-fns";
 
 type UserWithRelations = User & {
     office: Office;
@@ -63,6 +65,10 @@ type UserWithRelations = User & {
     division?: Division;
     district?: District;
     branch?: Branch;
+    createdAt?: string;
+    updatedAt?: string;
+    failedLoginAttempts?: number;
+    lockoutUntil?: string | null;
 };
 
 function UserImportDialog({ onComplete }: { onComplete: () => void }) {
@@ -92,8 +98,8 @@ function UserImportDialog({ onComplete }: { onComplete: () => void }) {
         office: "Head Office",
         department: "Retail Banking",
         division: "Client Services",
-        district: "", // Can be empty if office is not branch-based
-        branch: "" // Can be empty if office is not branch-based
+        district: "", 
+        branch: ""
     }];
     const csv = Papa.unparse(templateData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -283,13 +289,11 @@ export default function UsersPage() {
   const { data: districts, loading: loadingDistricts } = useDistricts();
   const { data: branches, loading: loadingBranches } = useBranches();
   
-  // Table Data State
   const [users, setUsers] = useState<UserWithRelations[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   
-  // Filter & Pagination State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -298,7 +302,6 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
 
-  // Dialog State
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<UserWithRelations | null>(null);
@@ -615,7 +618,6 @@ export default function UsersPage() {
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
-                {/* Advanced Filtering UI */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -809,44 +811,55 @@ export default function UsersPage() {
 
         {/* User Details Dialog */}
         <Dialog open={isDetailsDialogOpen} onOpenChange={handleDetailsDialogChange}>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>User Details</DialogTitle>
-                    <DialogDescription>Full profile and organizational overview for the selected user.</DialogDescription>
+                    <DialogTitle className="flex items-center gap-2">
+                        <UserIcon className="h-5 w-5 text-primary" />
+                        User Account Details
+                    </DialogTitle>
+                    <DialogDescription>Comprehensive profile overview and account health metadata.</DialogDescription>
                 </DialogHeader>
                 {viewingUser && (
-                    <div className="space-y-6 py-4">
-                        <div className="flex items-center gap-6">
+                    <div className="grid gap-6 py-4">
+                        {/* Header Profile Info */}
+                        <div className="flex items-start gap-6 bg-muted/30 p-4 rounded-lg border">
                             <Avatar className="h-20 w-20 border-2 border-primary/20">
                                 <AvatarImage src={viewingUser.avatar ?? undefined} alt={viewingUser.name ?? ''} />
                                 <AvatarFallback className="text-2xl">{viewingUser.name?.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <div className="space-y-1">
+                            <div className="flex-1 space-y-1">
                                 <h3 className="text-2xl font-bold">{viewingUser.name}</h3>
-                                <div className="flex items-center text-muted-foreground gap-2">
+                                <div className="flex items-center text-muted-foreground gap-2 text-sm">
                                     <Mail className="h-4 w-4" />
                                     <span>{viewingUser.email}</span>
                                 </div>
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex flex-wrap gap-2 mt-3">
                                     <Badge variant="secondary" className="gap-1.5 font-medium">
                                         <Shield className="h-3 w-3" />
                                         {viewingUser.role?.name}
                                     </Badge>
-                                    <Badge variant={viewingUser.status === 'active' ? 'secondary' : viewingUser.status === 'pending' ? 'outline' : 'destructive'} className={cn(
-                                        "gap-1.5 font-medium",
-                                        viewingUser.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
-                                        viewingUser.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
-                                    )}>
-                                        <div className={cn("h-1.5 w-1.5 rounded-full", viewingUser.status === 'active' ? 'bg-green-500' : viewingUser.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500')} />
-                                        {viewingUser.status.charAt(0).toUpperCase() + viewingUser.status.slice(1)}
-                                    </Badge>
+                                    {/* Calculated Lock Status */}
+                                    {viewingUser.lockoutUntil && new Date(viewingUser.lockoutUntil) > new Date() ? (
+                                        <Badge variant="destructive" className="gap-1.5 font-medium animate-pulse">
+                                            <Lock className="h-3 w-3" />
+                                            Locked (Ends {formatDistanceToNow(new Date(viewingUser.lockoutUntil), { addSuffix: true })})
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant={viewingUser.status === 'active' ? 'secondary' : viewingUser.status === 'pending' ? 'outline' : 'destructive'} className={cn(
+                                            "gap-1.5 font-medium",
+                                            viewingUser.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+                                            viewingUser.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
+                                        )}>
+                                            <div className={cn("h-1.5 w-1.5 rounded-full", viewingUser.status === 'active' ? 'bg-green-500' : viewingUser.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500')} />
+                                            {viewingUser.status.charAt(0).toUpperCase() + viewingUser.status.slice(1)}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        <Separator />
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Organizational Assignment */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 text-sm font-semibold text-primary">
                                     <Building className="h-4 w-4" />
@@ -884,39 +897,70 @@ export default function UsersPage() {
                                 </div>
                             </div>
 
+                            {/* Account & Security Metadata */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                                    <Fingerprint className="h-4 w-4" />
-                                    Digital Signature
+                                    <History className="h-4 w-4" />
+                                    Account & Security Metadata
                                 </div>
-                                <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed bg-muted/30 flex items-center justify-center overflow-hidden p-4">
-                                    {viewingUser.signature ? (
-                                        <SignaturePreview src={viewingUser.signature} alt={`${viewingUser.name}'s signature`} className="max-w-full max-h-full" />
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                            <Info className="h-8 w-8 opacity-20" />
-                                            <p className="text-xs italic">No signature saved</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <Separator className="my-2" />
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">User ID:</span>
-                                        <span className="font-mono text-xs text-foreground bg-muted px-1.5 py-0.5 rounded">{viewingUser.id}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Onboarding Status:</span>
-                                        <Badge variant={viewingUser.onboardingCompleted ? 'outline' : 'secondary'} className="text-[10px]">
-                                            {viewingUser.onboardingCompleted ? 'Completed' : 'Pending'}
+                                <div className="grid grid-cols-1 gap-y-4 text-sm pl-6 border-l-2 border-muted">
+                                    <div className="grid grid-cols-2 items-center gap-4">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <AlertCircle className="h-3.5 w-3.5" /> Email Verified:
+                                        </span>
+                                        <Badge variant={viewingUser.status !== 'pending' ? 'secondary' : 'outline'} className="w-fit">
+                                            {viewingUser.status !== 'pending' ? 'Verified' : 'Pending Verification'}
                                         </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 items-center gap-4">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <Fingerprint className="h-3.5 w-3.5" /> Signature Status:
+                                        </span>
+                                        <Badge variant={viewingUser.signature ? 'secondary' : 'outline'} className="w-fit">
+                                            {viewingUser.signature ? 'Set' : 'Not Set'}
+                                        </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 items-center gap-4">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <ShieldOff className="h-3.5 w-3.5" /> Failed Logins:
+                                        </span>
+                                        <span className={cn("font-medium", (viewingUser.failedLoginAttempts || 0) > 0 && "text-destructive")}>
+                                            {viewingUser.failedLoginAttempts || 0} attempts
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 items-center gap-4">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <MousePointer2 className="h-3.5 w-3.5" /> Onboarding:
+                                        </span>
+                                        <Badge variant={viewingUser.onboardingCompleted ? 'secondary' : 'outline'} className="w-fit">
+                                            {viewingUser.onboardingCompleted ? 'Completed' : 'Not Started'}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <Separator className="my-1" />
+
+                                    <div className="space-y-2">
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Account Created</span>
+                                            <span className="text-xs font-medium flex items-center gap-1.5">
+                                                <Calendar className="h-3 w-3" />
+                                                {viewingUser.createdAt ? formatTimestamp(viewingUser.createdAt) : 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Last Profile Update</span>
+                                            <span className="text-xs font-medium flex items-center gap-1.5">
+                                                <Globe className="h-3 w-3" />
+                                                {viewingUser.updatedAt ? formatTimestamp(viewingUser.updatedAt) : 'N/A'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
-                <DialogFooter>
+                <DialogFooter className="bg-muted/30 p-4 -mx-6 -mb-6 rounded-b-lg border-t">
                     <Button variant="outline" onClick={() => handleDetailsDialogChange(false)}>Close</Button>
                     <Button onClick={() => { handleDetailsDialogChange(false); handleEdit(viewingUser!); }}>
                         <Pencil className="mr-2 h-4 w-4" />
