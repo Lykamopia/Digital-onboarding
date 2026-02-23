@@ -48,13 +48,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet, Search, FilterX } from "lucide-react";
+import { MoreHorizontal, Copy, ShieldCheck, ShieldOff, KeyRound, UserPlus, ChevronsLeft, ChevronsRight, FileDown, Pencil, Trash2, Loader2, UploadCloud, Download, CheckCircle, XCircle, FileSpreadsheet, Search, FilterX, Eye, User as UserIcon, Mail, Shield, Building, Fingerprint, Info, Globe } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useDebouncedCallback } from "use-debounce";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SignaturePreview } from "@/components/signature-preview";
 
 type UserWithRelations = User & {
     office: Office;
@@ -300,6 +301,8 @@ export default function UsersPage() {
 
   // Dialog State
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<UserWithRelations | null>(null);
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null);
   const [resetUser, setResetUser] = useState<UserWithRelations | null>(null);
   const [isResetAlertOpen, setIsResetAlertOpen] = useState(false);
@@ -403,6 +406,14 @@ export default function UsersPage() {
     }
   };
 
+  const handleDetailsDialogChange = (open: boolean) => {
+    setIsDetailsDialogOpen(open);
+    if (!open) {
+        setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 500);
+        setViewingUser(null);
+    }
+  }
+
   const handleResetAlertChange = (open: boolean) => {
     setIsResetAlertOpen(open);
     if (!open) {
@@ -433,6 +444,11 @@ export default function UsersPage() {
         branchId: user.branchId || '',
     });
     setIsFormDialogOpen(true);
+  }
+
+  const handleViewDetails = (user: UserWithRelations) => {
+      setViewingUser(user);
+      setIsDetailsDialogOpen(true);
   }
 
   const handleAddNew = () => {
@@ -725,6 +741,10 @@ export default function UsersPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
+                                                <DropdownMenuItem onSelect={() => handleViewDetails(user)}>
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    View Details
+                                                </DropdownMenuItem>
                                                 <DropdownMenuItem onSelect={() => handleEdit(user)}>
                                                     <Pencil className="mr-2 h-4 w-4" />
                                                     Edit User
@@ -774,6 +794,125 @@ export default function UsersPage() {
                 </div>
             </CardContent>
         </Card>
+
+        {/* User Details Dialog */}
+        <Dialog open={isDetailsDialogOpen} onOpenChange={handleDetailsDialogChange}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>User Details</DialogTitle>
+                    <DialogDescription>Full profile and organizational overview for the selected user.</DialogDescription>
+                </DialogHeader>
+                {viewingUser && (
+                    <div className="space-y-6 py-4">
+                        <div className="flex items-center gap-6">
+                            <Avatar className="h-20 w-20 border-2 border-primary/20">
+                                <AvatarImage src={viewingUser.avatar ?? undefined} alt={viewingUser.name ?? ''} />
+                                <AvatarFallback className="text-2xl">{viewingUser.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="space-y-1">
+                                <h3 className="text-2xl font-bold">{viewingUser.name}</h3>
+                                <div className="flex items-center text-muted-foreground gap-2">
+                                    <Mail className="h-4 w-4" />
+                                    <span>{viewingUser.email}</span>
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                    <Badge variant="secondary" className="gap-1.5 font-medium">
+                                        <Shield className="h-3 w-3" />
+                                        {viewingUser.role?.name}
+                                    </Badge>
+                                    <Badge variant={viewingUser.status === 'active' ? 'secondary' : viewingUser.status === 'pending' ? 'outline' : 'destructive'} className={cn(
+                                        "gap-1.5 font-medium",
+                                        viewingUser.status === 'active' && 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+                                        viewingUser.status === 'pending' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200/80',
+                                    )}>
+                                        <div className={cn("h-1.5 w-1.5 rounded-full", viewingUser.status === 'active' ? 'bg-green-500' : viewingUser.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500')} />
+                                        {viewingUser.status.charAt(0).toUpperCase() + viewingUser.status.slice(1)}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                                    <Building className="h-4 w-4" />
+                                    Organizational Assignment
+                                </div>
+                                <div className="space-y-3 pl-6 border-l-2 border-muted">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Office</Label>
+                                        <p className="text-sm font-medium">{viewingUser.office?.name || 'Not Assigned'}</p>
+                                    </div>
+                                    {viewingUser.department && (
+                                        <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Department</Label>
+                                            <p className="text-sm font-medium">{viewingUser.department.name}</p>
+                                        </div>
+                                    )}
+                                    {viewingUser.division && (
+                                        <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Division</Label>
+                                            <p className="text-sm font-medium">{viewingUser.division.name}</p>
+                                        </div>
+                                    )}
+                                    {viewingUser.district && (
+                                        <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">District</Label>
+                                            <p className="text-sm font-medium">{viewingUser.district.name}</p>
+                                        </div>
+                                    )}
+                                    {viewingUser.branch && (
+                                        <div className="space-y-0.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Branch</Label>
+                                            <p className="text-sm font-medium">{viewingUser.branch.name}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                                    <Fingerprint className="h-4 w-4" />
+                                    Digital Signature
+                                </div>
+                                <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed bg-muted/30 flex items-center justify-center overflow-hidden p-4">
+                                    {viewingUser.signature ? (
+                                        <SignaturePreview src={viewingUser.signature} alt={`${viewingUser.name}'s signature`} className="max-w-full max-h-full" />
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                            <Info className="h-8 w-8 opacity-20" />
+                                            <p className="text-xs italic">No signature saved</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <Separator className="my-2" />
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">User ID:</span>
+                                        <span className="font-mono text-xs text-foreground bg-muted px-1.5 py-0.5 rounded">{viewingUser.id}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Onboarding Status:</span>
+                                        <Badge variant={viewingUser.onboardingCompleted ? 'outline' : 'secondary'} className="text-[10px]">
+                                            {viewingUser.onboardingCompleted ? 'Completed' : 'Pending'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => handleDetailsDialogChange(false)}>Close</Button>
+                    <Button onClick={() => { handleDetailsDialogChange(false); handleEdit(viewingUser!); }}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit Profile
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         {/* User Form Dialog */}
         <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
