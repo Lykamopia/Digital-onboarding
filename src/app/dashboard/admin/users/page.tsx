@@ -527,12 +527,24 @@ export default function UsersPage() {
   }
 
   const handleExport = () => {
-    const dataToExport = users.filter(u => selectedUsers.includes(u.id));
+    const selectedData = users.filter(u => selectedUsers.includes(u.id));
+    const dataToExport = selectedData.map(user => ({
+        "Name": user.name || '',
+        "Email": user.email || '',
+        "Role": user.role?.name || '',
+        "Status": user.status || '',
+        "Office": user.office?.name || '',
+        "Department": user.department?.name || '',
+        "Division": user.division?.name || '',
+        "District": user.district?.name || '',
+        "Branch": user.branch?.name || '',
+    }));
+
     const csv = Papa.unparse(dataToExport);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', 'users.csv');
+    link.setAttribute('download', 'user_directory_export.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
