@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -379,7 +378,7 @@ export default function ProfilePage() {
                                     <div className="space-y-4">
                                         <Label>Digital Signature</Label>
                                         <div className="flex items-center gap-4">
-                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 p-2 overflow-hidden">
+                                            <div className="w-48 h-24 border-2 border-dashed rounded-md flex items-center justify-center bg-slate-50 p-2 overflow-hidden">
                                                 <SignaturePreview src={getImageUrl(signatureToDisplay)} alt="Signature preview" width={160} height={80} className="max-w-full max-h-full" />
                                             </div>
                                             <div className="flex-1">
@@ -405,7 +404,7 @@ export default function ProfilePage() {
                                                             <TabsContent value="upload" className="p-4">
                                                                 <div className="flex flex-col items-center gap-4">
                                                                     <div 
-                                                                        className="w-full h-48 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/50 cursor-pointer hover:border-primary"
+                                                                        className="w-full h-48 border-2 border-dashed rounded-md flex items-center justify-center bg-white border-slate-200 cursor-pointer hover:border-primary"
                                                                         onClick={() => signatureUploadInputRef.current?.click()}
                                                                     >
                                                                         <input
@@ -422,7 +421,7 @@ export default function ProfilePage() {
                                                                             <Loader2 className="h-8 w-8 animate-spin" />
                                                                         ) : (
                                                                             <div className="text-center text-muted-foreground">
-                                                                                <UploadCloud className="mx-auto h-8 w-8" />
+                                                                                <UploadCloud className="mx-auto h-8 w-8 text-slate-300" />
                                                                                 <p className="mt-2 text-sm">Click to upload an image</p>
                                                                                 <p className="text-xs">(PNG, JPG, WEBP up to 5MB)</p>
                                                                             </div>

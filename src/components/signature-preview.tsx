@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,6 +17,9 @@ interface SignaturePreviewProps {
 /**
  * SignaturePreview renders a digital signature image with built-in security features
  * to prevent right-click downloading or direct file access interaction.
+ *
+ * Refactored to have a theme-independent background for consistent visibility
+ * in both light and dark modes, ensuring ink remains legible.
  */
 export function SignaturePreview({
   src,
@@ -44,12 +46,19 @@ export function SignaturePreview({
     return `/${t}`;
   }, [src]);
 
-  const compactWidth = width ?? (compact ? 40 : 60);
-  const compactHeight = height ?? (compact ? 20 : 30);
+  // Dimensions
+  const displayWidth = width ?? (compact ? 48 : 120);
+  const displayHeight = height ?? (compact ? 24 : 60);
 
-  const wrapperClass = compact
-    ? 'inline-flex items-center justify-center rounded-md border px-2 py-1 bg-muted/5'
-    : 'inline-block';
+  // Theme-independent styling: 
+  // We use standard Tailwind colors like bg-white and border-slate-200 
+  // that do not map to CSS variables modified by .dark class.
+  const wrapperClass = cn(
+    "inline-flex items-center justify-center rounded border shadow-sm select-none relative group overflow-hidden transition-none",
+    "bg-white border-slate-200", // Constant white background and slate border
+    compact ? "px-1.5 py-0.5" : "px-3 py-2",
+    className
+  );
 
   // Security handlers to prevent direct interaction with the signature image
   const handleSecurity = (e: React.UIEvent) => {
@@ -57,31 +66,30 @@ export function SignaturePreview({
   };
 
   if (!normalizedSrc || error) {
-      const fallbackWidth = width ? `${width}px` : '100%';
-      const fallbackHeight = height ? `${height}px` : '100%';
       return (
           <div className={cn(
               wrapperClass,
-              'flex items-center justify-center bg-muted/50 text-muted-foreground',
+              'bg-slate-50 text-slate-400 border-dashed',
               className
-          )} style={{width: fallbackWidth, height: fallbackHeight, display: 'flex'}}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          )} style={{ width: width ? `${width}px` : 'auto', height: height ? `${height}px` : (compact ? '28px' : '64px') }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
           </div>
       );
   }
 
   return (
     <div 
-        className={cn(wrapperClass, "select-none relative group", className)}
+        className={wrapperClass}
         onContextMenu={handleSecurity}
         onDragStart={handleSecurity}
     >
       <Image
         src={normalizedSrc as string}
         alt={alt}
-        width={compactWidth}
-        height={compactHeight}
+        width={displayWidth}
+        height={displayHeight}
         className="object-contain animate-in fade-in duration-300 pointer-events-none"
+        style={{ filter: 'none' }} // Ensure no global filters affect the image
         priority={priority}
         unoptimized={
           // Use unoptimized for data URLs and for same-origin upload routes
@@ -89,8 +97,8 @@ export function SignaturePreview({
         }
         onError={() => setError(true)}
       />
-      {/* Invisible overlay to further block interaction if needed */}
-      <div className="absolute inset-0 z-10 bg-transparent" aria-hidden="true" />
+      {/* Security overlay */}
+      <div className="absolute inset-0 z-10 bg-transparent cursor-default" aria-hidden="true" />
     </div>
   );
 }

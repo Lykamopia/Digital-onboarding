@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
@@ -7,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Undo, Trash2, Save } from 'lucide-react';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface SignaturePadProps {
   onSave: (dataUrl: string) => void;
@@ -60,10 +60,10 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     // If there's an initial signature, draw it.
     if (initialSignature) {
         const image = new Image();
+        image.crossOrigin = "anonymous";
         image.onload = () => {
             context.clearRect(0, 0, canvas.width/dpr, canvas.height/dpr);
             context.drawImage(image, 0, 0, canvas.width / dpr, canvas.height / dpr);
-            saveHistory();
         }
         image.src = initialSignature;
     }
@@ -124,7 +124,6 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     }
     
     // Use the second to last point and the new point to create a quadratic curve
-    // The control point is the middle point, and the end point is the average of the last two
     const points = pointsRef.current;
     const p2 = points[points.length-2];
     const p3 = points[points.length-1];
@@ -209,19 +208,22 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
     const finalCtx = finalCanvas.getContext('2d');
     if (!finalCtx) return;
     
-    // Draw the trimmed part of the original canvas onto the new one
     finalCtx.drawImage(canvas, minX, minY, maxX - minX, maxY - minY, padding, padding, maxX - minX, maxY - minY);
     
     onSave(finalCanvas.toDataURL('image/webp', 0.95));
   };
 
-  if (!isClient) return <div className="h-[300px] w-[500px] bg-muted/50 rounded-md animate-pulse"></div>;
+  if (!isClient) return <div className="h-[300px] w-full max-w-[500px] bg-white rounded-md animate-pulse"></div>;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 
+          Drawing area refactored to use a constant white background 
+          to match final display and ensure ink visibility.
+      */}
       <canvas
         ref={canvasRef}
-        className="w-[500px] h-[300px] rounded-md border-2 border-dashed bg-muted/50 cursor-crosshair touch-none"
+        className="w-full max-w-[500px] h-[300px] rounded-md border-2 border-dashed border-slate-200 bg-white cursor-crosshair touch-none shadow-inner"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
@@ -230,40 +232,52 @@ export function SignaturePad({ onSave, initialSignature }: SignaturePadProps) {
         onTouchMove={draw}
         onTouchEnd={stopDrawing}
       />
-      <div className="flex flex-col sm:flex-row items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-center gap-4 bg-muted/30 p-3 rounded-lg border">
         <div className="flex items-center gap-2">
-            <Label>Color:</Label>
+            <Label className="text-xs font-semibold">INK:</Label>
             <Input
                 type="color"
                 value={strokeColor}
                 onChange={(e) => setStrokeColor(e.target.value)}
-                className="w-12 h-10 p-1"
+                className="w-10 h-8 p-0.5 border-none bg-transparent"
             />
         </div>
         <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-            <Label>Weight:</Label>
+            <Label className="text-xs font-semibold">WEIGHT:</Label>
             <Slider
                 min={1}
                 max={10}
                 step={0.5}
                 value={[strokeWidth]}
                 onValueChange={(value) => setStrokeWidth(value[0])}
-                className="w-full"
+                className="flex-1"
             />
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={undoLast} disabled={history.length === 0} title="Undo">
-                <Undo className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={clearCanvas} title="Clear">
-                <Trash2 className="h-4 w-4" />
-            </Button>
+        <div className="flex gap-2 shrink-0">
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={undoLast} disabled={history.length === 0}>
+                            <Undo className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Undo</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={clearCanvas}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Clear All</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
       </div>
-       <div className="flex justify-end pt-4">
-            <Button onClick={handleSave}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Signature
+       <div className="flex justify-end pt-2">
+            <Button onClick={handleSave} className="gap-2">
+                <Save className="h-4 w-4" />
+                Capture Signature
             </Button>
         </div>
     </div>
