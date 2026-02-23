@@ -1113,20 +1113,12 @@ export async function getAdminUsers(page = 1, limit = 10, filters: any = {}) {
 }
 
 export async function getAllMemosForAdmin() {
-    const user = await getLoggedInUser();
-    if (!user) return [];
+    await hasPermission('manage_archive');
 
-    const userId = user.id;
-    // Strict ownership check: only show memos the user is part of that are archived
+    // Global view for admins: show all memos that have been archived by at least one person in the system
     const memos = await prisma.memo.findMany({
         where: {
-            archivedBy: { some: { id: userId } },
-            OR: [
-                { fromId: userId },
-                { to: { some: { id: userId } } },
-                { cc: { some: { id: userId } } },
-                { current_holderId: userId },
-            ]
+            archivedBy: { some: {} },
         },
         include: {
             from: { select: { name: true } },
@@ -2124,12 +2116,31 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
         for (const memo of memosToRestore) {
             await prisma.memo.update({ where: { id: memo.id }, data: { archivedBy: { disconnect: memo.archivedBy.map(u => ({ id: u.id })) } } });
         }
+    } else if (action === 'archive') {
+        // Global Admin Archive: Connect ALL participants to the archivedBy relation
+        const memosToProcess = await prisma.memo.findMany({
+            where: { id: { in: memoIds } },
+            include: { to: { select: { id: true } }, cc: { select: { id: true } } }
+        });
+
+        for (const memo of memosToProcess) {
+            const participantIds = [...new Set([memo.fromId, ...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)])];
+            await prisma.memo.update({
+                where: { id: memo.id },
+                data: {
+                    archivedBy: {
+                        connect: participantIds.map(id => ({ id }))
+                    }
+                }
+            });
+        }
     }
     
-    await logSecurityEvent({ event: SecurityEvent.BULK_ARCHIVE_ACTION, severity: LogSeverity.WARN, actor: user, details: `Performed bulk action '${action}' on ${memoIds.length} memos.` });
+    await logSecurityEvent({ event: SecurityEvent.BULK_ARCHIVE_ACTION, severity: LogSeverity.WARN, actor: user, details: `Admin performed global bulk action '${action}' on ${memoIds.length} memos.` });
 
     revalidatePath('/dashboard/admin/archive');
     revalidatePath('/dashboard/inbox');
+    revalidatePath('/dashboard/archive');
     return { success: true };
 }
 
@@ -2191,7 +2202,7 @@ export async function performBulkArchive(range: { from?: Date, to?: Date }): Pro
             event: SecurityEvent.BULK_ARCHIVE_ACTION,
             severity: LogSeverity.WARN,
             actor: user,
-            details: `Admin performed bulk archive for timeframe ${fromDate.toLocaleDateString()} - ${toDate.toLocaleDateString()}. Processed ${updates.length} memos, skipped ${skippedCount} fully archived ones.`
+            details: `Admin performed global bulk archive for timeframe ${fromDate.toLocaleDateString()} - ${toDate.toLocaleDateString()}. Processed ${updates.length} memos, skipped ${skippedCount} fully archived ones.`
         });
 
         revalidatePath('/dashboard/admin/archive');

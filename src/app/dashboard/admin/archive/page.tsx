@@ -110,7 +110,7 @@ export default function ArchiveSettingsPage() {
     }
   }
 
-  const handleBulkAction = async (action: 'restore' | 'delete') => {
+  const handleBulkAction = async (action: 'restore' | 'delete' | 'archive') => {
       if (selectedMemos.length === 0) {
           toast.error("No Memos Selected", { description: "Please select memos to perform this action." });
           return;
@@ -124,7 +124,11 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(true);
       const result = await performBulkArchiveActions(action, selectedMemos);
       if (result.success) {
-          toast.success("Action Successful", { description: `Selected memos have been restored.`});
+          const successMessage = action === 'archive' 
+            ? "Selected memos have been globally archived for all participants."
+            : "Selected memos have been restored.";
+          
+          toast.success("Action Successful", { description: successMessage });
           setSelectedMemos([]);
           await fetchMemos();
       } else {
@@ -156,7 +160,7 @@ export default function ArchiveSettingsPage() {
         const result = await performBulkArchive(dateRange);
         if (result.success && result.summary) {
             toast.success("Bulk Archive Successful", { 
-                description: `${result.summary.archived} memos archived. ${result.summary.skipped} already fully archived.`
+                description: `${result.summary.archived} memos archived for all participants. ${result.summary.skipped} already fully archived.`
             });
             setMemosToArchiveCount(null);
             setDateRange(undefined);
@@ -197,7 +201,7 @@ export default function ArchiveSettingsPage() {
                 <CardTitle>Bulk Archive Tool</CardTitle>
             </div>
             <CardDescription>
-                System-wide maintenance: Archive unarchived memos within a specific timeframe for all participants.
+                System-wide maintenance: Archive unarchived memos within a specific timeframe for ALL participants globally.
             </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -256,7 +260,7 @@ export default function ArchiveSettingsPage() {
                 </Button>
                 <Button onClick={() => setIsArchiveAlertOpen(true)} disabled={!dateRange?.from || isArchivingByDate || memosToArchiveCount === null || memosToArchiveCount === 0}>
                      {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
-                    Execute Archive
+                    Execute Global Archive
                 </Button>
             </div>
             <AnimatePresence>
@@ -274,7 +278,7 @@ export default function ArchiveSettingsPage() {
                             {memosToArchiveCount > 0 ? <AlertCircle className="h-5 w-5 text-amber-500" /> : <Info className="h-5 w-5 text-muted-foreground" />}
                             <p className="font-semibold text-lg">{memosToArchiveCount} unarchived memos</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">found in the selected timeframe will be processed for all participants.</p>
+                        <p className="text-sm text-muted-foreground">found in the selected timeframe will be processed for ALL participants.</p>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -285,7 +289,7 @@ export default function ArchiveSettingsPage() {
         <CardHeader>
           <CardTitle>Management Console</CardTitle>
           <CardDescription>
-            Manually restore or permanently delete archived memos across the system.
+            System-wide maintenance: Restore or permanently delete archived records. Use "Global Archive" to ensure all participants have the selected records archived.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -297,6 +301,9 @@ export default function ArchiveSettingsPage() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => handleBulkAction('archive')}>
+                       <Archive className="mr-2 h-4 w-4" /> Global Archive (For All)
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => handleBulkAction('restore')}>
                        <ArchiveRestore className="mr-2 h-4 w-4" /> Restore to Inbox
                     </DropdownMenuItem>
@@ -355,7 +362,7 @@ export default function ArchiveSettingsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                      No archived memos found.
+                      No archived memos found matching your criteria.
                     </TableCell>
                   </TableRow>
                 )}
@@ -379,7 +386,7 @@ export default function ArchiveSettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action is irreversible. This will permanently delete the selected {selectedMemos.length} memo(s), including all attachments and activity logs.
+                  This action is irreversible. This will permanently delete the selected {selectedMemos.length} memo(s) from the system database, including all attachments and activity logs.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -394,15 +401,15 @@ export default function ArchiveSettingsPage() {
         <AlertDialog open={isArchiveAlertOpen} onOpenChange={(open) => handleDialogChange(open, setIsArchiveAlertOpen)}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Bulk Archive</AlertDialogTitle>
+                <AlertDialogTitle>Confirm Global Archive</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will archive <strong>{memosToArchiveCount} unarchived memo(s)</strong> within the timeframe <strong>{getDateLabel()}</strong> for all participants.
+                  This will archive <strong>{memosToArchiveCount} unarchived memo(s)</strong> within the timeframe <strong>{getDateLabel()}</strong> for ALL participants involved.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={isArchivingByDate}>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleBulkArchiveExecution} disabled={isArchivingByDate}>
-                  {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Process'}
+                  {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Process Globally'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
