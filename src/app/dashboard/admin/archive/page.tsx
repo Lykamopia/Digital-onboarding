@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -29,16 +28,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAllMemosForAdmin, performBulkArchiveActions, archiveMemosOlderThan, getMemosToArchiveCount } from "@/app/actions/memo";
-import type { Memo } from "@/lib/types";
+import { getAllMemosForAdmin, performBulkArchiveActions, performBulkArchive, getMemosToArchiveCount } from "@/app/actions/memo";
+import type { Memo, DateRange } from "@/lib/types";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/data";
-import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Calendar as CalendarIcon, Search } from "lucide-react";
+import { ChevronDown, ArchiveRestore, Trash2, Archive, Loader2, ChevronsLeft, ChevronsRight, Calendar as CalendarIcon, Search, AlertCircle, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -61,7 +60,10 @@ export default function ArchiveSettingsPage() {
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [archiveDate, setArchiveDate] = useState<Date | undefined>();
+  
+  // Bulk Archive by Date states
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
   const [isArchiveAlertOpen, setIsArchiveAlertOpen] = useState(false);
   const [isArchivingByDate, setIsArchivingByDate] = useState(false);
   const [memosToArchiveCount, setMemosToArchiveCount] = useState<number | null>(null);
@@ -91,14 +93,14 @@ export default function ArchiveSettingsPage() {
   }, []);
 
   const handleFetchCount = async () => {
-    if (!archiveDate) return;
+    if (!dateRange?.from) return;
     setIsFetchingCount(true);
-    setMemosToArchiveCount(null); // Reset before fetching
+    setMemosToArchiveCount(null);
     try {
-        const count = await getMemosToArchiveCount(archiveDate);
+        const count = await getMemosToArchiveCount(dateRange);
         setMemosToArchiveCount(count);
         if (count === 0) {
-            toast.info("No Memos Found", { description: "There are no memos older than the selected date to archive."});
+            toast.info("No Memos Found", { description: "There are no unarchived memos in the selected timeframe."});
         }
     } catch (error) {
         toast.error("Failed to get count", { description: "Could not fetch the number of memos to be archived." });
@@ -145,15 +147,19 @@ export default function ArchiveSettingsPage() {
       setIsPerformingAction(false);
   }
 
-    const handleBulkArchiveByDate = async () => {
-        if (!archiveDate) {
-            toast.error("No Date Selected", { description: "Please select a date to archive memos older than." });
+    const handleBulkArchiveExecution = async () => {
+        if (!dateRange?.from) {
+            toast.error("No Date Range Selected");
             return;
         }
         setIsArchivingByDate(true);
-        const result = await archiveMemosOlderThan(archiveDate);
-        if (result.success) {
-            toast.success("Bulk Archive Successful", { description: `${result.count || 0} memo(s) have been archived.`});
+        const result = await performBulkArchive(dateRange);
+        if (result.success && result.summary) {
+            toast.success("Bulk Archive Successful", { 
+                description: `${result.summary.archived} memos archived. ${result.summary.skipped} already fully archived.`
+            });
+            setMemosToArchiveCount(null);
+            setDateRange(undefined);
             await fetchMemos();
         } else {
             toast.error("Bulk Archive Failed", { description: result.error });
@@ -171,17 +177,27 @@ export default function ArchiveSettingsPage() {
         }
     };
 
+    const getDateLabel = () => {
+        if (!dateRange?.from) return <span>Pick a date or range</span>;
+        const isSingleDay = !dateRange.to || isSameDay(dateRange.from, dateRange.to);
+        if (isSingleDay) return format(dateRange.from, "PPP");
+        return `${format(dateRange.from, "LLL dd")} - ${format(dateRange.to!, "LLL dd, y")}`;
+    }
+
   if (loading) {
     return <ArchiveLoadingSkeleton />;
   }
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-primary/20 bg-primary/5">
         <CardHeader>
-            <CardTitle>Bulk Archive by Date</CardTitle>
+            <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-primary" />
+                <CardTitle>Bulk Archive Tool</CardTitle>
+            </div>
             <CardDescription>
-                Automatically archive all memos for all their recipients created before a specific date. This action cannot be easily undone.
+                System-wide maintenance: Archive unarchived memos within a specific timeframe for all participants.
             </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -190,32 +206,57 @@ export default function ArchiveSettingsPage() {
                     <PopoverTrigger asChild>
                         <Button
                             variant={"outline"}
-                            className={cn("w-full sm:w-[280px] justify-start text-left font-normal", !archiveDate && "text-muted-foreground")}
+                            className={cn("w-full sm:w-[320px] justify-start text-left font-normal bg-background", !dateRange && "text-muted-foreground")}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {archiveDate ? format(archiveDate, "PPP") : <span>Pick a date</span>}
+                            {getDateLabel()}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0 flex bg-card" align="start">
+                        <div className="flex flex-col space-y-1 border-r border-border bg-muted/30 p-2 min-w-[120px]">
+                            <div className="flex p-1 bg-muted rounded-md mb-2">
+                                <Button 
+                                    variant={dateMode === 'single' ? 'secondary' : 'ghost'} 
+                                    size="sm" 
+                                    className="flex-1 text-xs h-7 px-2"
+                                    onClick={() => setDateMode('single')}
+                                >
+                                    Single
+                                </Button>
+                                <Button 
+                                    variant={dateMode === 'range' ? 'secondary' : 'ghost'} 
+                                    size="sm" 
+                                    className="flex-1 text-xs h-7 px-2"
+                                    onClick={() => setDateMode('range')}
+                                >
+                                    Range
+                                </Button>
+                            </div>
+                        </div>
                         <Calendar
-                            mode="single"
-                            selected={archiveDate}
-                            onSelect={(date) => {
-                                setArchiveDate(date);
+                            initialFocus
+                            mode={dateMode}
+                            selected={dateMode === 'range' ? dateRange : (dateRange?.from || undefined)}
+                            onSelect={(val: any) => {
+                                if (dateMode === 'single') {
+                                    setDateRange(val ? { from: val, to: val } : undefined);
+                                } else {
+                                    setDateRange(val);
+                                }
                                 setMemosToArchiveCount(null);
                             }}
-                            initialFocus
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                            numberOfMonths={1}
+                            disabled={(date) => date > new Date()}
                         />
                     </PopoverContent>
                 </Popover>
-                <Button onClick={handleFetchCount} disabled={!archiveDate || isFetchingCount}>
+                <Button variant="secondary" onClick={handleFetchCount} disabled={!dateRange?.from || isFetchingCount}>
                     {isFetchingCount ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    Preview Count
+                    Preview Dataset
                 </Button>
-                <Button onClick={() => setIsArchiveAlertOpen(true)} disabled={!archiveDate || isArchivingByDate || memosToArchiveCount === null || memosToArchiveCount === 0}>
+                <Button onClick={() => setIsArchiveAlertOpen(true)} disabled={!dateRange?.from || isArchivingByDate || memosToArchiveCount === null || memosToArchiveCount === 0}>
                      {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
-                    Archive Memos
+                    Execute Archive
                 </Button>
             </div>
             <AnimatePresence>
@@ -224,20 +265,27 @@ export default function ArchiveSettingsPage() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="p-4 bg-muted/50 rounded-md border border-dashed text-center"
+                        className={cn(
+                            "p-4 rounded-md border border-dashed text-center flex flex-col items-center gap-1",
+                            memosToArchiveCount > 0 ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20" : "bg-muted/50"
+                        )}
                     >
-                        <p className="font-semibold text-lg text-primary">{memosToArchiveCount} memos</p>
-                        <p className="text-sm text-muted-foreground">found older than the selected date will be archived.</p>
+                        <div className="flex items-center gap-2">
+                            {memosToArchiveCount > 0 ? <AlertCircle className="h-5 w-5 text-amber-500" /> : <Info className="h-5 w-5 text-muted-foreground" />}
+                            <p className="font-semibold text-lg">{memosToArchiveCount} unarchived memos</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">found in the selected timeframe will be processed for all participants.</p>
                     </motion.div>
                 )}
             </AnimatePresence>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle>Archived Memos</CardTitle>
+          <CardTitle>Management Console</CardTitle>
           <CardDescription>
-            Manually manage all archived memos. Actions taken here are permanent.
+            Manually restore or permanently delete archived memos across the system.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -250,7 +298,7 @@ export default function ArchiveSettingsPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                     <DropdownMenuItem onSelect={() => handleBulkAction('restore')}>
-                       <ArchiveRestore className="mr-2 h-4 w-4" /> Restore
+                       <ArchiveRestore className="mr-2 h-4 w-4" /> Restore to Inbox
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => handleBulkAction('delete')} className="text-destructive" data-destructive>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
@@ -276,7 +324,7 @@ export default function ArchiveSettingsPage() {
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>From</TableHead>
-                  <TableHead>Archived On</TableHead>
+                  <TableHead>Archive Date</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -296,7 +344,7 @@ export default function ArchiveSettingsPage() {
                         />
                       </TableCell>
                        <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
-                      <TableCell className="font-medium">{memo.subject}</TableCell>
+                      <TableCell className="font-medium max-w-xs truncate">{memo.subject}</TableCell>
                       <TableCell>{memo.from.name}</TableCell>
                       <TableCell>{formatTimestamp(memo.updatedAt, false)}</TableCell>
                        <TableCell>
@@ -306,7 +354,7 @@ export default function ArchiveSettingsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                       No archived memos found.
                     </TableCell>
                   </TableRow>
@@ -331,7 +379,7 @@ export default function ArchiveSettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the selected {selectedMemos.length} memo(s) and all related data.
+                  This action is irreversible. This will permanently delete the selected {selectedMemos.length} memo(s), including all attachments and activity logs.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -346,15 +394,15 @@ export default function ArchiveSettingsPage() {
         <AlertDialog open={isArchiveAlertOpen} onOpenChange={(open) => handleDialogChange(open, setIsArchiveAlertOpen)}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogTitle>Confirm Bulk Archive</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will archive <strong>{memosToArchiveCount} memo(s)</strong> older than <strong>{archiveDate ? format(archiveDate, "PPP") : ''}</strong> for all of their respective recipients. This action can affect many users.
+                  This will archive <strong>{memosToArchiveCount} unarchived memo(s)</strong> within the timeframe <strong>{getDateLabel()}</strong> for all participants.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={isArchivingByDate}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBulkArchiveByDate} disabled={isArchivingByDate}>
-                  {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Archive'}
+                <AlertDialogAction onClick={handleBulkArchiveExecution} disabled={isArchivingByDate}>
+                  {isArchivingByDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Process'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

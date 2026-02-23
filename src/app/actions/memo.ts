@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
-import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity, FullMemo } from '@/lib/types';
+import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity, FullMemo, DateRange } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
@@ -2133,17 +2133,22 @@ export async function performBulkArchiveActions(action: 'archive' | 'restore' | 
     return { success: true };
 }
 
-export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ success: boolean; error?: string, count?: number }> {
+export async function performBulkArchive(range: { from?: Date, to?: Date }): Promise<{ success: boolean; error?: string, summary?: { matched: number, archived: number, skipped: number } }> {
     const user = await hasPermission('manage_archive');
 
-    if (!archiveDate) {
-        return { success: false, error: 'A valid date must be provided.' };
+    if (!range.from) {
+        return { success: false, error: 'A valid date range must be provided.' };
     }
 
     try {
-        const memosToArchive = await prisma.memo.findMany({
+        const fromDate = new Date(range.from);
+        fromDate.setHours(0, 0, 0, 0);
+        const toDate = new Date(range.to || range.from);
+        toDate.setHours(23, 59, 59, 999);
+
+        const allMemosInRange = await prisma.memo.findMany({
             where: {
-                createdAt: { lt: new Date(archiveDate) },
+                createdAt: { gte: fromDate, lte: toDate },
                 status: { not: 'draft' },
             },
             include: {
@@ -2152,48 +2157,55 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
                 archivedBy: { select: { id: true } },
             },
         });
-        
-        const updates = memosToArchive.map(memo => {
-            // Bulk archive for EVERYONE involved: Sender, To, and CC
-            const participantIds = [
-                memo.fromId,
-                ...memo.to.map(u => u.id),
-                ...memo.cc.map(u => u.id)
-            ];
+
+        const memosToProcess = allMemosInRange.filter(memo => {
+            const participantIds = new Set([memo.fromId, ...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)]);
+            const archivedIds = new Set(memo.archivedBy.map(u => u.id));
+            // Candidate if at least one participant hasn't archived it yet
+            return Array.from(participantIds).some(id => !archivedIds.has(id));
+        });
+
+        const skippedCount = allMemosInRange.length - memosToProcess.length;
+
+        const updates = memosToProcess.map(memo => {
+            const participantIds = [memo.fromId, ...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)];
             const uniqueParticipantIds = [...new Set(participantIds)];
             const alreadyArchivedIds = new Set(memo.archivedBy.map(u => u.id));
-            
             const idsToConnect = uniqueParticipantIds.filter(id => !alreadyArchivedIds.has(id));
 
-            if (idsToConnect.length > 0) {
-                return prisma.memo.update({
-                    where: { id: memo.id },
-                    data: {
-                        archivedBy: {
-                            connect: idsToConnect.map(id => ({ id }))
-                        }
+            return prisma.memo.update({
+                where: { id: memo.id },
+                data: {
+                    archivedBy: {
+                        connect: idsToConnect.map(id => ({ id }))
                     }
-                });
-            }
-            return null;
-        }).filter(Boolean);
+                }
+            });
+        });
 
         if (updates.length > 0) {
-            await prisma.$transaction(updates as any);
+            await prisma.$transaction(updates);
         }
 
         await logSecurityEvent({
             event: SecurityEvent.BULK_ARCHIVE_ACTION,
             severity: LogSeverity.WARN,
             actor: user,
-            details: `Admin bulk archived ${updates.length} memos older than ${new Date(archiveDate).toLocaleDateString()}.`
+            details: `Admin performed bulk archive for timeframe ${fromDate.toLocaleDateString()} - ${toDate.toLocaleDateString()}. Processed ${updates.length} memos, skipped ${skippedCount} fully archived ones.`
         });
 
         revalidatePath('/dashboard/admin/archive');
         revalidatePath('/dashboard/archive');
         revalidatePath('/dashboard/inbox');
 
-        return { success: true, count: updates.length };
+        return { 
+            success: true, 
+            summary: { 
+                matched: allMemosInRange.length, 
+                archived: updates.length, 
+                skipped: skippedCount 
+            } 
+        };
 
     } catch (error: any) {
         console.error("Bulk archive failed:", error);
@@ -2201,22 +2213,38 @@ export async function archiveMemosOlderThan(archiveDate: Date): Promise<{ succes
     }
 }
 
-export async function getMemosToArchiveCount(archiveDate: Date): Promise<number> {
+export async function getMemosToArchiveCount(range: { from?: Date, to?: Date }): Promise<number> {
     await hasPermission('manage_archive');
 
-    if (!archiveDate) {
+    if (!range.from) {
         return 0;
     }
 
     try {
-        // System-wide count for maintenance preview
-        const count = await prisma.memo.count({
+        const fromDate = new Date(range.from);
+        fromDate.setHours(0, 0, 0, 0);
+        const toDate = new Date(range.to || range.from);
+        toDate.setHours(23, 59, 59, 999);
+
+        const memos = await prisma.memo.findMany({
             where: {
-                createdAt: { lt: new Date(archiveDate) },
+                createdAt: { gte: fromDate, lte: toDate },
                 status: { not: 'draft' },
             },
+            include: {
+                to: { select: { id: true } },
+                cc: { select: { id: true } },
+                archivedBy: { select: { id: true } },
+            },
         });
-        return count;
+
+        const candidateMemos = memos.filter(memo => {
+            const participantIds = new Set([memo.fromId, ...memo.to.map(u => u.id), ...memo.cc.map(u => u.id)]);
+            const archivedIds = new Set(memo.archivedBy.map(u => u.id));
+            return Array.from(participantIds).some(id => !archivedIds.has(id));
+        });
+
+        return candidateMemos.length;
     } catch (error) {
         console.error("Failed to get memos to archive count:", error);
         return 0;
