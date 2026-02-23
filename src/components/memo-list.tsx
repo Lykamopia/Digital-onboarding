@@ -48,7 +48,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     const unread = useMemo(() => {
         if (!loggedInUser) return false;
         
-        // Use the real user ID (delegate or delegator) to check for viewed activity
         const actorIdToCheck = loggedInUser.actingUser ? loggedInUser.actingUser.id : loggedInUser.id;
 
         const isRecipient = memo.to.some(user => user.id === loggedInUser.id) || 
@@ -195,23 +194,20 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
     const MemoActions = ({ memo }: { memo: DashboardMemo }) => {
         const { settings } = useSettings();
-        const memoStatus = getMemoStatus(memo);
-        
         const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
         const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
         const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
 
-
         if (tab === 'drafts') {
              return (
-                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                     <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                     <div className="bg-background/90 backdrop-blur-md rounded-full shadow-lg border border-border p-1 flex items-center gap-1">
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                                            <Trash2 />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => e.stopPropagation()}>
+                                            <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -237,12 +233,12 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         
         if (tab === 'favorites') {
              return (
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                    <div className="bg-background/90 backdrop-blur-md rounded-full shadow-lg border border-border p-1 flex items-center gap-1">
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-yellow-500 hover:text-yellow-600" onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))}>
-                                    <Star className="fill-current" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50" onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))}>
+                                    <Star className="h-4 w-4 fill-current" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Unfavorite</TooltipContent>
@@ -253,13 +249,13 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         }
 
         return (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="bg-background/70 backdrop-blur-sm rounded-full shadow-md p-0.5 flex items-center gap-0.5">
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                <div className="bg-background/90 backdrop-blur-md rounded-full shadow-lg border border-border p-1 flex items-center gap-1">
                     {unread && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
-                                    <MailOpen />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-blue-50 hover:text-blue-600" onClick={(e) => handleActionClick(e, () => handleMarkAsRead(memo))}>
+                                    <MailOpen className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Mark as Read</TooltipContent>
@@ -268,8 +264,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     {canReply && tab !== 'sent' && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
-                                    <Reply />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-green-50 hover:text-green-600" onClick={(e) => handleActionClick(e, () => handleReply(memo.id))}>
+                                    <Reply className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Reply</TooltipContent>
@@ -278,8 +274,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     {canAssign && (
                          <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => handleActionClick(e, () => handleAssign(memo.id))}>
-                                    <Share2 />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-purple-50 hover:text-purple-600" onClick={(e) => handleActionClick(e, () => handleAssign(memo.id))}>
+                                    <Share2 className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Assign</TooltipContent>
@@ -290,8 +286,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             <TooltipTrigger asChild>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
-                                            <Undo2 />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
+                                            <Undo2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -315,8 +311,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             <TooltipTrigger asChild>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={(e) => e.stopPropagation()}>
-                                            <Archive />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
+                                            <Archive className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -341,107 +337,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
         )
     }
 
-    const MemoContextMenu = ({ memo }: { memo: DashboardMemo }) => {
-        const { settings } = useSettings();
-        const memoStatus = getMemoStatus(memo);
-        
-        const isDirectRecipient = loggedInUser && (memo.to.some(u => u.id === loggedInUser.id) || memo.current_holder?.id === loggedInUser.id);
-        const canReply = isDirectRecipient && loggedInUser && memo.fromId !== loggedInUser.id && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
-        const canAssign = isDirectRecipient && (!loggedInUser.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
-        const canDuplicate = (!loggedInUser.actingUser && loggedInUser.role?.permissions.includes('manage_memos')) || (loggedInUser.actingUser && loggedInUser.delegationPermissions?.includes('delegation:draft'));
-
-        const isFavorited = memo.favoritedBy && memo.favoritedBy.length > 0;
-        const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
-        
-        if (tab === 'drafts') {
-            return (
-                <ContextMenuContent>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <ContextMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive data-[highlighted]:bg-destructive/10" data-destructive>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Delete Draft</span>
-                            </ContextMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete this draft.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteDraft(memo.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </ContextMenuContent>
-            );
-        }
-
-        return (
-            <ContextMenuContent>
-                <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
-                    <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                    <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
-                </ContextMenuItem>
-                <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
-                    <Flag className={cn("mr-2 h-4 w-4", isFlaggedByUser && "fill-red-500 text-red-500")} />
-                    <span>{isFlaggedByUser ? 'Unflag' : 'Flag'}</span>
-                </ContextMenuItem>
-                {canDuplicate && (
-                    <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        <span>Duplicate</span>
-                    </ContextMenuItem>
-                )}
-                <ContextMenuSeparator />
-                {unread && (
-                    <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
-                        <MailOpen className="mr-2 h-4 w-4" />
-                        <span>Mark as Read</span>
-                    </ContextMenuItem>
-                )}
-                {canReply && tab !== 'sent' && (
-                    <ContextMenuItem onSelect={() => handleReply(memo.id)}>
-                        <Reply className="mr-2 h-4 w-4" />
-                        <span>Reply</span>
-                    </ContextMenuItem>
-                )}
-                {canAssign && (
-                    <ContextMenuItem onSelect={() => handleAssign(memo.id)}>
-                        <Share2 className="mr-2 h-4 w-4" />
-                        <span>Assign</span>
-                    </ContextMenuItem>
-                )}
-                <ContextMenuSeparator />
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-                             {tab === 'archive' ? <Undo2 className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
-                             <span>{tab === 'archive' ? 'Unarchive' : 'Archive'}</span>
-                        </ContextMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                {tab === 'archive' ? 'This memo will be moved back to your inbox.' : 'This will move the memo to your personal archive.'}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleArchive(memo.id, tab !== 'archive')}>
-                                {tab === 'archive' ? 'Unarchive' : 'Archive'}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </ContextMenuContent>
-        )
-    }
-
     const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
     const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
     
@@ -451,78 +346,151 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                 <div
                     data-testid="memo-item"
                     className={cn(
-                    "group relative flex flex-col items-start gap-1 rounded-md border p-2 text-left text-sm transition-all duration-200 cursor-pointer",
-                    "hover:bg-primary/5",
-                    selectedMemoId === memo.id ? "bg-primary/10 ring-2 ring-primary/50" : "",
+                    "group relative flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left text-sm transition-all duration-200 cursor-pointer overflow-hidden",
+                    "hover:bg-primary/[0.03] hover:border-primary/20",
+                    selectedMemoId === memo.id ? "bg-primary/[0.08] ring-1 ring-primary/30 border-primary/30" : "bg-card",
                     isFlaggedByUser && "border-l-4 border-l-red-500/70"
                     )}
                     onClick={() => onSelectMemo(memo.id)}
                 >
-                    <div className="flex w-full items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+                    {/* Metadata Header Row */}
+                    <div className="flex w-full items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 {unread && (
-                                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                                 )}
-                                <div className={cn("truncate", unread ? "font-bold" : "font-semibold")}>
+                                <div className={cn("truncate text-xs sm:text-sm transition-all", unread ? "font-bold text-foreground" : "font-semibold text-muted-foreground")}>
                                     {getDisplayName(memo)}
                                 </div>
                             </div>
-                            {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && <StatusBadge status={getMemoStatus(memo)} />}
-                            {tab === 'favorites' && <Badge variant="secondary" className="text-xs">{getOrigin(memo)}</Badge>}
+                            <div className="shrink-0 flex items-center gap-1">
+                                {(tab === 'inbox' || tab === 'scheduled' || (tab === 'favorites' && memo.fromId !== loggedInUser.id)) && (
+                                    <StatusBadge status={getMemoStatus(memo)} />
+                                )}
+                                {tab === 'favorites' && (
+                                    <Badge variant="secondary" className="text-[10px] h-4 px-1 px-1.5 font-normal bg-muted/50 border-none uppercase tracking-tight">
+                                        {getOrigin(memo).replace('From ', '')}
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
-                        <div
-                        className={cn(
-                            "text-xs shrink-0 transition-opacity duration-300",
-                            "group-hover:opacity-0",
-                            selectedMemoId === memo.id
-                            ? "text-foreground"
-                            : "text-muted-foreground"
-                        )}
-                        >
-                        {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
+                        <div className="text-[10px] sm:text-xs shrink-0 text-muted-foreground whitespace-nowrap pt-0.5 font-medium tabular-nums">
+                            {memo.createdAt ? formatDistanceToNow(new Date(memo.createdAt), { addSuffix: true }) : ''}
                         </div>
                     </div>
 
-                    <div className="w-full pr-20 overflow-hidden">
-                        <div className={cn("text-sm truncate flex items-center gap-2", unread ? "font-semibold" : "font-medium")}>
-                            {tab !== 'drafts' && tab !== 'scheduled' && (
-                                <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
-                                    <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                                </button>
-                            )}
-                            <span className="truncate">{memo.subject || "No Subject"}</span>
-                        </div>
-                        {memo.labels.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                                {memo.labels.map(label => (
-                                        <span 
-                                        key={label.id}
-                                        style={{ 
-                                            backgroundColor: hexToRgba(label.color, 0.2), 
-                                            color: label.color, 
-                                            borderColor: hexToRgba(label.color, 0.4) 
-                                        }} 
-                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+                    {/* Content Section */}
+                    <div className="w-full relative">
+                        {/* Reserved padding for hover actions */}
+                        <div className="pr-20 min-w-0 flex flex-col gap-0.5">
+                            <div className={cn("text-sm truncate flex items-center gap-2", unread ? "font-semibold text-foreground" : "font-medium text-muted-foreground/90")}>
+                                {tab !== 'drafts' && tab !== 'scheduled' && (
+                                    <button 
+                                        onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} 
+                                        className={cn("z-10 shrink-0 transition-transform active:scale-90")}
                                     >
-                                        {label.name}
-                                    </span>
-                                ))}
+                                        <Star className={cn("h-4 w-4 transition-colors hover:text-yellow-500", isFavorited ? "fill-yellow-400 text-yellow-500" : "text-muted-foreground/40")} />
+                                    </button>
+                                )}
+                                <span className="truncate">{memo.subject || "(No Subject)"}</span>
                             </div>
-                        )}
-                        <div className="line-clamp-1 text-xs text-muted-foreground break-words mt-1" dangerouslySetInnerHTML={{ __html: memo.body?.substring(0, 300) || "No content" }} />
+                            
+                            {memo.labels.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1 mb-1">
+                                    {memo.labels.map(label => (
+                                        <span 
+                                            key={label.id}
+                                            style={{ 
+                                                backgroundColor: hexToRgba(label.color, 0.15), 
+                                                color: label.color, 
+                                                borderColor: hexToRgba(label.color, 0.3) 
+                                            }} 
+                                            className="px-1.5 py-0 rounded-full text-[9px] font-bold border leading-tight uppercase tracking-wider"
+                                        >
+                                            {label.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            <div 
+                                className="line-clamp-1 text-xs text-muted-foreground/70 break-all mt-0.5 font-normal leading-relaxed" 
+                                dangerouslySetInnerHTML={{ __html: memo.body?.replace(/<[^>]*>?/gm, ' ') || "No content preview available." }} 
+                            />
+                        </div>
+                        
+                        {/* Absolute positioned actions */}
+                        <MemoActions memo={memo} />
                     </div>
-                    
-                    <MemoActions memo={memo} />
                 </div>
             </ContextMenuTrigger>
-            <MemoContextMenu memo={memo} />
+            
+            {/* Context Menu logic remains same but ensuring consistency */}
+            <ContextMenuContent className="w-56">
+                {tab === 'drafts' ? (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <ContextMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete Draft</span>
+                            </ContextMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Draft?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently remove your unsent progress.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDraft(memo.id)} className="bg-destructive">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                ) : (
+                    <>
+                        <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
+                            <Star className={cn("mr-2 h-4 w-4", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                            <span>{isFavorited ? 'Unfavorite' : 'Favorite'}</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem onSelect={() => handleToggleFlag(memo.id)}>
+                            <Flag className={cn("mr-2 h-4 w-4", isFlaggedByUser && "fill-red-500 text-red-500")} />
+                            <span>{isFlaggedByUser ? 'Unflag' : 'Flag'}</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem onSelect={() => handleDuplicate(memo.id)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            <span>Duplicate</span>
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        {unread && (
+                            <ContextMenuItem onSelect={() => handleMarkAsRead(memo)}>
+                                <MailOpen className="mr-2 h-4 w-4" />
+                                <span>Mark as Read</span>
+                            </ContextMenuItem>
+                        )}
+                        {memo.fromId !== loggedInUser.id && (
+                            <ContextMenuItem onSelect={() => handleReply(memo.id)}>
+                                <Reply className="mr-2 h-4 w-4" />
+                                <span>Reply</span>
+                            </ContextMenuItem>
+                        )}
+                        <ContextMenuItem onSelect={() => handleAssign(memo.id)}>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            <span>Assign</span>
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={() => handleArchive(memo.id, tab !== 'archive')}>
+                             {tab === 'archive' ? <Undo2 className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
+                             <span>{tab === 'archive' ? 'Restore' : 'Archive'}</span>
+                        </ContextMenuItem>
+                    </>
+                )}
+            </ContextMenuContent>
         </ContextMenu>
     )
 }
 
 const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { memos: DashboardMemo[], selectedMemoId: string | null, onSelectMemo: (id: string) => void, loggedInUser: LoggedInUser | null }) => {
-    
     if (!loggedInUser) return null;
     
     const isUnread = (memo: DashboardMemo) => {
@@ -532,29 +500,29 @@ const CollapsedView = ({ memos, selectedMemoId, onSelectMemo, loggedInUser }: { 
     }
     return (
         <TooltipProvider>
-            <div className="flex flex-col items-center gap-2 p-2">
+            <div className="flex flex-col items-center gap-3 p-2">
                 {memos.map((memo) => (
                      <Tooltip key={memo.id} delayDuration={0}>
                         <TooltipTrigger asChild>
                             <button
                                 className={cn(
-                                    "relative rounded-full p-0.5",
-                                    selectedMemoId === memo.id && "bg-primary/20"
+                                    "relative rounded-full transition-transform active:scale-95",
+                                    selectedMemoId === memo.id ? "ring-2 ring-primary ring-offset-2" : "hover:scale-105"
                                 )}
                                 onClick={() => onSelectMemo(memo.id)}
                             >
-                                <Avatar className="h-10 w-10">
+                                <Avatar className="h-10 w-10 border border-border shadow-sm">
                                     <AvatarImage src={memo.from.avatar || undefined} alt={memo.from.name} />
-                                    <AvatarFallback>{memo.from.name.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{memo.from.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 {isUnread(memo) && (
-                                    <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-blue-500 border-2 border-background" />
+                                    <span className="absolute -top-0.5 -right-0.5 block h-3 w-3 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
                                 )}
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="right">
-                           <p className="font-semibold">{memo.from.name}</p>
-                           <p>{memo.subject}</p>
+                        <TooltipContent side="right" className="flex flex-col gap-1 max-w-[200px]">
+                           <p className="font-bold text-xs truncate">{memo.from.name}</p>
+                           <p className="text-[10px] leading-tight line-clamp-2 text-muted-foreground">{memo.subject}</p>
                         </TooltipContent>
                     </Tooltip>
                 ))}
@@ -592,7 +560,7 @@ export function MemoList({ memos, setMemos, selectedMemoId, onSelectMemo, isExpa
     <ScrollArea className="h-full [&>[data-radix-scroll-area-scrollbar]]:hidden">
         <TooltipProvider>
             {isExpanded ? (
-                <div className="flex flex-col gap-0.5 px-1 py-1">
+                <div className="flex flex-col gap-1.5 px-3 py-3">
                     {memos.map((memo) => (
                         <MemoItem 
                             key={memo.id}
