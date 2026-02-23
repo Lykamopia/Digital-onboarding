@@ -175,10 +175,14 @@ export async function getDashboardData(
     }
 
     if (dateRange?.from) {
-        where.AND.push({ createdAt: { gte: new Date(dateRange.from) } });
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        where.AND.push({ createdAt: { gte: fromDate } });
     }
     if (dateRange?.to) {
-        where.AND.push({ createdAt: { lte: new Date(dateRange.to) } });
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        where.AND.push({ createdAt: { lte: toDate } });
     }
     
     if (show === 'favorites' && tab !== 'favorites') {
@@ -1169,8 +1173,16 @@ export async function getAuditMemos(page = 1, limit = 15, filters: any = {}) {
     if (filters.labels && filters.labels.length > 0) {
         where.AND.push({ labels: { some: { id: { in: filters.labels } } } });
     }
-    if (filters.dateRange?.from) where.AND.push({ createdAt: { gte: new Date(filters.dateRange.from) } });
-    if (filters.dateRange?.to) where.AND.push({ createdAt: { lte: new Date(filters.dateRange.to) } });
+    if (filters.dateRange?.from) {
+        const fromDate = new Date(filters.dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        where.AND.push({ createdAt: { gte: fromDate } });
+    }
+    if (filters.dateRange?.to) {
+        const toDate = new Date(filters.dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        where.AND.push({ createdAt: { lte: toDate } });
+    }
 
     const [memos, total] = await prisma.$transaction([
         prisma.memo.findMany({

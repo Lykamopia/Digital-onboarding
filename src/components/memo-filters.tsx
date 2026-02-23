@@ -100,6 +100,13 @@ export function MemoFilters({
 }: MemoFiltersProps) {
   const { setSearchParams } = useSearchParams();
   const [activeQuickDate, setActiveQuickDate] = useState<QuickDateRange | null>(null);
+  const [dateMode, setDateMode] = useState<'single' | 'range'>(() => {
+      // If start and end are same in initial params, default to single
+      if (dateRange?.from && dateRange?.to && isSameDay(dateRange.from, dateRange.to)) {
+          return 'single';
+      }
+      return 'range';
+  });
 
   const debouncedSetSearch = useDebouncedCallback((value) => {
     setSearchParams({ q: value });
@@ -107,11 +114,21 @@ export function MemoFilters({
 
   const handleDateChange = (range: DateRange | undefined) => {
       setActiveQuickDate(null);
-      setDateRange(range);
-      setSearchParams({ 
-        from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
-        to: range?.to ? format(range.to, 'yyyy-MM-dd') : null
-       });
+      
+      if (dateMode === 'single' && range?.from) {
+          const singleDate = range.from;
+          setDateRange({ from: singleDate, to: singleDate });
+          setSearchParams({ 
+            from: singleDate.toISOString(),
+            to: singleDate.toISOString()
+          });
+      } else {
+          setDateRange(range);
+          setSearchParams({ 
+            from: range?.from ? range.from.toISOString() : null,
+            to: range?.to ? range.to.toISOString() : null
+          });
+      }
   }
 
   const setQuickDate = (range: QuickDateRange) => {
@@ -149,6 +166,8 @@ export function MemoFilters({
             to = endOfYear(lastYearDate);
             break;
     }
+    
+    setDateMode('range'); // Quick selections are usually ranges/specific days
     setDateRange({ from, to });
     setActiveQuickDate(range);
     setSearchParams({ 
@@ -205,6 +224,21 @@ export function MemoFilters({
     { value: 'lastYear', label: 'Last Year', icon: <BookCopy className="h-4 w-4" /> },
   ];
 
+  const getDateLabel = () => {
+      if (!dateRange?.from) return <span>Pick a date</span>;
+      
+      const isSingleDay = !dateRange.to || isSameDay(dateRange.from, dateRange.to);
+      if (isSingleDay) {
+          return format(dateRange.from, "LLL dd, yyyy");
+      }
+      
+      return (
+          <>
+              {format(dateRange.from, "LLL dd")} -{" "}
+              {format(dateRange.to!, "LLL dd, y")}
+          </>
+      );
+  }
 
   return (
     <div id="memo-filters-container" className={cn("p-2 border-b", !isExpanded && "flex flex-col items-center")}>
@@ -254,22 +288,29 @@ export function MemoFilters({
                     )}
                     >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                        dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? (
-                        <>
-                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
-                        </>
-                        ) : (
-                        format(dateRange.from, "LLL dd, y")
-                        )
-                    ) : (
-                        <span>Pick a date</span>
-                    )}
+                    {getDateLabel()}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 flex bg-card text-foreground" align="start">
-                    <div className="flex flex-col space-y-1 border-r border-border bg-muted/30 dark:bg-muted/10 p-2">
+                    <div className="flex flex-col space-y-1 border-r border-border bg-muted/30 dark:bg-muted/10 p-2 min-w-[140px]">
+                        <div className="flex p-1 bg-muted rounded-md mb-2">
+                            <Button 
+                                variant={dateMode === 'single' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="flex-1 text-xs h-7 px-2"
+                                onClick={() => setDateMode('single')}
+                            >
+                                Single
+                            </Button>
+                            <Button 
+                                variant={dateMode === 'range' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="flex-1 text-xs h-7 px-2"
+                                onClick={() => setDateMode('range')}
+                            >
+                                Range
+                            </Button>
+                        </div>
                         {quickDateButtons.map((item) => (
                            <Button
                                 key={item.value}
@@ -284,10 +325,16 @@ export function MemoFilters({
                     </div>
                     <Calendar
                         initialFocus
-                        mode="range"
+                        mode={dateMode}
                         defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={handleDateChange}
+                        selected={dateMode === 'range' ? dateRange : (dateRange?.from || undefined)}
+                        onSelect={(val: any) => {
+                            if (dateMode === 'single') {
+                                handleDateChange(val ? { from: val, to: val } : undefined);
+                            } else {
+                                handleDateChange(val);
+                            }
+                        }}
                         numberOfMonths={1}
                         captionLayout="dropdown-buttons"
                         fromYear={new Date().getFullYear() - 10}
