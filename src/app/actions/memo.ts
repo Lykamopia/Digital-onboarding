@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Prisma } from '@prisma/client';
-import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity } from '@/lib/types';
+import type { Memo, User, Label as LabelType, AcknowledgementType, Permission, Role, Office, DelegationPermission, LoggedInUser, Activity, FullMemo } from '@/lib/types';
 import { LogSeverity } from '@/lib/types';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
@@ -793,39 +793,77 @@ export async function saveDraft(data: Partial<Memo> & { to?: User[], cc?: User[]
     }
 }
 
-export async function getOrCreateActionDraft(originalMemoId: string, action: 'reply' | 'assign', initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] } = {}) {
+/**
+ * Retrieves an existing draft for a specific action (reply, reply-all, assign) or creates a new one.
+ * Uses the memo_reference_number as a metadata container to distinguish between different action types
+ * for the same original memo.
+ */
+export async function getOrCreateActionDraft(
+    originalMemoId: string, 
+    action: 'reply' | 'reply-all' | 'assign', 
+    initialData: Partial<Memo> & { to?: User[], cc?: User[], labels?: LabelType[] } = {}
+) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
+    await hasPermission('manage_memos');
 
     if (user.actingUser && !user.delegationPermissions?.includes('delegation:reply')) {
         throw new Error("Access Denied: You do not have permission to draft replies or assignments.");
     }
 
-    const whereClause: any = { fromId: user.id, status: 'draft' };
-    if (action === 'reply') whereClause.replyToId = originalMemoId;
+    // Metadata encoded in the reference number to uniquely identify the draft context
+    // Format: DRAFT:[action]:[originalId]:[timestamp]
+    const actionTag = `DRAFT:${action}:${originalMemoId}`;
+
+    const whereClause: any = { 
+        fromId: user.id, 
+        status: 'draft',
+        memo_reference_number: { startsWith: actionTag }
+    };
+    
+    if (action === 'reply' || action === 'reply-all') whereClause.replyToId = originalMemoId;
     if (action === 'assign') whereClause.assignedFromId = originalMemoId;
 
-    const existingDrafts = await prisma.memo.findMany({ where: whereClause, orderBy: { createdAt: 'desc' }, include: { to: true, cc: true, labels: true, attachments: true }});
+    const existingDrafts = await prisma.memo.findMany({ 
+        where: whereClause, 
+        orderBy: { createdAt: 'desc' }, 
+        include: { to: true, cc: true, labels: true, attachments: true }
+    });
+
     if (existingDrafts.length > 0) {
+        // If multiple exist, use the newest and cleanup stray duplicates
         if (existingDrafts.length > 1) {
-            await prisma.memo.deleteMany({ where: { id: { in: existingDrafts.slice(1).map(d => d.id) } } });
+            await prisma.memo.deleteMany({ 
+                where: { 
+                    id: { in: existingDrafts.slice(1).map(d => d.id) },
+                    fromId: user.id,
+                    status: 'draft'
+                } 
+            });
         }
         return existingDrafts[0];
     }
 
+    // Create a new unique draft for this specific action type
     const payload: any = {
-        fromId: user.id, subject: initialData.subject || '', body: initialData.body || '',
+        fromId: user.id,
+        subject: initialData.subject || '',
+        body: initialData.body || '',
         to: { connect: (initialData.to || []).map((u: any) => ({ id: u.id })) },
         cc: { connect: (initialData.cc || []).map((u: any) => ({ id: u.id })) },
         labels: { connect: (initialData.labels || []).map((l: any) => ({ id: l.id })) },
         attachments: { create: (initialData.attachments || []).map((att: any) => ({ name: att.name, type: att.type, size: att.size, url: att.url })) },
-        status: 'draft' as const, memo_reference_number: `DRAFT-${Date.now()}`,
+        status: 'draft' as const,
+        memo_reference_number: `${actionTag}:${Date.now()}`,
     };
-    if (action === 'reply') payload.replyToId = originalMemoId;
+    
+    if (action === 'reply' || action === 'reply-all') payload.replyToId = originalMemoId;
     if (action === 'assign') payload.assignedFromId = originalMemoId;
 
-    const newDraft = await prisma.memo.create({ data: payload, include: { to: true, cc: true, labels: true, attachments: true } });
-    return newDraft;
+    return await prisma.memo.create({ 
+        data: payload, 
+        include: { to: true, cc: true, labels: true, attachments: true } 
+    });
 }
 
 

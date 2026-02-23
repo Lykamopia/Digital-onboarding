@@ -279,14 +279,16 @@ export default function NewMemoPage() {
         const replyAllToId = searchParams.get('replyAllTo');
         const assignFromId = searchParams.get('assignFrom');
 
-        // Always prioritize loading an existing draft by its ID
+        // Logic for identifying the unique action context
+        const isActionIntent = replyToId || replyAllToId || assignFromId;
+
+        // If we have a specific ID, always prioritize loading exactly that draft
         if (currentDraftId) {
             const draft = await getMemo(currentDraftId);
             if (draft) {
                 let bodyContent = draft.body || '';
                 let replyContent = '';
 
-                // Correctly parse the body for replies/forwards
                 if ((draft.replyToId || draft.assignedFromId) && draft.body.includes('<hr>')) {
                     const parts = draft.body.split('<hr>');
                     replyContent = parts[0];
@@ -296,7 +298,6 @@ export default function NewMemoPage() {
                     bodyContent = draft.body;
                 }
                 
-                // Filter to only active recipients just in case some were deactivated
                 setTo(draft.to.filter(u => u.status === 'active'));
                 setCc(draft.cc.filter(u => u.status === 'active'));
                 setLabels(draft.labels);
@@ -308,81 +309,86 @@ export default function NewMemoPage() {
                 setAssignFrom(draft.assignedFromId || undefined);
                 setIsDraft(true);
                 setDraftId(currentDraftId);
-
-                // Exit early to prevent being overwritten by reply/assign logic
                 isInitializingRef.current = false;
                 return; 
             }
         }
         
-        // Handle creating a *new* draft for a reply or assign
-        if (replyToId || replyAllToId) {
-            const originalMemoId = replyToId || replyAllToId;
+        // Handle creating or retrieving a draft specific to an action intent
+        if (isActionIntent) {
+            const originalMemoId = replyToId || replyAllToId || assignFromId;
+            const actionType = replyAllToId ? 'reply-all' : replyToId ? 'reply' : 'assign';
+            
             const originalMemo = await getMemo(originalMemoId!);
             if (originalMemo && loggedInUser) {
-                const originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
-                setBody(originalContent);
-                const newSubject = `Re: ${originalMemo.subject}`;
-                setSubject(newSubject);
-                setReplyTo(originalMemoId);
-                setAssignFrom(undefined);
+                let toRecipients: User[] = [];
+                let ccRecipients: User[] = [];
+                let newSubject = '';
+                let originalContent = '';
 
-                let toRecipients: User[], ccRecipients: User[];
-                if (replyAllToId) {
-                    // Standard Professional Reply All Logic:
-                    // 1. To: Original Sender + Original 'To' list (minus self)
-                    // 2. CC: Original 'CC' list (minus self)
+                if (actionType === 'reply' || actionType === 'reply-all') {
+                    originalContent = `<p>On ${formatTimestamp(originalMemo.createdAt, false)}, ${originalMemo.from.name} wrote:</p><blockquote>${originalMemo.body}</blockquote>`;
+                    newSubject = `Re: ${originalMemo.subject}`;
                     
-                    const toSet = new Set([originalMemo.from.id, ...originalMemo.to.map(u => u.id)]);
-                    const ccSet = new Set(originalMemo.cc.map(u => u.id));
-                    
-                    toSet.delete(loggedInUser.id);
-                    ccSet.delete(loggedInUser.id);
-                    
-                    // Filter: Only include active users in the pre-population
-                    toRecipients = Array.from(toSet)
-                        .map(id => users.find(u => u.id === id))
-                        .filter(u => u && u.status === 'active') as User[];
-                    ccRecipients = Array.from(ccSet)
-                        .map(id => users.find(u => u.id === id))
-                        .filter(u => u && u.status === 'active') as User[];
-                } else {
-                    // Standard Reply Logic: Only include the original sender if they are still active
-                    toRecipients = originalMemo.from.status === 'active' ? [originalMemo.from] : [];
-                    ccRecipients = [];
+                    if (actionType === 'reply-all') {
+                        // All primary recipients (minus self) + original sender
+                        const toSet = new Set([originalMemo.from.id, ...originalMemo.to.map(u => u.id)]);
+                        toSet.delete(loggedInUser.id);
+                        toRecipients = Array.from(toSet)
+                            .map(id => users.find(u => u.id === id))
+                            .filter(u => u && u.status === 'active') as User[];
+                        
+                        // All original CCs (minus self)
+                        const ccSet = new Set(originalMemo.cc.map(u => u.id));
+                        ccSet.delete(loggedInUser.id);
+                        ccRecipients = Array.from(ccSet)
+                            .map(id => users.find(u => u.id === id))
+                            .filter(u => u && u.status === 'active') as User[];
+                    } else {
+                        // Just the original sender
+                        toRecipients = originalMemo.from.status === 'active' ? [originalMemo.from] : [];
+                    }
+                } else if (actionType === 'assign') {
+                    originalContent = `<p>---------- Assigned message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
+                    newSubject = `Fw: ${originalMemo.subject}`;
                 }
-                setTo(toRecipients);
-                setCc(ccRecipients);
 
-                const draft = await getOrCreateActionDraft(originalMemoId, 'reply', {
-                  to: toRecipients, cc: ccRecipients, subject: newSubject, body: originalContent, replyToId: originalMemoId
+                // Retrieve or create a draft uniquely associated with this specific action type for this memo
+                const draft = await getOrCreateActionDraft(originalMemoId!, actionType as any, {
+                  to: toRecipients, 
+                  cc: ccRecipients, 
+                  subject: newSubject, 
+                  body: originalContent,
                 });
+
                 if (draft) {
                   setDraftId(draft.id);
-                  router.replace(`/dashboard/new?id=${draft.id}`);
-                }
-            }
-        } else if (assignFromId) {
-            const originalMemo = await getMemo(assignFromId);
-            if (originalMemo) {
-                const originalContent = `<p>---------- Assigned message ----------</p><p>From: ${originalMemo.from.name}</p><p>Date: ${formatTimestamp(originalMemo.createdAt, false)}</p><p>Subject: ${originalMemo.subject}</p><p>To: ${originalMemo.to.map(u=>u.name).join(', ')}</p>${originalMemo.cc.length > 0 ? `<p>Cc: ${originalMemo.cc.map(u=>u.name).join(', ')}</p>`: ''}<blockquote>${originalMemo.body}</blockquote>`;
-                const newSubject = `Fw: ${originalMemo.subject}`;
-                setBody(originalContent);
-                setSubject(newSubject);
-                setReplyBody(''); // Ensure remark is clean
-                setTo([]);
-                setCc([]);
-                setAssignFrom(assignFromId);
-                setReplyTo(undefined);
-                
-                const draft = await getOrCreateActionDraft(assignFromId, 'assign', { subject: newSubject, body: originalContent, assignedFromId: assignFromId });
-                if (draft) {
-                  setDraftId(draft.id);
-                  router.replace(`/dashboard/new?id=${draft.id}`);
+                  // Load the draft's specific state
+                  let bodyContent = draft.body || '';
+                  let replyContent = '';
+                  if (draft.body.includes('<hr>')) {
+                      const parts = draft.body.split('<hr>');
+                      replyContent = parts[0];
+                      bodyContent = parts.slice(1).join('<hr>');
+                  } else {
+                      bodyContent = draft.body;
+                  }
+
+                  setTo(draft.to.filter(u => u.status === 'active'));
+                  setCc(draft.cc.filter(u => u.status === 'active'));
+                  setSubject(draft.subject);
+                  setBody(bodyContent);
+                  setReplyBody(replyContent);
+                  setAttachments(draft.attachments);
+                  setReplyTo(draft.replyToId || undefined);
+                  setAssignFrom(draft.assignedFromId || undefined);
+                  setLabels(draft.labels);
+                  setIsDraft(true);
+                  router.replace(`/dashboard/new?id=${draft.id}`, { scroll: false });
                 }
             }
         } else if (!currentDraftId) {
-            // Reset for a completely new memo
+            // Reset for a completely new generic memo
             setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setAssignFrom(undefined); setLabels([]);
             setIsDraft(false); setLastSaved(null);
         }
