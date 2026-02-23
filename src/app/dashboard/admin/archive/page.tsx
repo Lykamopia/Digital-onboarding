@@ -305,7 +305,7 @@ export default function ArchiveSettingsPage() {
                        <Archive className="mr-2 h-4 w-4" /> Global Archive (For All)
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => handleBulkAction('restore')}>
-                       <ArchiveRestore className="mr-2 h-4 w-4" /> Restore to Inbox
+                       <ArchiveRestore className="mr-2 h-4 w-4" /> Restore
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => handleBulkAction('delete')} className="text-destructive" data-destructive>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently

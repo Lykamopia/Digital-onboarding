@@ -274,7 +274,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </TooltipTrigger>
-                            <TooltipContent>Restore to Inbox</TooltipContent>
+                            <TooltipContent>Restore</TooltipContent>
                         </Tooltip>
                     </div>
                 </div>
@@ -312,8 +312,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Assign</TooltipContent>
-                        </Tooltip>
-                    )}
+                        )}
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <AlertDialog>
@@ -457,7 +456,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                 ) : tab === 'archive' ? (
                     <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
                         <Undo2 className="mr-2 h-4 w-4" />
-                        <span>Restore to Inbox</span>
+                        <span>Restore</span>
                     </ContextMenuItem>
                 ) : (
                     <>
