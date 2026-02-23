@@ -480,9 +480,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
                     <div className="w-full pr-20 overflow-hidden">
                         <div className={cn("text-sm truncate flex items-center gap-2", unread ? "font-semibold" : "font-medium")}>
+                            {tab !== 'drafts' && tab !== 'scheduled' && (
                                 <button onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} className={cn("z-10 shrink-0")}>
-                                <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
-                            </button>
+                                    <Star className={cn("h-4 w-4 text-muted-foreground transition-colors hover:text-yellow-500", isFavorited && "fill-yellow-400 text-yellow-500")} />
+                                </button>
+                            )}
                             <span className="truncate">{memo.subject || "No Subject"}</span>
                         </div>
                         {memo.labels.length > 0 && (

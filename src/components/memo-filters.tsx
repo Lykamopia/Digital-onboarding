@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -343,12 +342,14 @@ export function MemoFilters({
                                 Show All
                             </div>
                         </SelectItem>
-                        <SelectItem value="favorites">
-                            <div className="flex items-center gap-2">
-                                <Star className="h-4 w-4 text-yellow-500" />
-                                Favorites
-                            </div>
-                        </SelectItem>
+                        {tab !== 'drafts' && (
+                            <SelectItem value="favorites">
+                                <div className="flex items-center gap-2">
+                                    <Star className="h-4 w-4 text-yellow-500" />
+                                    Favorites
+                                </div>
+                            </SelectItem>
+                        )}
                         <SelectItem value="flagged">
                             <div className="flex items-center gap-2">
                                 <Flag className="h-4 w-4 text-red-500" />
