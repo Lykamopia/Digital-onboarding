@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -330,12 +329,17 @@ export default function NewMemoPage() {
 
                 let toRecipients: User[], ccRecipients: User[];
                 if (replyAllToId) {
-                    const toSet = new Set([originalMemo.from.id]);
-                    const ccSet = new Set([...originalMemo.to.map(u => u.id), ...originalMemo.cc.map(u => u.id)]);
-                    ccSet.delete(loggedInUser.id);
-                    ccSet.delete(originalMemo.from.id);
+                    // Standard Professional Reply All Logic:
+                    // 1. To: Original Sender + Original 'To' list (minus self)
+                    // 2. CC: Original 'CC' list (minus self)
                     
-                    // Filter: Only include active users in the reply-all pre-population
+                    const toSet = new Set([originalMemo.from.id, ...originalMemo.to.map(u => u.id)]);
+                    const ccSet = new Set(originalMemo.cc.map(u => u.id));
+                    
+                    toSet.delete(loggedInUser.id);
+                    ccSet.delete(loggedInUser.id);
+                    
+                    // Filter: Only include active users in the pre-population
                     toRecipients = Array.from(toSet)
                         .map(id => users.find(u => u.id === id))
                         .filter(u => u && u.status === 'active') as User[];
@@ -343,7 +347,7 @@ export default function NewMemoPage() {
                         .map(id => users.find(u => u.id === id))
                         .filter(u => u && u.status === 'active') as User[];
                 } else {
-                    // Only include the sender if they are still active
+                    // Standard Reply Logic: Only include the original sender if they are still active
                     toRecipients = originalMemo.from.status === 'active' ? [originalMemo.from] : [];
                     ccRecipients = [];
                 }
