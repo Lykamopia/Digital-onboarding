@@ -248,6 +248,39 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
             )
         }
 
+        if (tab === 'archive') {
+            return (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                    <div className="bg-background/90 backdrop-blur-md rounded-full shadow-lg border border-border p-1 flex items-center gap-1">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
+                                            <Undo2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Restore this memo?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This memo will be moved back to your inbox.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleArchive(memo.id, false)}>Restore</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </TooltipTrigger>
+                            <TooltipContent>Restore to Inbox</TooltipContent>
+                        </Tooltip>
+                    </div>
+                </div>
+            )
+        }
+
         return (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <div className="bg-background/90 backdrop-blur-md rounded-full shadow-lg border border-border p-1 flex items-center gap-1">
@@ -281,57 +314,30 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             <TooltipContent>Assign</TooltipContent>
                         </Tooltip>
                     )}
-                    {tab === 'archive' ? (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
-                                            <Undo2 className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure you want to unarchive this memo?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This memo will be moved back to your inbox.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleArchive(memo.id, false)}>Unarchive</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TooltipTrigger>
-                            <TooltipContent>Unarchive</TooltipContent>
-                        </Tooltip>
-                    ) : (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
-                                            <Archive className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure you want to archive this memo?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will move the memo to your personal archive. You can access it later from the Archive folder.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleArchive(memo.id, true)}>Archive</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TooltipTrigger>
-                            <TooltipContent>Archive</TooltipContent>
-                        </Tooltip>
-                    )}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100" onClick={(e) => e.stopPropagation()}>
+                                        <Archive className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Archive this memo?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will move the memo to your personal archive. You can access it later from the Archive folder.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleArchive(memo.id, true)}>Archive</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </TooltipTrigger>
+                        <TooltipContent>Archive</TooltipContent>
+                    </Tooltip>
                 </div>
             </div>
         )
@@ -339,6 +345,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
 
     const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
     const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
+    const showFavorite = tab !== 'drafts' && tab !== 'scheduled' && tab !== 'archive';
     
     return (
         <ContextMenu>
@@ -373,6 +380,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                                         {getOrigin(memo).replace('From ', '')}
                                     </Badge>
                                 )}
+                                {tab === 'archive' && <StatusBadge status="closed" />}
                             </div>
                         </div>
                         <div className="text-[10px] sm:text-xs shrink-0 text-muted-foreground whitespace-nowrap pt-0.5 font-medium tabular-nums">
@@ -385,7 +393,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                         {/* Reserved padding for hover actions */}
                         <div className="pr-20 min-w-0 flex flex-col gap-0.5">
                             <div className={cn("text-sm truncate flex items-center gap-2", unread ? "font-semibold text-foreground" : "font-medium text-muted-foreground/90")}>
-                                {tab !== 'drafts' && tab !== 'scheduled' && (
+                                {showFavorite && (
                                     <button 
                                         onClick={(e) => handleActionClick(e, () => handleToggleFavorite(memo.id))} 
                                         className={cn("z-10 shrink-0 transition-transform active:scale-90")}
@@ -426,7 +434,6 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                 </div>
             </ContextMenuTrigger>
             
-            {/* Context Menu logic remains same but ensuring consistency */}
             <ContextMenuContent className="w-56">
                 {tab === 'drafts' ? (
                     <AlertDialog>
@@ -447,6 +454,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
+                ) : tab === 'archive' ? (
+                    <ContextMenuItem onSelect={() => handleArchive(memo.id, false)}>
+                        <Undo2 className="mr-2 h-4 w-4" />
+                        <span>Restore to Inbox</span>
+                    </ContextMenuItem>
                 ) : (
                     <>
                         <ContextMenuItem onSelect={() => handleToggleFavorite(memo.id)}>
@@ -479,9 +491,9 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             <span>Assign</span>
                         </ContextMenuItem>
                         <ContextMenuSeparator />
-                        <ContextMenuItem onSelect={() => handleArchive(memo.id, tab !== 'archive')}>
-                             {tab === 'archive' ? <Undo2 className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
-                             <span>{tab === 'archive' ? 'Restore' : 'Archive'}</span>
+                        <ContextMenuItem onSelect={() => handleArchive(memo.id, true)}>
+                             <Archive className="mr-2 h-4 w-4" />
+                             <span>Archive</span>
                         </ContextMenuItem>
                     </>
                 )}
