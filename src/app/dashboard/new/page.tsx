@@ -57,8 +57,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
 const memoTemplates = [
     {
       value: 'announcement',
@@ -111,6 +109,8 @@ const memoTemplates = [
     },
 ];
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 type UIPendingAttachment = Attachment & { previewUrl?: string };
 
 export default function NewMemoPage() {
@@ -126,7 +126,7 @@ export default function NewMemoPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isInitializingRef = useRef(true);
 
-  const [loggedInUser, setLoggedInUser] = setLoggedInUser<LoggedInUser | null>(null);
+  const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
@@ -209,8 +209,23 @@ export default function NewMemoPage() {
     }
   }, [isDelegationMode, availableUsers, to]);
 
-  const form = useForm();
-  
+  const resetForm = useCallback(() => {
+    setTo([]);
+    setCc([]);
+    setLabels([]);
+    setSubject('');
+    setBody('');
+    setReplyBody('');
+    setAttachments([]);
+    setDelegationReason('');
+    setDelegationNote('');
+    setDelegationReasonDateRange(undefined);
+    setLastSaved(null);
+    setIsDraft(false);
+    // Note: We don't clear draftId from URL here to allow manual toggling without losing current draft reference
+    // but the local state is cleared to start "fresh"
+  }, []);
+
   // Update subject and body automatically in Delegation Mode
   useEffect(() => {
     if (isDelegationMode && loggedInUser) {
@@ -221,13 +236,15 @@ export default function NewMemoPage() {
 
         setSubject(`Delegation of Authority: ${reasonStr}`);
         
-        setBody(`
+        const generatedBody = `
             <p>I would like to inform you that I will be attending ${reasonStr.toLowerCase()} from ${startDate} to ${endDate}.</p>
-            <p>During this period, I am delegating all of my duties and responsibilities to ${delegateName} in addition to your regular tasks.</p>
+            <p>During this period, I am delegating all of my duties and responsibilities to you in addition to your regular tasks.</p>
             <p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>
             ${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}
             <p>Thank you for your understanding and assistance.</p>
-        `.trim().replace(/\s+/g, ' '));
+        `.trim().replace(/\s+/g, ' ');
+        
+        setBody(generatedBody);
     }
   }, [isDelegationMode, delegationReason, delegationDateRange, to, loggedInUser, delegationNote]);
 
@@ -299,7 +316,6 @@ export default function NewMemoPage() {
       toast.error("Could not save draft", { description: result.error });
     }
     
-    // Use a timeout to give a visual "saving" feedback
     setTimeout(() => setIsSaving(false), 500);
 
   }, [loggedInUser, to, cc, labels, subject, body, replyBody, attachments, draftId, replyTo, assignFrom, router, isReplying, isAssigning]);
@@ -331,10 +347,8 @@ export default function NewMemoPage() {
         const replyAllToId = searchParams.get('replyAllTo');
         const assignFromId = searchParams.get('assignFrom');
 
-        // Logic for identifying the unique action context
         const isActionIntent = replyToId || replyAllToId || assignFromId;
 
-        // If we have a specific ID, always prioritize loading exactly that draft
         if (currentDraftId) {
             const draft = await getMemo(currentDraftId);
             if (draft) {
@@ -362,7 +376,6 @@ export default function NewMemoPage() {
                 setIsDraft(true);
                 setDraftId(currentDraftId);
                 
-                // Detect if it was a delegation memo based on label
                 if (draft.labels.some(l => l.name === 'Delegation')) {
                     setIsDelegationMode(true);
                 }
@@ -372,7 +385,6 @@ export default function NewMemoPage() {
             }
         }
         
-        // Handle creating or retrieving a draft specific to an action intent
         if (isActionIntent) {
             const originalMemoId = replyToId || replyAllToId || assignFromId;
             const actionType = replyAllToId ? 'reply-all' : replyToId ? 'reply' : 'assign';
@@ -389,21 +401,18 @@ export default function NewMemoPage() {
                     newSubject = `Re: ${originalMemo.subject}`;
                     
                     if (actionType === 'reply-all') {
-                        // All primary recipients (minus self) + original sender
                         const toSet = new Set([originalMemo.from.id, ...originalMemo.to.map(u => u.id)]);
                         toSet.delete(loggedInUser.id);
                         toRecipients = Array.from(toSet)
                             .map(id => users.find(u => u.id === id))
                             .filter(u => u && u.status === 'active') as User[];
                         
-                        // All original CCs (minus self)
                         const ccSet = new Set(originalMemo.cc.map(u => u.id));
                         ccSet.delete(loggedInUser.id);
                         ccRecipients = Array.from(ccSet)
                             .map(id => users.find(u => u.id === id))
                             .filter(u => u && u.status === 'active') as User[];
                     } else {
-                        // Just the original sender
                         toRecipients = originalMemo.from.status === 'active' ? [originalMemo.from] : [];
                     }
                 } else if (actionType === 'assign') {
@@ -411,7 +420,6 @@ export default function NewMemoPage() {
                     newSubject = `Fw: ${originalMemo.subject}`;
                 }
 
-                // Retrieve or create a draft uniquely associated with this specific action type for this memo
                 const draft = await getOrCreateActionDraft(originalMemoId!, actionType as any, {
                   to: toRecipients, 
                   cc: ccRecipients, 
@@ -421,7 +429,6 @@ export default function NewMemoPage() {
 
                 if (draft) {
                   setDraftId(draft.id);
-                  // Load the draft's specific state
                   let bodyContent = draft.body || '';
                   let replyContent = '';
                   if (draft.body.includes('<hr>')) {
@@ -446,9 +453,7 @@ export default function NewMemoPage() {
                 }
             }
         } else if (!currentDraftId) {
-            // Reset for a completely new generic memo
-            setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setAssignFrom(undefined); setLabels([]);
-            setIsDraft(false); setLastSaved(null); setIsDelegationMode(false);
+            resetForm();
         }
         isInitializingRef.current = false;
     };
@@ -583,7 +588,6 @@ export default function NewMemoPage() {
     setAttachments(prev => [...prev, ...newAttachments]);
     setIsUploading(false);
     
-    // Clear the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -667,13 +671,7 @@ export default function NewMemoPage() {
                                 checked={isDelegationMode}
                                 onCheckedChange={(val) => {
                                     setIsDelegationMode(val);
-                                    if (val) {
-                                        setSubject('');
-                                        setBody('');
-                                        setTo([]);
-                                    } else {
-                                        setCc([]);
-                                    }
+                                    resetForm(); // Clean draft/form on toggle
                                 }}
                             />
                         </div>
@@ -761,9 +759,10 @@ export default function NewMemoPage() {
                                         allUsers={availableUsers}
                                         allRoles={roles}
                                         selected={to}
-                                        setSelected={(val) => setTo(val.slice(0, 1))} // Only one delegate
+                                        setSelected={(val) => setTo(val.slice(0, 1))}
                                         placeholder="Choose a delegate..."
                                         className="bg-background"
+                                        hideBulkOptions={true}
                                     />
                                 </div>
                             </div>
@@ -854,15 +853,10 @@ export default function NewMemoPage() {
                                     <Editor value={body} onChange={setBody} readOnly />
                                 </div>
                             </div>
-                        ) : isDelegationMode ? (
-                            <div className="p-6 border rounded-md bg-muted/20 font-serif space-y-4 shadow-inner">
-                                <div className="text-center text-xs text-muted-foreground uppercase tracking-widest mb-4">Preview of Delegation Body</div>
-                                <div dangerouslySetInnerHTML={{ __html: body }} className="prose prose-sm max-w-none dark:prose-invert" />
-                            </div>
                         ) : (
                             <div>
                                 <label className="block text-sm font-medium mb-1">Body</label>
-                                <Editor value={body} onChange={setBody} />
+                                <Editor value={body} onChange={setBody} readOnly={isDelegationMode} />
                             </div>
                         )}
                     </div>

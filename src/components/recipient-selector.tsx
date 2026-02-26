@@ -31,6 +31,7 @@ type RecipientSelectorProps = {
   placeholder?: string;
   className?: string;
   popoverClassName?: string;
+  hideBulkOptions?: boolean;
 };
 
 export function RecipientSelector({ 
@@ -41,7 +42,8 @@ export function RecipientSelector({
   setSelected, 
   placeholder = "Select recipients...", 
   className, 
-  popoverClassName 
+  popoverClassName,
+  hideBulkOptions = false
 }: RecipientSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -148,26 +150,29 @@ export function RecipientSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             
-            <CommandGroup heading="Bulk Selection">
-              <CommandItem onSelect={handleBulkSelectAll} className="cursor-pointer">
-                <Users className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-semibold">All Users</span>
-                <span className="ml-auto text-xs text-muted-foreground">({allUsers.length})</span>
-              </CommandItem>
-              {allRoles.map(role => {
-                const roleUserCount = allUsers.filter(u => u.roleId === role.id).length;
-                if (roleUserCount === 0) return null;
-                return (
-                  <CommandItem key={role.id} onSelect={() => handleBulkSelectRole(role.id)} className="cursor-pointer">
-                    <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
-                    <span>All {role.name}s</span>
-                    <span className="ml-auto text-xs text-muted-foreground">({roleUserCount})</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-
-            <CommandSeparator />
+            {!hideBulkOptions && (
+                <>
+                    <CommandGroup heading="Bulk Selection">
+                    <CommandItem onSelect={handleBulkSelectAll} className="cursor-pointer">
+                        <Users className="mr-2 h-4 w-4 text-primary" />
+                        <span className="font-semibold">All Users</span>
+                        <span className="ml-auto text-xs text-muted-foreground">({allUsers.length})</span>
+                    </CommandItem>
+                    {allRoles.map(role => {
+                        const roleUserCount = allUsers.filter(u => u.roleId === role.id).length;
+                        if (roleUserCount === 0) return null;
+                        return (
+                        <CommandItem key={role.id} onSelect={() => handleBulkSelectRole(role.id)} className="cursor-pointer">
+                            <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
+                            <span>All {role.name}s</span>
+                            <span className="ml-auto text-xs text-muted-foreground">({roleUserCount})</span>
+                        </CommandItem>
+                        );
+                    })}
+                    </CommandGroup>
+                    <CommandSeparator />
+                </>
+            )}
 
             <CommandGroup heading="Individual Users">
               {allUsers.map((user) => (
