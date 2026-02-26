@@ -222,8 +222,6 @@ export default function NewMemoPage() {
     setDelegationReasonDateRange(undefined);
     setLastSaved(null);
     setIsDraft(false);
-    // Note: We don't clear draftId from URL here to allow manual toggling without losing current draft reference
-    // but the local state is cleared to start "fresh"
   }, []);
 
   // Update subject and body automatically in Delegation Mode
@@ -236,13 +234,12 @@ export default function NewMemoPage() {
 
         setSubject(`Delegation of Authority: ${reasonStr}`);
         
-        const generatedBody = `
-            <p>I would like to inform you that I will be attending ${reasonStr.toLowerCase()} from ${startDate} to ${endDate}.</p>
-            <p>During this period, I am delegating all of my duties and responsibilities to you in addition to your regular tasks.</p>
-            <p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>
-            ${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}
-            <p>Thank you for your understanding and assistance.</p>
-        `.trim().replace(/\s+/g, ' ');
+        // Use exactly the provided professional layout with minimal spacing
+        const generatedBody = `<p>I would like to inform you that I will be attending ${reasonStr} from ${startDate} to ${endDate}.</p>` +
+            `<p>During this period, I am delegating all of my duties and responsibilities to you in addition to your regular tasks.</p>` +
+            `<p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>` +
+            `${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}` +
+            `<p>Thank you for your understanding and assistance.</p>`;
         
         setBody(generatedBody);
     }
@@ -671,6 +668,8 @@ export default function NewMemoPage() {
                                 checked={isDelegationMode}
                                 onCheckedChange={(val) => {
                                     setIsDelegationMode(val);
+                                    setDraftId(null);
+                                    router.replace('/dashboard/new', { scroll: false });
                                     resetForm(); // Clean draft/form on toggle
                                 }}
                             />

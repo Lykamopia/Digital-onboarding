@@ -40,6 +40,7 @@ const labels = [
     { id: 'label-2', name: 'Confidential', color: '#8b5cf6', type: 'SYSTEM' },
     { id: 'label-3', name: 'Action Required', color: '#f97316', type: 'SYSTEM' },
     { id: 'label-4', name: 'For Review', color: '#3b82f6', type: 'SYSTEM' },
+    { id: 'label-5', name: 'Delegation', color: '#f59e0b', type: 'SYSTEM' },
 ];
 
 async function main() {
