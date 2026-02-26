@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
@@ -24,6 +25,9 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { FavoritesEmptyIllustration } from "@/components/favorites-empty-illustration"
 import { useSettings } from "@/components/settings-provider"
 import { toast } from "sonner"
+
+// Global session cache for memo details to prevent redundant API calls across tab navigations
+const memoDetailCache = new Map<string, MemoWithActivity>();
 
 const determineCorrectFolder = (memo: MemoWithActivity, user: LoggedInUser | null): string | null => {
     if (!user) return null;
@@ -170,6 +174,13 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     };
   }, [user]);
 
+  // Keep the session cache synchronized with updates from the detail view
+  useEffect(() => {
+    if (selectedMemo && selectedMemo.id && selectedMemo.id !== 'preview') {
+      memoDetailCache.set(selectedMemo.id, selectedMemo);
+    }
+  }, [selectedMemo]);
+
   const handleSelectMemo = useCallback((id: string) => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('id', id);
@@ -184,10 +195,15 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
   }, [router, pathname, searchParams]);
 
 
-  const loadMemos = useCallback(async (forceReload = false) => {
+  const loadMemos = useCallback(async (forceReload = false, clearCache = false) => {
     if (!user && !forceReload) return;
     if (loadingRef.current && !forceReload) return;
     
+    // Invalidate session cache only on manual refresh
+    if (clearCache) {
+        memoDetailCache.clear();
+    }
+
     loadingRef.current = true;
     setLoading(true);
     const dateRangeParams = {
@@ -213,9 +229,32 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
 
    useEffect(() => {
     if (memoIdFromUrl) {
+      // 1. Identity Check: Avoid redundant API calls if the memo is already active
       if (selectedMemo?.id === memoIdFromUrl) return;
 
       setLoadingMemo(true);
+      
+      // 2. Cache Retrieval: Check the session cache for details loaded in other folders/tabs
+      const cached = memoDetailCache.get(memoIdFromUrl);
+      if (cached) {
+        const correctFolder = determineCorrectFolder(cached, user);
+        if (correctFolder && tab !== correctFolder) {
+            router.replace(`/dashboard/${correctFolder}?id=${memoIdFromUrl}`);
+            return;
+        }
+
+        setSelectedMemo(cached);
+        setLoadingMemo(false);
+
+        // Process read status for cached hits
+        const actorIdToCheck = user?.actingUser ? user.actingUser.id : user?.id;
+        if (user && tab === 'inbox' && !cached.activity.some(a => a.action === 'viewed' && a.actorId === actorIdToCheck)) {
+            markAsRead(cached.id);
+            markMemoAsReadInState(cached.id);
+        }
+        return;
+      }
+
       setSelectedMemo(null);
       
       getMemo(memoIdFromUrl).then(fullMemo => {
@@ -226,11 +265,15 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
                 return;
             }
 
-            setSelectedMemo(fullMemo as MemoWithActivity);
+            const fullMemoWithActivity = fullMemo as MemoWithActivity;
+            // 3. Cache Population: Store results in the cross-folder session cache
+            memoDetailCache.set(fullMemoWithActivity.id, fullMemoWithActivity);
+            setSelectedMemo(fullMemoWithActivity);
+
             const actorIdToCheck = user?.actingUser ? user.actingUser.id : user?.id;
-            if (user && tab === 'inbox' && !fullMemo.activity.some(a => a.action === 'viewed' && a.actorId === actorIdToCheck)) {
-                markAsRead(fullMemo.id);
-                markMemoAsReadInState(fullMemo.id);
+            if (user && tab === 'inbox' && !fullMemoWithActivity.activity.some(a => a.action === 'viewed' && a.actorId === actorIdToCheck)) {
+                markAsRead(fullMemoWithActivity.id);
+                markMemoAsReadInState(fullMemoWithActivity.id);
             }
         } else {
             toast.error("Memo not found", {
@@ -250,7 +293,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
     } else {
         setSelectedMemo(null);
     }
-  }, [memoIdFromUrl, user, tab]);
+  }, [memoIdFromUrl, user, tab, markMemoAsReadInState, router, handleDeselectMemo, selectedMemo?.id]);
   
   
   const getEmptyState = () => {
@@ -344,7 +387,7 @@ function DashboardContent({ tab, initialMemos, user }: { tab: string; initialMem
               setStatusFilter={setStatusFilter}
               toggle={memoListToggle}
               isExpanded={isListExpanded}
-              onRefresh={() => loadMemos(true)}
+              onRefresh={() => loadMemos(true, true)}
               loading={loading}
           />
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
