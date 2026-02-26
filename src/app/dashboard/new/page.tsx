@@ -126,7 +126,7 @@ export default function NewMemoPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isInitializingRef = useRef(true);
 
-  const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
+  const [loggedInUser, setLoggedInUser] = setLoggedInUser<LoggedInUser | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
@@ -214,21 +214,20 @@ export default function NewMemoPage() {
   // Update subject and body automatically in Delegation Mode
   useEffect(() => {
     if (isDelegationMode && loggedInUser) {
-        const dateStr = delegationDateRange?.from 
-            ? `${format(delegationDateRange.from, 'LLL dd, yyyy')}${delegationDateRange.to && !isSameDay(delegationDateRange.from, delegationDateRange.to) ? ` - ${format(delegationDateRange.to, 'LLL dd, yyyy')}` : ''}`
-            : '[Date Range]';
-        
+        const startDate = delegationDateRange?.from ? format(delegationDateRange.from, 'MMMM dd, yyyy') : '[Start Date]';
+        const endDate = delegationDateRange?.to ? format(delegationDateRange.to, 'MMMM dd, yyyy') : '[End Date]';
         const reasonStr = delegationReason || '[Reason]';
         const delegateName = to.length > 0 ? to[0].name : '[Delegate Name]';
 
-        setSubject(`Delegation of Authority: ${reasonStr} (${dateStr})`);
+        setSubject(`Delegation of Authority: ${reasonStr}`);
         
         setBody(`
-            <p>I, <strong>${loggedInUser.name}</strong>, will be on <strong>${reasonStr}</strong> from ${dateStr}.</p>
-            <p>During my absence, <strong>${delegateName}</strong> is formally delegated to act on my behalf and handle all urgent operational matters.</p>
+            <p>I would like to inform you that I will be attending ${reasonStr.toLowerCase()} from ${startDate} to ${endDate}.</p>
+            <p>During this period, I am delegating all of my duties and responsibilities to ${delegateName} in addition to your regular tasks.</p>
+            <p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>
             ${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}
-            <p>This delegation remains in effect until my return. Please extend your full cooperation to ${delegateName}.</p>
-        `.trim());
+            <p>Thank you for your understanding and assistance.</p>
+        `.trim().replace(/\s+/g, ' '));
     }
   }, [isDelegationMode, delegationReason, delegationDateRange, to, loggedInUser, delegationNote]);
 
@@ -830,15 +829,17 @@ export default function NewMemoPage() {
                         <Input id="compose-subject-input" placeholder="Enter memo subject" value={subject} onChange={(e) => !isDelegationMode && setSubject(e.target.value)} readOnly={isDelegationMode} className={cn(isDelegationMode && "bg-muted cursor-default")} />
                     </div>
 
-                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                        <label className='text-right pr-4 font-semibold text-sm'>Labels - መለያዎች</label>
-                        <LabelSelector
-                            allLabels={allLabels}
-                            selected={labels}
-                            setSelected={setLabels}
-                            placeholder="Select labels..."
-                        />
-                    </div>
+                     {!isDelegationMode && (
+                        <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                            <label className='text-right pr-4 font-semibold text-sm'>Labels - መለያዎች</label>
+                            <LabelSelector
+                                allLabels={allLabels}
+                                selected={labels}
+                                setSelected={setLabels}
+                                placeholder="Select labels..."
+                            />
+                        </div>
+                     )}
                     
                     
                     <div id="memo-editor-container">
