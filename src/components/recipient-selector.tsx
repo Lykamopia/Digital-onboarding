@@ -59,27 +59,52 @@ export function RecipientSelector({
     }
   }
 
+  const isAllSelected = React.useMemo(() => {
+    if (allUsers.length === 0) return false;
+    return allUsers.every(u => selected.some(s => s.id === u.id));
+  }, [allUsers, selected]);
+
+  const getIsRoleSelected = (roleId: string) => {
+    const roleUsers = allUsers.filter(u => u.roleId === roleId);
+    if (roleUsers.length === 0) return false;
+    return roleUsers.every(u => selected.some(s => s.id === u.id));
+  };
+
   const handleBulkSelectAll = () => {
-    const newSelected = [...selected];
-    allUsers.forEach(user => {
-      if (!newSelected.find(s => s.id === user.id)) {
-        newSelected.push(user);
-      }
-    });
-    setSelected(newSelected);
-    setOpen(false);
+    if (isAllSelected) {
+      // Remove all users that are in allUsers from selection
+      const allUsersIds = new Set(allUsers.map(u => u.id));
+      setSelected(selected.filter(s => !allUsersIds.has(s.id)));
+    } else {
+      // Add all missing users
+      const newSelected = [...selected];
+      allUsers.forEach(user => {
+        if (!newSelected.find(s => s.id === user.id)) {
+          newSelected.push(user);
+        }
+      });
+      setSelected(newSelected);
+    }
   }
 
   const handleBulkSelectRole = (roleId: string) => {
     const roleUsers = allUsers.filter(u => u.roleId === roleId);
-    const newSelected = [...selected];
-    roleUsers.forEach(user => {
-      if (!newSelected.find(s => s.id === user.id)) {
-        newSelected.push(user);
-      }
-    });
-    setSelected(newSelected);
-    setOpen(false);
+    const isRoleSelected = getIsRoleSelected(roleId);
+
+    if (isRoleSelected) {
+      // Remove all users with this role from selection
+      const roleUserIds = new Set(roleUsers.map(u => u.id));
+      setSelected(selected.filter(s => !roleUserIds.has(s.id)));
+    } else {
+      // Add all missing users with this role
+      const newSelected = [...selected];
+      roleUsers.forEach(user => {
+        if (!newSelected.find(s => s.id === user.id)) {
+          newSelected.push(user);
+        }
+      });
+      setSelected(newSelected);
+    }
   }
   
   React.useEffect(() => {
@@ -154,17 +179,34 @@ export function RecipientSelector({
                 <>
                     <CommandGroup heading="Bulk Selection">
                     <CommandItem onSelect={handleBulkSelectAll} className="cursor-pointer">
-                        <Users className="mr-2 h-4 w-4 text-primary" />
-                        <span className="font-semibold">All Users</span>
+                        <div className="flex items-center gap-2 flex-1">
+                          <Check
+                            className={cn(
+                              "h-4 w-4 text-primary",
+                              isAllSelected ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <Users className="h-4 w-4 text-primary" />
+                          <span className="font-semibold">All Users</span>
+                        </div>
                         <span className="ml-auto text-xs text-muted-foreground">({allUsers.length})</span>
                     </CommandItem>
                     {allRoles.map(role => {
                         const roleUserCount = allUsers.filter(u => u.roleId === role.id).length;
                         if (roleUserCount === 0) return null;
+                        const isRoleSelected = getIsRoleSelected(role.id);
                         return (
                         <CommandItem key={role.id} onSelect={() => handleBulkSelectRole(role.id)} className="cursor-pointer">
-                            <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
-                            <span>All {role.name}s</span>
+                            <div className="flex items-center gap-2 flex-1">
+                              <Check
+                                className={cn(
+                                  "h-4 w-4 text-primary",
+                                  isRoleSelected ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <ShieldCheck className="h-4 w-4 text-primary" />
+                              <span>All {role.name}s</span>
+                            </div>
                             <span className="ml-auto text-xs text-muted-foreground">({roleUserCount})</span>
                         </CommandItem>
                         );
