@@ -40,34 +40,36 @@ interface FilterTabsProps {
 
 const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) => {
     return (
-        <div className="relative flex w-full items-center justify-start gap-2 rounded-lg bg-muted p-1 overflow-x-auto no-scrollbar scroll-smooth">
-            {items.map(item => (
-                <button
-                    key={item.value}
-                    onClick={() => onSelect(item.value)}
-                    className={cn(
-                        "relative flex-1 min-w-fit rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 whitespace-nowrap",
-                        selected === item.value ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                    )}
-                >
-                    {selected === item.value && (
-                        <motion.div
-                            layoutId="activeFilterTab"
-                            className="absolute inset-0 z-0 rounded-md bg-primary"
-                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                        />
-                    )}
-                    <span className={cn("relative z-10 flex items-center justify-center gap-2", selected !== item.value && item.color)}>
-                        <motion.div
-                            animate={{ scale: selected === item.value ? 1.2 : 1 }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        >
-                            {item.icon}
-                        </motion.div>
-                        <span className="inline">{item.label}</span>
-                    </span>
-                </button>
-            ))}
+        <div className="relative w-full">
+            <div className="flex w-full items-center justify-start gap-1 rounded-lg bg-muted p-1 overflow-x-auto no-scrollbar scroll-smooth">
+                {items.map(item => (
+                    <button
+                        key={item.value}
+                        onClick={() => onSelect(item.value)}
+                        className={cn(
+                            "relative flex-none rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 whitespace-nowrap",
+                            selected === item.value ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        {selected === item.value && (
+                            <motion.div
+                                layoutId="activeFilterTab"
+                                className="absolute inset-0 z-0 rounded-md bg-primary"
+                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            />
+                        )}
+                        <span className={cn("relative z-10 flex items-center justify-center gap-2", selected !== item.value && item.color)}>
+                            <motion.div
+                                animate={{ scale: selected === item.value ? 1.2 : 1 }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            >
+                                {item.icon}
+                            </motion.div>
+                            <span className="inline">{item.label}</span>
+                        </span>
+                    </button>
+                ))}
+            </div>
         </div>
     );
 };
