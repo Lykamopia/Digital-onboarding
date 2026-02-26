@@ -7,7 +7,8 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
 
   if (session) {
-    redirect('/dashboard/inbox');
+    // Redirect to the new professional dashboard landing page
+    redirect('/dashboard');
   } else {
     redirect('/login');
   }
