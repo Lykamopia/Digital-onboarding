@@ -40,8 +40,8 @@ interface FilterTabsProps {
 
 const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) => {
     return (
-        <div className="relative w-full">
-            <div className="flex w-full items-center justify-start gap-1 rounded-lg bg-muted p-1 overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="w-full overflow-hidden">
+            <div className="flex w-full items-center justify-start gap-1 rounded-lg bg-muted p-1 overflow-x-auto no-scrollbar scroll-smooth touch-pan-x flex-nowrap">
                 {items.map(item => (
                     <button
                         key={item.value}
@@ -59,13 +59,8 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) =>
                             />
                         )}
                         <span className={cn("relative z-10 flex items-center justify-center gap-2", selected !== item.value && item.color)}>
-                            <motion.div
-                                animate={{ scale: selected === item.value ? 1.2 : 1 }}
-                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            >
-                                {item.icon}
-                            </motion.div>
-                            <span className="inline">{item.label}</span>
+                            {item.icon}
+                            <span className="whitespace-nowrap">{item.label}</span>
                         </span>
                     </button>
                 ))}
@@ -273,7 +268,7 @@ export function MemoFilters({
             </Button>
         </div>
       {isExpanded && (
-        <div className="flex min-w-0 flex-col gap-2 mt-2">
+        <div className="flex min-w-0 flex-col gap-2 mt-2 w-full">
             {(tab === 'inbox') && (
                 <FilterTabs items={inboxFilterItems} selected={category} onSelect={handleCategoryChange} />
             )}
