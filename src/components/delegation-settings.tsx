@@ -337,6 +337,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
                                     setSelected={(users) => setSelectedDelegate(users[0] || null)}
                                     placeholder="Search for a user to delegate..."
                                     className={editingDelegation ? "bg-muted pointer-events-none" : ""}
+                                    hideBulkOptions={true}
                                 />
                             </div>
                             {selectedDelegate && (
