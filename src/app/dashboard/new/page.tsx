@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon, Briefcase, Calendar as CalendarIcon, UserPlus, Users } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, ImageIcon, Briefcase, Calendar as CalendarIcon, UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType, LoggedInUser, DelegationReason, DateRange } from '@/lib/types';
+import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType, LoggedInUser, DelegationReason, DateRange, Role } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
@@ -47,7 +48,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, isSameDay, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MemoDisplay } from '@/components/memo-display';
-import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels, getOrCreateActionDraft } from '@/app/actions/memo';
+import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels, getOrCreateActionDraft, getRoles } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
 import { LabelSelector } from '@/components/label-selector';
 import { UserProfileLoader } from '@/components/user-profile-loader';
@@ -127,6 +128,7 @@ export default function NewMemoPage() {
 
   const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [allLabels, setAllLabels] = useState<LabelType[]>([]);
   const [previewMemo, setPreviewMemo] = useState<MemoWithActivity | null>(null);
   
@@ -173,9 +175,10 @@ export default function NewMemoPage() {
   
   useEffect(() => {
     async function fetchData() {
-        const [users, allLabels] = await Promise.all([getUsers(), getLabels()]);
+        const [users, allLabels, allRoles] = await Promise.all([getUsers(), getLabels(), getRoles()]);
         setUsers(users);
         setAllLabels(allLabels);
+        setRoles(allRoles);
     }
     if (loggedInUser) {
         fetchData();
@@ -757,6 +760,7 @@ export default function NewMemoPage() {
                                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Delegate</Label>
                                     <RecipientSelector
                                         allUsers={availableUsers}
+                                        allRoles={roles}
                                         selected={to}
                                         setSelected={(val) => setTo(val.slice(0, 1))} // Only one delegate
                                         placeholder="Choose a delegate..."
@@ -794,6 +798,7 @@ export default function NewMemoPage() {
                                 <RecipientSelector
                                 id="recipient-selector-to"
                                 allUsers={availableForTo}
+                                allRoles={roles}
                                 selected={to}
                                 setSelected={setTo}
                                 placeholder="Select recipients..."
@@ -803,6 +808,7 @@ export default function NewMemoPage() {
                                 <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
                                 <RecipientSelector
                                 allUsers={availableForCc}
+                                allRoles={roles}
                                 selected={cc}
                                 setSelected={setCc}
                                 placeholder="Select CC recipients..."

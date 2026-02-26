@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown, X, Users, ShieldCheck } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -13,17 +13,19 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import type { User } from "@/lib/types"
+import type { User, Role } from "@/lib/types"
 
 type RecipientSelectorProps = {
   id?: string;
   allUsers: User[];
+  allRoles?: Role[];
   selected: User[];
   setSelected: (users: User[]) => void;
   placeholder?: string;
@@ -31,7 +33,16 @@ type RecipientSelectorProps = {
   popoverClassName?: string;
 };
 
-export function RecipientSelector({ id, allUsers, selected, setSelected, placeholder = "Select recipients...", className, popoverClassName }: RecipientSelectorProps) {
+export function RecipientSelector({ 
+  id, 
+  allUsers, 
+  allRoles = [], 
+  selected, 
+  setSelected, 
+  placeholder = "Select recipients...", 
+  className, 
+  popoverClassName 
+}: RecipientSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleUnselect = (userToUnselect: User) => {
@@ -44,6 +55,29 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
     } else {
       setSelected([...selected, user])
     }
+  }
+
+  const handleBulkSelectAll = () => {
+    const newSelected = [...selected];
+    allUsers.forEach(user => {
+      if (!newSelected.find(s => s.id === user.id)) {
+        newSelected.push(user);
+      }
+    });
+    setSelected(newSelected);
+    setOpen(false);
+  }
+
+  const handleBulkSelectRole = (roleId: string) => {
+    const roleUsers = allUsers.filter(u => u.roleId === roleId);
+    const newSelected = [...selected];
+    roleUsers.forEach(user => {
+      if (!newSelected.find(s => s.id === user.id)) {
+        newSelected.push(user);
+      }
+    });
+    setSelected(newSelected);
+    setOpen(false);
   }
   
   React.useEffect(() => {
@@ -69,7 +103,7 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
             }
           }}
           className={cn(
-            "flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm text-left cursor-pointer",
+            "flex w-full min-h-10 flex-wrap items-center gap-1 rounded-md border border-input p-1 text-sm text-left cursor-pointer transition-colors hover:border-primary/50",
             className
           )}
           aria-haspopup="listbox"
@@ -78,7 +112,7 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
             <Badge
               key={user.id}
               variant="secondary"
-              className="rounded-sm pr-1"
+              className="rounded-sm pr-1 bg-primary/10 text-primary border-primary/20"
             >
               {user.name}
               <span
@@ -100,7 +134,7 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
                   handleUnselect(user)
                 }}
               >
-                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                <X className="h-3 w-3 text-primary hover:text-primary-foreground hover:bg-primary rounded-full transition-colors" />
               </span>
             </Badge>
           ))}
@@ -108,28 +142,53 @@ export function RecipientSelector({ id, allUsers, selected, setSelected, placeho
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", popoverClassName)}>
+      <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", popoverClassName)} align="start">
         <Command>
-          <CommandInput placeholder="Search by name or email..." />
+          <CommandInput placeholder="Search by name, email or groups..." />
           <CommandList>
-            <CommandEmpty>No users found.</CommandEmpty>
-            <CommandGroup>
+            <CommandEmpty>No results found.</CommandEmpty>
+            
+            <CommandGroup heading="Bulk Selection">
+              <CommandItem onSelect={handleBulkSelectAll} className="cursor-pointer">
+                <Users className="mr-2 h-4 w-4 text-primary" />
+                <span className="font-semibold">All Users</span>
+                <span className="ml-auto text-xs text-muted-foreground">({allUsers.length})</span>
+              </CommandItem>
+              {allRoles.map(role => {
+                const roleUserCount = allUsers.filter(u => u.roleId === role.id).length;
+                if (roleUserCount === 0) return null;
+                return (
+                  <CommandItem key={role.id} onSelect={() => handleBulkSelectRole(role.id)} className="cursor-pointer">
+                    <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
+                    <span>All {role.name}s</span>
+                    <span className="ml-auto text-xs text-muted-foreground">({roleUserCount})</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            <CommandGroup heading="Individual Users">
               {allUsers.map((user) => (
                 <CommandItem
                   key={user.id}
                   onSelect={() => handleSelect(user)}
                   value={`${user.name} ${user.email}`}
+                  className="cursor-pointer"
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 text-primary",
                       selected.some((s) => s.id === user.id)
                         ? "opacity-100"
                         : "opacity-0"
                     )}
                   />
-                  <span>{user.name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{`(${user.email})`}</span>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{user.name}</span>
+                    <span className="text-xs text-muted-foreground">{user.email}</span>
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>

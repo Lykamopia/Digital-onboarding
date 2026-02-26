@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { RecipientSelector } from './recipient-selector';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { getLoggedInUser, getUsers } from '@/app/actions/memo';
-import type { MemoWithActivity, User } from '@/lib/types';
+import { getLoggedInUser, getUsers, getRoles } from '@/app/actions/memo';
+import type { MemoWithActivity, User, Role } from '@/lib/types';
 import Logo from './logo';
 import { Label } from './ui/label';
 import { useRouter } from 'next/navigation';
@@ -56,6 +56,7 @@ export function ForwardDialog({ memo, onUpdate, children }: AssignDialogProps) {
   const [remark, setRemark] = useState('');
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const { toast } = useToast();
@@ -64,9 +65,10 @@ export function ForwardDialog({ memo, onUpdate, children }: AssignDialogProps) {
 
   useEffect(() => {
     if (open) {
-      Promise.all([getUsers(), getLoggedInUser()]).then(([users, loggedInUser]) => {
+      Promise.all([getUsers(), getLoggedInUser(), getRoles()]).then(([users, loggedInUser, allRoles]) => {
         setAllUsers(users);
         setCurrentUser(loggedInUser);
+        setRoles(allRoles);
       });
     }
   }, [open]);
@@ -149,6 +151,7 @@ export function ForwardDialog({ memo, onUpdate, children }: AssignDialogProps) {
             <RecipientSelector
               id="assign-to"
               allUsers={availableUsers}
+              allRoles={roles}
               selected={selectedUsers}
               setSelected={setSelectedUsers}
               placeholder="Select one or more users..."
