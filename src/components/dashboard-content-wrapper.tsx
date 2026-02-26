@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -145,7 +144,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
                 </Button>
             </div>
           )}
-        <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-card/60 backdrop-blur-md no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>
               <SheetTrigger asChild>

@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -129,6 +128,14 @@
         tr:nth-child(even) {
             @apply bg-muted/50;
         }
+    }
+
+    .glass-surface {
+      @apply bg-card/60 backdrop-blur-md border border-border/50 shadow-sm;
+    }
+
+    .glass-panel {
+      @apply bg-popover/80 backdrop-blur-lg border border-border/50 shadow-xl;
     }
 }
 
