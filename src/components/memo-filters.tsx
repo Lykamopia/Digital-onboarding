@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -5,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Book, BookCopy, Inbox, Users, Send, Reply, Share2, ClipboardList, PlayCircle, CheckCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, X, RefreshCw, Loader2, List, Mail, MailOpen, CheckCircle2, Eye, Star, Flag, CalendarDays, Rewind, CornerDownLeft, ChevronsRight, Book, BookCopy, Inbox, Users, Send, Reply, Share2, ClipboardList, PlayCircle, CheckCircle, Briefcase } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, isSameDay, subDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,6 +21,7 @@ const inboxFilterItems = [
     { value: 'all', label: 'All', icon: <Inbox className="h-4 w-4" /> },
     { value: 'direct', label: 'Direct', icon: <Mail className="h-4 w-4" />, color: 'text-blue-500' },
     { value: 'cc', label: 'CC\'d', icon: <Users className="h-4 w-4" />, color: 'text-purple-500' },
+    { value: 'delegations', label: 'Delegations', icon: <Briefcase className="h-4 w-4" />, color: 'text-amber-600' },
 ];
 
 const sentFilterItems = [
@@ -27,6 +29,7 @@ const sentFilterItems = [
     { value: 'sent', label: 'Sent', icon: <Send className="h-4 w-4" />, color: 'text-green-500' },
     { value: 'replied', label: 'Replied', icon: <Reply className="h-4 w-4" />, color: 'text-indigo-500' },
     { value: 'assigned', label: 'Assigned', icon: <Share2 className="h-4 w-4" />, color: 'text-orange-500' },
+    { value: 'delegations', label: 'Delegations', icon: <Briefcase className="h-4 w-4" />, color: 'text-amber-600' },
 ];
 
 interface FilterTabsProps {
@@ -61,7 +64,7 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) =>
                         >
                             {item.icon}
                         </motion.div>
-                        {item.label}
+                        <span className="hidden sm:inline">{item.label}</span>
                     </span>
                 </button>
             ))}

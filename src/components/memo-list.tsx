@@ -1,3 +1,4 @@
+
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -11,7 +12,7 @@ import { useEffect, useState, MouseEvent, useMemo } from "react"
 import { archiveMemo, toggleMemoReadStatus, deleteDraft, acknowledgeMemo, toggleFavorite, duplicateMemo, toggleFlag } from "@/app/actions/memo"
 import { StatusBadge } from "./status-badge"
 import { Button } from "./ui/button"
-import { Archive, Reply, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag } from "lucide-react"
+import { Archive, Reply, MailOpen, Trash2, Undo2, Share2, CheckCircle, Star, Copy, Flag, Briefcase } from "lucide-react"
 import { toast } from "sonner"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
@@ -130,6 +131,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
     const isFavorited = (tab === 'favorites') || (memo.favoritedBy && memo.favoritedBy.length > 0);
     const isFlaggedByUser = memo.flaggedBy && memo.flaggedBy.length > 0;
     const showFavorite = tab !== 'drafts' && tab !== 'scheduled' && tab !== 'archive';
+    const isDelegation = memo.labels.some(l => l.name === 'Delegation');
 
     const MemoActions = () => {
         if (tab === 'drafts') {
@@ -239,7 +241,8 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                     "group relative flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left text-sm transition-all duration-200 cursor-pointer overflow-hidden",
                     "hover:bg-primary/[0.03] hover:border-primary/20",
                     selectedMemoId === memo.id ? "bg-primary/[0.08] ring-1 ring-primary/30 border-primary/30" : "bg-card",
-                    isFlaggedByUser && "border-l-4 border-l-red-500/70"
+                    isFlaggedByUser && "border-l-4 border-l-red-500/70",
+                    isDelegation && "border-l-4 border-l-amber-500/70"
                     )}
                     onClick={() => onSelectMemo(memo.id)}
                 >
@@ -254,6 +257,11 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                                 </div>
                             </div>
                             <div className="shrink-0 flex items-center gap-1">
+                                {isDelegation && (
+                                    <Badge variant="outline" className="bg-amber-100/60 text-amber-800 border-amber-200/80 text-[10px] h-4 px-1.5 font-bold uppercase tracking-tighter">
+                                        <Briefcase className="h-2 w-2 mr-1" /> Delegation
+                                    </Badge>
+                                )}
                                 {tab !== 'sent' && tab !== 'archive' && tab !== 'drafts' && <StatusBadge status={memo.status as any} />}
                                 {tab === 'archive' && <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal uppercase">Archived</Badge>}
                             </div>
@@ -276,7 +284,7 @@ const MemoItem: React.FC<MemoItemProps> = ({ memo, selectedMemoId, onSelectMemo,
                             
                             {memo.labels.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {memo.labels.map(label => (
+                                    {memo.labels.filter(l => l.name !== 'Delegation').map(label => (
                                         <span 
                                             key={label.id}
                                             style={{ backgroundColor: hexToRgba(label.color, 0.15), color: label.color, borderColor: hexToRgba(label.color, 0.3) }} 

@@ -1,5 +1,4 @@
 
-
 import type { 
     User as PrismaUser, 
     Role as PrismaRole,
@@ -41,6 +40,8 @@ export type DateRange = {
     from?: Date;
     to?: Date;
 };
+
+export type DelegationReason = 'Personal Case' | 'Official Duty' | 'Training';
 
 export type Role = PrismaRole;
 export type Office = PrismaOffice & {

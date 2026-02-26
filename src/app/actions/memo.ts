@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -129,6 +130,10 @@ export async function getDashboardData(
                         ]
                     }
                 });
+            } else if (category === 'delegations') {
+                where.AND.push({
+                    labels: { some: { name: 'Delegation' } }
+                });
             }
         } else if (tab === 'sent') {
             where.AND.push({ fromId: userId });
@@ -138,6 +143,10 @@ export async function getDashboardData(
                 where.AND.push({ replyToId: { not: null } });
             } else if (category === 'assigned') {
                 where.AND.push({ assignedFromId: { not: null } });
+            } else if (category === 'delegations') {
+                where.AND.push({
+                    labels: { some: { name: 'Delegation' } }
+                });
             }
         } else if (tab === 'drafts') {
             where.AND.push({ fromId: userId, status: 'draft' });
@@ -621,6 +630,18 @@ export async function sendMemo(formData: FormData): Promise<{ success: boolean; 
     }
     if (isScheduled) {
         activityDetails += ` for ${validatedData.scheduledFor?.toLocaleString()}`;
+    }
+
+    // Ensure Delegation label is linked if it's a delegation memo
+    const isDelegation = formData.get('isDelegation') === 'true';
+    if (isDelegation) {
+        const delegationLabel = await prisma.label.findFirst({ where: { name: 'Delegation' } });
+        if (delegationLabel) {
+            if (!validatedData.labels) validatedData.labels = [];
+            if (!validatedData.labels.includes(delegationLabel.id)) {
+                validatedData.labels.push(delegationLabel.id);
+            }
+        }
     }
 
     const newMemoData: any = {

@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon, Briefcase, Calendar as CalendarIcon, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { RecipientSelector } from '@/components/recipient-selector';
-import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType, LoggedInUser } from '@/lib/types';
+import type { User, Memo, Attachment, MemoWithActivity, Label as LabelType, LoggedInUser, DelegationReason, DateRange } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Editor } from '@/components/editor';
 import { Badge } from '@/components/ui/badge';
@@ -35,11 +36,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, isSameDay } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels, getOrCreateActionDraft } from '@/app/actions/memo';
 import { formatTimestamp } from '@/lib/data';
 import { LabelSelector } from '@/components/label-selector';
 import { UserProfileLoader } from '@/components/user-profile-loader';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -129,11 +144,17 @@ export default function NewMemoPage() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
+  // --- Delegation Mode State ---
+  const [isDelegationMode, setIsDelegationMode] = useState(false);
+  const [delegationReason, setDelegationReason] = useState<DelegationReason | ''>('');
+  const [delegationDateRange, setDelegationReasonDateRange] = useState<DateRange | undefined>(undefined);
+  const [delegationNote, setDelegationNote] = useState('');
+
   const isReplying = !!replyTo;
   const isAssigning = !!assignFrom;
 
   const canSend = loggedInUser?.actingUser ? (isReplying || isAssigning ? loggedInUser.delegationPermissions?.includes('delegation:reply') : loggedInUser.delegationPermissions?.includes('delegation:send')) : true;
-  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isAssigning && !body.trim()) || ((isReplying || isAssigning) && !replyBody.trim()) || !canSend;
+  const isSendDisabled = to.length === 0 || !subject.trim() || (!isReplying && !isAssigning && !isDelegationMode && !body.trim()) || ((isReplying || isAssigning) && !replyBody.trim()) || !canSend;
 
 
   useEffect(() => {
@@ -179,6 +200,27 @@ export default function NewMemoPage() {
 
   const form = useForm();
   
+  // Update subject and body automatically in Delegation Mode
+  useEffect(() => {
+    if (isDelegationMode && loggedInUser) {
+        const dateStr = delegationDateRange?.from 
+            ? `${format(delegationDateRange.from, 'LLL dd, yyyy')}${delegationDateRange.to && !isSameDay(delegationDateRange.from, delegationDateRange.to) ? ` - ${format(delegationDateRange.to, 'LLL dd, yyyy')}` : ''}`
+            : '[Date Range]';
+        
+        const reasonStr = delegationReason || '[Reason]';
+        const delegateName = to.length > 0 ? to[0].name : '[Delegate Name]';
+
+        setSubject(`Delegation of Authority: ${reasonStr} (${dateStr})`);
+        
+        setBody(`
+            <p>I, <strong>${loggedInUser.name}</strong>, will be on <strong>${reasonStr}</strong> from ${dateStr}.</p>
+            <p>During my absence, <strong>${delegateName}</strong> is formally delegated to act on my behalf and handle all urgent operational matters.</p>
+            ${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}
+            <p>This delegation remains in effect until my return. Please extend your full cooperation to ${delegateName}.</p>
+        `.trim());
+    }
+  }, [isDelegationMode, delegationReason, delegationDateRange, to, loggedInUser, delegationNote]);
+
   const updatePreview = useCallback(() => {
       if (!loggedInUser) return;
 
@@ -415,12 +457,16 @@ export default function NewMemoPage() {
     e.preventDefault();
     
     if (isSendDisabled) {
-        let errorDescription = 'Please fill all required fields: To, Subject, and Body.';
+        let errorDescription = 'Please fill all required fields.';
         if (to.length === 0) {
-          errorDescription = "Please select at least one recipient in the 'To' field.";
+          errorDescription = "Please select at least one recipient.";
+        } else if (isDelegationMode && !delegationReason) {
+          errorDescription = "Please select a reason for the delegation.";
+        } else if (isDelegationMode && !delegationDateRange?.from) {
+          errorDescription = "Please select a date range for the delegation.";
         } else if (!subject.trim()) {
           errorDescription = "Subject is required.";
-        } else if (!isReplying && !isAssigning && !body.trim()) {
+        } else if (!isReplying && !isAssigning && !isDelegationMode && !body.trim()) {
           errorDescription = "Body is required.";
         } else if ((isReplying || isAssigning) && !replyBody.trim()) {
           errorDescription = "Your message/remark is required.";
@@ -447,6 +493,10 @@ export default function NewMemoPage() {
     if (assignFrom) formData.append('assignFrom', assignFrom);
     if (draftId) formData.append('draftId', draftId);
     
+    if (isDelegationMode) {
+        formData.append('isDelegation', 'true');
+    }
+    
     const result = await sendMemo(formData);
     
     setIsSending(false);
@@ -455,7 +505,7 @@ export default function NewMemoPage() {
         toast.error('Error sending memo', { description: result.error });
     } else {
         toast.success('Memo Sent!', {
-          description: 'Your memo has been successfully sent.',
+          description: isDelegationMode ? 'Your delegation memo has been sent.' : 'Your memo has been successfully sent.',
         });
         router.push('/dashboard/sent');
     }
@@ -574,22 +624,51 @@ export default function NewMemoPage() {
       return <div className="flex justify-center items-center h-full"><UserProfileLoader /></div>;
   }
 
+  const getDateLabel = () => {
+    if (!delegationDateRange?.from) return <span>Pick a date range</span>;
+    if (!delegationDateRange.to || isSameDay(delegationDateRange.from, delegationDateRange.to)) {
+        return format(delegationDateRange.from, "PPP");
+    }
+    return `${format(delegationDateRange.from, "LLL dd")} - ${format(delegationDateRange.to, "LLL dd, yyyy")}`;
+  };
+
   return (
     <div className="w-full">
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
                 <CardTitle className="flex items-center gap-2">
                     <DraftingCompass className="h-6 w-6"/>
-                    {isReplying ? 'Compose Reply' : isAssigning ? 'Assign Memo' : 'Compose New Memo'}
+                    {isReplying ? 'Compose Reply' : isAssigning ? 'Assign Memo' : isDelegationMode ? 'Generate Delegation Memo' : 'Compose New Memo'}
                 </CardTitle>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    {isSaving && <Badge variant="secondary">Saving...</Badge>}
-                    {!isSaving && lastSaved && <Badge variant="outline">Saved at {lastSaved}</Badge>}
+                <div className="flex items-center gap-4">
+                    {!isReplying && !isAssigning && (
+                        <div className="flex items-center space-x-2 bg-background p-1 px-3 rounded-full border shadow-sm">
+                            <Label htmlFor="delegation-mode" className={cn("text-xs font-semibold cursor-pointer", isDelegationMode ? "text-primary" : "text-muted-foreground")}>
+                                <Briefcase className="inline-block mr-1 h-3 w-3" /> Delegation Mode
+                            </Label>
+                            <Switch
+                                id="delegation-mode"
+                                checked={isDelegationMode}
+                                onCheckedChange={(val) => {
+                                    setIsDelegationMode(val);
+                                    if (val) {
+                                        setSubject('');
+                                        setBody('');
+                                        setTo([]);
+                                    }
+                                }}
+                            />
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {isSaving && <Badge variant="secondary">Saving...</Badge>}
+                        {!isSaving && lastSaved && <Badge variant="outline">Saved at {lastSaved}</Badge>}
+                    </div>
                 </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
                 <form onSubmit={onSubmit} className="space-y-4">
-                    {!isReplying && !isAssigning && (
+                    {!isReplying && !isAssigning && !isDelegationMode && (
                         <div className="flex justify-end">
                             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
                                 <DialogTrigger asChild>
@@ -620,40 +699,105 @@ export default function NewMemoPage() {
                             </Dialog>
                         </div>
                     )}
+
+                    {isDelegationMode && (
+                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delegation Reason</Label>
+                                    <Select value={delegationReason} onValueChange={(val: any) => setDelegationReason(val)}>
+                                        <SelectTrigger className="bg-background">
+                                            <SelectValue placeholder="Select Reason" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Personal Case">Personal Case</SelectItem>
+                                            <SelectItem value="Official Duty">Official Duty</SelectItem>
+                                            <SelectItem value="Training">Training</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date Range</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full justify-start text-left font-normal bg-background">
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {getDateLabel()}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                selected={delegationDateRange}
+                                                onSelect={setDelegationReasonDateRange}
+                                                numberOfMonths={1}
+                                                disabled={(date) => date < startOfDay(new Date())}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Delegate</Label>
+                                    <RecipientSelector
+                                        allUsers={availableUsers}
+                                        selected={to}
+                                        setSelected={(val) => setTo(val.slice(0, 1))} // Only one delegate
+                                        placeholder="Choose a delegate..."
+                                        className="bg-background"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Note (Optional)</Label>
+                                <Textarea 
+                                    placeholder="Add any additional context or specific instructions..."
+                                    value={delegationNote}
+                                    onChange={(e) => setDelegationNote(e.target.value)}
+                                    className="bg-background min-h-[80px]"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-[120px_1fr] items-center border-b py-2">
                         <span className="font-semibold text-sm text-right pr-4">Date - ቀን</span>
-                        <div>{formatTimestamp(new Date().toISOString(), false)}</div>
+                        <div className="font-medium">{formatTimestamp(new Date().toISOString(), false)}</div>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] items-start border-b py-2">
                         <span className="font-semibold text-sm text-right pr-4">From - ከ</span>
                         <div>
-                            <span>{loggedInUser.name}</span>
+                            <span className="font-medium">{loggedInUser.name}</span>
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                        <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
-                        <RecipientSelector
-                        id="recipient-selector-to"
-                        allUsers={availableForTo}
-                        selected={to}
-                        setSelected={setTo}
-                        placeholder="Select recipients..."
-                        />
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
-                        <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
-                        <RecipientSelector
-                        allUsers={availableForCc}
-                        selected={cc}
-                        setSelected={setCc}
-                        placeholder="Select CC recipients..."
-                        />
-                    </div>
+                    {!isDelegationMode && (
+                        <>
+                            <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                                <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
+                                <RecipientSelector
+                                id="recipient-selector-to"
+                                allUsers={availableForTo}
+                                selected={to}
+                                setSelected={setTo}
+                                placeholder="Select recipients..."
+                                />
+                            </div>
+                            <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
+                                <label className='text-right pr-4 font-semibold text-sm'>CC - ግልባጭ</label>
+                                <RecipientSelector
+                                allUsers={availableForCc}
+                                selected={cc}
+                                setSelected={setCc}
+                                placeholder="Select CC recipients..."
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>Subject - ጉዳዩ</label>
-                        <Input id="compose-subject-input" placeholder="Enter memo subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                        <Input id="compose-subject-input" placeholder="Enter memo subject" value={subject} onChange={(e) => !isDelegationMode && setSubject(e.target.value)} readOnly={isDelegationMode} className={cn(isDelegationMode && "bg-muted cursor-default")} />
                     </div>
 
                      <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
@@ -678,6 +822,11 @@ export default function NewMemoPage() {
                                     <label className="block text-sm font-medium mb-1 text-muted-foreground">Original Message</label>
                                     <Editor value={body} onChange={setBody} readOnly />
                                 </div>
+                            </div>
+                        ) : isDelegationMode ? (
+                            <div className="p-6 border rounded-md bg-muted/20 font-serif space-y-4 shadow-inner">
+                                <div className="text-center text-xs text-muted-foreground uppercase tracking-widest mb-4">Preview of Delegation Body</div>
+                                <div dangerouslySetInnerHTML={{ __html: body }} className="prose prose-sm max-w-none dark:prose-invert" />
                             </div>
                         ) : (
                             <div>
@@ -802,7 +951,7 @@ export default function NewMemoPage() {
                           ) : (
                             <Send className="mr-2 h-4 w-4" />
                           )}
-                          {isSending ? 'Sending...' : 'Send Memo'}
+                          {isSending ? 'Sending...' : isDelegationMode ? 'Send Delegation' : 'Send Memo'}
                         </Button>
                     </div>
                     </div>
@@ -811,4 +960,10 @@ export default function NewMemoPage() {
         </Card>
     </div>
   );
+}
+
+function startOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
