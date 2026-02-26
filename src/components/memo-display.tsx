@@ -182,7 +182,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
     const result = await acknowledgeMemo(memo.id);
 
     if (result.success) {
-      // Optimistic update for immediate feedback
       if (setMemo) {
           const actor = loggedInUser.actingUser || loggedInUser;
           const newActivity = {
@@ -194,7 +193,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
               timestamp: new Date().toISOString()
           };
 
-          // Determine next status optimistically
           const currentAckIds = new Set(memo.acknowledgedBy?.map(u => u.id) || []);
           currentAckIds.add(loggedInUser.id);
           const toIds = memo.to.map(u => u.id);
@@ -209,7 +207,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
               activity: [newActivity, ...memo.activity],
           });
 
-          // Dispatch event to update the sidebar list item instantly
           window.dispatchEvent(new CustomEvent('memo-acknowledged-locally', {
               detail: { 
                   memoId: memo.id, 
@@ -223,7 +220,6 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
           description: "You have acknowledged receipt of this memo."
       });
       
-      // Trigger background update to ensure full consistency with server
       onUpdate(); 
     } else {
         toast.error("Acknowledgement Failed", { description: result.error });
@@ -590,7 +586,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         </div>
                     </>
                 )}
-            </CardHeader>
+            </CardContent>
         </div>
     </div>
   );
