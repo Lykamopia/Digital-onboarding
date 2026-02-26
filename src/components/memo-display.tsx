@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -329,6 +328,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
   const useSignature = settings.acknowledgementType === 'SIGNATURE';
+  const isDelegation = memo.labels.some((l: LabelType) => l.name === 'Delegation');
 
   const senderSignatureUrl = getImageUrl((memo.from as UserWithRole).signature);
 
@@ -395,22 +395,29 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                     {memo.cc.length > 0 && (
                         <MemoField label="CC" amharic="ግልባጭ">
                             <div className="flex flex-col gap-2 font-sans">
-                                {memo.cc.map((user) => {
-                                    const acknowledgement = findAcknowledgementActivity(user, memo.activity);
-                                    return (
-                                    <div key={user.id} className="flex items-center gap-2">
-                                        <div>
-                                            <div>{user.name}</div>
-                                            {(user as UserWithRole).role && (
-                                                <div className="text-xs italic text-muted-foreground">{((user as UserWithRole).role as Role).name}</div>
+                                {isDelegation ? (
+                                    <div className="flex items-center gap-2 py-1">
+                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-semibold text-sm">All Staff / ሁሉም ሰራተኞች</span>
+                                    </div>
+                                ) : (
+                                    memo.cc.map((user) => {
+                                        const acknowledgement = findAcknowledgementActivity(user, memo.activity);
+                                        return (
+                                        <div key={user.id} className="flex items-center gap-2">
+                                            <div>
+                                                <div>{user.name}</div>
+                                                {(user as UserWithRole).role && (
+                                                    <div className="text-xs italic text-muted-foreground">{((user as UserWithRole).role as Role).name}</div>
+                                                )}
+                                            </div>
+                                            {acknowledgement && (
+                                                <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
                                             )}
                                         </div>
-                                        {acknowledgement && (
-                                            <AcknowledgementDisplay user={acknowledgement.actor} timestamp={acknowledgement.timestamp} useSignature={useSignature} />
-                                        )}
-                                    </div>
-                                    )
-                                })}
+                                        )
+                                    })
+                                )}
                             </div>
                         </MemoField>
                     )}
@@ -524,7 +531,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure you want to {isArchived ? 'unarchive' : 'archive'} this memo?</AlertDialogTitle>
+                                    <AlertDialogTitle>Are you sure you want to {isArchived ? 'restore' : 'archive'} this memo?</AlertDialogTitle>
                                     <AlertDialogDescription>
                                         {isArchived ? "This memo will be moved back to your inbox." : "This will move the memo to your personal archive. You can access it later from the Archive folder."}
                                     </AlertDialogDescription>
@@ -532,7 +539,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction onClick={isArchived ? handleUnarchive : handleArchive}>
-                                        {isArchived ? 'Unarchive' : 'Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -583,7 +590,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         </div>
                     </>
                 )}
-            </CardContent>
+            </CardHeader>
         </div>
     </div>
   );

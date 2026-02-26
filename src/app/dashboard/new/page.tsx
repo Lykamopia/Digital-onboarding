@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -234,12 +233,8 @@ export default function NewMemoPage() {
 
         setSubject(`Delegation of Authority: ${reasonStr}`);
         
-        // Use exactly the provided professional layout with minimal spacing
-        const generatedBody = `<p>I would like to inform you that I will be attending ${reasonStr} from ${startDate} to ${endDate}.</p>` +
-            `<p>During this period, I am delegating all of my duties and responsibilities to you in addition to your regular tasks.</p>` +
-            `<p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>` +
-            `${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}` +
-            `<p>Thank you for your understanding and assistance.</p>`;
+        // Final, strict continuous HTML string to avoid double lines or spacing issues.
+        const generatedBody = `<p>I would like to inform you that I will be attending ${reasonStr} from ${startDate} to ${endDate}.</p><p>During this period, I am delegating all of my duties and responsibilities to you in addition to your regular tasks.</p><p>I kindly request that all departments and work units extend their full cooperation and support to ${delegateName} while I am away.</p>${delegationNote ? `<p><strong>Additional Note:</strong> ${delegationNote}</p>` : ''}<p>Thank you for your understanding and assistance.</p>`;
         
         setBody(generatedBody);
     }
@@ -817,13 +812,14 @@ export default function NewMemoPage() {
                             <span className="font-semibold text-sm text-right pr-4">CC - ግልባጭ</span>
                             <div className="text-sm text-muted-foreground italic flex items-center gap-2">
                                 <Users className="h-4 w-4" />
-                                All active organizational members (Automated)
+                                All Staff (Automated Broadcast)
                             </div>
                         </div>
                     )}
 
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                         <label className='text-right pr-4 font-semibold text-sm'>Subject - ጉዳዩ</label>
+                        <input type="hidden" value={subject} />
                         <Input id="compose-subject-input" placeholder="Enter memo subject" value={subject} onChange={(e) => !isDelegationMode && setSubject(e.target.value)} readOnly={isDelegationMode} className={cn(isDelegationMode && "bg-muted cursor-default")} />
                     </div>
 
