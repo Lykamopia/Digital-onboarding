@@ -136,6 +136,15 @@
     .word-break-break-word {
       word-break: break-word;
     }
+    
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
     @media print {
       body {
           background-color: white !important;
@@ -249,4 +258,3 @@
         }
     }
   }
-

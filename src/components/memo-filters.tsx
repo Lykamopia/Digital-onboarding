@@ -40,13 +40,13 @@ interface FilterTabsProps {
 
 const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) => {
     return (
-        <div className="relative flex w-full items-center justify-start gap-2 rounded-lg bg-muted p-1">
+        <div className="relative flex w-full items-center justify-start gap-2 rounded-lg bg-muted p-1 overflow-x-auto no-scrollbar scroll-smooth">
             {items.map(item => (
                 <button
                     key={item.value}
                     onClick={() => onSelect(item.value)}
                     className={cn(
-                        "relative flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "relative flex-1 min-w-fit rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 whitespace-nowrap",
                         selected === item.value ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                     )}
                 >
@@ -64,7 +64,7 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ items, selected, onSelect }) =>
                         >
                             {item.icon}
                         </motion.div>
-                        <span className="hidden sm:inline">{item.label}</span>
+                        <span className="inline">{item.label}</span>
                     </span>
                 </button>
             ))}
