@@ -1,11 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
-import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon, Briefcase, Calendar as CalendarIcon, UserPlus } from 'lucide-react';
+import { Send, Trash2, DraftingCompass, Eye, Paperclip, File as FileIcon, Loader2, BookCopy, BookPlus, MessageSquarePlus, FileCheck, ClipboardList, AlertTriangle, CalendarDays, BookMarked, Tag, FileText, FileSpreadsheet, Presentation, FileMusic, FileVideo, Archive, Image as ImageIcon, Briefcase, Calendar as CalendarIcon, UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDebouncedCallback } from 'use-debounce';
@@ -45,7 +44,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MemoDisplay } from '@/components/memo-display';
 import { getLoggedInUser, getUsers, getMemo, saveDraft, sendMemo, deleteDraft, getLabels, getOrCreateActionDraft } from '@/app/actions/memo';
@@ -197,6 +196,15 @@ export default function NewMemoPage() {
     const toIds = new Set(to.map(u => u.id));
     return availableUsers.filter(u => !toIds.has(u.id));
   }, [availableUsers, to]);
+
+  // Sync CC with all users in delegation mode
+  useEffect(() => {
+    if (isDelegationMode) {
+        const delegateId = to[0]?.id;
+        const allOtherUsers = availableUsers.filter(u => u.id !== delegateId);
+        setCc(allOtherUsers);
+    }
+  }, [isDelegationMode, availableUsers, to]);
 
   const form = useForm();
   
@@ -351,6 +359,12 @@ export default function NewMemoPage() {
                 setAssignFrom(draft.assignedFromId || undefined);
                 setIsDraft(true);
                 setDraftId(currentDraftId);
+                
+                // Detect if it was a delegation memo based on label
+                if (draft.labels.some(l => l.name === 'Delegation')) {
+                    setIsDelegationMode(true);
+                }
+
                 isInitializingRef.current = false;
                 return; 
             }
@@ -432,7 +446,7 @@ export default function NewMemoPage() {
         } else if (!currentDraftId) {
             // Reset for a completely new generic memo
             setTo([]); setCc([]); setSubject(''); setBody(''); setReplyBody(''); setAttachments([]); setReplyTo(undefined); setAssignFrom(undefined); setLabels([]);
-            setIsDraft(false); setLastSaved(null);
+            setIsDraft(false); setLastSaved(null); setIsDelegationMode(false);
         }
         isInitializingRef.current = false;
     };
@@ -655,6 +669,8 @@ export default function NewMemoPage() {
                                         setSubject('');
                                         setBody('');
                                         setTo([]);
+                                    } else {
+                                        setCc([]);
                                     }
                                 }}
                             />
@@ -771,7 +787,7 @@ export default function NewMemoPage() {
                         </div>
                     </div>
                     
-                    {!isDelegationMode && (
+                    {!isDelegationMode ? (
                         <>
                             <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
                                 <label className='text-right pr-4 font-semibold text-sm'>To - ለ</label>
@@ -793,6 +809,14 @@ export default function NewMemoPage() {
                                 />
                             </div>
                         </>
+                    ) : (
+                        <div className="grid grid-cols-[120px_1fr] items-center space-y-0 py-2 border-b">
+                            <span className="font-semibold text-sm text-right pr-4">CC - ግልባጭ</span>
+                            <div className="text-sm text-muted-foreground italic flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                All active organizational members (Automated)
+                            </div>
+                        </div>
                     )}
 
                     <div className="grid grid-cols-[120px_1fr] items-center space-y-0">
@@ -960,10 +984,4 @@ export default function NewMemoPage() {
         </Card>
     </div>
   );
-}
-
-function startOfDay(date: Date): Date {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d;
 }
