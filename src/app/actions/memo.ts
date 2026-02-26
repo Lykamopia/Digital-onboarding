@@ -1038,24 +1038,13 @@ export async function archiveMemo(memoId: string, archive: boolean) {
   const user = await getLoggedInUser();
   if (!user) throw new Error("Not authenticated");
 
-  const actorId = user.actingUser ? user.actingUser.id : user.id;
-
-  const actionVerb = archive ? 'archived' : 'unarchived';
-  let details = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} the memo.`;
-  if (user.actingUser) {
-      details = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} by **${user.actingUser.name}** on behalf of **${user.name}**.`;
-  }
-
   const data = archive ? 
     { archivedBy: { connect: { id: user.id } } } :
     { archivedBy: { disconnect: { id: user.id } } };
     
   await prisma.memo.update({
       where: { id: memoId },
-      data: {
-          ...data,
-          activity: { create: { actorId: actorId, action: actionVerb, details: details } }
-      }
+      data
   });
 
   revalidatePath('/dashboard/inbox');

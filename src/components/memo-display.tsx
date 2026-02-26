@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -67,8 +68,6 @@ const actionIcons: { [key: string]: React.ReactNode } = {
   commented: <Reply className="h-4 w-4" />,
   assigned: <Share2 className="h-4 w-4 text-purple-500" />,
   created: <Edit className="h-4 w-4" />,
-  archived: <Archive className="h-4 w-4" />,
-  unarchived: <Undo2 className="h-4 w-4" />,
   scheduled: <CheckCircle className="h-4 w-4 text-yellow-500" />,
 };
 
@@ -547,7 +546,10 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
                         <div id="memo-activity-history" className="font-sans no-print">
                         <h3 className="text-sm font-medium mb-4">Activity History</h3>
                         <ul className="space-y-4">
-                            {memo.activity.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((act) => (
+                            {memo.activity
+                              .filter(a => a.action !== 'archived' && a.action !== 'unarchived')
+                              .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                              .map((act) => (
                             <li key={act.id} className="flex items-start gap-3">
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                                 <Avatar className="h-8 w-8">

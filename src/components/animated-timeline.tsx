@@ -21,8 +21,6 @@ const actionDetails = {
   forwarded: { icon: Share2, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   commented: { icon: MessageSquare, color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
   created: { icon: Edit, color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  unarchived: { icon: User, color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  archived: { icon: User, color: 'text-gray-500', bgColor: 'bg-gray-100' },
   scheduled: { icon: User, color: 'text-gray-500', bgColor: 'bg-gray-100' },
 };
 
@@ -95,7 +93,10 @@ export const AnimatedTimeline: React.FC<TimelineProps> = ({ activities }) => {
     return <p>No activity history available for this memo.</p>;
   }
 
-  const sortedActivities = [...activities].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // Filter out any leftover legacy archive/unarchive activities
+  const sortedActivities = [...activities]
+    .filter(a => a.action !== 'archived' && a.action !== 'unarchived')
+    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <div className="space-y-6">
@@ -105,5 +106,3 @@ export const AnimatedTimeline: React.FC<TimelineProps> = ({ activities }) => {
     </div>
   );
 };
-
-    
