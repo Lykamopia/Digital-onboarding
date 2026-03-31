@@ -20,10 +20,10 @@ export default async function OnboardingStatusPage() {
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
-  const canReview = permissions.includes('review_customer_onboarding');
-  const canSubmit = permissions.includes('submit_customer_onboarding');
+  const canReview = permissions.includes('checker_customer_onboarding');
+  const canMaker = permissions.includes('maker_customer_onboarding');
 
-  if (!canSubmit && !canReview) redirect('/dashboard/access-denied');
+  if (!canMaker && !canReview) redirect('/dashboard/access-denied');
 
   // Fetch quick stats
   const [pendingReq, allReq] = await Promise.all([
@@ -65,7 +65,7 @@ export default async function OnboardingStatusPage() {
           <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
             <Activity className="h-3 w-3" /> System Active
           </Badge>
-          {canReview && (
+          {canReview || canMaker && (
             <Link href="/dashboard/customer-onboarding/review">
               <Button size="sm" className="gap-1">
                 <ShieldCheck className="h-4 w-4" /> Open Pipeline

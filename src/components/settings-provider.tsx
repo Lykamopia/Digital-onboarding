@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { saveGeneralSettings } from '@/app/actions/memo';
+import { saveGeneralSettings } from '@/app/actions/settings';
 import type { AcknowledgementType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
 

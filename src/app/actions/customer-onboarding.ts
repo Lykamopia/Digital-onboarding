@@ -32,9 +32,9 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
   const user = systemActor || await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
   
-  const isMaker = hasRolePermission(user as any, 'submit_customer_onboarding') || hasRolePermission(user as any, 'maker_customer_onboarding');
+  const isMaker = hasRolePermission(user as any, 'maker_customer_onboarding');
   if (!systemActor && !isMaker) {
-    return { success: false, error: 'You do not have permission to submit customer onboarding.' };
+    return { success: false, error: 'You do not have permission to submit customer onboarding (Maker role required).' };
   }
 
   const parsed = CustomerOnboardingSchema.safeParse(rawData);
@@ -44,6 +44,19 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
 
   const data = parsed.data;
   const { ipAddress, userAgent } = await getRequestContext();
+
+  // ── Name Normalization ─────────────────────────────────────────────────────
+  // Prevent common T24 duplication patterns (e.g., "Full Name Full Name")
+  let normalizedFullName1 = data.fullName1?.trim() || '';
+  const gName = data.givenName?.trim() || '';
+  const fName = data.familyName?.trim() || '';
+  const combined = `${gName} ${fName}`.trim();
+
+  if (!normalizedFullName1 && combined) {
+    normalizedFullName1 = combined;
+  } else if (normalizedFullName1 && combined && normalizedFullName1 === `${combined} ${combined}`) {
+    normalizedFullName1 = combined;
+  }
 
   // Idempotency check
   const existing = await prisma.customerOnboarding.findUnique({ where: { mnemonic: data.mnemonic } });
@@ -64,6 +77,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
       const newRecord = await tx.customerOnboarding.create({
         data: {
           ...data,
+          fullName1:          normalizedFullName1,
           fullName2:          data.fullName2          || null,
           phoneNumbersRes:    data.phoneNumbersRes    || null,
           mobilePhoneNumbers: data.mobilePhoneNumbers || null,
@@ -213,6 +227,7 @@ export async function getCustomerOnboarding(id: string) {
       include: {
         submittedBy: { select: { id: true, name: true, email: true } },
         reviewedBy:  { select: { id: true, name: true, email: true } },
+        makerReviewedBy: { select: { id: true, name: true, email: true } },
         auditLogs: {
           orderBy: { timestamp: 'asc' },
           include: { actor: { select: { id: true, name: true, email: true } } },
@@ -242,77 +257,176 @@ export async function reviewCustomerOnboarding(opts: {
 }) {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'checker_customer_onboarding');
-  if (!canReview) {
-    return { success: false, error: 'You do not have permission to review customer onboarding submissions.' };
+  // Permission check based on stage
+  const existingForPermission = await prisma.customerOnboarding.findUnique({ where: { id: opts.id }, select: { approvalStatus: true } });
+  if (!existingForPermission) return { success: false, error: 'Record not found.' };
+
+  const isMaker = hasRolePermission(user, 'maker_customer_onboarding');
+  const isChecker = hasRolePermission(user, 'checker_customer_onboarding');
+  const isAdmin = hasRolePermission(user, 'admin');
+
+  let hasStagePermission = false;
+  if (isAdmin) {
+    hasStagePermission = true;
+  } else if (existingForPermission.approvalStatus === 'PENDING') {
+    hasStagePermission = isMaker;
+  } else if (existingForPermission.approvalStatus === 'MAKER_APPROVED') {
+    hasStagePermission = isChecker;
+  }
+
+  if (!hasStagePermission) {
+    return { success: false, error: `You do not have the required role (${existingForPermission.approvalStatus === 'PENDING' ? 'Maker' : 'Checker'}) to perform this action.` };
   }
 
   const { id, decision, note } = opts;
-  if (!['APPROVED', 'REJECTED'].includes(decision)) {
-    return { success: false, error: 'Invalid decision.' };
-  }
-
   const { ipAddress, userAgent } = await getRequestContext();
 
   try {
-    const existing = await prisma.customerOnboarding.findUnique({ where: { id } });
+    const existing = await prisma.customerOnboarding.findUnique({ 
+      where: { id },
+      include: { 
+        submittedBy:      { select: { id: true, name: true } }, 
+        makerReviewedBy:  { select: { id: true, name: true } } 
+      }
+    });
     if (!existing) return { success: false, error: 'Record not found.' };
-    
-    // Maker-Checker enforcement: Maker cannot be Checker
-    if (existing.submittedById === user.id) {
-       return { success: false, error: 'Internal Control Violation: You cannot review a record that you submitted.' };
-    }
 
-    if (existing.approvalStatus !== 'PENDING') {
-      return { success: false, error: `Cannot review a submission that is already ${existing.approvalStatus}.` };
-    }
+    // common logic for rejection, separate handling for approval stages below
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const record = await tx.customerOnboarding.update({
-        where: { id },
-        data: {
-          approvalStatus: decision,
-          reviewedById:   user.id,
-          reviewedAt:     new Date(),
-          reviewNote:     note || null,
-        },
+    const isAdmin = hasRolePermission(user, 'admin');
+
+    // ── CASE: REJECTION ──────────────────────────────────────────────────────
+    if (decision === 'REJECTED') {
+      await prisma.$transaction(async (tx) => {
+        await tx.customerOnboarding.update({
+          where: { id },
+          data: {
+            approvalStatus: 'REJECTED',
+            reviewedById:   user.id,
+            reviewedAt:     new Date(),
+            reviewNote:     note || 'Rejected by reviewer',
+          },
+        });
+
+        await tx.customerOnboardingAuditLog.create({
+          data: {
+            customerOnboardingId: id,
+            actorId:   user.id,
+            action:    'REJECTED',
+            details:   note || `Submission rejected by ${user.name}`,
+            ipAddress,
+            userAgent,
+          },
+        });
       });
 
-      await tx.customerOnboardingAuditLog.create({
-        data: {
-          customerOnboardingId: id,
-          actorId:   user.id,
-          action:    decision,
-          details:   note || `Submission ${decision.toLowerCase()} by ${user.name}`,
-          ipAddress,
-          userAgent,
-        },
+      await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_REJECTED,
+        severity: LogSeverity.INFO,
+        actor: user,
+        details: `Customer onboarding REJECTED at state ${existing.approvalStatus}. Mnemonic: ${existing.mnemonic}`,
+        targetId: id,
+        targetType: 'CustomerOnboarding',
       });
 
-      return record;
-    });
+      return { success: true };
+    }
 
-    await logSecurityEvent({
-      event: decision === 'APPROVED'
-        ? SecurityEvent.CUSTOMER_ONBOARDING_APPROVED
-        : SecurityEvent.CUSTOMER_ONBOARDING_REJECTED,
-      severity: LogSeverity.INFO,
-      actor: user,
-      details: `Customer onboarding ${decision}. Mnemonic: ${existing.mnemonic}. Note: ${note || 'N/A'}`,
-      targetId: id,
-      targetType: 'CustomerOnboarding',
-    });
+    // ── CASE: STAGE 1 (Maker Approval) ───────────────────────────────────────
+    if (existing.approvalStatus === 'PENDING') {
+      // Maker-Checker enforcement: Person who submitted cannot be the first reviewer
+      // Bypass for Admins
+      if (existing.submittedById === user.id && !isAdmin) {
+        return { success: false, error: 'Internal Control Violation: As the submitter, you cannot perform the first review (Maker approval).' };
+      }
 
-    // Trigger automated forwarding immediately only if APPROVED
-    if (decision === 'APPROVED') {
+      await prisma.$transaction(async (tx) => {
+        await tx.customerOnboarding.update({
+          where: { id },
+          data: {
+            approvalStatus:    'MAKER_APPROVED',
+            makerReviewedById: user.id,
+            makerReviewedAt:   new Date(),
+            makerReviewNote:   note || null,
+          },
+        });
+
+        await tx.customerOnboardingAuditLog.create({
+          data: {
+            customerOnboardingId: id,
+            actorId:   user.id,
+            action:    'MAKER_APPROVED',
+            details:   note || `Stage 1 (Maker-level) approval by ${user.name}`,
+            ipAddress,
+            userAgent,
+          },
+        });
+      });
+
+      await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_APPROVED,
+        severity: LogSeverity.INFO,
+        actor: user,
+        details: `Stage 1 (Maker) Approval complete. Mnemonic: ${existing.mnemonic}`,
+        targetId: id,
+        targetType: 'CustomerOnboarding',
+      });
+
+      return { success: true };
+    }
+
+    // ── CASE: STAGE 2 (Checker Approval) ─────────────────────────────────────
+    if (existing.approvalStatus === 'MAKER_APPROVED') {
+      // Maker-Checker enforcement: Final checker must be different from the first reviewer (Maker review)
+      // Bypass for Admins
+      if (existing.makerReviewedById === user.id && !isAdmin) {
+        return { success: false, error: 'Internal Control Violation: As the Stage 1 reviewer (Maker), you cannot perform the final Checker-level approval.' };
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const record = await tx.customerOnboarding.update({
+          where: { id },
+          data: {
+            approvalStatus: 'APPROVED',
+            reviewedById:   user.id,
+            reviewedAt:     new Date(),
+            reviewNote:     note || null,
+          },
+        });
+
+        await tx.customerOnboardingAuditLog.create({
+          data: {
+            customerOnboardingId: id,
+            actorId:   user.id,
+            action:    'APPROVED',
+            details:   note || `Stage 2 (Checker-level) final approval by ${user.name}`,
+            ipAddress,
+            userAgent,
+          },
+        });
+
+        return record;
+      });
+
+      await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_APPROVED,
+        severity: LogSeverity.INFO,
+        actor: user,
+        details: `Final Stage 2 (Checker) Approval complete. Mnemonic: ${existing.mnemonic}. Triggering T24 Sync...`,
+        targetId: id,
+        targetType: 'CustomerOnboarding',
+      });
+
+      // trigger automated forwarding ONLY NOW
       forwardToCoreBanking(updated.id, user.id).catch((err) =>
-        console.error('[auto-forward trigger fail]', err)
+        console.error('[final-approval auto-forward fail]', err)
       );
+
+      return { success: true };
     }
 
+    return { success: false, error: `Invalid review action: Submission is already in ${existing.approvalStatus} state.` };
 
-
-    return { success: true };
   } catch (err) {
     console.error('[reviewCustomerOnboarding]', err);
     return { success: false, error: 'Failed to process decision. Please try again.' };
@@ -533,51 +647,112 @@ export async function bulkReviewCustomerOnboarding(opts: {
   const { ipAddress, userAgent } = await getRequestContext();
 
   try {
+    const isMaker = hasRolePermission(user, 'maker_customer_onboarding');
+    const isChecker = hasRolePermission(user, 'checker_customer_onboarding');
+    const isAdmin = hasRolePermission(user, 'admin');
+
     const results = await prisma.$transaction(async (tx) => {
-      // Only update PENDING records and enforce Maker-Checker:
-      // Exclude those submitted by the current user
-      const recordsToUpdate = await tx.customerOnboarding.findMany({
+      if (decision === 'REJECTED') {
+        const toReject = await tx.customerOnboarding.findMany({
+          where: { id: { in: ids }, approvalStatus: { in: ['PENDING', 'MAKER_APPROVED'] } },
+          select: { id: true }
+        });
+        const rejectIds = toReject.map(r => r.id);
+        
+        await tx.customerOnboarding.updateMany({
+          where: { id: { in: rejectIds } },
+          data: { approvalStatus: 'REJECTED', reviewedById: user.id, reviewedAt: new Date() }
+        });
+
+        await tx.customerOnboardingAuditLog.createMany({
+          data: rejectIds.map(rid => ({
+            customerOnboardingId: rid,
+            actorId: user.id,
+            action: 'REJECTED',
+            details: 'Bulk rejection.',
+            ipAddress, userAgent
+          }))
+        });
+        return { count: rejectIds.length, finalApproved: [] };
+      }
+
+      // decision === 'APPROVED' logic (Dual Stage)
+      
+      // 1. PENDING -> MAKER_APPROVED
+      const stage1Batch = await tx.customerOnboarding.findMany({
         where: { 
-           id: { in: ids }, 
-           approvalStatus: 'PENDING',
-           NOT: { submittedById: user.id }
+          id: { in: ids }, 
+          approvalStatus: 'PENDING', 
+          ...(isAdmin ? {} : { NOT: { submittedById: user.id } })
         },
-        select: { id: true, mnemonic: true }
+        select: { id: true }
       });
 
-      if (recordsToUpdate.length === 0) return { count: 0, records: [] };
+      if (stage1Batch.length > 0 && !isMaker && !isAdmin) {
+          throw new Error("You do not have permission to perform Stage 1 (Maker) bulk reviews.");
+      }
+      const stage1Ids = stage1Batch.map(r => r.id);
+      if (stage1Ids.length > 0) {
+        await tx.customerOnboarding.updateMany({
+          where: { id: { in: stage1Ids } },
+          data: { 
+            approvalStatus: 'MAKER_APPROVED', 
+            makerReviewedById: user.id, 
+            makerReviewedAt: new Date() 
+          }
+        });
+        await tx.customerOnboardingAuditLog.createMany({
+          data: stage1Ids.map(rid => ({
+            customerOnboardingId: rid,
+            actorId: user.id,
+            action: 'MAKER_APPROVED',
+            details: 'Bulk Stage 1 (Maker) approval.',
+            ipAddress, userAgent
+          }))
+        });
+      }
 
-      const actualIds = recordsToUpdate.map(r => r.id);
-
-      await tx.customerOnboarding.updateMany({
-        where: { id: { in: actualIds } },
-        data: {
-          approvalStatus: decision,
-          reviewedById:   user.id,
-          reviewedAt:     new Date(),
-        }
+      // 2. MAKER_APPROVED -> APPROVED
+      const stage2Batch = await tx.customerOnboarding.findMany({
+        where: { 
+          id: { in: ids }, 
+          approvalStatus: 'MAKER_APPROVED', 
+          ...(isAdmin ? {} : { NOT: { makerReviewedById: user.id } })
+        },
+        select: { id: true }
       });
 
-      // Create audit logs for each record in the transaction
-      // Note: mapping array for createMany
-      const auditLogData = actualIds.map(recordId => ({
-        customerOnboardingId: recordId,
-        actorId:   user.id,
-        action:    decision,
-        details:   `Bulk ${decision.toLowerCase()} action performed.`,
-        ipAddress,
-        userAgent,
-      }));
+      if (stage2Batch.length > 0 && !isChecker && !isAdmin) {
+          throw new Error("You do not have permission to perform Stage 2 (Checker) bulk approvals.");
+      }
+      const stage2Ids = stage2Batch.map(r => r.id);
+      if (stage2Ids.length > 0) {
+        await tx.customerOnboarding.updateMany({
+          where: { id: { in: stage2Ids } },
+          data: { 
+            approvalStatus: 'APPROVED', 
+            reviewedById: user.id, 
+            reviewedAt: new Date() 
+          }
+        });
+        await tx.customerOnboardingAuditLog.createMany({
+          data: stage2Ids.map(rid => ({
+            customerOnboardingId: rid,
+            actorId: user.id,
+            action: 'APPROVED',
+            details: 'Bulk Stage 2 (Checker) final approval.',
+            ipAddress, userAgent
+          }))
+        });
+      }
 
-      await tx.customerOnboardingAuditLog.createMany({
-        data: auditLogData,
-      });
-
-      return { count: actualIds.length, records: recordsToUpdate };
+      return { 
+        count: stage1Ids.length + stage2Ids.length, 
+        finalApproved: stage2Ids 
+      };
     });
 
     if (results.count > 0) {
-      // Log security events for bulk action
       await logSecurityEvent({
         event: decision === 'APPROVED' ? SecurityEvent.CUSTOMER_ONBOARDING_APPROVED : SecurityEvent.CUSTOMER_ONBOARDING_REJECTED,
         severity: LogSeverity.INFO,
@@ -585,20 +760,18 @@ export async function bulkReviewCustomerOnboarding(opts: {
         details: `Bulk ${decision} performed on ${results.count} records.`,
       });
 
-      // Sequential forwarding and broadcasting (outside transaction to avoid DB locks)
-      for (const r of results.records) {
-        if (decision === 'APPROVED') {
-          forwardToCoreBanking(r.id, user.id).catch(err => 
-            console.error(`[bulk-auto-forward fail] ID: ${r.id}`, err)
-          );
-        }
+      // Forward to T24 ONLY for those that hit final approval
+      for (const rid of results.finalApproved) {
+        forwardToCoreBanking(rid, user.id).catch(err => 
+          console.error(`[bulk-forwarding fail] ID: ${rid}`, err)
+        );
       }
     }
 
     return { success: true, count: results.count };
   } catch (err) {
     console.error('[bulkReviewCustomerOnboarding]', err);
-    return { success: false, error: 'Failed to process bulk decision. Please try again.' };
+    return { success: false, error: 'Failed to process bulk decision.' };
   }
 }
 

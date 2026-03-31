@@ -89,7 +89,7 @@ function generateAuthEmailBody(title: string, content: string): string {
                 <td>
                     <div class="container">
                         <div class="header">
-                           <img src="${logoUrl}" alt="NibTera Onboarding Logo" style="width:60px;height:60px;display:block;margin:0 auto;">
+                           <img src="${logoUrl}" alt="Nib Digital Onboarding Logo" style="width:60px;height:60px;display:block;margin:0 auto;">
                         </div>
                         <div class="content">
                             <h2>${title}</h2>
@@ -111,10 +111,10 @@ export async function sendVerificationEmail({ to, name, token }: VerificationEma
     const verificationLink = `${baseUrl}/set-password?token=${token}`;
     const expirationHours = 1;
 
-    const title = "Welcome to NibTera Onboarding! Please Verify Your Account";
+    const title = "Welcome to Nib Digital Onboarding! Please Verify Your Account";
     const content = `
         <p>Hello ${name},</p>
-        <p>An account has been created for you on the NibTera Onboarding platform. To get started, please set your password by clicking the link below.</p>
+        <p>An account has been created for you on the Nib Digital Onboarding platform. To get started, please set your password by clicking the link below.</p>
         <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Set Your Password</a>
@@ -168,7 +168,7 @@ export async function sendPasswordResetEmail({ to, name, token }: PasswordResetE
     const title = "Your Password Reset Request";
     const content = `
         <p>Hello ${name},</p>
-        <p>We received a request to reset your password for the NibTera Onboarding platform. You can reset your password by clicking the link below.</p>
+        <p>We received a request to reset your password for the Nib Digital Onboarding platform. You can reset your password by clicking the link below.</p>
         <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
             <a href="${resetLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Your Password</a>
@@ -222,7 +222,7 @@ export async function sendEmailChangeVerificationEmail({ to, name, token, userId
     const title = "Confirm Your New Email Address";
     const content = `
         <p>Hello ${name},</p>
-        <p>You requested to change your email address for the NibTera Onboarding platform to this one. Please confirm this change by clicking the link below.</p>
+        <p>You requested to change your email address for the Nib Digital Onboarding platform to this one. Please confirm this change by clicking the link below.</p>
         <p>This link is valid for <strong>${expirationHours} hour</strong>.</p>
         <div class="button-container">
             <a href="${verificationLink}" style="background-color: #9A4D1C; color: #ffffff; display: inline-block; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px;">Confirm New Email</a>
@@ -268,10 +268,10 @@ export async function sendEmailChangeVerificationEmail({ to, name, token, userId
 }
 
 export async function sendEmailChangeNotificationEmail({ to, name, newEmail }: EmailChangeNotificationOptions) {
-    const title = "Email Change Request for Your NibTera Onboarding Account";
+    const title = "Email Change Request for Your Nib Digital Onboarding Account";
     const content = `
         <p>Hello ${name},</p>
-        <p>This is a notification that a request has been made to change the email address associated with your NibTera Onboarding account to <strong>${newEmail}</strong>.</p>
+        <p>This is a notification that a request has been made to change the email address associated with your Nib Digital Onboarding account to <strong>${newEmail}</strong>.</p>
         <p>A verification email has been sent to the new address. Your email will not be changed until it is verified.</p>
         <p><strong>If you did not make this request, please change your password immediately and contact an administrator.</strong></p>
     `;

@@ -167,7 +167,7 @@ export async function logSecurityEvent(log: LogDetails) {
             data: {
                 event: log.event,
                 severity: log.severity,
-                actorId: log.actor?.id,
+                actorId: (log.actor?.id && log.actor.id.length > 10) ? log.actor.id : null,
                 details: log.details,
                 targetId: log.targetId,
                 targetType: log.targetType,

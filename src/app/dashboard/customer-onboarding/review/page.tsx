@@ -16,10 +16,11 @@ export default async function CustomerOnboardingReviewPage() {
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
-  const canReview = permissions.includes('review_customer_onboarding');
-  const canSubmit = permissions.includes('submit_customer_onboarding');
+  const canReview = permissions.includes('checker_customer_onboarding');
+  const canMaker = permissions.includes('maker_customer_onboarding');
+  const isAdmin = permissions.includes('admin');
 
-  if (!canReview && !canSubmit) redirect('/dashboard/access-denied');
+  if (!canReview && !canMaker && !isAdmin) redirect('/dashboard/access-denied');
 
   return (
     <div className="space-y-6">

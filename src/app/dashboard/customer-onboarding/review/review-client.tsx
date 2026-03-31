@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, RefreshCw, Eye, ChevronLeft, ChevronRight,
   Search, Clock, Building2, User, FileText, Loader2, AlertTriangle,
   Send, Filter, RotateCcw, ArrowRightLeft, ArrowUpDown, ChevronUp, ChevronDown, Calendar,
-  Download, FileSpreadsheet,
+  Download, FileSpreadsheet, Copy, Check, X, ZoomIn,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
@@ -45,26 +45,28 @@ import { cn } from '@/lib/utils';
 import type { CustomerOnboarding, CustomerOnboardingAuditLog } from '@/lib/types';
 
 // Use string union until prisma generate runs
-type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'APPROVED' | 'REJECTED';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ApprovalStatus }) {
   const map: Record<ApprovalStatus, { label: string; variant: 'secondary' | 'default' | 'destructive' | 'outline'; className: string }> = {
-    PENDING:  { label: 'Pending',  variant: 'secondary',  className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
-    APPROVED: { label: 'Approved', variant: 'default',    className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    REJECTED: { label: 'Rejected', variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
+    PENDING:        { label: 'Pending Maker',   variant: 'secondary',  className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+    MAKER_APPROVED: { label: 'Pending Checker', variant: 'outline',    className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
+    APPROVED:       { label: 'Approved',        variant: 'default',    className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    REJECTED:       { label: 'Rejected',        variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
   };
-  const cfg = map[status];
+  const cfg = map[status] || map.PENDING;
   return <Badge variant="outline" className={cn('font-medium text-xs', cfg.className)}>{cfg.label}</Badge>;
 }
 
 // ─── Audit timeline ───────────────────────────────────────────────────────────
 function AuditTimeline({ logs }: { logs: CustomerOnboardingAuditLog[] }) {
   const iconMap: Record<string, React.ReactNode> = {
-    SUBMITTED:    <Clock className="h-3.5 w-3.5 text-blue-500" />,
-    APPROVED:     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
-    REJECTED:     <XCircle className="h-3.5 w-3.5 text-red-500" />,
-    FORWARDED:    <Send className="h-3.5 w-3.5 text-primary" />,
+    SUBMITTED:      <Clock className="h-3.5 w-3.5 text-blue-500" />,
+    MAKER_APPROVED: <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />,
+    APPROVED:       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
+    REJECTED:       <XCircle className="h-3.5 w-3.5 text-red-500" />,
+    FORWARDED:      <Send className="h-3.5 w-3.5 text-primary" />,
     FORWARD_FAILED: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
   };
   return (
@@ -99,11 +101,13 @@ function CustomerAvatar({
   familyName,
   picture,
   size = 'lg',
+  onClick,
 }: {
   givenName?: string | null;
   familyName?: string | null;
   picture?: string | null;
   size?: 'sm' | 'lg';
+  onClick?: () => void;
 }) {
   const initials = [
     (givenName  || '').charAt(0),
@@ -113,19 +117,33 @@ function CustomerAvatar({
     .join('')
     .toUpperCase() || '?';
 
-  // Deterministic hue from name for the gradient
-  const seed  = (givenName || '') + (familyName || '');
-  const hue   = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
-  const gradient = `hsl(${hue},55%,45%)`;
+  const seed     = (givenName || '') + (familyName || '');
+  const hue      = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
+  const gradient   = `hsl(${hue},55%,45%)`;
   const gradientTo = `hsl(${(hue + 40) % 360},60%,35%)`;
-
-  const dim = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-10 w-10 text-sm';
+  const dim        = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-10 w-10 text-sm';
+  const clickable  = !!picture && !!onClick;
 
   if (picture) {
     return (
-      <div className={`${dim} rounded-full overflow-hidden ring-4 ring-background shadow-xl flex-shrink-0`}>
+      <div
+        className={cn(
+          `${dim} rounded-full overflow-hidden ring-4 ring-background shadow-xl flex-shrink-0 relative group`,
+          clickable && 'cursor-zoom-in',
+        )}
+        onClick={onClick}
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onKeyDown={clickable ? (e) => e.key === 'Enter' && onClick?.() : undefined}
+        aria-label={clickable ? 'View full photo' : undefined}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={picture} alt={`${givenName} ${familyName}`} className="h-full w-full object-cover" />
+        {clickable && (
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+            <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        )}
       </div>
     );
   }
@@ -137,6 +155,45 @@ function CustomerAvatar({
     >
       {initials}
     </div>
+  );
+}
+
+// ─── Copy-to-clipboard button ────────────────────────────────────────────────
+function CopyButton({ value, label }: { value: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      toast.success(`${label || 'Value'} copied to clipboard`);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy — please copy manually.');
+    }
+  }
+
+  return (
+    <button
+      onClick={copy}
+      title={`Copy ${label || 'value'}`}
+      className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
+    >
+      {copied
+        ? <Check className="h-3 w-3 text-emerald-500" />
+        : <Copy className="h-3 w-3" />}
+    </button>
   );
 }
 
@@ -152,11 +209,13 @@ function RecordDetailDialog({
   onClose: () => void;
   onRefresh: () => void;
 }) {
-  const [record, setRecord] = useState<CustomerOnboarding | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [reviewNote, setReviewNote] = useState('');
+  const [record, setRecord]           = useState<CustomerOnboarding | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [reviewNote, setReviewNote]   = useState('');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | null>(null);
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     const result = await getCustomerOnboarding(recordId);
@@ -164,7 +223,47 @@ function RecordDetailDialog({
     setLoading(false);
   }, [recordId]);
 
+  // Silent background refresh (no spinner flicker)
+  const silentRefresh = useCallback(async () => {
+    const result = await getCustomerOnboarding(recordId);
+    if (result.success) {
+      setRecord((prev) => {
+        const next = result.record as CustomerOnboarding;
+        // Only update if something actually changed to avoid unnecessary re-renders
+        if (
+          prev?.approvalStatus !== next.approvalStatus ||
+          prev?.forwardedAt   !== next.forwardedAt   ||
+          prev?.forwardError  !== next.forwardError
+        ) {
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [recordId]);
+
   useEffect(() => { load(); }, [load]);
+
+  // ── Auto-refresh polling ───────────────────────────────────────────────────
+  // Poll silently while the record is still "live" (PENDING or APPROVED-not-yet-forwarded)
+  // so the UI reflects T24 sync completion and peer review decisions without manual refresh.
+  useEffect(() => {
+    if (!record) return;
+    const isDone = record.forwardedAt || record.approvalStatus === 'REJECTED';
+    if (isDone) return;
+
+    const intervalMs = record.approvalStatus === 'APPROVED' ? 3_000 : 5_000;
+    const id = setInterval(silentRefresh, intervalMs);
+    return () => clearInterval(id);
+  }, [record?.approvalStatus, record?.forwardedAt, record?.approvalStatus, silentRefresh]);
+
+  // ── Lightbox keyboard dismiss ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxOpen]);
 
   async function handleDecision(decision: 'APPROVED' | 'REJECTED') {
     setActionInProgress(decision === 'APPROVED' ? 'APPROVE' : 'REJECT');
@@ -188,16 +287,20 @@ function RecordDetailDialog({
       load();
     } else {
       toast.error(result.error || 'Failed to retry forwarding.');
-      load(); // Reload to fetch the updated error note
+      load();
     }
     setActionInProgress(null);
   }
 
-  const InfoRow = ({ label, value }: { label: string; value?: string | null }) =>
+  // InfoRow with inline copy-to-clipboard
+  const InfoRow = ({ label, value, copyable = false }: { label: string; value?: string | null; copyable?: boolean }) =>
     value ? (
       <div>
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium break-all">{value}</p>
+        <div className="flex items-start gap-0.5">
+          <p className="text-sm font-medium break-all">{value}</p>
+          {copyable && <CopyButton value={value} label={label} />}
+        </div>
       </div>
     ) : null;
 
@@ -227,23 +330,34 @@ function RecordDetailDialog({
                   givenName={record.givenName}
                   familyName={record.familyName}
                   picture={(record as any).picture}
+                  onClick={(record as any).picture ? () => setLightboxOpen(true) : undefined}
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-base font-bold leading-tight truncate">
-                    {record.title ? `${record.title} ` : ''}{record.givenName} {record.familyName}
+                  {/* Use fullName1 as canonical display name — avoids givenName + familyName duplication
+                      that occurs when T24 stores the full name in both fields. */}
+                  <p className="text-base font-bold leading-tight">
+                    {[record.title, record.fullName1 || `${record.givenName} ${record.familyName}`]
+                      .filter(Boolean).join(' ')}
                   </p>
-                  <p className="text-xs text-muted-foreground font-mono">{record.mnemonic}</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground font-mono">{record.mnemonic}</p>
+                    <CopyButton value={record.mnemonic} label="Mnemonic" />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {record.gender}{record.dateOfBirth ? ` · ${record.dateOfBirth}` : ''}
                   </p>
-                  {/* Status + forwarded badges */}
+                  {/* Status + forwarded badges — live-updated by polling */}
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
-                    {record.forwardedAt && (
+                    {record.forwardedAt ? (
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
                         <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
                       </Badge>
-                    )}
+                    ) : record.approvalStatus === 'APPROVED' ? (
+                      <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 text-xs animate-pulse">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Awaiting T24 sync…
+                      </Badge>
+                    ) : null}
                     {record.forwardError && !record.forwardedAt && (
                       <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
                         <AlertTriangle className="h-3 w-3 mr-1" /> Forward failed
@@ -253,21 +367,52 @@ function RecordDetailDialog({
                 </div>
               </div>
 
+              {/* ── Picture lightbox ── */}
+              <AnimatePresence>
+                {lightboxOpen && (record as any).picture && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
+                    onClick={() => setLightboxOpen(false)}
+                  >
+                    <button
+                      className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                      onClick={() => setLightboxOpen(false)}
+                      aria-label="Close photo"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                    <motion.img
+                      initial={{ scale: 0.85, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.85, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                      src={(record as any).picture}
+                      alt={record.fullName1 || `${record.givenName} ${record.familyName}`}
+                      className="max-h-[85vh] max-w-full rounded-xl shadow-2xl object-contain"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Personal */}
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Payload Information (Ingested)</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Mnemonic"       value={record.mnemonic} />
+                  <InfoRow label="Mnemonic"       value={record.mnemonic}        copyable />
                   <InfoRow label="Title"           value={record.title} />
                   <InfoRow label="Given Name"      value={record.givenName} />
                   <InfoRow label="Family Name"     value={record.familyName} />
-                  <InfoRow label="Full Name"       value={record.fullName1} />
+                  <InfoRow label="Full Name"       value={record.fullName1}      copyable />
                   <InfoRow label="Short Name"      value={record.shortName} />
                   <InfoRow label="Gender"          value={record.gender} />
                   <InfoRow label="Date of Birth"   value={record.dateOfBirth} />
                   <InfoRow label="Marital Status"  value={record.maritalStatus} />
                   <InfoRow label="Nationality"     value={record.nationality} />
-                  <InfoRow label="National ID"     value={record.nationalIDNumber} />
+                  <InfoRow label="National ID"     value={record.nationalIDNumber} copyable />
                   <InfoRow label="Mother's Name"   value={record.motherName} />
                 </div>
               </div>
@@ -297,7 +442,7 @@ function RecordDetailDialog({
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Identification</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <InfoRow label="Document"       value={record.documentName} />
-                  <InfoRow label="Legal ID No."   value={record.legalIdNumber} />
+                  <InfoRow label="Legal ID No."   value={record.legalIdNumber}   copyable />
                   <InfoRow label="Name on ID"     value={record.nameOnID} />
                   <InfoRow label="Issue Authority" value={record.issueAuthority} />
                   <InfoRow label="Issue Date"     value={record.issueDate} />
@@ -310,8 +455,8 @@ function RecordDetailDialog({
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Contact &amp; Banking</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Mobile"          value={record.mobilePhoneNumbers} />
-                  <InfoRow label="Residential Ph." value={record.phoneNumbersRes} />
+                  <InfoRow label="Mobile"          value={record.mobilePhoneNumbers} copyable />
+                  <InfoRow label="Residential Ph." value={record.phoneNumbersRes}    copyable />
                   <InfoRow label="Language"        value={record.language} />
                   <InfoRow label="Sector"          value={record.sector} />
                   <InfoRow label="Industry"        value={record.industry} />
@@ -364,14 +509,27 @@ function RecordDetailDialog({
                 </div>
               )}
 
-              {/* Review note */}
+              {/* Stage 1 (Maker) Review Note */}
+              {(record as any).makerReviewedAt && (
+                <div className="rounded-md border border-blue-200/50 bg-blue-50/30 dark:bg-blue-900/10 p-3">
+                  <p className="text-xs font-bold mb-1 text-blue-700 dark:text-blue-400">Stage 1: Maker Approval</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{(record as any).makerReviewNote || 'Approved at Maker level'}</p>
+                  {(record as any).makerReviewedBy && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
+                      — Verified by {(record as any).makerReviewedBy.name} on {format(new Date((record as any).makerReviewedAt), 'dd MMM yyyy HH:mm')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Final Review (Checker) Note */}
               {record.reviewNote && (
-                <div className="rounded-md border border-border/60 bg-muted/40 p-3">
-                  <p className="text-xs font-bold mb-1 text-foreground">Reviewer Note</p>
+                <div className="rounded-md border border-emerald-200/50 bg-emerald-50/30 dark:bg-emerald-900/10 p-3">
+                  <p className="text-xs font-bold mb-1 text-emerald-700 dark:text-emerald-400">Stage 2: Final Authorization</p>
                   <p className="text-xs text-muted-foreground leading-relaxed">{record.reviewNote}</p>
                   {record.reviewedBy && (
                     <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
-                      — Reviewed by {record.reviewedBy.name}{record.reviewedAt && ` on ${format(new Date(record.reviewedAt), 'dd MMM yyyy HH:mm')}`}
+                      — Authorized by {record.reviewedBy.name}{record.reviewedAt && ` on ${format(new Date(record.reviewedAt), 'dd MMM yyyy HH:mm')}`}
                     </p>
                   )}
                 </div>
@@ -385,32 +543,47 @@ function RecordDetailDialog({
                 </div>
               )}
 
-              {/* Reviewer actions */}
-              {canReview && record.approvalStatus === 'PENDING' && (
+              {/* Reviewer actions (Dual Stage) */}
+              {canReview && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'MAKER_APPROVED') && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-primary">Review Decision <span className="text-destructive">*</span></h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-primary">
+                      {record.approvalStatus === 'PENDING' ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
+                    </h3>
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Dual Control Active</Badge>
+                  </div>
+                  
                   <Textarea
-                    placeholder="Provide context for approval or rejection (required)..."
+                    placeholder={record.approvalStatus === 'PENDING' 
+                      ? "Comments for first-level review..." 
+                      : "Final authorization comments for T24 ingestion..."}
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
                     rows={3}
                     className="text-sm bg-background/50 border-primary/20 focus:border-primary transition-all duration-200"
                   />
+                  
                   <div className="flex gap-3 pt-1">
                     <Button
                       onClick={() => handleDecision('APPROVED')}
-                      disabled={!!actionInProgress || reviewNote.trim() === ''}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!!actionInProgress}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                     >
                       {actionInProgress === 'APPROVE'
                         ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <><CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve Submission</>}
+                        : (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
+                            {record.approvalStatus === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
+                          </>
+                        )
+                      }
                     </Button>
                     <Button
                       onClick={() => handleDecision('REJECTED')}
-                      disabled={!!actionInProgress || reviewNote.trim() === ''}
+                      disabled={!!actionInProgress}
                       variant="destructive"
-                      className="flex-1 shadow-lg shadow-destructive/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 shadow-lg shadow-destructive/20 disabled:opacity-50"
                     >
                       {actionInProgress === 'REJECT'
                         ? <Loader2 className="h-4 w-4 animate-spin" />

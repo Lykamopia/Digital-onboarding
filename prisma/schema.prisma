@@ -52,6 +52,7 @@ model User {
   branch                Branch?                @relation(fields: [branchId], references: [id])
   securityLogs                    SecurityLog[]
   customerOnboardingsReviewed     CustomerOnboarding[]           @relation("CustomerOnboardingReviewer")
+  customerOnboardingsMaker        CustomerOnboarding[]           @relation("CustomerOnboardingMaker")
   customerOnboardingsSubmitted    CustomerOnboarding[]           @relation("CustomerOnboardingSubmitter")
   customerOnboardingAuditLogs     CustomerOnboardingAuditLog[]   @relation("CustomerOnboardingAuditActor")
 
@@ -256,6 +257,7 @@ model SecurityLog {
 
 enum ApprovalStatus {
   PENDING
+  MAKER_APPROVED
   APPROVED
   REJECTED
 }
@@ -324,10 +326,15 @@ model CustomerOnboarding {
   forwardedAt      DateTime?
   forwardError     String?   @db.Text
 
-  // Review metadata
+  // Final Review (Checker)
   reviewedById     String?
   reviewedAt       DateTime?
   reviewNote       String?   @db.Text
+
+  // Initial Review (Maker)
+  makerReviewedById String?
+  makerReviewedAt   DateTime?
+  makerReviewNote   String?   @db.Text
 
   // Submitter
   submittedById    String?
@@ -335,6 +342,7 @@ model CustomerOnboarding {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  makerReviewedBy  User?     @relation("CustomerOnboardingMaker", fields: [makerReviewedById], references: [id], onDelete: SetNull)
   reviewedBy       User?     @relation("CustomerOnboardingReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   submittedBy      User?     @relation("CustomerOnboardingSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   auditLogs        CustomerOnboardingAuditLog[]
@@ -342,6 +350,7 @@ model CustomerOnboarding {
   @@index([approvalStatus])
   @@index([submittedById])
   @@index([reviewedById])
+  @@index([makerReviewedById])
   @@index([createdAt])
 }
 

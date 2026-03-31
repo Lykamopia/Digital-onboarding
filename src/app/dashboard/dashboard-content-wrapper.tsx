@@ -51,8 +51,8 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return adminPermissions.some(p => permissions.includes(p as any));
   }, [user, permissions, adminPermissions]);
 
-  const canSubmitOnboarding = useMemo(() => permissions.includes('submit_customer_onboarding' as Permission), [permissions]);
-  const canReviewOnboarding = useMemo(() => permissions.includes('review_customer_onboarding' as Permission), [permissions]);
+  const canSubmitOnboarding = useMemo(() => permissions.includes('maker_customer_onboarding' as Permission), [permissions]);
+  const canReviewOnboarding = useMemo(() => permissions.includes('checker_customer_onboarding' as Permission) || permissions.includes('maker_customer_onboarding' as Permission), [permissions]);
 
   const navItems = useMemo(() => {
     if (!user) return [];

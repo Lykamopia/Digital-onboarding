@@ -80,4 +80,15 @@ export async function getEmailSettings(): Promise<EmailSettings> {
     return defaultEmailSettings;
 }
 
-    
+export async function saveGeneralSettings(settings: GeneralSettings): Promise<void> {
+    try {
+        await prisma.setting.upsert({
+            where: { key: 'general' },
+            update: { value: settings as any },
+            create: { key: 'general', value: settings as any }
+        });
+    } catch (error) {
+        console.error("Failed to save general settings:", error);
+        throw new Error("Failed to save settings.");
+    }
+}
