@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3010",
+    "dev": "next dev --turbopack -p 3012",
     "dev:ws": "ts-node server.ts",
     "build": "next build",
-    "start": "concurrently \"next start -p 3010\" \"npm run start:ws\"",
+    "start": "concurrently \"next start -p 3012\" \"npm run start:ws\"",
     "start:ws": "ts-node --esm server.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
