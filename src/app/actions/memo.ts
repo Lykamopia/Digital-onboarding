@@ -354,7 +354,7 @@ export async function getAdminUsers(page = 1, limit = 10, filters: any = {}) {
     ]);
 
     return {
-        users: users.map(u => { const { hashedPassword, ...rest } = u; return rest as User; }),
+        users: users.map(u => { const { hashedPassword, ...rest } = u; return rest as unknown as User; }),
         total,
         totalPages: Math.ceil(total / limit),
         page,
@@ -390,7 +390,7 @@ export async function getDistricts() { return await prisma.district.findMany({ i
 export async function getOffices() { return await prisma.office.findMany({ include: { departments: true, districts: true } }); }
 export async function getUsers() {
     const users = await prisma.user.findMany({ include: { role: true, office: true, department: true, division: true, district: true, branch: true }, orderBy: { name: 'asc' } });
-    return users.map(user => { const { hashedPassword, ...userWithoutPassword } = user; return userWithoutPassword; });
+    return users.map(user => { const { hashedPassword, ...userWithoutPassword } = user; return userWithoutPassword as unknown as User; });
 }
 
 export async function revokeUserTokens(userId: string) {
