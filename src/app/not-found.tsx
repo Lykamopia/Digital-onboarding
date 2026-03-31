@@ -88,10 +88,10 @@ export default function NotFound() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Link href="/dashboard/inbox">
+          <Link href="/dashboard/customer-onboarding">
             <Button size="lg">
               <ArrowLeft className="mr-2" />
-              Return to Inbox
+              Return to Dashboard
             </Button>
           </Link>
         </motion.div>

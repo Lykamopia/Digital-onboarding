@@ -1,12 +1,12 @@
-
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Archive, FilePlus, Inbox, PanelLeft, Send, Shield, User as UserIcon, Edit, Lock, ShieldAlert, Star, AlertCircle, Info } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-import { toast } from 'sonner';
+import { 
+  PanelLeft, Shield, User as UserIcon, 
+  ShieldAlert, Users2, ClipboardCheck 
+} from 'lucide-react';
 
 import type { Permission, LoggedInUser } from '@/lib/types';
 
@@ -37,15 +37,13 @@ interface DashboardContentWrapperProps {
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
-  const { update: updateSession } = useSession();
 
   const permissions = useMemo(() => user?.role?.permissions?.split(',') || [], [user?.role?.permissions]);
 
   const adminPermissions = useMemo(() => [
-    'manage_general_settings', 'manage_email_settings', 'manage_divisions', 
-    'manage_departments', 'manage_branches', 'manage_districts', 
-    'manage_offices', 'manage_users', 'manage_roles', 'manage_archive', 
-    'manage_audit_log', 'manage_labels'
+    'manage_users', 'manage_roles', 'manage_security_logs',
+    'manage_offices', 'manage_departments', 'manage_divisions', 
+    'manage_districts', 'manage_branches'
   ], []);
 
   const hasAdminAccess = useMemo(() => {
@@ -53,57 +51,61 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return adminPermissions.some(p => permissions.includes(p as any));
   }, [user, permissions, adminPermissions]);
 
-  const canManageMemos = useMemo(() => user ? permissions.includes('manage_memos' as Permission) : false, [user, permissions]);
-
-  const canCreateMemo = useMemo(() => {
-    if (!user) return false;
-    return user.actingUser
-      ? user.delegationPermissions?.includes('delegation:send') || user.delegationPermissions?.includes('delegation:draft')
-      : canManageMemos;
-  }, [user, canManageMemos]);
-  
-  const isDelegatedView = useMemo(() => user?.actingUser && user.delegationPermissions?.includes('delegation:view'), [user]);
-  const isDelegatedDraft = useMemo(() => user?.actingUser && user.delegationPermissions?.includes('delegation:draft'), [user]);
+  const canSubmitOnboarding = useMemo(() => permissions.includes('submit_customer_onboarding' as Permission), [permissions]);
+  const canReviewOnboarding = useMemo(() => permissions.includes('review_customer_onboarding' as Permission), [permissions]);
 
   const navItems = useMemo(() => {
     if (!user) return [];
+    
     return [
-      { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-      { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-      { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: (!user.actingUser && canManageMemos) || isDelegatedDraft },
-      { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-      { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: (!user.actingUser && canManageMemos) || isDelegatedView },
-      { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
-      { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: hasAdminAccess && !user.actingUser },
+      { 
+        href: "/dashboard/customer-onboarding", 
+        icon: <Users2 className="h-4 w-4" />, 
+        label: "Onboarding Status", 
+        active: pathname === '/dashboard/customer-onboarding', 
+        visible: (canSubmitOnboarding || canReviewOnboarding) 
+      },
+      { 
+        href: "/dashboard/customer-onboarding/review", 
+        icon: <ClipboardCheck className="h-4 w-4" />, 
+        label: "Onboarding Pipeline", 
+        active: pathname.startsWith('/dashboard/customer-onboarding/review'), 
+        visible: canReviewOnboarding 
+      },
+      { 
+        href: "/dashboard/profile", 
+        icon: <UserIcon className="h-4 w-4" />, 
+        label: "Profile Settings", 
+        active: pathname === '/dashboard/profile', 
+        visible: true 
+      },
+      { 
+        href: "/dashboard/admin", 
+        icon: <Shield className="h-4 w-4" />, 
+        label: "Admin Management", 
+        active: pathname.startsWith('/dashboard/admin'), 
+        visible: hasAdminAccess 
+      },
       { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
     ];
-  }, [user, pathname, canManageMemos, hasAdminAccess, isDelegatedView, isDelegatedDraft]);
+  }, [user, pathname, hasAdminAccess, canSubmitOnboarding, canReviewOnboarding]);
   
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const handleReturnToOwnAccount = async () => {
-    toast.loading("Returning to your account...", { id: 'account-switch' });
-    const res = await updateSession({ stop_delegation: true });
-    if (res) {
-        window.location.href = '/dashboard/inbox';
-    } else {
-        toast.error("Failed to return to your account.", { id: 'account-switch' });
-    }
-  }
-
-
   if (!isMounted || !user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
 
+  const mustCompleteOnboarding = (user as any).onboardingCompleted === false;
+
   return (
     <>
-    <SessionTimeoutManager />
+    <SessionTimeoutManager disabled={mustCompleteOnboarding} />
     <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
-        <SidebarContent>
+        <SidebarContent title="Dashboard">
           <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
             <div className="flex items-center group-data-[collapsible=icon]:justify-center">
               <Logo className="group-data-[collapsible=icon]:hidden" />
@@ -125,18 +127,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         </SidebarContent>
       </Sidebar>
       <div className="flex flex-col h-screen">
-          {user.actingUser && (
-            <div className="flex items-center justify-center gap-4 bg-primary/10 py-2 px-4 text-sm no-print">
-                <AlertCircle className="h-5 w-5 text-primary"/>
-                <span className="font-medium text-primary">
-                    You are currently acting on behalf of <span className="font-bold">{user.name}</span>.
-                </span>
-                <Button variant="link" size="sm" className="h-auto p-0 text-primary underline" onClick={handleReturnToOwnAccount}>
-                    Return to your account
-                </Button>
-            </div>
-          )}
-        <header className="flex h-14 items-center border-b bg-card no-print shrink-0 lg:h-[60px]">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-card/60 backdrop-blur-md no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>
               <SheetTrigger asChild>
@@ -148,7 +139,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
               <SheetContent side="left" className="sm:max-w-xs">
                 <SheetHeader className="p-4">
                   <SheetTitle className="sr-only">Main Menu</SheetTitle>
-                   <Link href="/dashboard/inbox" className="flex items-center gap-2">
+                   <Link href="/dashboard/customer-onboarding" className="flex items-center gap-2">
                       <Logo />
                   </Link>
                 </SheetHeader>
@@ -167,16 +158,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
               <Breadcrumb />
             </div>
             <div className="w-full flex-1">
-              {/* Optional: Add a search bar here */}
             </div>
-            {canCreateMemo && (
-              <Link href="/dashboard/new">
-                <Button>
-                  <FilePlus className="mr-2 h-4 w-4" />
-                  New Memo
-                </Button>
-              </Link>
-            )}
             <ThemeToggle />
             <NotificationBell />
             {user && <UserNav user={user} />}

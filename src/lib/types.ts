@@ -5,36 +5,26 @@ import type {
     Division as PrismaDivision,
     Department as PrismaDepartment,
     Office as PrismaOffice,
-    Memo as PrismaMemo,
-    Attachment as PrismaAttachment,
-    Activity as PrismaActivity,
-    Branch as PrismaBranch,
-    District as PrismaDistrict,
-    Label as PrismaLabel,
-    EmailLog as PrismaEmailLog,
-    Delegation as PrismaDelegation,
     SecurityLog as PrismaSecurityLog,
+    CustomerOnboarding as PrismaCustomerOnboarding,
+    CustomerOnboardingAuditLog as PrismaCustomerOnboardingAuditLog,
     Prisma,
 } from '@prisma/client';
-import { delegationPermissions } from './permissions';
-
 export type Permission = 
-    | 'manage_memos' 
-    | 'manage_general_settings'
-    | 'manage_email_settings'
     | 'manage_divisions' 
     | 'manage_departments' 
     | 'manage_offices' 
     | 'manage_users' 
     | 'manage_roles' 
-    | 'manage_archive' 
-    | 'manage_audit_log'
     | 'manage_branches' 
     | 'manage_districts' 
-    | 'manage_labels'
-    | 'manage_security_logs';
-
-export type DelegationPermission = typeof delegationPermissions[number]['id'];
+    | 'manage_security_logs'
+    | 'view_audit_logs'
+    | 'submit_customer_onboarding'
+    | 'review_customer_onboarding'
+    | 'checker_customer_onboarding'
+    | 'maker_customer_onboarding'
+    | 'admin';
 
 export type DateRange = {
     from?: Date;
@@ -46,25 +36,16 @@ export type DelegationReason = 'Personal Case' | 'Official Duty' | 'Training';
 export type Role = PrismaRole;
 export type Office = PrismaOffice & {
     departments?: Department[];
-    districts?: District[];
 };
-export type Label = PrismaLabel;
 export type AcknowledgementType = 'BADGE' | 'SIGNATURE';
 
 export type Department = PrismaDepartment & {
     office: PrismaOffice;
     divisions: PrismaDivision[];
 };
-export type District = PrismaDistrict & {
-    office: PrismaOffice;
-    branches: PrismaBranch[];
-};
 
 export type Division = PrismaDivision & {
     department: Department;
-};
-export type Branch = PrismaBranch & {
-    district: District;
 };
 
 // Base user type from Prisma, extended for UI needs
@@ -73,63 +54,14 @@ export type User = PrismaUser & {
     office?: Office | null;
     department?: Department | null;
     division?: Division | null;
-    district?: District | null;
-    branch?: Branch | null;
     role: Role | null;
-    delegations?: Delegation[];
-    delegatedTo?: Delegation[];
 };
 
-// Represents the user for the current session, which might be a delegated one
 export type LoggedInUser = User & {
     actingUser?: { id: string; name: string | null; email: string | null; };
-    delegationPermissions?: DelegationPermission[];
 };
 
-export type Attachment = PrismaAttachment;
-export type EmailLog = PrismaEmailLog;
 export type SecurityLog = PrismaSecurityLog;
-export type Delegation = PrismaDelegation & {
-    delegator: User;
-    delegate: User;
-};
-
-// Base types from Prisma
-export type Memo = PrismaMemo & {
-    from: User;
-    to: User[];
-    cc: User[];
-    attachments: Attachment[];
-    current_holder?: User | null;
-    previous_holders?: User[];
-    acknowledgedBy?: User[];
-    archivedBy?: User[];
-    favoritedBy?: { id: string }[];
-    flaggedBy?: { id: string }[];
-    labels: Label[];
-    assignedFromId?: string | null;
-};
-
-export type Activity = PrismaActivity & {
-    actor: User;
-    ipAddress?: string | null;
-    userAgent?: string | null;
-};
-
-// Composite type for memos with all their relations
-export type MemoWithActivity = Memo & {
-  activity: Activity[];
-};
-
-export type FullMemo = MemoWithActivity & {
-    replies: Memo[];
-    replyTo: Memo | null;
-};
-
-// Add status to User type for better type safety
-export type UserWithStatus = User & {
-    status: 'active' | 'inactive' | 'pending';
-}
 
 export enum LogSeverity {
     INFO = 'INFO',
@@ -137,22 +69,25 @@ export enum LogSeverity {
     CRITICAL = 'CRITICAL',
 }
 
-export type DashboardMemo = Prisma.MemoGetPayload<{
-  include: {
-    from: { select: { id: true, name: true, avatar: true } },
-    to: { select: { id: true, name: true } },
-    cc: { select: { id: true, name: true } },
-    labels: true,
-    acknowledgedBy: { select: { id: true } },
-    archivedBy: { select: { id: true } },
-    activity: {
-        select: { action: true, actorId: true },
-    },
-    favoritedBy: { select: { id: true } },
-    flaggedBy: { select: { id: true } },
-    current_holder: { select: { id: true } },
-  }
-}>;
-
 
 export type { Prisma };
+
+// ─── Customer Onboarding ──────────────────────────────────────
+export type OnboardingActor = { id: string, name: string | null, email: string | null };
+
+export type CustomerOnboarding = PrismaCustomerOnboarding & {
+    submittedBy?: OnboardingActor | null;
+    reviewedBy?: OnboardingActor | null;
+    auditLogs?: CustomerOnboardingAuditLog[];
+};
+
+export type CustomerOnboardingAuditLog = PrismaCustomerOnboardingAuditLog & {
+    actor?: OnboardingActor | null;
+};
+
+// ─── Bulk Import ──────────────────────────────────────────────
+export interface BulkImportResult {
+    successCount: number;
+    errorCount: number;
+    errors: { rowIndex: number; email: string; error: string }[];
+}

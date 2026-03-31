@@ -914,14 +914,6 @@ export default function UsersPage() {
                                     </div>
                                     <div className="grid grid-cols-2 items-center gap-4">
                                         <span className="text-muted-foreground flex items-center gap-1.5">
-                                            <Fingerprint className="h-3.5 w-3.5" /> Signature Status:
-                                        </span>
-                                        <Badge variant={viewingUser.signature ? 'secondary' : 'outline'} className="w-fit">
-                                            {viewingUser.signature ? 'Set' : 'Not Set'}
-                                        </Badge>
-                                    </div>
-                                    <div className="grid grid-cols-2 items-center gap-4">
-                                        <span className="text-muted-foreground flex items-center gap-1.5">
                                             <ShieldOff className="h-3.5 w-3.5" /> Failed Logins:
                                         </span>
                                         <span className={cn("font-medium", (viewingUser.failedLoginAttempts || 0) > 0 && "text-destructive")}>

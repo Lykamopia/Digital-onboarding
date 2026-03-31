@@ -3,9 +3,7 @@ import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import type { User } from './types';
 import { LogSeverity } from './types';
-import { sendEmail } from './email';
-import { getEmailSettings, getGeneralSettings } from '@/app/actions/settings';
-
+// Imports for emails removed since critical alerts have been disabled
 export enum SecurityEvent {
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
   LOGIN_FAILURE = 'LOGIN_FAILURE',
@@ -70,6 +68,14 @@ export enum SecurityEvent {
   FILE_UPLOAD_SUCCESS = 'FILE_UPLOAD_SUCCESS',
   FILE_DOWNLOAD_SUCCESS = 'FILE_DOWNLOAD_SUCCESS',
   FILE_PREVIEW_SUCCESS = 'FILE_PREVIEW_SUCCESS',
+
+  // Customer Onboarding
+  CUSTOMER_ONBOARDING_SUBMITTED = 'CUSTOMER_ONBOARDING_SUBMITTED',
+  CUSTOMER_ONBOARDING_APPROVED = 'CUSTOMER_ONBOARDING_APPROVED',
+  CUSTOMER_ONBOARDING_REJECTED = 'CUSTOMER_ONBOARDING_REJECTED',
+  CUSTOMER_ONBOARDING_FORWARDED = 'CUSTOMER_ONBOARDING_FORWARDED',
+  CUSTOMER_ONBOARDING_FORWARD_FAILED = 'CUSTOMER_ONBOARDING_FORWARD_FAILED',
+  CUSTOMER_ONBOARDING_DUPLICATE_ATTEMPT = 'CUSTOMER_ONBOARDING_DUPLICATE_ATTEMPT',
 }
 
 type LogDetails = {
@@ -137,38 +143,13 @@ function getCleanIp(raw: string | null | undefined): string | null {
 }
 
 async function triggerCriticalAlert(log: LogDetails, context: { ipAddress: string | null; userAgent: string | null }) {
-    const { enableCriticalAlerts } = await getGeneralSettings();
-    if (!enableCriticalAlerts) return;
-
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) return;
-
-    try {
-        const emailSettings = await getEmailSettings();
-        const subject = `[CRITICAL ALERT] Security Event: ${log.event}`;
-        const body = `
-            <h2>Critical security event detected.</h2>
-            <p><strong>Event:</strong> ${log.event}</p>
-            <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
-            <p><strong>Actor:</strong> ${log.actor?.name || 'System/Unknown'} (ID: ${log.actor?.id || 'N/A'})</p>
-            <p><strong>Details:</strong> ${log.details}</p>
-            <p><strong>IP Address:</strong> ${context.ipAddress || 'N/A'}</p>
-            <p><strong>User Agent:</strong> ${context.userAgent || 'N/A'}</p>
-        `;
-        
-        await sendEmail({
-            to: adminEmail,
-            subject: subject,
-            html: `<html><body>${body}</body></html>`,
-            emailSettings: { ...emailSettings, bodyText: body },
-        } as any);
-    } catch (error) {
-        console.error('Failed to send critical alert email:', error);
-    }
+    // Email alerts for critical events have been disabled per user request.
+    // Emails are now strictly reserved for authentication flows (password reset, etc).
+    return;
 }
 
 export async function logSecurityEvent(log: LogDetails) {
-    const headerList = headers();
+    const headerList = await headers();
     const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
     const ipAddress = getCleanIp(rawIp);
     const userAgent = headerList.get('user-agent');

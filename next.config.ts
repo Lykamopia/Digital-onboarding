@@ -17,16 +17,18 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'cdn.brandfetch.io',
-        port: '',
-        pathname: '/id3xwknDM-/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.brandfetch.io',
       }
     ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
 };
 

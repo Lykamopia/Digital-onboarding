@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSecurityLogs } from "@/app/actions/memo";
 import type { SecurityLog, User, LogSeverity } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronsLeft, ChevronsRight, Search, Shield, AlertTriangle, Info, Loader2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Search, Shield, AlertTriangle, Info, Loader2, RotateCcw } from "lucide-react";
 import { formatTimestamp } from "@/lib/data";
 import { useDebouncedCallback } from "use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -25,6 +25,13 @@ function SecurityLogViewer() {
     const [limit, setLimit] = useState(15);
     const [filters, setFilters] = useState<{ severity?: string; query?: string }>({});
     const [selectedLog, setSelectedLog] = useState<SecurityLogWithActor | null>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const resetFilters = () => {
+        setFilters({});
+        setPage(1);
+        if (searchInputRef.current) searchInputRef.current.value = '';
+    };
 
     const debouncedSetQuery = useDebouncedCallback((query: string) => {
         setPage(1);
@@ -71,6 +78,8 @@ function SecurityLogViewer() {
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
+                            id="security-search"
+                            ref={searchInputRef}
                             placeholder="Search by event, IP, user ID..."
                             className="pl-8 pr-8"
                             onChange={(e) => debouncedSetQuery(e.target.value)}
@@ -91,6 +100,11 @@ function SecurityLogViewer() {
                             <SelectItem value={'CRITICAL'}>Critical</SelectItem>
                         </SelectContent>
                     </Select>
+                    {(filters.severity || filters.query) && (
+                        <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground h-10 px-2 lg:px-3">
+                            <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                        </Button>
+                    )}
                 </div>
                 <div className="rounded-md border">
                     <Table>

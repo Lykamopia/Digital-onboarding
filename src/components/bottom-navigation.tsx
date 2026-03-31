@@ -1,44 +1,48 @@
-
 'use client';
 
-import { Archive, Edit, FilePlus, Home, Inbox, Send, Shield, Star, User as UserIcon, MoreHorizontal, Lock, ShieldAlert, Info } from 'lucide-react';
+import { 
+  Shield, User as UserIcon, 
+  MoreHorizontal, Lock, ShieldAlert, Info, Users2, ClipboardCheck, Star 
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { Permission, User } from '@/lib/types';
+import type { Permission, LoggedInUser } from '@/lib/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from './ui/button';
 import Logo from './logo';
 import { Separator } from './ui/separator';
+import { useMemo } from 'react';
 
 interface BottomNavigationProps {
-  user: User & { role: { permissions: Permission[] } };
+  user: LoggedInUser;
 }
 
 export function BottomNavigation({ user }: BottomNavigationProps) {
   const pathname = usePathname();
 
+  const permissions = useMemo(() => user.role?.permissions?.split(',') || [], [user.role?.permissions]);
+  
+  const canReviewOnboarding = useMemo(() => permissions.includes('review_customer_onboarding'), [permissions]);
+  const canSubmitOnboarding = useMemo(() => permissions.includes('submit_customer_onboarding'), [permissions]);
+
   const allNavItems = [
-    { href: "/dashboard/inbox", icon: <Inbox />, label: "Inbox", active: pathname === '/dashboard/inbox', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-    { href: "/dashboard/favorites", icon: <Star />, label: "Favorites", active: pathname === '/dashboard/favorites', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-    { href: "/dashboard/new", icon: <FilePlus />, label: "New", active: pathname === '/dashboard/new', visible: user.role.permissions.includes('manage_memos' as Permission), isFab: true },
-    { href: "/dashboard/sent", icon: <Send />, label: "Sent", active: pathname === '/dashboard/sent', visible: user.role.permissions.includes('manage_memos' as Permission) },
-    { href: "/dashboard/drafts", icon: <Edit />, label: "Drafts", active: pathname === '/dashboard/drafts', visible: user.role.permissions.includes('manage_memos' as Permission) },
-    { href: "/dashboard/archive", icon: <Archive />, label: "Archive", active: pathname === '/dashboard/archive', visible: user.role.permissions.includes('view_dashboard' as Permission) },
-    { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: true },
-    { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: user.role.permissions.includes('view_admin' as Permission) },
-    { href: "/dashboard/about", icon: <Info />, label: "About", active: pathname.startsWith('/dashboard/about'), visible: true },
-    { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
+    // Onboarding Middleware
+    { href: "/dashboard/customer-onboarding", icon: <Users2 />, label: "Status", active: pathname === '/dashboard/customer-onboarding', visible: (canSubmitOnboarding || canReviewOnboarding) && !user.actingUser },
+    { href: "/dashboard/customer-onboarding/review", icon: <ClipboardCheck />, label: "Pipeline", active: pathname.startsWith('/dashboard/customer-onboarding/review'), visible: canReviewOnboarding && !user.actingUser },
+
+    { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
+    { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: permissions.some(p => p.startsWith('manage_')) && !user.actingUser },
   ];
 
-  const visibleNavItems = allNavItems.filter(item => item.visible && !item.className?.includes('hidden'));
+  const visibleNavItems = allNavItems.filter(item => item.visible);
+  
+  // Mobile nav usually limited to 4-5 items
+  const mainItems = visibleNavItems.slice(0, 4);
+  const moreItems = visibleNavItems.slice(4);
 
-  const fabItem = visibleNavItems.find(item => item.isFab);
-  const mainItems = visibleNavItems.filter(item => !item.isFab).slice(0, 4);
-  const moreItems = visibleNavItems.filter(item => !item.isFab).slice(4);
-
-  const NavItem = ({ item }: { item: typeof visibleNavItems[0] }) => (
+  const NavItem = ({ item }: { item: typeof allNavItems[0] }) => (
     <Link href={item.href} className="flex flex-col items-center justify-center text-center gap-1 text-xs font-medium">
       <div className={cn("relative w-8 h-8 flex items-center justify-center rounded-full transition-colors", item.active && "bg-primary/10 text-primary")}>
         {item.icon}
@@ -55,22 +59,10 @@ export function BottomNavigation({ user }: BottomNavigationProps) {
             <NavItem key={item.href} item={item} />
           ))}
 
-          {fabItem && (
-            <Link href={fabItem.href} className="absolute bottom-[calc(env(safe-area-inset-bottom,0)+1.5rem)] left-1/2 -translate-x-1/2 z-50">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg"
-              >
-                <FilePlus className="w-8 h-8" />
-              </motion.div>
-            </Link>
-          )}
-
           {moreItems.length > 0 && (
             <Sheet>
               <SheetTrigger asChild>
-                <div className="flex flex-col items-center justify-center text-center gap-1 text-xs font-medium text-muted-foreground">
+                <div className="flex flex-col items-center justify-center text-center gap-1 text-xs font-medium text-muted-foreground cursor-pointer">
                   <div className="w-8 h-8 flex items-center justify-center rounded-full">
                     <MoreHorizontal />
                   </div>

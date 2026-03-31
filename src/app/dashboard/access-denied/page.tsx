@@ -89,10 +89,10 @@ export default function AccessDeniedPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
             >
-                <Link href="/dashboard/inbox">
-                    <Button size="lg">
-                    <ArrowLeft className="mr-2" />
-                    Return to Dashboard
+                <Link href="/dashboard/customer-onboarding">
+                    <Button size="lg" className="px-8 shadow-lg shadow-primary/20">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Return to Dashboard
                     </Button>
                 </Link>
             </motion.div>

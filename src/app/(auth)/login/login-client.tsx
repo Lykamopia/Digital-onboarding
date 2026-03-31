@@ -86,7 +86,7 @@ export default function LoginClientPage() {
   }, [lockoutTimeLeft]);
   
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/inbox';
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/customer-onboarding';
 
   useEffect(() => {
     const error = searchParams.get('error');

@@ -50,7 +50,10 @@ model User {
   division              Division?              @relation(fields: [divisionId], references: [id])
   district              District?              @relation(fields: [districtId], references: [id])
   branch                Branch?                @relation(fields: [branchId], references: [id])
-  securityLogs          SecurityLog[]
+  securityLogs                    SecurityLog[]
+  customerOnboardingsReviewed     CustomerOnboarding[]           @relation("CustomerOnboardingReviewer")
+  customerOnboardingsSubmitted    CustomerOnboarding[]           @relation("CustomerOnboardingSubmitter")
+  customerOnboardingAuditLogs     CustomerOnboardingAuditLog[]   @relation("CustomerOnboardingAuditActor")
 
   @@index([roleId])
   @@index([officeId])
@@ -244,5 +247,117 @@ model SecurityLog {
 
   @@index([actorId])
   @@index([event])
+  @@index([timestamp])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Customer Onboarding Integration
+// ─────────────────────────────────────────────────────────────
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CustomerOnboarding {
+  id               String         @id @default(cuid())
+  // Idempotency key – prevents duplicate submissions for the same mnemonic
+  mnemonic         String         @unique
+  approvalStatus   ApprovalStatus @default(PENDING)
+
+  // Identity
+  shortName        String
+  fullName1        String
+  fullName2        String?
+  title            String
+  givenName        String
+  familyName       String
+  gender           String
+  dateOfBirth      String
+  maritalStatus    String
+  motherName       String?
+  nationality      String
+  nationalIDNumber String?
+
+  // Address
+  street           String
+  townCity         String
+  country          String
+  houseNo          String?
+  flatNo           String?
+  woreda           String?
+  kebele           String?
+  subcity          String?
+  region           String
+
+  // Contact
+  phoneNumbersRes      String?
+  mobilePhoneNumbers   String?
+  language             String
+
+  // Legal ID
+  legalIdNumber    String
+  documentName     String
+  nameOnID         String
+  issueAuthority   String
+  issueDate        String
+  expirationDate   String
+
+  // Banking / Classification
+  sector           String
+  accountOfficer   String
+  industry         String
+  target           String
+  customerStatus   String
+  residence        String
+  customerType     String
+  secureMessage    String?
+
+  // Employment & Financials
+  occupation       String?
+  employersName    String?
+  netMonthlyIn     String?
+
+  // Downstream transfer metadata
+  forwardedAt      DateTime?
+  forwardError     String?   @db.Text
+
+  // Review metadata
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNote       String?   @db.Text
+
+  // Submitter
+  submittedById    String?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  reviewedBy       User?     @relation("CustomerOnboardingReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  submittedBy      User?     @relation("CustomerOnboardingSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  auditLogs        CustomerOnboardingAuditLog[]
+
+  @@index([approvalStatus])
+  @@index([submittedById])
+  @@index([reviewedById])
+  @@index([createdAt])
+}
+
+model CustomerOnboardingAuditLog {
+  id                   String             @id @default(cuid())
+  customerOnboardingId String
+  actorId              String?
+  action               String             // SUBMITTED, APPROVED, REJECTED, FORWARDED, FORWARD_FAILED
+  details              String?            @db.Text
+  ipAddress            String?
+  userAgent            String?
+  timestamp            DateTime           @default(now())
+
+  customerOnboarding   CustomerOnboarding @relation(fields: [customerOnboardingId], references: [id], onDelete: Cascade)
+  actor                User?              @relation("CustomerOnboardingAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([customerOnboardingId])
+  @@index([actorId])
   @@index([timestamp])
 }

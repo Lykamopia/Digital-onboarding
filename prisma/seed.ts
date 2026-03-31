@@ -30,6 +30,8 @@ const roles = [
       'manage_labels',
       'manage_audit_log',
       'manage_security_logs',
+      'submit_customer_onboarding',
+      'review_customer_onboarding',
     ].join(','),
   },
   { id: 'role-2', name: 'Member', permissions: ['manage_memos'].join(',') },

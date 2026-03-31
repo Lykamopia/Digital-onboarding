@@ -14,7 +14,6 @@ import { DashboardContentWrapper } from "./dashboard-content-wrapper"
 import { UserProfileLoader } from "@/components/user-profile-loader";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { OnboardingTour } from "@/components/onboarding-tour";
 import { useSettings } from "@/components/settings-provider";
 
 
@@ -115,9 +114,6 @@ export function DashboardLayoutClient({ children, user: initialUser }: Dashboard
             {children}
         </DashboardContentWrapper>
         {isMobile && user && <BottomNavigation user={user} />}
-        {user && settings.showOnboardingTour && !user.onboardingCompleted && (
-          <OnboardingTour />
-        )}
     </SidebarProvider>
   );
 }

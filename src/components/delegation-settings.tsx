@@ -137,7 +137,7 @@ export function DelegationSettings({ user, allUsers, onUpdate }: DelegationSetti
         toast.loading("Switching accounts...", { id: 'account-switch' });
         const res = await updateSession({ switch_to_delegator_id: delegatorId, redirect: false });
         if (res) {
-            window.location.href = '/dashboard/inbox';
+            window.location.href = '/dashboard/customer-onboarding';
         } else {
             toast.error("Failed to switch accounts.", { id: 'account-switch' });
         }

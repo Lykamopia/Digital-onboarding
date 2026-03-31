@@ -8,16 +8,17 @@ import { headers } from 'next/headers';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
-  title: 'Nib Memo',
-  description: 'Official Memo Management System',
+  title: 'NibTera Onboarding',
+  description: 'Dedicated Customer Onboarding Middleware System',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = headers().get('x-nonce') || '';
+  const headerList = await headers();
+  const nonce = headerList.get('x-nonce') || '';
 
   return (
     <html lang="en" suppressHydrationWarning>

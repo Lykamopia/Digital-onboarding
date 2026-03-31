@@ -1,6 +1,5 @@
 
 import {
-  Settings,
   Users,
   ShieldCheck,
   Building,
@@ -8,11 +7,7 @@ import {
   Store,
   MapPin,
   Briefcase,
-  Tags,
-  Archive,
-  ScrollText,
   ShieldAlert,
-  Mail,
 } from 'lucide-react';
 import React from 'react';
 
@@ -24,13 +19,10 @@ export type NavItemConfig = {
 };
 
 export const navItemsConfig: NavItemConfig[] = [
-  // Core Settings
-  { value: '/dashboard/admin/general', label: 'General', permission: 'manage_general_settings', icon: React.createElement(Settings) },
-  { value: '/dashboard/admin/security', label: 'Security', permission: 'manage_security_logs', icon: React.createElement(ShieldAlert) },
-  
   // User & Access Management
   { value: '/dashboard/admin/users', label: 'Users', permission: 'manage_users', icon: React.createElement(Users) },
   { value: '/dashboard/admin/roles', label: 'Roles', permission: 'manage_roles', icon: React.createElement(ShieldCheck) },
+  { value: '/dashboard/admin/security', label: 'Security Logs', permission: 'manage_security_logs', icon: React.createElement(ShieldAlert) },
 
   // Organizational Structure
   { value: '/dashboard/admin/offices', label: 'Offices', permission: 'manage_offices', icon: React.createElement(Briefcase) },
@@ -38,12 +30,4 @@ export const navItemsConfig: NavItemConfig[] = [
   { value: '/dashboard/admin/divisions', label: 'Divisions', permission: 'manage_divisions', icon: React.createElement(Network) },
   { value: '/dashboard/admin/districts', label: 'Districts', permission: 'manage_districts', icon: React.createElement(MapPin) },
   { value: '/dashboard/admin/branches', label: 'Branches', permission: 'manage_branches', icon: React.createElement(Store) },
-
-  // Memo Configuration
-  { value: '/dashboard/admin/labels', label: 'Labels', permission: 'manage_labels', icon: React.createElement(Tags) },
-  { value: '/dashboard/admin/email', label: 'Email', permission: 'manage_email_settings', icon: React.createElement(Mail) },
-  
-  // System Maintenance
-  { value: '/dashboard/admin/audit', label: 'Audit', permission: 'manage_audit_log', icon: React.createElement(ScrollText) },
-  { value: '/dashboard/admin/archive', label: 'Archive', permission: 'manage_archive', icon: React.createElement(Archive) },
 ];

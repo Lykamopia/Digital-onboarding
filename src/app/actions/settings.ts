@@ -35,12 +35,12 @@ const defaultGeneralSettings: GeneralSettings = {
       numberLength: 4
     },
     enableCriticalAlerts: true,
-    showOnboardingTour: true,
+    showOnboardingTour: false,
 };
 
 const defaultEmailSettings: EmailSettings = {
     notificationsEnabled: true,
-    headerText: "New Memo Notification",
+    headerText: "NibTera Onboarding Notification",
     bodyText: "Hello,\n\nYou have received a new memo titled '{{subject}}' from {{senderName}}. Please log in to view it.",
     footerText: "This is an automated message. Please do not reply."
 };

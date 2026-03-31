@@ -18,7 +18,7 @@ export function NotificationList() {
         markAsRead(notification.id);
         
         if (notification.memoId) {
-            router.push(`/dashboard/inbox?id=${notification.memoId}`);
+            router.push(`/dashboard/customer-onboarding/review?id=${notification.memoId}`);
             // This persistently updates the memo's status on the backend
             markMemoAsReadAction(notification.memoId);
             // This dispatches a client-side event for optimistic UI updates in the memo list

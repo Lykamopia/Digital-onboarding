@@ -22,135 +22,58 @@ type TourStep = {
 };
 
 const tourSteps: TourStep[] = [
-    // Step 1: Welcome (On Inbox)
     {
         id: 'welcome',
-        title: 'Welcome to Nib Memo!',
-        description: "Let's take a quick tour to get you set up. First, we'll head over to your profile to complete your setup.",
+        title: 'Welcome to NIB Onboarding!',
+        description: "This platform serves as NIB's dedicated Customer Onboarding Middleware. Let's take a quick tour of your new workspace.",
         target: 'body',
-        path: '/dashboard/inbox',
+        path: '/dashboard/customer-onboarding',
         nextPath: '/dashboard/profile',
     },
-    // --- PROFILE ---
     {
         id: 'profile-intro',
-        title: 'Your Profile Page',
-        description: 'Here you can manage your personal information, signature, and security settings.',
+        title: 'Your Profile Settings',
+        description: 'Manage your account details and security preferences here.',
         target: '#profile-avatar-upload-trigger',
-        path: '/dashboard/profile',
-    },
-    {
-        id: 'profile-avatar',
-        title: 'Upload Your Avatar',
-        description: 'A profile picture helps your colleagues recognize you. Click the camera icon to upload one!',
-        target: '#profile-avatar-upload-trigger',
-        path: '/dashboard/profile',
-    },
-    {
-        id: 'profile-signature',
-        title: 'Set Your Signature',
-        description: 'Your digital signature will be used to acknowledge memos. You can draw it or upload an image of your signature.',
-        target: '#signature-edit-trigger',
         path: '/dashboard/profile',
     },
     {
         id: 'profile-save',
-        title: 'Save Your Changes',
-        description: "Whenever you make changes to your profile, click this button to save them. Feel free to try it now if you've uploaded an avatar or signature!",
+        title: 'Stay Updated',
+        description: "Keep your profile information current to ensure accurate activity logging in the onboarding pipeline.",
         target: '#profile-save-button',
         path: '/dashboard/profile',
+        nextPath: '/dashboard/customer-onboarding',
     },
     {
-        id: 'profile-done',
-        title: "Profile Complete!",
-        description: "Great! Your profile is set up. Let's head back to the inbox to see how it works.",
-        target: '#user-nav-trigger',
-        path: '/dashboard/profile',
+        id: 'onboarding-status',
+        title: 'Onboarding Status',
+        description: "This is your main dashboard where you can track the progress of all automated customer onboarding requests.",
+        target: '#dashboard-content',
+        path: '/dashboard/customer-onboarding',
+    },
+    {
+        id: 'onboarding-review',
+        title: 'Onboarding Pipeline',
+        description: 'Review and manage the queue of pending customer requests before they are forwarded to the core banking system.',
+        target: 'a[href="/dashboard/customer-onboarding/review"]',
+        path: '/dashboard/customer-onboarding',
         requireSidebarClosed: true,
-        nextPath: '/dashboard/inbox',
-    },
-    // --- INBOX ---
-    {
-        id: 'inbox-list',
-        title: 'Your Inbox',
-        description: "This is your inbox, where all memos sent to you will appear. Let's explore the layout.",
-        target: '#dashboard-grid',
-        path: '/dashboard/inbox',
     },
     {
-        id: 'inbox-filters',
-        title: 'Filter & Search',
-        description: 'You can use these controls to search, filter by date, category, or labels to quickly find what you need.',
-        target: '#memo-filters-container',
-        path: '/dashboard/inbox',
-    },
-    {
-        id: 'inbox-item',
-        title: 'Reading a Memo',
-        description: 'Click on any memo in this list to open it. If there is a sample memo, click on it now to continue the tour.',
-        target: '[data-testid="memo-item"]',
-        path: '/dashboard/inbox',
-    },
-    // --- MEMO DISPLAY ---
-    {
-        id: 'memo-display-header',
-        title: 'Memo Details',
-        description: 'At the top, you can see all the important details: sender, recipients, subject, and attachments.',
-        target: '#memo-display-header',
-        path: '/dashboard/inbox',
-    },
-    {
-        id: 'memo-display-activity',
-        title: 'Activity History',
-        description: 'This timeline shows every action taken on the memo, providing a complete audit trail.',
-        target: '#memo-activity-history',
-        path: '/dashboard/inbox',
-    },
-    {
-        id: 'memo-compose-link',
-        title: 'Ready to Compose?',
-        description: "Now let's see how to write your own memo. Click on the highlighted 'New Memo' button to continue.",
-        target: 'a[href="/dashboard/new"]',
-        path: '/dashboard/inbox',
+        id: 'admin-management',
+        title: 'Admin Controls',
+        description: 'Administrators can manage users, roles, and organizational structures here.',
+        target: 'a[href="/dashboard/admin"]',
+        path: '/dashboard/customer-onboarding',
         requireSidebarClosed: true,
-        hideNext: true,
     },
-    // --- COMPOSE PAGE ---
-    {
-        id: 'compose-recipients',
-        title: 'Add Recipients',
-        description: "Start by selecting who the memo is for in the 'To' and 'CC' fields.",
-        target: '#recipient-selector-to',
-        path: '/dashboard/new',
-    },
-    {
-        id: 'compose-subject',
-        title: 'Enter a Subject',
-        description: 'A clear and concise subject helps recipients understand the memo at a glance.',
-        target: '#compose-subject-input',
-        path: '/dashboard/new',
-    },
-    {
-        id: 'compose-body',
-        title: 'Write Your Memo',
-        description: 'Use the rich text editor to compose your message. You can use templates to get started quickly!',
-        target: '#memo-editor-container',
-        path: '/dashboard/new',
-    },
-    {
-        id: 'compose-actions',
-        title: 'Send or Preview',
-        description: "Once you're done, you can preview how your memo will look or send it off.",
-        target: '#compose-actions-container',
-        path: '/dashboard/new',
-    },
-    // --- FINISH ---
     {
         id: 'tour-finish',
-        title: "You're a Pro!",
-        description: "You've learned the basics of Nib Memo. You can now close this tour and start exploring on your own.",
+        title: "All Set!",
+        description: "You've explored the NIB Onboarding Middleware. You can now start managing the onboarding pipeline.",
         target: 'body',
-        path: '/dashboard/new',
+        path: '/dashboard/customer-onboarding',
     }
 ];
 
@@ -221,24 +144,13 @@ export function OnboardingTour() {
     const handleFinish = useCallback(async () => {
         setIsVisible(false);
         await completeOnboardingTour();
-        toast.success("Onboarding Complete!", {
-            description: "You're all set to use Nib Memo.",
+        toast.success("Ready to Go!", {
+            description: "You're all set to use NIB Onboarding.",
         });
-        router.push('/dashboard/inbox');
+        router.push('/dashboard/customer-onboarding');
     }, [router]);
 
     const handleNext = useCallback(() => {
-        if (currentStep.id === 'inbox-item') {
-            const memoItemExists = document.querySelector('[data-testid="memo-item"]');
-            if (!memoItemExists) {
-                const composeStepIndex = tourSteps.findIndex(step => step.id === 'memo-compose-link');
-                if (composeStepIndex !== -1) {
-                    setStepIndex(composeStepIndex);
-                    return;
-                }
-            }
-        }
-
         if (currentStep.nextPath) {
             router.push(currentStep.nextPath);
         }
@@ -266,10 +178,6 @@ export function OnboardingTour() {
 
         const intervalId = setInterval(() => {
             let targetElement = document.querySelector(currentStep.target) as HTMLElement;
-
-            if (currentStep.id === 'inbox-item' && !targetElement) {
-                targetElement = document.querySelector('[data-testid="empty-state"]') as HTMLElement;
-            }
 
             if (targetElement) {
                 clearInterval(intervalId);
@@ -303,17 +211,7 @@ export function OnboardingTour() {
         return () => clearInterval(intervalId); // Cleanup function
     }, [currentStep.target, currentStep.id]);
     
-    const adjustedDescription = useMemo(() => {
-        if (currentStep.id === 'inbox-item') {
-            if (typeof document !== 'undefined') {
-                const memoItemExists = document.querySelector('[data-testid="memo-item"]');
-                if (!memoItemExists) {
-                    return "Your inbox is currently empty. Memos you receive will appear here. Let's move on to creating one!";
-                }
-            }
-        }
-        return currentStep.description;
-    }, [currentStep.id, currentStep.description]);
+    const adjustedDescription = currentStep.description;
 
     const calculateAndSetPosition = useCallback(() => {
         const isWelcomeStep = currentStep.target === 'body';
@@ -367,17 +265,12 @@ export function OnboardingTour() {
     }, []);
 
     useEffect(() => {
-        const memoId = searchParams.get('id');
-        if (currentStep.id === 'inbox-item' && memoId) {
-            handleNext();
-        }
-    }, [searchParams, currentStep.id, handleNext]);
+        // Handle search params for deep linking if necessary
+    }, [searchParams]);
 
     useEffect(() => {
-        if (currentStep.id === 'memo-compose-link' && pathname === '/dashboard/new') {
-            handleNext();
-        }
-    }, [pathname, currentStep.id, handleNext]);
+        // Handle path transitions if necessary
+    }, [pathname]);
     
     useEffect(() => {
         const handleDialogState = (e: Event) => {
