@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getLoggedInUser } from '@/app/actions/memo';
+import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
+import { LogSeverity } from '@/lib/types';
 
-// Simple in-memory rate limiter per IP/Key (resets on server restart)
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Strict Ethiopian mobile number format.
+ * Accepts ONLY: +251 followed by exactly 9 digits (0–9).
+ * No spaces, dashes, parentheses, alternate prefixes, or country-code-only variants.
+ */
+const ETHIOPIAN_PHONE_REGEX = /^\+251\d{9}$/;
+
+/**
+ * Rate limiting — tighter window for this endpoint since it is public-facing
+ * and an attractive target for phone-number enumeration attacks.
+ */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 50;     
-const WINDOW_MS  = 60_000; // per minute
+const RATE_LIMIT = 10;      // max 10 lookups per minute per identity
+const WINDOW_MS  = 60_000;  // 1-minute window
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -19,85 +35,203 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
-// Helper to authenticate either via Session or API Key
-async function authenticate(req: NextRequest): Promise<{ user?: any, isSystem?: boolean, error?: string }> {
-  const apiKey = req.headers.get('X-API-Key');
-  const configuredKey = process.env.ONBOARDING_API_KEY;
+/**
+ * Derive the client IP from standard proxy headers.
+ * Falls back to a sentinel value so rate-limiting still works.
+ */
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const cfIp = req.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp.trim();
+  return 'unknown';
+}
+
+/**
+ * Authenticate the caller:
+ *  • System callers: present a matching X-API-Key header.
+ *  • Human callers:  have an active session (getLoggedInUser).
+ * Returns a stable limit-key for rate-limiting purposes.
+ */
+async function authenticate(
+  req: NextRequest,
+): Promise<{ limitKey: string; isSystem: boolean; error?: string }> {
+  const apiKey         = req.headers.get('X-API-Key');
+  const configuredKey  = process.env.ONBOARDING_API_KEY;
 
   if (configuredKey && apiKey === configuredKey) {
-    return { isSystem: true };
+    // System callers: rate-limit per IP (not just 'system') to catch abuse
+    return { limitKey: `system:${getClientIp(req)}`, isSystem: true };
   }
 
   const user = await getLoggedInUser();
-  if (user) return { user };
-
-  return { error: 'Unauthorized' };
-}
-
-export async function GET(req: NextRequest) {
-  const auth = await authenticate(req);
-  if (auth.error) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+  if (user) {
+    return { limitKey: `user:${user.id}`, isSystem: false };
   }
 
-  // Rate limiting (using user ID or 'system' as key)
-  const limitKey = auth.isSystem ? 'system' : (auth.user?.id || 'anonymous');
-  if (!checkRateLimit(limitKey)) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please wait before asking again.' },
-      { status: 429, headers: { 'Retry-After': '60' } }
+  // Not authenticated — still apply IP-based rate-limiting before we reject,
+  // so that unauthenticated probing is throttled.
+  return { limitKey: `anon:${getClientIp(req)}`, isSystem: false, error: 'Unauthorized' };
+}
+
+// ─── Standard error/success response shapes ───────────────────────────────────
+
+/**
+ * All error responses share the same top-level shape:
+ * { success: false, error: string, code: string }
+ * This prevents callers from detecting application internals via response-shape differences.
+ */
+function errorResponse(
+  message: string,
+  code: string,
+  httpStatus: number,
+  extra?: Record<string, string>,
+): NextResponse {
+  return NextResponse.json(
+    { success: false, error: message, code, ...extra },
+    { status: httpStatus },
+  );
+}
+
+// ─── GET handler ──────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/customer-onboarding/status?phoneNumber=%2B251XXXXXXXXX
+ *
+ * Query parameter:
+ *   phoneNumber  – must be URL-encoded, e.g. %2B251912345678
+ *
+ * Validation:
+ *   1. Parameter must be present.
+ *   2. Must match /^\+251\d{9}$/ exactly — no normalisation, no fuzzy matching.
+ *
+ * Lookup:
+ *   Exact-match (case-sensitive, no partial match) against the
+ *   mobilePhoneNumbers and phoneNumbersRes columns.
+ *
+ * Security:
+ *   - Per-identity rate limiting (10 req/min) to deter enumeration.
+ *   - Every valid-format lookup is logged (hit or miss) to the SecurityLog.
+ *   - Invalid-format requests are rejected before any DB access.
+ */
+export async function GET(req: NextRequest) {
+  // ── 1. Authentication ────────────────────────────────────────────────────
+  const auth = await authenticate(req);
+
+  // ── 2. Rate limiting (applied even to unauthenticated callers) ───────────
+  if (!checkRateLimit(auth.limitKey)) {
+    return errorResponse(
+      'Too many requests. Please wait before trying again.',
+      'RATE_LIMITED',
+      429,
+      { 'Retry-After': '60' },
     );
   }
 
-  const { searchParams } = new URL(req.url);
-  let phoneNumber = searchParams.get('phoneNumber');
+  if (auth.error) {
+    return errorResponse(auth.error, 'UNAUTHORIZED', 401);
+  }
+
+  // ── 3. Extract & validate the phone number ───────────────────────────────
+  //
+  // ⚠️  URLSearchParams (and the WHATWG URL spec for query strings) follows the
+  // application/x-www-form-urlencoded rules where a bare '+' is decoded as a
+  // SPACE character. That means ?phoneNumber=+251999999999 would be read as
+  // " 251999999999" and fail the regex even though the caller sent a valid
+  // Ethiopian number.
+  //
+  // Fix: extract the raw parameter segment from req.url and decode it with
+  // decodeURIComponent, which preserves a literal '+' while still converting
+  // '%2B' → '+'. Both input styles therefore produce '+251...' correctly.
+  const rawQuery  = req.url.split('?')[1] ?? '';
+  const rawParam  = rawQuery.split('&').find((p) => p.startsWith('phoneNumber='));
+  const phoneNumber = rawParam
+    ? decodeURIComponent(rawParam.slice('phoneNumber='.length))
+    : null;
 
   if (!phoneNumber) {
-    return NextResponse.json({ error: 'phoneNumber query parameter is required' }, { status: 400 });
+    return errorResponse(
+      'phoneNumber query parameter is required.',
+      'MISSING_PARAMETER',
+      400,
+    );
   }
 
-  // Remove spaces, pluses, dashes, and parentheses
-  const cleanPhone = phoneNumber.replace(/[\s+\-()]/g, '');
-  
-  // Ethiopian numbers typically end with 9 digits (e.g. 911234567).
-  // Using the last 9 digits avoids mismatches between +251..., 09..., or 251...
-  // If the number is shorter, use whatever was provided.
-  const searchPhone = cleanPhone.length >= 9 ? cleanPhone.slice(-9) : cleanPhone;
-
-  if (!searchPhone) {
-    return NextResponse.json({ error: 'Invalid phone number format provided' }, { status: 400 });
+  // Strict format validation — no normalisation, no trimming, no stripping.
+  // The regex enforces the complete canonical Ethiopian format.
+  if (!ETHIOPIAN_PHONE_REGEX.test(phoneNumber)) {
+    return errorResponse(
+      'Invalid phone number format. Expected format: +251XXXXXXXXX (9 digits after the country code).',
+      'INVALID_PHONE_FORMAT',
+      400,
+    );
   }
 
+  // ── 4. Exact-match database lookup ──────────────────────────────────────
   try {
-    // Find the most recent record matching the phone number
+    /**
+     * We perform two separate exact-match queries (equals, not contains) to
+     * avoid substring matches and guarantee deterministic results.
+     *
+     * Prisma `equals` does a strict string equality check. The mode is NOT set
+     * to 'insensitive' — phone numbers are case-independent by nature, but
+     * keeping the check binary ensures no fuzzy collation issues.
+     */
     const record = await prisma.customerOnboarding.findFirst({
       where: {
         OR: [
-          { mobilePhoneNumbers: { contains: searchPhone } },
-          { phoneNumbersRes: { contains: searchPhone } }
-        ]
+          { mobilePhoneNumbers: { equals: phoneNumber } },
+          { phoneNumbersRes:    { equals: phoneNumber } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       select: {
         approvalStatus: true,
-        reviewNote: true,
-        createdAt: true,
-      }
+        reviewNote:     true,
+        createdAt:      true,
+        updatedAt:      true,
+      },
     });
 
+    // ── 5. Log the lookup outcome ────────────────────────────────────────
+    // We log EVERY valid-format lookup (both hits and misses) so security
+    // teams can detect enumeration patterns in the SecurityLog.
+    // The phone number itself is intentionally NOT included in the log
+    // details to limit PII exposure in audit trails.
+    await logSecurityEvent({
+      event:    record ? SecurityEvent.PHONE_STATUS_LOOKUP_HIT : SecurityEvent.PHONE_STATUS_LOOKUP_MISS,
+      severity: LogSeverity.INFO,
+      actor:    null,
+      details:  record
+        ? `Phone status lookup returned a record. Status: ${record.approvalStatus}. Key: ${auth.limitKey}`
+        : `Phone status lookup found no matching record. Key: ${auth.limitKey}`,
+    }).catch((err) =>
+      // Non-fatal — never let logging failure degrade the API response.
+      console.error('[status-lookup] Failed to write security log:', err),
+    );
+
+    // ── 6. Return standardised response ─────────────────────────────────
     if (!record) {
-      return NextResponse.json({ error: 'No onboarding request found for the given phone number' }, { status: 404 });
+      // Uniform 404 — identical wording regardless of whether the number
+      // is close to an existing one, preventing information leakage.
+      return errorResponse(
+        'No onboarding record found for the provided phone number.',
+        'NOT_FOUND',
+        404,
+      );
     }
 
     return NextResponse.json({
-      success: true,
-      status: record.approvalStatus,
-      reviewNote: record.reviewNote || null,
-      submittedAt: record.createdAt
+      success:     true,
+      status:      record.approvalStatus,
+      reviewNote:  record.reviewNote ?? null,
+      submittedAt: record.createdAt,
+      updatedAt:   record.updatedAt,
     });
 
-  } catch (err: any) {
-    console.error('Error fetching status by phone:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[status-lookup] Unexpected error:', message);
+    return errorResponse('An internal error occurred. Please try again later.', 'INTERNAL_ERROR', 500);
   }
 }

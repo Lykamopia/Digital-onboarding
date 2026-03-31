@@ -279,6 +279,7 @@ model CustomerOnboarding {
   motherName       String?
   nationality      String
   nationalIDNumber String?
+  picture          String?   @db.Text
 
   // Address
   street           String

@@ -31,60 +31,7 @@ export function DashboardLayoutClient({ children, user: initialUser }: Dashboard
   const [loading, setLoading] = useState(true);
   const { settings } = useSettings();
 
-  // WebSocket connection logic is now here to prevent conditional hook rendering
-  useEffect(() => {
-    if (!user) return;
 
-    const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3011';
-    let socket: WebSocket;
-    let reconnectTimeout: NodeJS.Timeout;
-
-    function connect() {
-        socket = new WebSocket(WS_URL);
-
-        socket.onopen = () => {
-            console.log('WebSocket connection established');
-            if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        };
-
-        socket.onclose = () => {
-            console.log('WebSocket connection closed. Reconnecting in 3s...');
-            reconnectTimeout = setTimeout(connect, 3000);
-        };
-
-        socket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-
-        socket.onmessage = (event) => {
-            try {
-                const eventData = JSON.parse(event.data);
-                const { type, payload, recipientIds } = eventData;
-                if (!payload || !recipientIds) return;
-
-                // This component's `user` state is always available here
-                const isRecipient = recipientIds.includes(user.id);
-                if (!isRecipient) return;
-
-                window.dispatchEvent(new CustomEvent('new-memo-received', { detail: { memo: payload } }));
-                addNotification(payload, type);
-
-            } catch (error) {
-                console.error('Error parsing WebSocket message:', error);
-            }
-        };
-    }
-
-    connect();
-
-    return () => {
-        if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        if (socket) {
-            socket.onclose = null; // Prevent reconnecting on component unmount
-            socket.close();
-        }
-    };
-  }, [user, addNotification]);
 
   useEffect(() => {
     if(initialUser) {

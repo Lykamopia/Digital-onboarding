@@ -23,29 +23,7 @@ function hasRolePermission(user: NonNullable<Awaited<ReturnType<typeof getLogged
   return (user.role?.permissions || '').split(',').map(p => p.trim()).includes(permission);
 }
 
-/**
- * Broadcasts an update via the WebSocket server to notify all clients
- * of changes in customer onboarding records (e.g. new submission, review result).
- */
-async function broadcastUpdate(type: 'SUBMITTED' | 'REVIEWED' | 'FORWARDED' | 'FORWARD_FAILED', payload: any) {
-  const wsPort = process.env.WEBSOCKET_PORT || '3011';
-  const broadcastUrl = `http://localhost:${wsPort}/broadcast`;
-  
-  try {
-    const res = await fetch(broadcastUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        type, 
-        ...payload,
-        timestamp: new Date().toISOString()
-      }),
-    });
-    if (!res.ok) console.warn('[WS-Broadcast] Response not OK:', res.status);
-  } catch (err) {
-    console.warn('[WS-Broadcast] Failed to broadcast update:', err);
-  }
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBMIT  – creates a new PENDING record (idempotent on mnemonic)
@@ -100,6 +78,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           subcity:            data.subcity            || null,
           motherName:         data.motherName         || null,
           nationalIDNumber:   data.nationalIDNumber   || null,
+          picture:            data.picture            || null,
           submittedById:      systemActor ? null : (user as any).id,
           approvalStatus:     'PENDING',
         },
@@ -128,12 +107,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
       targetType: 'CustomerOnboarding',
     });
 
-    // Broadcast the new submission
-    broadcastUpdate('SUBMITTED', { 
-      id: record.id, 
-      mnemonic: record.mnemonic, 
-      name: `${record.givenName} ${record.familyName}` 
-    }).catch(e => console.error('[WS] broadcast fail', e));
+
 
     return { success: true, id: record.id };
   } catch (err) {
@@ -336,13 +310,7 @@ export async function reviewCustomerOnboarding(opts: {
       );
     }
 
-    // Broadcast the review decision
-    broadcastUpdate('REVIEWED', {
-      id: updated.id,
-      mnemonic: existing.mnemonic,
-      decision,
-      reviewedBy: user.name
-    }).catch(e => console.error('[WS] broadcast review fail', e));
+
 
     return { success: true };
   } catch (err) {
@@ -409,6 +377,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     subcity:            record.subcity,
     motherName:         record.motherName,
     nationalIDNumber:   record.nationalIDNumber,
+    picture:            record.picture,
     approvalStatus:     record.approvalStatus,
   };
 
@@ -493,8 +462,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       targetType: 'CustomerOnboarding',
     });
 
-    // Broadcast success
-    broadcastUpdate('FORWARDED', { id, mnemonic: record.mnemonic }).catch(e => console.error('[WS] broadcast forward fail', e));
+
 
     return { success: true };
   } catch (err) {
@@ -526,8 +494,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       targetType: 'CustomerOnboarding',
     });
 
-    // Broadcast failure
-    broadcastUpdate('FORWARD_FAILED', { id, mnemonic: record.mnemonic, error: errorMessage }).catch(e => console.error('[WS] broadcast fail fail', e));
+
 
     return { success: false, error: errorMessage };
   }
@@ -625,13 +592,6 @@ export async function bulkReviewCustomerOnboarding(opts: {
             console.error(`[bulk-auto-forward fail] ID: ${r.id}`, err)
           );
         }
-        
-        broadcastUpdate('REVIEWED', {
-          id: r.id,
-          mnemonic: r.mnemonic,
-          decision,
-          reviewedBy: user.name
-        }).catch(e => console.error('[WS] broadcast review fail', e));
       }
     }
 

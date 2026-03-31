@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-const DATE_REGEX = /^\d{2} [A-Z]{3} \d{4}$/;    // e.g. "23 OCT 2025"
+const DATE_REGEX  = /^\d{2} [A-Z]{3} \d{4}$/;    // e.g. "23 OCT 2025"
 const PHONE_REGEX = /^\+?\d{7,15}$/;
+// Base64 image data URI — e.g. "data:image/jpeg;base64,/9j/4AAQ..."
+const PICTURE_REGEX = /^data:image\//;
 
 export const CustomerOnboardingSchema = z.object({
   mnemonic:           z.string().min(1, 'Mnemonic is required').max(50),
@@ -46,6 +48,13 @@ export const CustomerOnboardingSchema = z.object({
   subcity:            z.string().optional().or(z.literal('')),
   motherName:         z.string().optional().or(z.literal('')),
   nationalIDNumber:   z.string().optional().or(z.literal('')),
+  // Optional base64-encoded photo — must be a data URI if provided
+  picture:            z.string()
+                        .refine((v) => !v || PICTURE_REGEX.test(v), {
+                          message: 'picture must be a valid base64 image data URI (e.g. data:image/jpeg;base64,...)',
+                        })
+                        .optional()
+                        .or(z.literal('')),
 });
 
 export type CustomerOnboardingInput = z.infer<typeof CustomerOnboardingSchema>;

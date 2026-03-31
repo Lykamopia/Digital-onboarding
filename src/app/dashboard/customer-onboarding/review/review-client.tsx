@@ -93,6 +93,53 @@ function AuditTimeline({ logs }: { logs: CustomerOnboardingAuditLog[] }) {
   );
 }
 
+// ─── Customer avatar (photo or initials) ────────────────────────────────────
+function CustomerAvatar({
+  givenName,
+  familyName,
+  picture,
+  size = 'lg',
+}: {
+  givenName?: string | null;
+  familyName?: string | null;
+  picture?: string | null;
+  size?: 'sm' | 'lg';
+}) {
+  const initials = [
+    (givenName  || '').charAt(0),
+    (familyName || '').charAt(0),
+  ]
+    .filter(Boolean)
+    .join('')
+    .toUpperCase() || '?';
+
+  // Deterministic hue from name for the gradient
+  const seed  = (givenName || '') + (familyName || '');
+  const hue   = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
+  const gradient = `hsl(${hue},55%,45%)`;
+  const gradientTo = `hsl(${(hue + 40) % 360},60%,35%)`;
+
+  const dim = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-10 w-10 text-sm';
+
+  if (picture) {
+    return (
+      <div className={`${dim} rounded-full overflow-hidden ring-4 ring-background shadow-xl flex-shrink-0`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={picture} alt={`${givenName} ${familyName}`} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${dim} rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 shadow-xl ring-4 ring-background`}
+      style={{ background: `linear-gradient(135deg, ${gradient}, ${gradientTo})` }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // ─── Record detail dialog ─────────────────────────────────────────────────────
 function RecordDetailDialog({
   recordId,
@@ -174,19 +221,36 @@ function RecordDetailDialog({
             </div>
           ) : record ? (
             <div className="space-y-6 pb-4">
-              {/* Status bar */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <StatusBadge status={record.approvalStatus} />
-                {record.forwardedAt && (
-                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
-                    <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
-                  </Badge>
-                )}
-                {record.forwardError && !record.forwardedAt && (
-                  <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
-                    <AlertTriangle className="h-3 w-3 mr-1" /> Forward failed
-                  </Badge>
-                )}
+              {/* ── Hero header: avatar + primary identity ── */}
+              <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-muted/30 p-4">
+                <CustomerAvatar
+                  givenName={record.givenName}
+                  familyName={record.familyName}
+                  picture={(record as any).picture}
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-base font-bold leading-tight truncate">
+                    {record.title ? `${record.title} ` : ''}{record.givenName} {record.familyName}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-mono">{record.mnemonic}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {record.gender}{record.dateOfBirth ? ` · ${record.dateOfBirth}` : ''}
+                  </p>
+                  {/* Status + forwarded badges */}
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    <StatusBadge status={record.approvalStatus} />
+                    {record.forwardedAt && (
+                      <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
+                        <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
+                      </Badge>
+                    )}
+                    {record.forwardError && !record.forwardedAt && (
+                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
+                        <AlertTriangle className="h-3 w-3 mr-1" /> Forward failed
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Personal */}
@@ -208,6 +272,7 @@ function RecordDetailDialog({
                 </div>
               </div>
               <Separator />
+
 
               {/* Address */}
               <div>
@@ -537,60 +602,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   
   useEffect(() => { load(); }, [load]);
 
-  // Handle real-time updates via WebSocket
-  useEffect(() => {
-    // Determine WS URL (middleware default port is 3011)
-    const socketPort = process.env.NEXT_PUBLIC_WEBSOCKET_PORT || '3011';
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const socketUrl = `${protocol}://${window.location.hostname}:${socketPort}`;
-    
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: NodeJS.Timeout;
 
-    const connect = () => {
-      try {
-        console.log(`[WS] Connecting to ${socketUrl}...`);
-        ws = new WebSocket(socketUrl);
-        
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            // We refresh if any record is submitted or reviewed
-            if (['SUBMITTED', 'REVIEWED', 'FORWARDED', 'FORWARD_FAILED'].includes(data.type)) {
-              if (data.type === 'SUBMITTED') {
-                toast.info('New onboarding request received', {
-                  id: `submitted-${data.id}`,
-                  description: `Mnemonic: ${data.mnemonic || 'Unknown'}`,
-                });
-              }
-              loadRef.current(); // Refresh the list with the latest filter state
-            }
-          } catch (e) {
-            console.error('[WS] Message parse error:', e);
-          }
-        };
-
-        ws.onclose = (e) => {
-          console.log('[WS] Disconnected. Reconnecting in 5s...', e.reason);
-          reconnectTimeout = setTimeout(connect, 5000);
-        };
-
-        ws.onerror = (err) => {
-          console.error('[WS] Connection error:', err);
-          ws?.close();
-        };
-      } catch (err) {
-        console.error('[WS] Setup error:', err);
-      }
-    };
-
-    connect();
-
-    return () => {
-      if (ws) ws.close();
-      clearTimeout(reconnectTimeout);
-    };
-  }, []);
 
   // Stats
   const stats = [
