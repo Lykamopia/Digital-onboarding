@@ -16,8 +16,9 @@ prisma/dev.db-journal
 /build
 
 # Local Environment Variables
-.env
-.env*.local
+.env*
+!.env.example
+!.env.template
 
 # Log files
 npm-debug.log*
