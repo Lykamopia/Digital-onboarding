@@ -279,34 +279,56 @@ function RecordDetailDialog({
 }) {
   const [record, setRecord]           = useState<CustomerOnboarding | null>(null);
   const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
   const [reviewNote, setReviewNote]   = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | null>(null);
+  const requestRef = React.useRef(0);
 
   // ── Initial load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
+    const requestId = ++requestRef.current;
     setLoading(true);
-    const result = await getCustomerOnboarding(recordId);
-    if (result.success) setRecord(result.record as CustomerOnboarding);
-    setLoading(false);
+    setError(null);
+    try {
+      const result = await getCustomerOnboarding(recordId);
+      if (requestId !== requestRef.current) return;
+      if (result.success) {
+        setRecord(result.record as CustomerOnboarding);
+      } else {
+        setError(result.error || "Failed to load record details.");
+      }
+    } catch (err) {
+      if (requestId !== requestRef.current) return;
+      setError("A network error occurred.");
+    } finally {
+      if (requestId === requestRef.current) {
+        setLoading(false);
+      }
+    }
   }, [recordId]);
 
-  // Silent background refresh (no spinner flicker)
+  // Silent background refresh (no UI spinner flicker)
   const silentRefresh = useCallback(async () => {
-    const result = await getCustomerOnboarding(recordId);
-    if (result.success) {
-      setRecord((prev) => {
-        const next = result.record as CustomerOnboarding;
-        // Only update if something actually changed to avoid unnecessary re-renders
-        if (
-          prev?.approvalStatus !== next.approvalStatus ||
-          prev?.forwardedAt   !== next.forwardedAt   ||
-          prev?.forwardError  !== next.forwardError
-        ) {
-          return next;
-        }
-        return prev;
-      });
+    const requestId = requestRef.current;
+    try {
+      const result = await getCustomerOnboarding(recordId);
+      if (requestId !== requestRef.current) return;
+      if (result.success) {
+        setRecord((prev) => {
+          const next = result.record as CustomerOnboarding;
+          if (
+            prev?.approvalStatus !== next.approvalStatus ||
+            prev?.forwardedAt   !== next.forwardedAt   ||
+            prev?.forwardError  !== next.forwardError
+          ) {
+            return next;
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.warn('Silent refresh failed', err);
     }
   }, [recordId]);
 
@@ -320,10 +342,10 @@ function RecordDetailDialog({
     const isDone = record.forwardedAt || record.approvalStatus === 'REJECTED';
     if (isDone) return;
 
-    const intervalMs = record.approvalStatus === 'APPROVED' ? 3_000 : 5_000;
+    const intervalMs = record.approvalStatus === 'APPROVED' ? 3000 : 5000;
     const id = setInterval(silentRefresh, intervalMs);
     return () => clearInterval(id);
-  }, [record?.approvalStatus, record?.forwardedAt, record?.approvalStatus, silentRefresh]);
+  }, [record?.approvalStatus, record?.forwardedAt, silentRefresh]);
 
   // ── Lightbox keyboard dismiss ─────────────────────────────────────────────
   useEffect(() => {
@@ -386,9 +408,22 @@ function RecordDetailDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-4">
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          {loading || error ? (
+            <div className="py-12 flex flex-col items-center justify-center space-y-4">
+               {error ? (
+                 <>
+                   <AlertTriangle className="h-10 w-10 text-destructive/50" />
+                   <div className="text-center space-y-1">
+                     <p className="text-sm font-semibold">{error}</p>
+                     <Button variant="outline" size="sm" onClick={load} className="mt-2 text-xs">Retry Load</Button>
+                   </div>
+                 </>
+               ) : (
+                 <>
+                   <Loader2 className="h-8 w-8 animate-spin text-primary/30" />
+                   <p className="text-sm text-muted-foreground animate-pulse font-outfit">Retrieving payload details...</p>
+                 </>
+               )}
             </div>
           ) : record ? (
             <div className="space-y-6 pb-4">
@@ -401,8 +436,6 @@ function RecordDetailDialog({
                   onClick={(record as any).picture ? () => setLightboxOpen(true) : undefined}
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  {/* Use fullName1 as canonical display name — avoids givenName + familyName duplication
-                      that occurs when T24 stores the full name in both fields. */}
                   <p className="text-base font-bold leading-tight">
                     {[record.title, record.fullName1 || `${record.givenName} ${record.familyName}`]
                       .filter(Boolean).join(' ')}
@@ -414,7 +447,6 @@ function RecordDetailDialog({
                   <p className="text-xs text-muted-foreground">
                     {record.gender}{record.dateOfBirth ? ` · ${record.dateOfBirth}` : ''}
                   </p>
-                  {/* Status + forwarded badges — live-updated by polling */}
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
                     {record.forwardedAt ? (
@@ -612,17 +644,17 @@ function RecordDetailDialog({
               )}
 
               {/* Reviewer actions (Dual Stage) */}
-              {canReview && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'MAKER_APPROVED') && (
+              {canReview && (['PENDING', 'MAKER_APPROVED'].includes(record.approvalStatus as string)) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-primary">
-                      {record.approvalStatus === 'PENDING' ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
+                      {((record.approvalStatus as string) === 'PENDING') ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
                     </h3>
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Dual Control Active</Badge>
                   </div>
                   
                   <Textarea
-                    placeholder={record.approvalStatus === 'PENDING' 
+                    placeholder={((record.approvalStatus as string) === 'PENDING') 
                       ? "Comments for first-level review..." 
                       : "Final authorization comments for T24 ingestion..."}
                     value={reviewNote}
@@ -642,7 +674,7 @@ function RecordDetailDialog({
                         : (
                           <>
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
-                            {record.approvalStatus === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
+                            {(record.approvalStatus as string) === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
                           </>
                         )
                       }
@@ -663,7 +695,7 @@ function RecordDetailDialog({
 
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-10 italic">Detailed record data could not be retrieved.</p>
+            <p className="text-center text-muted-foreground py-10 italic font-outfit">Detailed record data could not be retrieved.</p>
           )}
         </div>
 
@@ -685,6 +717,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   const [records, setRecords]           = useState<CustomerOnboarding[]>([]);
   const [total, setTotal]               = useState(0);
   const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
   
   const [page, setPage]                 = useState(Number(searchParams.get('page')) || 1);
   const [pageSize, setPageSize]         = useState(Number(searchParams.get('pageSize')) || 15);
@@ -728,23 +761,26 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     setSortOrder('desc');
   }, []);
 
-  // Sync state to URL
+  // Sync state to URL — single direction to avoid loops
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (page > 1) params.set('page', page.toString()); else params.delete('page');
-    if (pageSize !== 15) params.set('pageSize', pageSize.toString()); else params.delete('pageSize');
-    if (search) params.set('search', search); else params.delete('search');
-    if (statusFilter !== 'ALL') params.set('status', statusFilter); else params.delete('status');
-    if (sortBy !== 'createdAt') params.set('sortBy', sortBy); else params.delete('sortBy');
-    if (sortOrder !== 'desc') params.set('sortOrder', sortOrder); else params.delete('sortOrder');
-    if (fromDate) params.set('fromDate', fromDate); else params.delete('fromDate');
-    if (toDate) params.set('toDate', toDate); else params.delete('toDate');
-    if (gender !== 'ALL') params.set('gender', gender); else params.delete('gender');
+    const params = new URLSearchParams();
+    if (page > 1) params.set('page', page.toString());
+    if (pageSize !== 15) params.set('pageSize', pageSize.toString());
+    if (search) params.set('search', search);
+    if (statusFilter !== 'ALL') params.set('status', statusFilter);
+    if (sortBy !== 'createdAt') params.set('sortBy', sortBy);
+    if (sortOrder !== 'desc') params.set('sortOrder', sortOrder);
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    if (gender !== 'ALL') params.set('gender', gender);
     
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, pathname, router, searchParams]);
+    const newUrl = `${pathname}?${params.toString()}`;
+    if (window.location.search !== `?${params.toString()}`) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, pathname, router]);
 
-  // Sync state FROM URL when navigating back/forward
+  // Sync state FROM URL when navigating back/forward — only run if URL actually diverges
   useEffect(() => {
     const urlPage = Number(searchParams.get('page')) || 1;
     const urlPageSize = Number(searchParams.get('pageSize')) || 15;
@@ -758,58 +794,14 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
 
     if (page !== urlPage) setPage(urlPage);
     if (pageSize !== urlPageSize) setPageSize(urlPageSize);
-    if (search !== urlSearch) setSearch(urlSearch);
+    if (search !== urlSearch) { setSearch(urlSearch); setDebouncedSearch(urlSearch); }
     if (statusFilter !== urlStatus) setStatusFilter(urlStatus);
     if (sortBy !== urlSortBy) setSortBy(urlSortBy);
     if (sortOrder !== urlSortOrder) setSortOrder(urlSortOrder);
     if (fromDate !== urlFromDate) setFromDate(urlFromDate);
     if (toDate !== urlToDate) setToDate(urlToDate);
     if (gender !== urlGender) setGender(urlGender);
-  }, [searchParams]);
-
-  const load = useCallback(async () => {
-    // Prevent concurrent loading triggers from overlapping
-    setLoading(true);
-    const activeRequestId = Math.random().toString(36).substring(7);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
-    );
-
-    try {
-      // Race the API call against a 15s timeout to prevent indefinite skeleton hangs
-      const result = await Promise.race([
-        listCustomerOnboardings({
-          status:   statusFilter === 'ALL' ? undefined : statusFilter,
-          page,
-          pageSize,
-          search:   search || undefined,
-          sortBy,
-          sortOrder,
-          fromDate: fromDate || undefined,
-          toDate:   toDate || undefined,
-          gender:   gender || undefined,
-        }),
-        timeoutPromise
-      ]) as any;
-
-      if (result.success) {
-        setRecords(result.records);
-        setTotal(result.total);
-      } else {
-        toast.error(result.error || "Failed to fetch records. Please try again.");
-      }
-    } catch (err: any) {
-      console.error('[load-error]', err);
-      if (err.message === 'TIMEOUT') {
-        toast.error("The request timed out. Retrying...");
-      } else {
-        toast.error("A network error occurred. Please check your connection.");
-      }
-    } finally {
-      // Guaranteed resolution of loading state
-      setLoading(false);
-    }
-  }, [statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
+  }, [searchParams, page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender]);
 
   const handleExport = async (exportIds?: string[]) => {
     const isBulk = !!exportIds && exportIds.length > 0;
@@ -872,10 +864,62 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     }
   };
 
-  const loadRef = React.useRef(load);
-  useEffect(() => { loadRef.current = load; }, [load]);
-  
-  useEffect(() => { load(); }, [load]);
+  const requestRef = React.useRef(0);
+
+  const load = useCallback(async () => {
+    const requestId = ++requestRef.current;
+    
+    // Minimalistic loading state management
+    setLoading(true);
+    setError(null);
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 20000)
+    );
+
+    try {
+      const result = await Promise.race([
+        listCustomerOnboardings({
+          status:   statusFilter === 'ALL' ? undefined : statusFilter,
+          page,
+          pageSize,
+          search:   search || undefined,
+          sortBy,
+          sortOrder,
+          fromDate: fromDate || undefined,
+          toDate:   toDate || undefined,
+          gender:   gender || undefined,
+        }),
+        timeoutPromise
+      ]) as any;
+
+      // Drop stale results
+      if (requestId !== requestRef.current) return;
+
+      if (result.success) {
+        setRecords(result.records);
+        setTotal(result.total);
+      } else {
+        setError(result.error || "Failed to fetch records.");
+        toast.error(result.error || "Failed to fetch records.");
+      }
+    } catch (err: any) {
+      if (requestId !== requestRef.current) return;
+      console.error('[load-error]', err);
+      const msg = err.message === 'TIMEOUT' ? "The request timed out." : "A network error occurred.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      if (requestId === requestRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
+
+  // Use a targeted effect for loading — avoids re-running on URL sync triggers if state hasn't changed.
+  useEffect(() => {
+    load();
+  }, [load]);
 
 
 
@@ -1088,6 +1132,30 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
                     ))}
                   </tr>
                 ))
+              ) : error ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-24 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <div className="h-20 w-20 rounded-2xl bg-destructive/5 flex items-center justify-center border border-dashed border-destructive/20 shadow-sm">
+                        <AlertTriangle className="h-10 w-10 text-destructive/40" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-lg font-bold text-foreground tracking-tight">Load Interrupted</h3>
+                        <p className="text-sm text-muted-foreground max-w-[320px] mx-auto leading-relaxed">
+                          {error}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        onClick={load}
+                        className="mt-2 h-9 font-semibold"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry Request
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
               ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-24 text-center">
