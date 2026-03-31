@@ -158,6 +158,74 @@ function CustomerAvatar({
   );
 }
 
+// ─── Data Row (Memoized for performance) ──────────────────────────────────────
+const DataRow = React.memo(({ 
+    rec, 
+    index, 
+    page, 
+    pageSize, 
+    isSelected, 
+    onToggle, 
+    onView 
+}: { 
+    rec: CustomerOnboarding; 
+    index: number; 
+    page: number; 
+    pageSize: number; 
+    isSelected: boolean; 
+    onToggle: (checked: boolean) => void;
+    onView: () => void;
+}) => {
+    return (
+        <motion.tr
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={cn(
+                "border-b hover:bg-muted/30 transition-colors",
+                isSelected && "bg-primary/5"
+            )}
+        >
+            <td className="px-4 py-3">
+                <Checkbox 
+                    checked={isSelected}
+                    onCheckedChange={onToggle}
+                />
+            </td>
+            <td className="px-4 py-3 text-[10px] text-muted-foreground font-mono text-center">
+                {(page - 1) * pageSize + index + 1}
+            </td>
+            <td className="px-4 py-3 font-mono text-xs">{rec.mnemonic}</td>
+            <td className="px-4 py-3">
+                <div className="font-medium text-xs font-outfit">{rec.givenName} {rec.familyName}</div>
+                <div className="text-muted-foreground text-[11px]">{rec.shortName}</div>
+            </td>
+            <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                {(rec as any).submittedBy?.name || '—'}
+            </td>
+            <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">
+                {format(new Date(rec.createdAt), 'dd MMM yyyy')}
+            </td>
+            <td className="px-4 py-3">
+                <StatusBadge status={rec.approvalStatus as any} />
+            </td>
+            <td className="px-4 py-3 text-xs hidden lg:table-cell font-outfit">
+                {rec.forwardedAt
+                ? <span className="text-emerald-600 dark:text-emerald-400">{format(new Date(rec.forwardedAt), 'dd MMM yyyy')}</span>
+                : rec.forwardError
+                    ? <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Failed</span>
+                    : <span className="text-muted-foreground">—</span>}
+            </td>
+            <td className="px-4 py-3 text-right">
+                <Button variant="ghost" size="sm" onClick={onView} className="h-7 px-2 hover:bg-primary/10 hover:text-primary transition-all">
+                    <Eye className="h-3.5 w-3.5 mr-1" /> View
+                </Button>
+            </td>
+        </motion.tr>
+    );
+});
+
+DataRow.displayName = 'DataRow';
+
 // ─── Copy-to-clipboard button ────────────────────────────────────────────────
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -621,6 +689,16 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   const [page, setPage]                 = useState(Number(searchParams.get('page')) || 1);
   const [pageSize, setPageSize]         = useState(Number(searchParams.get('pageSize')) || 15);
   const [search, setSearch]             = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  
+  // Debounce search input to avoid excessive server requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setSearch(debouncedSearch);
+        setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [debouncedSearch]);
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>((searchParams.get('status') as any) || 'ALL');
   
   const [sortBy, setSortBy]             = useState(searchParams.get('sortBy') || 'createdAt');
@@ -690,23 +768,47 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   }, [searchParams]);
 
   const load = useCallback(async () => {
+    // Prevent concurrent loading triggers from overlapping
     setLoading(true);
-    const result = await listCustomerOnboardings({
-      status:   statusFilter === 'ALL' ? undefined : statusFilter,
-      page,
-      pageSize,
-      search:   search || undefined,
-      sortBy,
-      sortOrder,
-      fromDate: fromDate || undefined,
-      toDate:   toDate || undefined,
-      gender:   gender || undefined,
-    });
-    if (result.success) {
-      setRecords(result.records);
-      setTotal(result.total);
+    const activeRequestId = Math.random().toString(36).substring(7);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+    );
+
+    try {
+      // Race the API call against a 15s timeout to prevent indefinite skeleton hangs
+      const result = await Promise.race([
+        listCustomerOnboardings({
+          status:   statusFilter === 'ALL' ? undefined : statusFilter,
+          page,
+          pageSize,
+          search:   search || undefined,
+          sortBy,
+          sortOrder,
+          fromDate: fromDate || undefined,
+          toDate:   toDate || undefined,
+          gender:   gender || undefined,
+        }),
+        timeoutPromise
+      ]) as any;
+
+      if (result.success) {
+        setRecords(result.records);
+        setTotal(result.total);
+      } else {
+        toast.error(result.error || "Failed to fetch records. Please try again.");
+      }
+    } catch (err: any) {
+      console.error('[load-error]', err);
+      if (err.message === 'TIMEOUT') {
+        toast.error("The request timed out. Retrying...");
+      } else {
+        toast.error("A network error occurred. Please check your connection.");
+      }
+    } finally {
+      // Guaranteed resolution of loading state
+      setLoading(false);
     }
-    setLoading(false);
   }, [statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
 
   const handleExport = async (exportIds?: string[]) => {
@@ -796,8 +898,8 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search mnemonic, name…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            value={debouncedSearch}
+            onChange={(e) => setDebouncedSearch(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -988,63 +1090,52 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
                 ))
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    No records found.
+                  <td colSpan={9} className="px-4 py-24 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      {/* Static, high-performance illustration */}
+                      <div className="relative">
+                        <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center border border-dashed border-border shadow-sm">
+                          <FileText className="h-10 w-10 text-muted-foreground/40" />
+                        </div>
+                        <div className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-background border border-border shadow-sm flex items-center justify-center">
+                          <Search className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-lg font-bold text-foreground tracking-tight">No records found</h3>
+                        <p className="text-sm text-muted-foreground max-w-[320px] mx-auto leading-relaxed">
+                          We couldn't find any onboarding requests matching your current search criteria or filters.
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={resetFilters}
+                        className="mt-2 h-9 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors font-semibold"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reset view
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                records.map((rec) => (
-                  <motion.tr
-                    key={rec.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className={cn(
-                        "border-b hover:bg-muted/30 transition-colors",
-                        selection.has(rec.id) && "bg-primary/5"
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <Checkbox 
-                        checked={selection.has(rec.id)}
-                        onCheckedChange={(checked) => {
-                          const next = new Map(selection);
-                          if (checked) next.set(rec.id, rec.approvalStatus);
-                          else next.delete(rec.id);
-                          setSelection(next);
-                        }}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-[10px] text-muted-foreground font-mono text-center">
-                        {(page - 1) * pageSize + records.indexOf(rec) + 1}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{rec.mnemonic}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-xs">{rec.givenName} {rec.familyName}</div>
-                      <div className="text-muted-foreground text-[11px]">{rec.shortName}</div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
-                      {rec.submittedBy?.name || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">
-                      {format(new Date(rec.createdAt), 'dd MMM yyyy')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={rec.approvalStatus} />
-                    </td>
-                    <td className="px-4 py-3 text-xs hidden lg:table-cell">
-                      {rec.forwardedAt
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{format(new Date(rec.forwardedAt), 'dd MMM yyyy')}</span>
-                        : rec.forwardError
-                          ? <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Failed</span>
-                          : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedId(rec.id)} className="h-7 px-2">
-                        <Eye className="h-3.5 w-3.5 mr-1" /> View
-                      </Button>
-                    </td>
-                  </motion.tr>
+                records.map((rec, index) => (
+                  <DataRow 
+                    key={rec.id} 
+                    rec={rec} 
+                    index={index} 
+                    page={page} 
+                    pageSize={pageSize} 
+                    isSelected={selection.has(rec.id)}
+                    onToggle={(checked: boolean) => {
+                        const next = new Map(selection);
+                        if (checked) next.set(rec.id, rec.approvalStatus);
+                        else next.delete(rec.id);
+                        setSelection(next);
+                    }}
+                    onView={() => setSelectedId(rec.id)}
+                  />
                 ))
               )}
             </tbody>

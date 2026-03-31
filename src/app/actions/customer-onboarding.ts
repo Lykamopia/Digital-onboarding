@@ -195,9 +195,36 @@ export async function listCustomerOnboardings(opts: {
         skip,
         take: pageSize,
         orderBy: { [sortBy]: sortOrder },
-        include: {
+        select: {
+          // Standard metadata
+          id: true,
+          mnemonic: true,
+          approvalStatus: true,
+          createdAt: true,
+          updatedAt: true,
+          forwardedAt: true,
+          forwardError: true,
+          
+          // Identity (List essentials)
+          shortName: true,
+          fullName1: true,
+          fullName2: true,
+          givenName: true,
+          familyName: true,
+          title: true,
+          gender: true,
+          dateOfBirth: true,
+          nationality: true,
+          legalIdNumber: true,
+          
+          // Contact (List essentials)
+          mobilePhoneNumbers: true,
+          phoneNumbersRes: true,
+          
+          // Relations (Selected fields only)
           submittedBy: { select: { id: true, name: true, email: true } },
           reviewedBy:  { select: { id: true, name: true, email: true } },
+          makerReviewedBy: { select: { id: true, name: true, email: true } },
         },
       }),
       prisma.customerOnboarding.count({ where }),
@@ -448,6 +475,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
   const { ipAddress, userAgent } = await getRequestContext();
 
+  // Enforce strict T24 contract compliance (42 explicitly defined fields)
   const payload = {
     mnemonic:           record.mnemonic,
     shortName:          record.shortName,
@@ -491,8 +519,6 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     subcity:            record.subcity,
     motherName:         record.motherName,
     nationalIDNumber:   record.nationalIDNumber,
-    picture:            record.picture,
-    approvalStatus:     record.approvalStatus,
   };
 
   const T24_ENDPOINT = process.env.T24_API_URL || 'https://nibteratest.nibbank.com.et/api/Test/CustomerCreate';

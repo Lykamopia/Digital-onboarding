@@ -352,6 +352,10 @@ model CustomerOnboarding {
   @@index([reviewedById])
   @@index([makerReviewedById])
   @@index([createdAt])
+  @@index([mobilePhoneNumbers])
+  @@index([fullName1])
+  @@index([givenName])
+  @@index([familyName])
 }
 
 model CustomerOnboardingAuditLog {
