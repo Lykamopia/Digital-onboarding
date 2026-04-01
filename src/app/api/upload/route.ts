@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
     select: { role: { select: { permissions: true } } }
   });
 
-  const canManageMemos = user?.role?.permissions?.includes('manage_memos');
+  const canUploadAttachments = user?.role?.permissions?.includes('admin') || user?.role?.permissions?.includes('maker_customer_onboarding');
 
-  if (type === 'attachments' && !canManageMemos) {
+  if (type === 'attachments' && !canUploadAttachments) {
      return NextResponse.json({ success: false, error: 'You do not have permission to upload attachments.' }, { status: 403 });
   }
   // Any authenticated user can upload profile/signature images for themselves.

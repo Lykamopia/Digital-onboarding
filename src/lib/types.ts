@@ -19,12 +19,6 @@ export type Permission =
     | 'manage_branches' 
     | 'manage_districts' 
     | 'manage_security_logs'
-    | 'manage_memos'
-    | 'manage_general_settings'
-    | 'manage_email_settings'
-    | 'manage_labels'
-    | 'manage_audit_log'
-    | 'manage_archive'
     | 'checker_customer_onboarding'
     | 'maker_customer_onboarding'
     | 'admin';

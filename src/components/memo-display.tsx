@@ -319,7 +319,7 @@ export function MemoDisplay({ memo, memoCount, onUpdate, isPreview = false, setM
   const canReply = !isPreview && isDirectRecipient && !isSender && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
   const canReplyAll = !isPreview && canReply && (memo.to.length + memo.cc.length > 1);
   const canAssign = !isPreview && isDirectRecipient && (!loggedInUser?.actingUser || loggedInUser.delegationPermissions?.includes('delegation:reply'));
-  const canDuplicate = !isPreview && (!loggedInUser?.actingUser ? loggedInUser?.role.permissions.includes('manage_memos') : loggedInUser?.delegationPermissions?.includes('delegation:draft'));
+  const canDuplicate = !isPreview && (!loggedInUser?.actingUser ? loggedInUser?.role?.permissions.includes('admin') : loggedInUser?.delegationPermissions?.includes('delegation:draft'));
   
   const isArchived = loggedInUser && memo.archivedBy?.some(u => u.id === loggedInUser.id);
   const useSignature = settings.acknowledgementType === 'SIGNATURE';

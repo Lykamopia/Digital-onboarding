@@ -91,6 +91,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
     }
     body = JSON.parse(text);
+    
+    // Presentation Layer Mapping: Ensure psuToken exists as a presentation alias
+    if (!body.psuToken) {
+      body.psuToken = body.legalIdNumber || body.nationalIDNumber;
+    }
   } catch (err: any) {
     console.error('JSON Parse Error:', err);
     return NextResponse.json({ 

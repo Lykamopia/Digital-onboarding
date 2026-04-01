@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { NotificationProvider } from '@/components/notification-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import AuthProvider from '@/components/auth-provider';
+import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import { headers } from 'next/headers';
 import Script from 'next/script';
 
@@ -36,6 +37,7 @@ export default async function RootLayout({
                 disableTransitionOnChange
             >
                 <NotificationProvider>
+                    <ChunkErrorHandler />
                     {children}
                     <Toaster />
                 </NotificationProvider>

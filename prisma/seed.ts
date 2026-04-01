@@ -16,9 +16,6 @@ const roles = [
     id: 'role-1',
     name: 'Admin',
     permissions: [
-      'manage_memos',
-      'manage_general_settings',
-      'manage_email_settings',
       'manage_divisions',
       'manage_departments',
       'manage_branches',
@@ -26,16 +23,13 @@ const roles = [
       'manage_offices',
       'manage_users',
       'manage_roles',
-      'manage_archive',
-      'manage_labels',
-      'manage_audit_log',
       'manage_security_logs',
       'maker_customer_onboarding',
       'checker_customer_onboarding',
       'admin',
     ].join(','),
   },
-  { id: 'role-2', name: 'Member', permissions: ['manage_memos'].join(',') },
+  { id: 'role-2', name: 'Member', permissions: [].join(',') },
 ];
 
 const labels = [

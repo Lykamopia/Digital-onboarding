@@ -46,15 +46,18 @@ import { cn } from '@/lib/utils';
 import type { CustomerOnboarding, CustomerOnboardingAuditLog } from '@/lib/types';
 
 // Use string union until prisma generate runs
-type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'APPROVED' | 'REJECTED';
+type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'MAKER_REJECTED' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ApprovalStatus }) {
   const map: Record<ApprovalStatus, { label: string; variant: 'secondary' | 'default' | 'destructive' | 'outline'; className: string }> = {
-    PENDING:        { label: 'Pending Maker',   variant: 'secondary',  className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
-    MAKER_APPROVED: { label: 'Pending Checker', variant: 'outline',    className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
-    APPROVED:       { label: 'Approved',        variant: 'default',    className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    REJECTED:       { label: 'Rejected',        variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
+    PENDING:         { label: 'Pending Maker',      variant: 'secondary',   className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+    MAKER_APPROVED:  { label: 'Pending Checker',    variant: 'outline',     className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
+    MAKER_REJECTED:  { label: 'Pending Rejection',  variant: 'outline',     className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
+    APPROVED:        { label: 'Approved',           variant: 'default',     className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    REJECTED:        { label: 'Rejected',           variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
+    REQUIRES_REVIEW: { label: 'Requires Review',    variant: 'outline',     className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+    RESUBMITTED:     { label: 'Resubmitted',        variant: 'secondary',   className: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400' },
   };
   const cfg = map[status] || map.PENDING;
   return <Badge variant="outline" className={cn('font-medium text-xs', cfg.className)}>{cfg.label}</Badge>;
@@ -63,12 +66,18 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
 // ─── Audit timeline ───────────────────────────────────────────────────────────
 function AuditTimeline({ logs }: { logs: CustomerOnboardingAuditLog[] }) {
   const iconMap: Record<string, React.ReactNode> = {
-    SUBMITTED:      <Clock className="h-3.5 w-3.5 text-blue-500" />,
-    MAKER_APPROVED: <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />,
-    APPROVED:       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
-    REJECTED:       <XCircle className="h-3.5 w-3.5 text-red-500" />,
-    FORWARDED:      <Send className="h-3.5 w-3.5 text-primary" />,
-    FORWARD_FAILED: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
+    SUBMITTED:                 <Clock className="h-3.5 w-3.5 text-blue-500" />,
+    MAKER_APPROVED:            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />,
+    MAKER_REJECTED:            <XCircle className="h-3.5 w-3.5 text-orange-500" />,
+    CHECKER_APPROVED:          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
+    CHECKER_REJECTED_TO_MAKER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
+    CHECKER_REJECTED_CONFIRM:  <XCircle className="h-3.5 w-3.5 text-red-600" />,
+    CHECKER_APPROVED_TO_MAKER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
+    APPROVED:                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
+    REJECTED:                  <XCircle className="h-3.5 w-3.5 text-red-500" />,
+    FORWARDED:                 <Send className="h-3.5 w-3.5 text-primary" />,
+    FORWARD_FAILED:            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
+    RESUBMITTED:               <RefreshCw className="h-3.5 w-3.5 text-indigo-500" />,
   };
   return (
     <div className="relative pl-5 space-y-4">
@@ -274,12 +283,14 @@ function RecordDetailDialog({
   canMaker,
   onClose,
   onRefresh,
+  onUpdateRecord,
 }: {
   recordId: string;
   canReview: boolean;
   canMaker: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  onUpdateRecord: (record: CustomerOnboarding) => void;
 }) {
   const { status: authStatus } = useSession();
   const [record, setRecord]           = useState<CustomerOnboarding | null>(null);
@@ -320,7 +331,9 @@ function RecordDetailDialog({
       if (requestId !== requestRef.current) return;
       
       if (result.success) {
-        setRecord(result.record as CustomerOnboarding);
+        const fetchedRecord = result.record as CustomerOnboarding;
+        setRecord(fetchedRecord);
+        onUpdateRecord(fetchedRecord); // Sync with parent list on load
       } else {
         // Simple automatic retry logic
         if (retryCount < 2) {
@@ -346,7 +359,7 @@ function RecordDetailDialog({
         setLoading(false);
       }
     }
-  }, [recordId, authStatus]);
+  }, [recordId, authStatus, onUpdateRecord]);
 
   // Silent background refresh (no UI spinner flicker)
   const silentRefresh = useCallback(async () => {
@@ -355,13 +368,15 @@ function RecordDetailDialog({
       const result = await getCustomerOnboarding(recordId);
       if (requestId !== requestRef.current) return;
       if (result.success) {
+        const next = result.record as CustomerOnboarding;
         setRecord((prev) => {
-          const next = result.record as CustomerOnboarding;
+          if (!prev) return next;
           if (
-            prev?.approvalStatus !== next.approvalStatus ||
-            prev?.forwardedAt   !== next.forwardedAt   ||
-            prev?.forwardError  !== next.forwardError
+            prev.approvalStatus !== next.approvalStatus ||
+            prev.forwardedAt   !== next.forwardedAt   ||
+            prev.forwardError  !== next.forwardError
           ) {
+            onUpdateRecord(next); // Sync with parent list when status changes
             return next;
           }
           return prev;
@@ -370,7 +385,7 @@ function RecordDetailDialog({
     } catch (err) {
       console.warn('Silent refresh failed', err);
     }
-  }, [recordId]);
+  }, [recordId, onUpdateRecord]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -406,36 +421,80 @@ function RecordDetailDialog({
   }, [lightboxOpen]);
 
   async function handleDecision(decision: 'APPROVED' | 'REJECTED') {
-    if (decision === 'APPROVED' && !reviewNote.trim()) {
-      toast.error('A review note is mandatory for all approvals.');
+    if (!record) return;
+
+    // Enforce mandatory comments for rejections
+    if (decision === 'REJECTED' && (!reviewNote || reviewNote.trim().length === 0)) {
+      toast.error('Review comments are mandatory for rejection actions.');
       return;
     }
 
+    const previousRecord = { ...record };
     setActionInProgress(decision === 'APPROVED' ? 'APPROVE' : 'REJECT');
-    const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
-    if (result.success) {
-      toast.success(`Submission ${decision.toLowerCase()} successfully.`);
-      onRefresh();
-      onRefresh();
-      load();
-    } else {
-      toast.error(result.error);
+
+    // Optimistic Update: Determine next status based on current status and decision
+    let nextStatus: ApprovalStatus = record.approvalStatus;
+    if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW') {
+      nextStatus = decision === 'APPROVED' ? 'MAKER_APPROVED' : 'MAKER_REJECTED';
+    } else if (record.approvalStatus === 'MAKER_APPROVED') {
+      nextStatus = decision === 'APPROVED' ? 'APPROVED' : 'REQUIRES_REVIEW';
+    } else if (record.approvalStatus === 'MAKER_REJECTED') {
+      nextStatus = decision === 'REJECTED' ? 'REJECTED' : 'REQUIRES_REVIEW';
     }
-    setActionInProgress(null);
+
+    // Apply optimistic update to local and parent state
+    const optimisticRecord = { ...record, approvalStatus: nextStatus };
+    setRecord(optimisticRecord);
+    onUpdateRecord(optimisticRecord);
+
+    try {
+      const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
+      if (result.success) {
+        toast.success(`Submission ${decision === 'APPROVED' ? 'approved' : 'rejected'} successfully.`);
+        onRefresh();
+        // The load() call will fetch the actual updated record from DB and reconcile
+        load();
+      } else {
+        // Rollback on failure
+        setRecord(previousRecord);
+        onUpdateRecord(previousRecord);
+        toast.error(result.error);
+      }
+    } catch (err) {
+      // Rollback on network error
+      setRecord(previousRecord);
+      onUpdateRecord(previousRecord);
+      toast.error('Failed to process decision. Please try again.');
+    } finally {
+      setActionInProgress(null);
+    }
   }
 
   async function handleRetry() {
+    if (!record) return;
+    const previousRecord = { ...record };
+    
     setActionInProgress('RETRY');
-    const result = await retryForwardToCoreBanking(recordId);
-    if (result.success) {
-      toast.success('Successfully forwarded to T24 core banking.');
-      onRefresh();
+    
+    // Optimistic: show syncing state (implicitly via Badge logic in UI)
+    // Actually handleRetry doesn't change status, but we want to show it's in progress
+    
+    try {
+      const result = await retryForwardToCoreBanking(recordId);
+      if (result.success) {
+        toast.success('Successfully forwarded to T24 core banking.');
+        onRefresh();
+        load();
+      } else {
+        toast.error(result.error || 'Failed to retry forwarding.');
+        load();
+      }
+    } catch (err) {
+      toast.error('Network error during retry.');
       load();
-    } else {
-      toast.error(result.error || 'Failed to retry forwarding.');
-      load();
+    } finally {
+      setActionInProgress(null);
     }
-    setActionInProgress(null);
   }
 
   // InfoRow with inline copy-to-clipboard
@@ -568,7 +627,7 @@ function RecordDetailDialog({
                   <InfoRow label="Date of Birth"   value={record.dateOfBirth} />
                   <InfoRow label="Marital Status"  value={record.maritalStatus} />
                   <InfoRow label="Nationality"     value={record.nationality} />
-                  <InfoRow label="National ID"     value={record.nationalIDNumber} copyable />
+                  <InfoRow label="PSU Token"       value={record.psuToken || record.legalIdNumber || record.nationalIDNumber} copyable />
                   <InfoRow label="Mother's Name"   value={record.motherName} />
                 </div>
               </div>
@@ -598,7 +657,6 @@ function RecordDetailDialog({
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Identification</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <InfoRow label="Document"       value={record.documentName} />
-                  <InfoRow label="Legal ID No."   value={record.legalIdNumber}   copyable />
                   <InfoRow label="Name on ID"     value={record.nameOnID} />
                   <InfoRow label="Issue Authority" value={record.issueAuthority} />
                   <InfoRow label="Issue Date"     value={record.issueDate} />
@@ -667,12 +725,22 @@ function RecordDetailDialog({
 
               {/* Stage 1 (Maker) Review Note */}
               {(record as any).makerReviewedAt && (
-                <div className="rounded-md border border-blue-200/50 bg-blue-50/30 dark:bg-blue-900/10 p-3">
-                  <p className="text-xs font-bold mb-1 text-blue-700 dark:text-blue-400">Stage 1: Maker Approval</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{(record as any).makerReviewNote || 'Approved at Maker level'}</p>
+                <div className={cn(
+                  "rounded-md border p-3",
+                  record.approvalStatus === 'MAKER_REJECTED' 
+                    ? "border-orange-200/50 bg-orange-50/30 dark:bg-orange-900/10" 
+                    : "border-blue-200/50 bg-blue-50/30 dark:bg-blue-900/10"
+                )}>
+                  <p className={cn(
+                    "text-xs font-bold mb-1",
+                    record.approvalStatus === 'MAKER_REJECTED' ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
+                  )}>
+                    Stage 1: Maker {record.approvalStatus === 'MAKER_REJECTED' ? 'Rejection' : 'Approval'}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{(record as any).makerReviewNote || (record.approvalStatus === 'MAKER_REJECTED' ? 'Rejected at Maker level' : 'Approved at Maker level')}</p>
                   {(record as any).makerReviewedBy && (
                     <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
-                      — Verified by {(record as any).makerReviewedBy.name} on {format(new Date((record as any).makerReviewedAt), 'dd MMM yyyy HH:mm')}
+                      — Reviewed by {(record as any).makerReviewedBy.name} on {format(new Date((record as any).makerReviewedAt), 'dd MMM yyyy HH:mm')}
                     </p>
                   )}
                 </div>
@@ -699,20 +767,25 @@ function RecordDetailDialog({
                 </div>
               )}
 
-              {/* Reviewer actions (Dual Stage) */}
-              {((canMaker && record.approvalStatus === 'PENDING') || (canReview && record.approvalStatus === 'MAKER_APPROVED')) && (
+              {/* Reviewer actions (Two-Step Maker-Checker) */}
+              {((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW')) || 
+                (canReview && (record.approvalStatus === 'MAKER_APPROVED' || record.approvalStatus === 'MAKER_REJECTED'))) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-primary">
-                      {record.approvalStatus === 'PENDING' ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
+                      {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                        ? 'Stage 1: Maker Decision' 
+                        : 'Stage 2: Checker Decision'}
                     </h3>
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Dual Control Active</Badge>
                   </div>
                   
                   <Textarea
-                    placeholder={record.approvalStatus === 'PENDING' 
-                      ? "Comments for first-level review..." 
-                      : "Final authorization comments for T24 ingestion..."}
+                    placeholder={
+                      record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW'
+                        ? "Maker comments (mandatory for rejection)..." 
+                        : "Checker comments (mandatory for rejection)..."
+                    }
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
                     rows={3}
@@ -730,7 +803,11 @@ function RecordDetailDialog({
                         : (
                           <>
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
-                            {record.approvalStatus === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
+                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                              ? 'Approve (Maker)' 
+                              : record.approvalStatus === 'MAKER_APPROVED' 
+                                ? 'Authorize (Checker)' 
+                                : 'Approve for Correction'}
                           </>
                         )
                       }
@@ -743,7 +820,17 @@ function RecordDetailDialog({
                     >
                       {actionInProgress === 'REJECT'
                         ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <><XCircle className="h-4 w-4 mr-1.5" /> Reject</>}
+                        : (
+                          <>
+                            <XCircle className="h-4 w-4 mr-1.5" /> 
+                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                              ? 'Reject (Maker)' 
+                              : record.approvalStatus === 'MAKER_APPROVED' 
+                                ? 'Revert to Maker' 
+                                : 'Final Reject (Checker)'}
+                          </>
+                        )
+                      }
                     </Button>
                   </div>
                 </div>
@@ -800,6 +887,11 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
   
   const [selectedId, setSelectedId]     = useState<string | null>(null);
 
+  // Partial state update for real-time synchronization
+  const updateSingleRecord = useCallback((updated: CustomerOnboarding) => {
+    setRecords((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+  }, []);
+
   // When the component mounts, or when the user navigates, sync the ID from the URL
   useEffect(() => {
     setSelectedId(searchParams.get('id') || null);
@@ -809,7 +901,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
   const [confirmBulk, setConfirmBulk]   = useState<{ type: 'APPROVED' | 'REJECTED'; count: number } | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [exportType, setExportType] = useState<'SELECTED' | 'ALL' | null>(null);
-  const [exportConfig, setExportConfig] = useState<Set<string>>(new Set(['mnemonic', 'givenName', 'familyName', 'gender', 'approvalStatus', 'legalIdNumber', 'createdAt']));
+  const [exportConfig, setExportConfig] = useState<Set<string>>(new Set(['mnemonic', 'givenName', 'familyName', 'gender', 'approvalStatus', 'psuToken', 'createdAt']));
 
   const resetFilters = useCallback(() => {
     setSearch('');
@@ -1033,9 +1125,12 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
+            <SelectItem value="PENDING">Pending Maker</SelectItem>
+            <SelectItem value="MAKER_APPROVED">Pending Checker</SelectItem>
+            <SelectItem value="MAKER_REJECTED">Pending Rejection</SelectItem>
+            <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>
+            <SelectItem value="APPROVED">Approved (Final)</SelectItem>
+            <SelectItem value="REJECTED">Rejected (Final)</SelectItem>
           </SelectContent>
         </Select>
         <Button 
@@ -1360,9 +1455,30 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                 });
                 if (result.success) {
                    toast.success(`Successfully ${confirmBulk.type.toLowerCase()} ${result.count} records`);
+                   
+                   // Real-time synchronization for bulk actions
+                   const bulkIds = Array.from(selection.keys());
+                   setRecords(prev => prev.map(r => {
+                     if (bulkIds.includes(r.id)) {
+                        // Approximate next status for immediate UI feedback
+                        let nextStatus: ApprovalStatus = r.approvalStatus;
+                        if (confirmBulk.type === 'APPROVED') {
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW') nextStatus = 'MAKER_APPROVED';
+                          else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'APPROVED';
+                          else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REQUIRES_REVIEW';
+                        } else {
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW') nextStatus = 'MAKER_REJECTED';
+                          else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'REQUIRES_REVIEW';
+                          else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REJECTED';
+                        }
+                        return { ...r, approvalStatus: nextStatus };
+                     }
+                     return r;
+                   }));
+
                    setConfirmBulk(null);
                    setSelection(new Map()); // Clear selection after bulk
-                   load();
+                   load(); // Reconcile with server
                 } else {
                    toast.error(result.error);
                 }
@@ -1412,8 +1528,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && status === 'PENDING';
-                        const canReviewThis = canReview && status === 'MAKER_APPROVED';
+                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW');
+                        const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
                         return !(canMakerThis || canReviewThis);
                     })
                 }
@@ -1430,8 +1546,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && status === 'PENDING';
-                        const canReviewThis = canReview && status === 'MAKER_APPROVED';
+                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW');
+                        const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
                         return !(canMakerThis || canReviewThis);
                     })
                 }
@@ -1462,6 +1578,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                 router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             }}
             onRefresh={load}
+            onUpdateRecord={updateSingleRecord}
           />
         )}
       </AnimatePresence>
@@ -1510,7 +1627,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
           <DialogFooter className="pt-4 border-t">
             <div className="flex flex-1 items-center gap-2">
                <Button variant="ghost" size="sm" onClick={() => setExportConfig(new Set(EXPORT_COLUMNS.map(c => c.id)))}>Select All</Button>
-               <Button variant="ghost" size="sm" onClick={() => setExportConfig(new Set(['mnemonic', 'givenName', 'familyName', 'gender', 'approvalStatus', 'legalIdNumber', 'createdAt']))}>Reset Default</Button>
+               <Button variant="ghost" size="sm" onClick={() => setExportConfig(new Set(['mnemonic', 'givenName', 'familyName', 'gender', 'approvalStatus', 'psuToken', 'createdAt']))}>Reset Default</Button>
             </div>
             <Button variant="ghost" onClick={() => setExportType(null)}>Cancel</Button>
             <Button 
@@ -1540,7 +1657,9 @@ const EXPORT_COLUMNS = [
   { id: 'maritalStatus', label: 'Marital Status', category: 'Identity' },
   { id: 'motherName', label: 'Mother Name', category: 'Identity' },
   { id: 'nationality', label: 'Nationality', category: 'Identity' },
+  { id: 'legalIdNumber', label: 'Legal ID', category: 'Identity' },
   { id: 'nationalIDNumber', label: 'National ID', category: 'Identity' },
+  { id: 'psuToken', label: 'PSU Token (Alias)', category: 'Identity' },
   
   { id: 'street', label: 'Street', category: 'Address' },
   { id: 'townCity', label: 'Town/City', category: 'Address' },
@@ -1554,7 +1673,6 @@ const EXPORT_COLUMNS = [
   { id: 'mobilePhoneNumbers', label: 'Mobile', category: 'Contact' },
   { id: 'language', label: 'Language', category: 'Contact' },
   
-  { id: 'legalIdNumber', label: 'Legal ID', category: 'Legal' },
   { id: 'documentName', label: 'Document Name', category: 'Legal' },
   { id: 'issueAuthority', label: 'Issue Authority', category: 'Legal' },
   { id: 'issueDate', label: 'Issue Date', category: 'Legal' },

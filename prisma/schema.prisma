@@ -258,15 +258,23 @@ model SecurityLog {
 enum ApprovalStatus {
   PENDING
   MAKER_APPROVED
+  MAKER_REJECTED
   APPROVED
   REJECTED
+  REQUIRES_REVIEW
+  RESUBMITTED
 }
 
 model CustomerOnboarding {
   id               String         @id @default(cuid())
-  // Idempotency key – prevents duplicate submissions for the same mnemonic
-  mnemonic         String         @unique
+  // Mnemonic lookup for idempotency (non-unique to allow linked resubmissions)
+  mnemonic         String
   approvalStatus   ApprovalStatus @default(PENDING)
+
+  // Link to previous attempt for full audit traceability
+  parentCustomerId String?
+  parentCustomer   CustomerOnboarding? @relation("Resubmissions", fields: [parentCustomerId], references: [id], onDelete: SetNull)
+  resubmissions    CustomerOnboarding[] @relation("Resubmissions")
 
   // Identity
   shortName        String
@@ -280,7 +288,11 @@ model CustomerOnboarding {
   maritalStatus    String
   motherName       String?
   nationality      String
-  nationalIDNumber String?
+  // Original Identity Fields (Preserved for API & Integrations)
+  legalIdNumber    String?   @map("legal_id_number")
+  nationalIDNumber String?   @map("national_id_number")
+  // Derived Field (Internal simplified access & Dashboard display alias)
+  psuToken         String?   @map("psu_token")
   picture          String?   @db.Text
 
   // Address
@@ -300,7 +312,6 @@ model CustomerOnboarding {
   language             String
 
   // Legal ID
-  legalIdNumber    String
   documentName     String
   nameOnID         String
   issueAuthority   String
@@ -348,6 +359,8 @@ model CustomerOnboarding {
   auditLogs        CustomerOnboardingAuditLog[]
 
   @@index([approvalStatus])
+  @@index([mnemonic])
+  @@index([parentCustomerId])
   @@index([submittedById])
   @@index([reviewedById])
   @@index([makerReviewedById])

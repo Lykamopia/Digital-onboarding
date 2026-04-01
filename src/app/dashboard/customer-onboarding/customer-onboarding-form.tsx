@@ -118,7 +118,7 @@ function PersonalInfoStep({ form }: { form: ReturnType<typeof useForm<CustomerOn
       <FormField label="Nationality" required error={errors.nationality?.message} hint="2-letter country code">
         <Input {...register('nationality')} placeholder="ET" maxLength={2} className="uppercase" />
       </FormField>
-      <FormField label="National ID Number" error={errors.nationalIDNumber?.message}>
+      <FormField label="National ID" error={errors.nationalIDNumber?.message}>
         <Input {...register('nationalIDNumber')} placeholder="324235434" />
       </FormField>
       <FormField label="Mother's Name" error={errors.motherName?.message}>
@@ -267,7 +267,7 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomerOnboardi
         { label: 'Date of Birth',  value: data.dateOfBirth },
         { label: 'Marital Status', value: data.maritalStatus },
         { label: 'Nationality',    value: data.nationality },
-        { label: 'National ID',    value: data.nationalIDNumber },
+        { label: 'PSU Token',      value: data.psuToken || data.legalIdNumber || data.nationalIDNumber },
       ],
     },
     {
@@ -285,7 +285,6 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomerOnboardi
       title: 'Identification',
       fields: [
         { label: 'Document',      value: data.documentName },
-        { label: 'Legal ID No.',  value: data.legalIdNumber },
         { label: 'Issue Date',    value: data.issueDate },
         { label: 'Expiry Date',   value: data.expirationDate },
         { label: 'Authority',     value: data.issueAuthority },
@@ -363,7 +362,7 @@ export function CustomerOnboardingForm() {
 
   // Fields that belong to each step for targeted validation
   const STEP_FIELDS: (keyof CustomerOnboardingInput)[][] = [
-    ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality'],
+    ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality','nationalIDNumber'],
     ['street','townCity','country','region','residence'],
     ['legalIdNumber','documentName','nameOnID','issueAuthority','issueDate','expirationDate'],
     ['language','sector','accountOfficer','industry','target','customerStatus','customerType'],

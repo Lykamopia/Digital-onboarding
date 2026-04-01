@@ -21,6 +21,7 @@ export const CustomerOnboardingSchema = z.object({
   customerStatus:     z.string().min(1),
   residence:          z.string().length(2),
   legalIdNumber:      z.string().min(1, 'Legal ID number is required'),
+  nationalIDNumber:   z.string().optional().or(z.literal('')),
   documentName:       z.string().min(1, 'Document name is required'),
   nameOnID:           z.string().min(1, 'Name on ID is required'),
   issueAuthority:     z.string().min(1, 'Issue authority is required'),
@@ -47,7 +48,6 @@ export const CustomerOnboardingSchema = z.object({
   kebele:             z.string().optional().or(z.literal('')),
   subcity:            z.string().optional().or(z.literal('')),
   motherName:         z.string().optional().or(z.literal('')),
-  nationalIDNumber:   z.string().optional().or(z.literal('')),
   // Optional base64-encoded photo — must be a data URI if provided
   picture:            z.string()
                         .refine((v) => !v || PICTURE_REGEX.test(v), {
