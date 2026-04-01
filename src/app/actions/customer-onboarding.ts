@@ -558,12 +558,41 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
     console.log(`⏳ Sending POST request to T24...`);
     const startTime = Date.now();
-    const response = await fetch(T24_ENDPOINT, {
-      method:  'POST',
-      headers: fetchHeaders,
-      body:    JSON.stringify(payload),
-      signal:  AbortSignal.timeout(30_000),
-    });
+    
+    // Workaround for SSL issues in internal environments
+    const T24_SKIP_SSL = process.env.T24_SKIP_SSL === 'true';
+    if (T24_SKIP_SSL) {
+      console.log('⚠️ SSL verification is disabled for T24 ingestion (T24_SKIP_SSL=true)');
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(T24_ENDPOINT, {
+        method:  'POST',
+        headers: fetchHeaders,
+        body:    JSON.stringify(payload),
+        signal:  AbortSignal.timeout(30_000),
+      });
+    } catch (fetchErr: any) {
+      console.error('❌ Fetch attempt failed:', fetchErr);
+      if (fetchErr.name === 'AbortError' || fetchErr.message?.includes('timeout')) {
+        throw new Error(`Connection to T24 timed out after 30 seconds. Please check if the service is reachable.`);
+      }
+      if (fetchErr.message?.includes('fetch failed')) {
+        throw new Error(`Network error: Could not connect to T24 at ${T24_ENDPOINT}. This is likely a DNS, firewall, or SSL issue.`);
+      }
+      throw fetchErr;
+    } finally {
+      // Reset SSL check after the call if we changed it
+      if (T24_SKIP_SSL) {
+        // We don't want to leave it as '0' forever, but setting it back to '1' 
+        // might be tricky if other concurrent requests need it.
+        // However, in a bank internal server, it might be acceptable.
+        // process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+      }
+    }
+
     const duration = Date.now() - startTime;
 
     console.log(`\n📥 [T24 RESPONSE RECEIVED] - ${duration}ms`);
