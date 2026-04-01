@@ -201,7 +201,8 @@ const DataRow = React.memo(({
                 <div className="text-muted-foreground text-[11px]">{rec.shortName}</div>
             </td>
             <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
-                {(rec as any).submittedBy?.name || '—'}
+                <div className="font-medium text-gray-900">{(rec as any).submittedBy?.name || 'System'}</div>
+                <div className="text-gray-500">{(rec as any).submittedBy?.email || '-'}</div>
             </td>
             <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">
                 {format(new Date(rec.createdAt), 'dd MMM yyyy')}
@@ -270,11 +271,13 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 function RecordDetailDialog({
   recordId,
   canReview,
+  canMaker,
   onClose,
   onRefresh,
 }: {
   recordId: string;
   canReview: boolean;
+  canMaker: boolean;
   onClose: () => void;
   onRefresh: () => void;
 }) {
@@ -403,10 +406,16 @@ function RecordDetailDialog({
   }, [lightboxOpen]);
 
   async function handleDecision(decision: 'APPROVED' | 'REJECTED') {
+    if (decision === 'APPROVED' && !reviewNote.trim()) {
+      toast.error('A review note is mandatory for all approvals.');
+      return;
+    }
+
     setActionInProgress(decision === 'APPROVED' ? 'APPROVE' : 'REJECT');
     const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
     if (result.success) {
       toast.success(`Submission ${decision.toLowerCase()} successfully.`);
+      onRefresh();
       onRefresh();
       load();
     } else {
@@ -691,17 +700,17 @@ function RecordDetailDialog({
               )}
 
               {/* Reviewer actions (Dual Stage) */}
-              {canReview && (['PENDING', 'MAKER_APPROVED'].includes(record.approvalStatus as string)) && (
+              {((canMaker && record.approvalStatus === 'PENDING') || (canReview && record.approvalStatus === 'MAKER_APPROVED')) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-primary">
-                      {((record.approvalStatus as string) === 'PENDING') ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
+                      {record.approvalStatus === 'PENDING' ? 'Stage 1: Maker Approval' : 'Stage 2: Checker Authorization'}
                     </h3>
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Dual Control Active</Badge>
                   </div>
                   
                   <Textarea
-                    placeholder={((record.approvalStatus as string) === 'PENDING') 
+                    placeholder={record.approvalStatus === 'PENDING' 
                       ? "Comments for first-level review..." 
                       : "Final authorization comments for T24 ingestion..."}
                     value={reviewNote}
@@ -721,7 +730,7 @@ function RecordDetailDialog({
                         : (
                           <>
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
-                            {(record.approvalStatus as string) === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
+                            {record.approvalStatus === 'PENDING' ? 'Approve (Stage 1)' : 'Authorize & Ingest (T24)'}
                           </>
                         )
                       }
@@ -755,7 +764,7 @@ function RecordDetailDialog({
 }
 
 // ─── Main review panel ────────────────────────────────────────────────────────
-export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolean }) {
+export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canReview: boolean; canMaker: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1399,7 +1408,15 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
               <Button 
                 size="sm" 
                 className="bg-emerald-600 hover:bg-emerald-700 h-9"
-                disabled={bulkProcessing || Array.from(selection.values()).some(s => s === 'APPROVED')}
+                disabled={
+                    bulkProcessing || 
+                    selection.size === 0 || 
+                    Array.from(selection.values()).some(status => {
+                        const canMakerThis = canMaker && status === 'PENDING';
+                        const canReviewThis = canReview && status === 'MAKER_APPROVED';
+                        return !(canMakerThis || canReviewThis);
+                    })
+                }
                 onClick={() => setConfirmBulk({ type: 'APPROVED', count: selection.size })}
               >
                 <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve
@@ -1409,7 +1426,15 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
                 size="sm" 
                 variant="destructive"
                 className="h-9"
-                disabled={bulkProcessing || Array.from(selection.values()).some(s => s === 'REJECTED')}
+                disabled={
+                    bulkProcessing || 
+                    selection.size === 0 || 
+                    Array.from(selection.values()).some(status => {
+                        const canMakerThis = canMaker && status === 'PENDING';
+                        const canReviewThis = canReview && status === 'MAKER_APPROVED';
+                        return !(canMakerThis || canReviewThis);
+                    })
+                }
                 onClick={() => setConfirmBulk({ type: 'REJECTED', count: selection.size })}
               >
                 <XCircle className="h-4 w-4 mr-1.5" /> Reject
@@ -1430,6 +1455,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
             key={selectedId}
             recordId={selectedId}
             canReview={canReview}
+            canMaker={canMaker}
             onClose={() => {
                 const params = new URLSearchParams(window.location.search);
                 params.delete('id');

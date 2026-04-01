@@ -166,8 +166,14 @@ export async function listCustomerOnboardings(opts: {
 
   const where: Record<string, any> = {};
   if (status) where.approvalStatus = status;
-  // Non-reviewers can only see their own submissions
-  if (!canReview) where.submittedById = user.id;
+  // Checkers and Makers can see all submissions for review purposes.
+  // Others (if any) are restricted to their own submissions.
+  const isChecker = hasRolePermission(user, 'checker_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');
+  const isMaker = hasRolePermission(user, 'maker_customer_onboarding');
+  
+  if (!isChecker && !isMaker) {
+    where.submittedById = user.id;
+  }
 
   if (search) {
     where.OR = [
@@ -263,7 +269,11 @@ export async function getCustomerOnboarding(id: string) {
     });
 
     if (!record) return { success: false as const, error: 'Record not found.' };
-    if (!canReview && record.submittedById !== user.id) {
+    
+    const isChecker = hasRolePermission(user, 'checker_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');
+    const isMaker = hasRolePermission(user, 'maker_customer_onboarding');
+
+    if (!isChecker && !isMaker && record.submittedById !== user.id) {
       return { success: false as const, error: 'Access denied.' };
     }
 

@@ -17,9 +17,8 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
-  const canReview = permissions.includes('checker_customer_onboarding');
-  const canMaker = permissions.includes('maker_customer_onboarding');
-  const isAdmin = permissions.includes('admin');
+  const canReview = permissions.includes('checker_customer_onboarding') || isAdmin;
+  const canMaker = permissions.includes('maker_customer_onboarding') || isAdmin;
 
   if (!canReview && !canMaker && !isAdmin) redirect('/dashboard/access-denied');
 
@@ -34,22 +33,32 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
           <div>
             <h1 className="text-xl font-bold">Onboarding Review &amp; Approval</h1>
             <p className="text-sm text-muted-foreground">
-              {canReview
+              {(canReview || canMaker)
                 ? 'Approve or reject pending customer onboarding submissions'
                 : 'Track the status of your submissions'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {canReview && (
+          {isAdmin && (
+            <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
+              <ShieldCheck className="h-3 w-3" /> Admin Access
+            </Badge>
+          )}
+          {canReview && !isAdmin && (
             <Badge variant="default" className="gap-1">
               <ShieldCheck className="h-3 w-3" /> Reviewer Access
+            </Badge>
+          )}
+          {canMaker && !isAdmin && (
+            <Badge variant="secondary" className="gap-1">
+              <Users2 className="h-3 w-3" /> Maker Access
             </Badge>
           )}
         </div>
       </div>
 
-      <CustomerOnboardingReviewPanel canReview={canReview} />
+      <CustomerOnboardingReviewPanel canReview={canReview} canMaker={canMaker} />
     </div>
   );
 }
