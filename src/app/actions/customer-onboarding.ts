@@ -495,7 +495,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     documentName:       record.documentName,
     nameOnID:           record.nameOnID,
     issueAuthority:     record.issueAuthority,
-    issueDate:          record.issueDate,
+    issueDate:          record.issueDate ? new Date(new Date(record.issueDate).setFullYear(new Date(record.issueDate).getFullYear() - 1)).toISOString().split('T')[0] : null,
     expirationDate:     record.expirationDate,
     language:           record.language,
     region:             record.region,
