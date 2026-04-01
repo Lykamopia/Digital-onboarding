@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 import { 
   reviewCustomerOnboarding, 
@@ -277,6 +278,7 @@ function RecordDetailDialog({
   onClose: () => void;
   onRefresh: () => void;
 }) {
+  const { status: authStatus } = useSession();
   const [record, setRecord]           = useState<CustomerOnboarding | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -286,27 +288,61 @@ function RecordDetailDialog({
   const requestRef = React.useRef(0);
 
   // ── Initial load ──────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
+  const load = useCallback(async (retryCount = 0) => {
+    // Validate identifier
+    if (!recordId) {
+      setError("No record identifier provided.");
+      setLoading(false);
+      return;
+    }
+
+    // Wait for auth to hydrate if it's currently loading
+    if (authStatus === 'loading') return;
+    
     const requestId = ++requestRef.current;
     setLoading(true);
     setError(null);
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+    );
+
     try {
-      const result = await getCustomerOnboarding(recordId);
+      const result = await Promise.race([
+        getCustomerOnboarding(recordId),
+        timeoutPromise
+      ]) as any;
+
       if (requestId !== requestRef.current) return;
+      
       if (result.success) {
         setRecord(result.record as CustomerOnboarding);
       } else {
+        // Simple automatic retry logic
+        if (retryCount < 2) {
+            console.log(`Retrying fetch for ${recordId}... (${retryCount + 1})`);
+            setTimeout(() => load(retryCount + 1), 1000);
+            return;
+        }
         setError(result.error || "Failed to load record details.");
       }
-    } catch (err) {
+    } catch (err: any) {
       if (requestId !== requestRef.current) return;
-      setError("A network error occurred.");
+      
+      if (retryCount < 2) {
+          console.log(`Retrying fetch after error for ${recordId}... (${retryCount + 1})`);
+          setTimeout(() => load(retryCount + 1), 1000);
+          return;
+      }
+
+      const msg = err.message === 'TIMEOUT' ? "The request timed out." : "A network error occurred.";
+      setError(msg);
     } finally {
       if (requestId === requestRef.current) {
         setLoading(false);
       }
     }
-  }, [recordId]);
+  }, [recordId, authStatus]);
 
   // Silent background refresh (no UI spinner flicker)
   const silentRefresh = useCallback(async () => {
@@ -712,6 +748,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { status: authStatus } = useSession();
 
   // Initialize from URL or defaults
   const [records, setRecords]           = useState<CustomerOnboarding[]>([]);
@@ -741,7 +778,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   const [toDate, setToDate]             = useState(searchParams.get('toDate') || '');
   const [gender, setGender]             = useState(searchParams.get('gender') || 'ALL');
   
-  const [selectedId, setSelectedId]     = useState<string | null>(null);
+  const [selectedId, setSelectedId]     = useState<string | null>(searchParams.get('id') || null);
   const [selection, setSelection]       = useState<Map<string, ApprovalStatus>>(new Map());
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [confirmBulk, setConfirmBulk]   = useState<{ type: 'APPROVED' | 'REJECTED'; count: number } | null>(null);
@@ -773,12 +810,13 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     if (gender !== 'ALL') params.set('gender', gender);
+    if (selectedId) params.set('id', selectedId);
     
     const newUrl = `${pathname}?${params.toString()}`;
     if (window.location.search !== `?${params.toString()}`) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, pathname, router]);
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, selectedId, pathname, router]);
 
   // Sync state FROM URL when navigating back/forward — only run if URL actually diverges
   useEffect(() => {
@@ -791,6 +829,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     const urlFromDate = searchParams.get('fromDate') || '';
     const urlToDate = searchParams.get('toDate') || '';
     const urlGender = searchParams.get('gender') || 'ALL';
+    const urlId = searchParams.get('id') || null;
 
     if (page !== urlPage) setPage(urlPage);
     if (pageSize !== urlPageSize) setPageSize(urlPageSize);
@@ -801,7 +840,8 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     if (fromDate !== urlFromDate) setFromDate(urlFromDate);
     if (toDate !== urlToDate) setToDate(urlToDate);
     if (gender !== urlGender) setGender(urlGender);
-  }, [searchParams, page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender]);
+    if (selectedId !== urlId) setSelectedId(urlId);
+  }, [searchParams, page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, selectedId]);
 
   const handleExport = async (exportIds?: string[]) => {
     const isBulk = !!exportIds && exportIds.length > 0;
@@ -866,7 +906,10 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
 
   const requestRef = React.useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (retryCount = 0) => {
+    // Wait for auth to hydrate if it's currently loading
+    if (authStatus === 'loading') return;
+
     const requestId = ++requestRef.current;
     
     // Minimalistic loading state management
@@ -900,11 +943,21 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
         setRecords(result.records);
         setTotal(result.total);
       } else {
+        if (retryCount < 2) {
+          console.log(`Retrying list load... (${retryCount + 1})`);
+          setTimeout(() => load(retryCount + 1), 1000);
+          return;
+        }
         setError(result.error || "Failed to fetch records.");
         toast.error(result.error || "Failed to fetch records.");
       }
     } catch (err: any) {
       if (requestId !== requestRef.current) return;
+      if (retryCount < 2) {
+        console.log(`Retrying list load after error... (${retryCount + 1})`);
+        setTimeout(() => load(retryCount + 1), 1000);
+        return;
+      }
       console.error('[load-error]', err);
       const msg = err.message === 'TIMEOUT' ? "The request timed out." : "A network error occurred.";
       setError(msg);
@@ -914,7 +967,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
         setLoading(false);
       }
     }
-  }, [statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
+  }, [authStatus, statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
 
   // Use a targeted effect for loading — avoids re-running on URL sync triggers if state hasn't changed.
   useEffect(() => {

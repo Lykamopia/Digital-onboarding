@@ -11,7 +11,8 @@ export const metadata = {
   description: 'Review and approve customer onboarding submissions.',
 };
 
-export default async function CustomerOnboardingReviewPage() {
+export default async function CustomerOnboardingReviewPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
   const user = await getLoggedInUser();
   if (!user) redirect('/login');
 
