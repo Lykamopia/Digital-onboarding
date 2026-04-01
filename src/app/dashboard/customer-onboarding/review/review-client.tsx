@@ -281,6 +281,7 @@ function RecordDetailDialog({
   const { status: authStatus } = useSession();
   const [record, setRecord]           = useState<CustomerOnboarding | null>(null);
   const [loading, setLoading]         = useState(true);
+  const [showLoading, setShowLoading] = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [reviewNote, setReviewNote]   = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -370,6 +371,16 @@ function RecordDetailDialog({
 
   useEffect(() => { load(); }, [load]);
 
+  // Delayed loading indicator to prevent flash on fast loads
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setShowLoading(true), 300); // 300ms delay
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoading(false);
+    }
+  }, [loading]);
+
   // ── Auto-refresh polling ───────────────────────────────────────────────────
   // Poll silently while the record is still "live" (PENDING or APPROVED-not-yet-forwarded)
   // so the UI reflects T24 sync completion and peer review decisions without manual refresh.
@@ -431,7 +442,7 @@ function RecordDetailDialog({
     ) : null;
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="flex items-center gap-2">
@@ -444,7 +455,7 @@ function RecordDetailDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-4">
-          {loading || error ? (
+          {showLoading || error ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-4">
                {error ? (
                  <>
@@ -778,7 +789,12 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
   const [toDate, setToDate]             = useState(searchParams.get('toDate') || '');
   const [gender, setGender]             = useState(searchParams.get('gender') || 'ALL');
   
-  const [selectedId, setSelectedId]     = useState<string | null>(searchParams.get('id') || null);
+  const [selectedId, setSelectedId]     = useState<string | null>(null);
+
+  // When the component mounts, or when the user navigates, sync the ID from the URL
+  useEffect(() => {
+    setSelectedId(searchParams.get('id') || null);
+  }, [searchParams]);
   const [selection, setSelection]       = useState<Map<string, ApprovalStatus>>(new Map());
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [confirmBulk, setConfirmBulk]   = useState<{ type: 'APPROVED' | 'REJECTED'; count: number } | null>(null);
@@ -810,13 +826,12 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     if (gender !== 'ALL') params.set('gender', gender);
-    if (selectedId) params.set('id', selectedId);
-    
+
     const newUrl = `${pathname}?${params.toString()}`;
     if (window.location.search !== `?${params.toString()}`) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, selectedId, pathname, router]);
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, pathname, router]);
 
   // Sync state FROM URL when navigating back/forward — only run if URL actually diverges
   useEffect(() => {
@@ -840,8 +855,7 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
     if (fromDate !== urlFromDate) setFromDate(urlFromDate);
     if (toDate !== urlToDate) setToDate(urlToDate);
     if (gender !== urlGender) setGender(urlGender);
-    if (selectedId !== urlId) setSelectedId(urlId);
-  }, [searchParams, page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, selectedId]);
+  }, [searchParams]); // Only run when URL searchParams change, not when internal state changes
 
   const handleExport = async (exportIds?: string[]) => {
     const isBulk = !!exportIds && exportIds.length > 0;
@@ -1255,7 +1269,11 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
                         else next.delete(rec.id);
                         setSelection(next);
                     }}
-                    onView={() => setSelectedId(rec.id)}
+                    onView={() => {
+                        const params = new URLSearchParams(window.location.search);
+                        params.set('id', rec.id);
+                        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                    }}
                   />
                 ))
               )}
@@ -1412,7 +1430,11 @@ export function CustomerOnboardingReviewPanel({ canReview }: { canReview: boolea
             key={selectedId}
             recordId={selectedId}
             canReview={canReview}
-            onClose={() => setSelectedId(null)}
+            onClose={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.delete('id');
+                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+            }}
             onRefresh={load}
           />
         )}

@@ -491,7 +491,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     nationality:        record.nationality,
     customerStatus:     record.customerStatus,
     residence:          record.residence,
-    legalIdNumber:      record.legalIdNumber,
+    legalIdNumber:      record.legalIdNumber?.substring(0, 10) ?? null,
     documentName:       record.documentName,
     nameOnID:           record.nameOnID,
     issueAuthority:     record.issueAuthority,
@@ -518,55 +518,77 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     kebele:             record.kebele,
     subcity:            record.subcity,
     motherName:         record.motherName,
-    nationalIDNumber:   record.nationalIDNumber,
+    nationalIDNumber:   record.nationalIDNumber?.substring(0, 10) ?? null,
   };
 
   const T24_ENDPOINT = process.env.T24_API_URL || 'https://nibteratest.nibbank.com.et/api/Test/CustomerCreate';
   const T24_API_KEY  = process.env.T24_API_KEY;
+
+  console.log('\n================================================================');
+  console.log(`🚀 [T24 INGESTION START] Record ID: ${id}`);
+  console.log(`👤 ACTOR: ${actorId || 'System'}`);
+  console.log(`📍 ENDPOINT: ${T24_ENDPOINT}`);
+  console.log('================================================================\n');
 
   try {
     const fetchHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept:         'application/json',
     };
-    if (T24_API_KEY) fetchHeaders['Authorization'] = `Bearer ${T24_API_KEY}`;
+    if (T24_API_KEY) {
+      fetchHeaders['Authorization'] = `Bearer ${T24_API_KEY}`;
+      console.log('🔑 Auth: API Key provided');
+    } else {
+      console.log('⚠️ Auth: No API Key provided in environment');
+    }
 
-    console.log('\n================================================================');
-    console.log('🚀 [T24 FORWARDING] PREPARING PAYLOAD FOR CORE BANKING');
-    console.log('📍 ENDPOINT:', T24_ENDPOINT);
-    console.log('📦 ENVELOPE:', JSON.stringify(payload, null, 2));
-    console.log('================================================================\n');
+    console.log('\n� [T24 PAYLOAD]');
+    console.log(JSON.stringify(payload, null, 2));
+    console.log('----------------------------------------------------------------\n');
 
+    console.log(`⏳ Sending POST request to T24...`);
+    const startTime = Date.now();
     const response = await fetch(T24_ENDPOINT, {
       method:  'POST',
       headers: fetchHeaders,
       body:    JSON.stringify(payload),
       signal:  AbortSignal.timeout(30_000),
     });
+    const duration = Date.now() - startTime;
+
+    console.log(`\n📥 [T24 RESPONSE RECEIVED] - ${duration}ms`);
+    console.log(`📊 STATUS: ${response.status} ${response.statusText}`);
 
     const responseText = await response.text();
+    console.log('📄 RAW BODY:', responseText);
+    console.log('----------------------------------------------------------------\n');
 
     if (!response.ok) {
+      console.error(`❌ T24 HTTP ERROR: ${response.status} - ${responseText}`);
       throw new Error(`T24 responded with ${response.status}: ${responseText}`);
     }
 
+    let parsedBody;
     try {
-      let parsedBody = JSON.parse(responseText);
+      parsedBody = JSON.parse(responseText);
+      console.log('✅ PARSED JSON:', JSON.stringify(parsedBody, null, 2));
       
       // Some APIs accidentally double-serialize JSON (returning a string instead of an object)
       if (typeof parsedBody === 'string') {
+        console.log('🔄 Detected double-serialization, re-parsing...');
         try {
           parsedBody = JSON.parse(parsedBody);
+          console.log('✅ RE-PARSED JSON:', JSON.stringify(parsedBody, null, 2));
         } catch (e) {
-          // Ignore, it's just a regular string
+          console.log('ℹ️ Re-parse failed, keeping as string');
         }
       }
 
       if (parsedBody && typeof parsedBody === 'object') {
         const statusValue = parsedBody.status || parsedBody.Status;
         if (typeof statusValue === 'string' && statusValue.toLowerCase() === 'failed') {
-          // Build string to easily log the inner error message if available
           const innerErrorMessage = parsedBody.error || parsedBody.Error || parsedBody.message || parsedBody.Message || '';
+          console.error(`❌ T24 BUSINESS LOGIC ERROR: ${innerErrorMessage}`);
           throw new Error(`T24 Business Logic Failed: ${innerErrorMessage ? innerErrorMessage : responseText}`);
         }
       }
@@ -574,8 +596,10 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       if (e.message.startsWith('T24 Business Logic Failed')) {
         throw e;
       }
+      console.log('⚠️ Response is not valid JSON or parsing failed');
     }
 
+    console.log('💾 Updating local record status in database...');
     await prisma.$transaction(async (tx) => {
       await tx.customerOnboarding.update({
         where: { id },
@@ -602,11 +626,14 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       targetType: 'CustomerOnboarding',
     });
 
-
+    console.log(`✨ [T24 INGESTION SUCCESS] Record ${id} is now marked as FORWARDED.\n`);
 
     return { success: true };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`\n💥 [T24 INGESTION FAILED]`);
+    console.error(`ID: ${id}`);
+    console.error(`ERROR: ${errorMessage}\n`);
 
     await prisma.$transaction(async (tx) => {
       await tx.customerOnboarding.update({
