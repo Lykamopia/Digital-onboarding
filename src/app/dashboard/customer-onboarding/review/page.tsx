@@ -17,10 +17,11 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
+  const isAdmin = permissions.includes('admin');
   const canReview = permissions.includes('checker_customer_onboarding') || isAdmin;
   const canMaker = permissions.includes('maker_customer_onboarding') || isAdmin;
 
-  if (!canReview && !canMaker && !isAdmin) redirect('/dashboard/access-denied');
+  if (!canReview && !canMaker) redirect('/dashboard/access-denied');
 
   return (
     <div className="space-y-6">
