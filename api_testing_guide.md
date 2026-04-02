@@ -255,7 +255,9 @@ All responses — success and error — follow a consistent top-level shape to p
   "status": "PENDING | APPROVED | REJECTED",
   "reviewNote": "string | null",
   "submittedAt": "ISO 8601 datetime",
-  "updatedAt":   "ISO 8601 datetime"
+  "updatedAt":   "ISO 8601 datetime",
+  "accountNumber": "string | null",
+  "accountHolderName": "string | null"
 }
 ```
 

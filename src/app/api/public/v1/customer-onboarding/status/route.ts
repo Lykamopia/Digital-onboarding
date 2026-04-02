@@ -190,6 +190,7 @@ export async function GET(req: NextRequest) {
         reviewNote:     true,
         createdAt:      true,
         updatedAt:      true,
+        forwardResponse: true,
       },
     });
 
@@ -221,12 +222,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Extract account details if they exist in the T24 response
+    const forwardResponse = record.forwardResponse as any;
+    const accountNumber = forwardResponse?.accountNumber || null;
+    const accountHolderName = forwardResponse?.accountHolderName || null;
+
     return NextResponse.json({
-      success:     true,
-      status:      record.approvalStatus,
-      reviewNote:  record.reviewNote ?? null,
-      submittedAt: record.createdAt,
-      updatedAt:   record.updatedAt,
+      success:           true,
+      status:            record.approvalStatus,
+      reviewNote:        record.reviewNote ?? null,
+      submittedAt:       record.createdAt,
+      updatedAt:         record.updatedAt,
+      accountNumber:     accountNumber,
+      accountHolderName: accountHolderName,
     });
 
   } catch (err: unknown) {
