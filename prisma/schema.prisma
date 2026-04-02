@@ -294,6 +294,7 @@ model CustomerOnboarding {
   // Derived Field (Internal simplified access & Dashboard display alias)
   psuToken         String?   @map("psu_token")
   picture          String?   @db.Text
+  payloadHash      String?   @map("payload_hash")
 
   // Address
   street           String

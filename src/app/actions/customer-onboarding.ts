@@ -9,7 +9,7 @@ import { ApprovalStatus } from '@prisma/client';
 import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
-import { processBase64Image } from '@/lib/image-processor';
+import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
 
 // Helper function to safely parse T24 responses, which may be malformed or double-serialized
 async function safeParseT24Response(response: Response): Promise<[any, string]> {
@@ -94,6 +94,9 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
   // Derive psuToken for presentation alias
   const psuToken = data.psuToken || data.legalIdNumber || data.nationalIDNumber;
 
+  // ── Payload Deduplication Hash ─────────────────────────────────────────────
+  const currentPayloadHash = computePayloadHash(data);
+
   // ── Image Processing ───────────────────────────────────────────────────────
   // If the picture is a base64 string, process it and store as a file
   let finalPicturePath = data.picture || null;
@@ -107,7 +110,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
 
   try {
     const record = await prisma.$transaction(async (tx) => {
-      // ── Idempotency and Resubmission logic (Inside Transaction) ────────────
+      // ── Idempotency, Deduplication and Throttling logic (Inside Transaction) 
       // Perform a serializable-like check by finding the latest record
       const existing = await tx.customerOnboarding.findFirst({ 
         where: { mnemonic: data.mnemonic },
@@ -119,7 +122,20 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
 
       if (existing) {
         const s = existing.approvalStatus;
-        // If rejected, allow resubmission
+
+        // 1. Cooldown Check (e.g., 2 minutes)
+        const COOLDOWN_MS = 2 * 60 * 1000;
+        const timeSinceLast = Date.now() - existing.createdAt.getTime();
+        if (timeSinceLast < COOLDOWN_MS && (s === 'REJECTED' || s === 'MAKER_REJECTED' || s === 'RESUBMITTED' || s === 'PENDING')) {
+           throw new Error(`THROTTLED: Please wait at least 2 minutes between submissions for mnemonic "${data.mnemonic}".`);
+        }
+
+        // 2. Exact Payload Duplicate Check
+        if (existing.payloadHash === currentPayloadHash && (s === 'REJECTED' || s === 'MAKER_REJECTED' || s === 'RESUBMITTED' || s === 'PENDING')) {
+           throw new Error(`DUPLICATE: A submission with identical data already exists for mnemonic "${data.mnemonic}". No changes detected.`);
+        }
+
+        // 3. Resubmission logic
         if (s === 'REJECTED' || s === 'MAKER_REJECTED') {
           parentId = existing.id;
           status = 'RESUBMITTED';
@@ -150,6 +166,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
           picture:            finalPicturePath,
+          payloadHash:        currentPayloadHash,
           submittedById:      systemActor ? null : (user as any).id,
           approvalStatus:     status,
           parentCustomerId:   parentId,
@@ -185,6 +202,12 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
   } catch (err: any) {
     if (err.message.startsWith('CONFLICT:')) {
       return { success: false, error: 'This customer already exists and is awaiting approval.' };
+    }
+    if (err.message.startsWith('THROTTLED:')) {
+      return { success: false, error: err.message.replace('THROTTLED: ', '') };
+    }
+    if (err.message.startsWith('DUPLICATE:')) {
+      return { success: false, error: 'Identical data submission detected. Please ensure you have made necessary corrections before resubmitting.' };
     }
     console.error('[submitCustomerOnboarding]', err);
     return { success: false, error: 'We encountered an issue while submitting the customer onboarding. Please try again.' };
@@ -355,6 +378,63 @@ export async function getCustomerOnboarding(id: string) {
   } catch (err) {
     console.error('[getCustomerOnboarding]', err);
     return { success: false as const, error: 'Failed to fetch record.' };
+  }
+}
+
+/**
+ * Fetches historical data for comparison when a record is a resubmission.
+ * Links to parentCustomerId and provides side-by-side data.
+ */
+export async function getHistoricalComparison(recordId: string) {
+  const user = await getLoggedInUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  const canReview = hasRolePermission(user, 'review_customer_onboarding') || 
+                    hasRolePermission(user, 'checker_customer_onboarding') ||
+                    hasRolePermission(user, 'maker_customer_onboarding');
+  if (!canReview) return { success: false, error: 'Access denied.' };
+
+  const { ipAddress, userAgent } = await getRequestContext();
+
+  try {
+    const current = await prisma.customerOnboarding.findUnique({
+      where: { id: recordId },
+      select: { parentCustomerId: true, mnemonic: true }
+    });
+
+    if (!current || !current.parentCustomerId) {
+      return { success: false, error: 'No historical record found for this submission.' };
+    }
+
+    const previous = await prisma.customerOnboarding.findUnique({
+      where: { id: current.parentCustomerId },
+      include: {
+        submittedBy: { select: { id: true, name: true } },
+        makerReviewedBy: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, name: true } },
+      }
+    });
+
+    if (!previous) {
+      return { success: false, error: 'Parent record could not be found.' };
+    }
+
+    // Audit log this access
+    await prisma.customerOnboardingAuditLog.create({
+      data: {
+        customerOnboardingId: recordId,
+        actorId: user.id,
+        action: 'VIEW_HISTORY',
+        details: `User viewed historical comparison with rejected record: ${previous.id} (Mnemonic: ${current.mnemonic})`,
+        ipAddress,
+        userAgent,
+      }
+    });
+
+    return { success: true, previous };
+  } catch (err) {
+    console.error('[getHistoricalComparison]', err);
+    return { success: false, error: 'Failed to fetch historical comparison.' };
   }
 }
 

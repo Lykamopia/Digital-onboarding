@@ -18,6 +18,7 @@ import {
   reviewCustomerOnboarding, 
   listCustomerOnboardings, 
   getCustomerOnboarding,
+  getHistoricalComparison,
   bulkReviewCustomerOnboarding,
   exportCustomerOnboardings,
   retryForwardToCoreBanking
@@ -238,6 +239,130 @@ const DataRow = React.memo(({
 
 DataRow.displayName = 'DataRow';
 
+// ─── Historical Comparison Panel ─────────────────────────────────────────────
+function HistoricalComparison({ 
+  current, 
+  previous, 
+  onClose 
+}: { 
+  current: CustomerOnboarding; 
+  previous: any; 
+  onClose: () => void;
+}) {
+  const diffFields = [
+    { id: 'mnemonic',           label: 'Mnemonic' },
+    { id: 'shortName',          label: 'Short Name' },
+    { id: 'fullName1',          label: 'Full Name 1' },
+    { id: 'title',              label: 'Title' },
+    { id: 'givenName',          label: 'Given Name' },
+    { id: 'familyName',         label: 'Family Name' },
+    { id: 'gender',             label: 'Gender' },
+    { id: 'dateOfBirth',        label: 'Date of Birth' },
+    { id: 'maritalStatus',      label: 'Marital Status' },
+    { id: 'psuToken',           label: 'PSU Token' },
+    { id: 'legalIdNumber',      label: 'Legal ID' },
+    { id: 'street',             label: 'Street' },
+    { id: 'townCity',           label: 'Town/City' },
+    { id: 'country',            label: 'Country' },
+    { id: 'region',             label: 'Region' },
+    { id: 'subcity',            label: 'Sub-city' },
+    { id: 'woreda',             label: 'Woreda' },
+    { id: 'kebele',             label: 'Kebele' },
+    { id: 'houseNo',            label: 'House No' },
+    { id: 'phoneNumbersRes',    label: 'Res. Phone' },
+    { id: 'mobilePhoneNumbers', label: 'Mobile' },
+    { id: 'occupation',         label: 'Occupation' },
+    { id: 'employersName',      label: 'Employer' },
+    { id: 'netMonthlyIn',       label: 'Monthly Inc.' },
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      className="rounded-xl border border-blue-200 bg-blue-50/20 dark:bg-blue-900/10 dark:border-blue-800/50 p-6 space-y-6"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <RotateCcw className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-bold text-blue-800 dark:text-blue-400">Historical Comparison: Current vs. Rejected Submission</h3>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0 rounded-full">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-8">
+        {/* Previous (Rejected) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-blue-200/50">
+            <Badge variant="destructive" className="uppercase text-[10px]">Previous (REJECTED)</Badge>
+            <span className="text-[10px] text-muted-foreground">{format(new Date(previous.createdAt), 'dd MMM yyyy HH:mm')}</span>
+          </div>
+          <div className="grid grid-cols-1 gap-y-3">
+            {diffFields.map(f => {
+              const prevVal = (previous as any)[f.id];
+              const currVal = (current as any)[f.id];
+              const isDiff = prevVal !== currVal;
+              return (
+                <div key={f.id} className="min-h-[36px]">
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">{f.label}</p>
+                  <p className={cn(
+                    "text-xs p-1.5 rounded transition-colors",
+                    isDiff ? "bg-red-100/50 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-semibold" : "text-muted-foreground/80"
+                  )}>
+                    {prevVal || '—'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Current (Resubmitted) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-blue-200/50">
+            <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200 uppercase text-[10px]">Current (RESUBMITTED)</Badge>
+            <span className="text-[10px] text-muted-foreground">{format(new Date(current.createdAt), 'dd MMM yyyy HH:mm')}</span>
+          </div>
+          <div className="grid grid-cols-1 gap-y-3">
+            {diffFields.map(f => {
+              const prevVal = (previous as any)[f.id];
+              const currVal = (current as any)[f.id];
+              const isDiff = prevVal !== currVal;
+              return (
+                <div key={f.id} className="min-h-[36px]">
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">{f.label}</p>
+                  <p className={cn(
+                    "text-xs p-1.5 rounded transition-colors border",
+                    isDiff ? "bg-emerald-100/50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 font-bold" : "border-transparent"
+                  )}>
+                    {currVal || '—'}
+                    {isDiff && <span className="ml-2 text-[10px] bg-emerald-200/50 dark:bg-emerald-800/50 px-1 rounded uppercase tracking-tighter">New</span>}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-blue-200/50">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-400">Previous Review Note:</p>
+            <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed italic">
+              {previous.reviewNote || previous.makerReviewNote || 'No review comments found on the previous attempt.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Copy-to-clipboard button ────────────────────────────────────────────────
 function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -300,7 +425,9 @@ function RecordDetailDialog({
   const [error, setError]             = useState<string | null>(null);
   const [reviewNote, setReviewNote]   = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | 'HISTORY' | null>(null);
+  const [historicalRecord, setHistoricalRecord] = useState<any>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const requestRef = React.useRef(0);
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -435,7 +562,7 @@ function RecordDetailDialog({
 
     // Optimistic Update: Determine next status based on current status and decision
     let nextStatus: ApprovalStatus = record.approvalStatus;
-    if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW') {
+    if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED') {
       nextStatus = decision === 'APPROVED' ? 'MAKER_APPROVED' : 'MAKER_REJECTED';
     } else if (record.approvalStatus === 'MAKER_APPROVED') {
       nextStatus = decision === 'APPROVED' ? 'APPROVED' : 'REQUIRES_REVIEW';
@@ -493,6 +620,24 @@ function RecordDetailDialog({
     } catch (err) {
       toast.error('Network error during retry.');
       load();
+    } finally {
+      setActionInProgress(null);
+    }
+  }
+
+  async function fetchHistory() {
+    if (!recordId) return;
+    setActionInProgress('HISTORY');
+    try {
+      const result = await getHistoricalComparison(recordId);
+      if (result.success) {
+        setHistoricalRecord(result.previous);
+        setShowHistory(true);
+      } else {
+        toast.error(result.error || 'Could not fetch history');
+      }
+    } catch {
+      toast.error('Network error while fetching history');
     } finally {
       setActionInProgress(null);
     }
@@ -579,9 +724,32 @@ function RecordDetailDialog({
                         <AlertTriangle className="h-3 w-3 mr-1" /> Forward failed
                       </Badge>
                     )}
+                    {record.approvalStatus === 'RESUBMITTED' && record.parentCustomerId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-6 text-[10px] bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-all gap-1"
+                        onClick={fetchHistory}
+                        disabled={actionInProgress === 'HISTORY'}
+                      >
+                        {actionInProgress === 'HISTORY' ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        View Previous Submission
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* ── Historical Comparison ── */}
+              <AnimatePresence>
+                {showHistory && historicalRecord && (
+                  <HistoricalComparison 
+                    current={record} 
+                    previous={historicalRecord} 
+                    onClose={() => setShowHistory(false)} 
+                  />
+                )}
+              </AnimatePresence>
 
               {/* ── Picture lightbox ── */}
               <AnimatePresence>
@@ -774,12 +942,12 @@ function RecordDetailDialog({
               )}
 
               {/* Reviewer actions (Two-Step Maker-Checker) */}
-              {((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW')) || 
+              {((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED')) || 
                 (canReview && (record.approvalStatus === 'MAKER_APPROVED' || record.approvalStatus === 'MAKER_REJECTED'))) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-primary">
-                      {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                      {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
                         ? 'Stage 1: Maker Decision' 
                         : 'Stage 2: Checker Decision'}
                     </h3>
@@ -788,7 +956,7 @@ function RecordDetailDialog({
                   
                   <Textarea
                     placeholder={
-                      record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW'
+                      record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
                         ? "Maker comments (mandatory for rejection)..." 
                         : "Checker comments (mandatory for rejection)..."
                     }
@@ -809,7 +977,7 @@ function RecordDetailDialog({
                         : (
                           <>
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
-                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
                               ? 'Approve (Maker)' 
                               : record.approvalStatus === 'MAKER_APPROVED' 
                                 ? 'Authorize (Checker)' 
@@ -829,7 +997,7 @@ function RecordDetailDialog({
                         : (
                           <>
                             <XCircle className="h-4 w-4 mr-1.5" /> 
-                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' 
+                            {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
                               ? 'Reject (Maker)' 
                               : record.approvalStatus === 'MAKER_APPROVED' 
                                 ? 'Revert to Maker' 
@@ -1470,11 +1638,11 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                         // Approximate next status for immediate UI feedback
                         let nextStatus: ApprovalStatus = r.approvalStatus;
                         if (confirmBulk.type === 'APPROVED') {
-                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW') nextStatus = 'MAKER_APPROVED';
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'MAKER_APPROVED';
                           else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'APPROVED';
                           else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REQUIRES_REVIEW';
                         } else {
-                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW') nextStatus = 'MAKER_REJECTED';
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'MAKER_REJECTED';
                           else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'REQUIRES_REVIEW';
                           else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REJECTED';
                         }
@@ -1535,7 +1703,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW');
+                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
                         const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
                         return !(canMakerThis || canReviewThis);
                     })
@@ -1553,7 +1721,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW');
+                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
                         const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
                         return !(canMakerThis || canReviewThis);
                     })

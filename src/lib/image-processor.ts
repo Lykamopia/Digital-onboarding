@@ -98,3 +98,30 @@ export async function processBase64Image(base64Data: string): Promise<ImageProce
 export function getImageHash(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
+
+/**
+ * Computes a deterministic hash of the onboarding payload for deduplication.
+ */
+export function computePayloadHash(data: any): string {
+  // Select critical fields for hashing to detect meaningful changes
+  const criticalFields = {
+    mnemonic:           data.mnemonic,
+    shortName:          data.shortName,
+    fullName1:          data.fullName1,
+    givenName:          data.givenName,
+    familyName:         data.familyName,
+    legalIdNumber:      data.legalIdNumber,
+    nationalIDNumber:   data.nationalIDNumber,
+    phoneNumbersRes:    data.phoneNumbersRes,
+    mobilePhoneNumbers: data.mobilePhoneNumbers,
+    dateOfBirth:        data.dateOfBirth,
+    gender:             data.gender,
+    street:             data.street,
+    townCity:           data.townCity,
+    country:            data.country,
+    // Add other fields as needed for deduplication
+  };
+
+  const serialized = JSON.stringify(criticalFields, Object.keys(criticalFields).sort());
+  return createHash('sha256').update(serialized).digest('hex');
+}
