@@ -10,26 +10,35 @@ import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 
-// Helper function to safely parse T24 responses, which may be malformed
+// Helper function to safely parse T24 responses, which may be malformed or double-serialized
 async function safeParseT24Response(response: Response): Promise<[any, string]> {
   const rawText = await response.text();
-  try {
-    // First, try to parse it as-is
-    return [JSON.parse(rawText), rawText];
-  } catch {
-    // If that fails, try to find a JSON object within the text
-    const match = rawText.match(/\{.*\}/s);
-    if (match) {
-      try {
-        return [JSON.parse(match[0]), rawText];
-      } catch {
-        // If even the extracted part is invalid, return the raw text
-        return [{ raw: rawText }, rawText];
+  
+  const parseRecursively = (input: any): any => {
+    if (typeof input !== 'string') return input;
+    try {
+      const parsed = JSON.parse(input);
+      // If it's still a string, try parsing again (handles double-serialization)
+      if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) {
+        return parseRecursively(parsed);
       }
+      return parsed;
+    } catch {
+      // If parsing fails, check if there's a JSON object embedded in the string
+      const match = input.match(/\{.*\}/s);
+      if (match) {
+        try {
+          return JSON.parse(match[0]);
+        } catch {
+          return { raw: input };
+        }
+      }
+      return { raw: input };
     }
-    // If no JSON-like structure is found, return the raw text
-    return [{ raw: rawText }, rawText];
-  }
+  };
+
+  const result = parseRecursively(rawText);
+  return [result, rawText];
 }
 
 
@@ -647,12 +656,15 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
     if (response.ok) {
       // ── Business-level failure detection (case-insensitive) ───────────────
-      const status = String(responseData?.status || '').toLowerCase();
-      const hasErrorField = !!responseData?.error;
+      // Ensure we are working with an object for property checks
+      const isObject = responseData && typeof responseData === 'object' && !Array.isArray(responseData);
+      const status = isObject ? String(responseData?.status || '').toLowerCase() : '';
+      const hasErrorField = isObject && !!responseData?.error;
 
       if (status === 'failed' || status === 'error' || hasErrorField) {
-        const errorMsg = responseData?.error || responseData?.message || 'T24 returned a failure status without details.';
-        throw new Error(`T24_BUSINESS_ERROR: ${errorMsg}`);
+        const errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
+        const finalMsg = errorMsg || 'T24 returned a failure status without details.';
+        throw new Error(`T24_BUSINESS_ERROR: ${finalMsg}`);
       }
 
       await prisma.customerOnboarding.update({
