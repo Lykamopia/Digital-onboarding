@@ -10,6 +10,29 @@ import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 
+// Helper function to safely parse T24 responses, which may be malformed
+async function safeParseT24Response(response: Response): Promise<[any, string]> {
+  const rawText = await response.text();
+  try {
+    // First, try to parse it as-is
+    return [JSON.parse(rawText), rawText];
+  } catch {
+    // If that fails, try to find a JSON object within the text
+    const match = rawText.match(/\{.*\}/s);
+    if (match) {
+      try {
+        return [JSON.parse(match[0]), rawText];
+      } catch {
+        // If even the extracted part is invalid, return the raw text
+        return [{ raw: rawText }, rawText];
+      }
+    }
+    // If no JSON-like structure is found, return the raw text
+    return [{ raw: rawText }, rawText];
+  }
+}
+
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 async function getRequestContext() {
   const headerList = await headers();
@@ -613,25 +636,21 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     }
 
     const duration = Date.now() - startTime;
+    const contentType = response.headers.get('content-type') || 'unknown';
 
-    const responseBody = await response.text();
-    console.log(` [T24 RESPONSE] Status: ${response.status}, Duration: ${duration}ms`);
-    console.log(responseBody);
+    console.log(` [T24 RESPONSE] Status: ${response.status}, Duration: ${duration}ms, Content-Type: ${contentType}`);
+    
+    const [responseData, rawBody] = await safeParseT24Response(response);
+    console.log(' [T24 RAW BODY]', rawBody);
+    console.log(' [T24 PARSED DATA]', responseData);
     console.log('================================================================\n');
 
     if (response.ok) {
-      let responseData: any = {};
-      try {
-        responseData = JSON.parse(responseBody);
-      } catch (e) {
-        console.warn('Could not parse T24 JSON response, storing as text.');
-        responseData = { raw: responseBody };
-      }
-
-      // ── Check for business-level failures within a 200 OK response ─────────
-      // Strict check on T24 response format: { status, message, error }
+      // ── Business-level failure detection (case-insensitive) ───────────────
       const status = String(responseData?.status || '').toLowerCase();
-      if (status === 'failed' || status === 'error') {
+      const hasErrorField = !!responseData?.error;
+
+      if (status === 'failed' || status === 'error' || hasErrorField) {
         const errorMsg = responseData?.error || responseData?.message || 'T24 returned a failure status without details.';
         throw new Error(`T24_BUSINESS_ERROR: ${errorMsg}`);
       }
@@ -641,7 +660,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         data: {
           forwardedAt: new Date(),
           forwardError: null,
-          forwardResponse: responseData,
+          forwardResponse: responseData, // Always store the parsed (or raw) response
         },
       });
 
