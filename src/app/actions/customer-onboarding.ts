@@ -628,6 +628,13 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         responseData = { raw: responseBody };
       }
 
+      // ── Check for business-level failures within a 200 OK response ─────────
+      const status = String(responseData?.status || '').toLowerCase();
+      if (status === 'failed' || status === 'error') {
+        const msg = responseData?.error || responseData?.message || 'T24 returned a failure status without details.';
+        throw new Error(`T24 Business Error: ${msg}`);
+      }
+
       await prisma.customerOnboarding.update({
         where: { id },
         data: {
