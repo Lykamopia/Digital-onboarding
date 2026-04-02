@@ -16,7 +16,7 @@ The ingestion endpoint is secured with an API key. You must set this in your env
 
 ### Request Configuration
 - **Method**: `POST`
-- **URL**: `http://localhost:3010/api/customer-onboarding` 
+- **URL**: `http://localhost:3010/api/public/v1/customer-onboarding` 
   *(Note: Adjust the port if your server is running on a different one)*
 
 ### Headers
@@ -100,7 +100,7 @@ Check the approval status of a submitted customer by their registered phone numb
 ### Request Configuration
 
 - **Method**: `GET`
-- **URL**: `http://localhost:3010/api/customer-onboarding/status?phoneNumber=%2B251XXXXXXXXX`
+- **URL**: `http://localhost:3010/api/public/v1/customer-onboarding/status?phoneNumber=%2B251XXXXXXXXX`
 
 > **URL encoding note:** Both `+251...` (bare plus) and `%2B251...` (percent-encoded) are accepted.  
 > The server reads the raw query string with `decodeURIComponent` — which preserves a literal `+` — rather than `URLSearchParams`, which would silently convert `+` to a space per the `application/x-www-form-urlencoded` spec and break validation.
@@ -167,7 +167,9 @@ X-API-Key: test_middleware_key_2024
   "status": "PENDING",
   "reviewNote": null,
   "submittedAt": "2026-03-31T08:00:00.000Z",
-  "updatedAt": "2026-03-31T08:00:00.000Z"
+  "updatedAt": "2026-03-31T08:00:00.000Z",
+  "accountNumber": "1000123456789",
+  "accountHolderName": "John Doe"
 }
 ```
 

@@ -423,6 +423,20 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
 export async function getSecurityLogs(page = 1, limit = 15, filters: { severity?: string; query?: string } = {}) {
     await hasPermission(['admin', 'view_audit_logs' as any]);
     const where: Prisma.SecurityLogWhereInput = {};
+
+    if (filters.severity) {
+        where.severity = filters.severity as LogSeverity;
+    }
+
+    if (filters.query) {
+        where.OR = [
+            { event: { contains: filters.query, mode: 'insensitive' } },
+            { details: { contains: filters.query, mode: 'insensitive' } },
+            { ipAddress: { contains: filters.query, mode: 'insensitive' } },
+            { actor: { name: { contains: filters.query, mode: 'insensitive' } } },
+        ];
+    }
+
     const [logs, total] = await prisma.$transaction([
         prisma.securityLog.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { timestamp: 'desc' }, include: { actor: true }}),
         prisma.securityLog.count({ where })

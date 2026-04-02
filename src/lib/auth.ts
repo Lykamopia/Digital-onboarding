@@ -69,6 +69,16 @@ export const authOptions: NextAuthOptions = {
         if (!user) {
           throw new Error("Invalid credentials");
         }
+
+        const session = await getServerSession(authOptions);
+        if (session) {
+            await logSecurityEvent({
+                event: SecurityEvent.LOGIN_FAILURE,
+                severity: LogSeverity.WARN,
+                actor: { id: user.id, name: user.name || user.email },
+                details: `User ${user.email} attempted to log in while another user was already logged in.`,
+            });
+        }
         
         if (user.status === 'pending') {
              throw new Error("Account is pending activation. Please use the setup link in your email to set your password.");

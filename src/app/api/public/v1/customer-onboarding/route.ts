@@ -41,10 +41,19 @@ async function authenticate(req: NextRequest): Promise<{ user?: any, isSystem?: 
   return { error: 'Unauthorized' };
 }
 
-// GET /api/customer-onboarding?status=PENDING&page=1&pageSize=20&search=...
+import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
+import { LogSeverity } from '@/lib/types';
+
+// GET /api/public/v1/customer-onboarding?status=PENDING&page=1&pageSize=20&search=...
 export async function GET(req: NextRequest) {
   const auth = await authenticate(req);
   if (auth.error) {
+    await logSecurityEvent({
+        event: SecurityEvent.PERMISSION_DENIED,
+        severity: LogSeverity.WARN,
+        actor: null,
+        details: `Unauthorized access attempt to GET /api/public/v1/customer-onboarding.`,
+    });
     return NextResponse.json({ error: auth.error }, { status: 401 });
   }
 
@@ -62,22 +71,47 @@ export async function GET(req: NextRequest) {
   });
 
   if (!result.success) {
+    await logSecurityEvent({
+        event: SecurityEvent.PERMISSION_DENIED,
+        severity: LogSeverity.WARN,
+        actor: auth.user,
+        details: `Failed to list customer onboardings. Error: ${result.error}`,
+    });
     return NextResponse.json({ error: result.error }, { status: 403 });
   }
+
+  await logSecurityEvent({
+    event: SecurityEvent.CUSTOMER_ONBOARDING_SUBMITTED,
+    severity: LogSeverity.INFO,
+    actor: auth.user,
+    details: `Successfully listed customer onboardings.`,
+  });
 
   return NextResponse.json(result);
 }
 
-// POST /api/customer-onboarding
+// POST /api/public/v1/customer-onboarding
 export async function POST(req: NextRequest) {
   const auth = await authenticate(req);
   if (auth.error) {
+    await logSecurityEvent({
+        event: SecurityEvent.PERMISSION_DENIED,
+        severity: LogSeverity.WARN,
+        actor: null,
+        details: `Unauthorized access attempt to POST /api/public/v1/customer-onboarding.`,
+    });
     return NextResponse.json({ error: auth.error }, { status: 401 });
   }
 
   // Rate limiting (using user ID or 'system' as key)
   const limitKey = auth.isSystem ? 'system' : (auth.user?.id || 'anonymous');
   if (!checkRateLimit(limitKey)) {
+    await logSecurityEvent({
+        event: SecurityEvent.PERMISSION_DENIED,
+        severity: LogSeverity.WARN,
+        actor: auth.user,
+        details: `Rate limit exceeded for customer onboarding submission.`,
+    });
     return NextResponse.json(
       { error: 'Too many requests. Please wait before submitting again.' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -91,6 +125,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
     }
     body = JSON.parse(text);
+    console.log('New customer onboarding request:', body);
     
     // Presentation Layer Mapping: Ensure psuToken exists as a presentation alias
     if (!body.psuToken) {
@@ -98,6 +133,12 @@ export async function POST(req: NextRequest) {
     }
   } catch (err: any) {
     console.error('JSON Parse Error:', err);
+    await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_FORWARD_FAILED,
+        severity: LogSeverity.CRITICAL,
+        actor: auth.user,
+        details: `Failed to parse customer onboarding request body. Error: ${err.message}`,
+    });
     return NextResponse.json({ 
       error: 'Invalid JSON body', 
       details: err.message 
@@ -106,6 +147,12 @@ export async function POST(req: NextRequest) {
 
   const parsed = CustomerOnboardingSchema.safeParse(body);
   if (!parsed.success) {
+    await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_FORWARD_FAILED,
+        severity: LogSeverity.CRITICAL,
+        actor: auth.user,
+        details: `Failed to validate customer onboarding request body. Error: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`,
+    });
     return NextResponse.json(
       { error: 'Validation failed', fieldErrors: parsed.error.flatten().fieldErrors },
       { status: 422 }
@@ -121,12 +168,25 @@ export async function POST(req: NextRequest) {
   const result = await submitCustomerOnboarding(parsed.data, systemActor);
 
   if (!result.success) {
+    await logSecurityEvent({
+        event: SecurityEvent.CUSTOMER_ONBOARDING_FORWARD_FAILED,
+        severity: LogSeverity.CRITICAL,
+        actor: auth.user,
+        details: `Failed to submit customer onboarding. Error: ${result.error}`,
+    });
     const statusCode = result.error === 'Unauthorized' ? 401
       : result.error?.startsWith('You do not have') ? 403
       : result.fieldErrors ? 422
       : 409;
     return NextResponse.json({ error: result.error, fieldErrors: result.fieldErrors }, { status: statusCode });
   }
+
+  await logSecurityEvent({
+    event: SecurityEvent.CUSTOMER_ONBOARDING_SUBMITTED,
+    severity: LogSeverity.INFO,
+    actor: auth.user,
+    details: `Successfully submitted customer onboarding. ID: ${result.id}`,
+  });
 
   return NextResponse.json({ success: true, id: result.id }, { status: 201 });
 }
