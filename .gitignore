@@ -20,6 +20,9 @@ prisma/dev.db-journal
 !.env.example
 !.env.template
 
+# Uploads
+/uploads
+
 # Log files
 npm-debug.log*
 yarn-debug.log*

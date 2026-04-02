@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 const DATE_REGEX  = /^\d{2} [A-Z]{3} \d{4}$/;    // e.g. "23 OCT 2025"
 const PHONE_REGEX = /^\+?\d{7,15}$/;
-// Base64 image data URI — e.g. "data:image/jpeg;base64,/9j/4AAQ..."
-const PICTURE_REGEX = /^data:image\//;
+// Base64 image data URI (data:image/jpeg;base64,...) or stored path (/uploads/customer-photos/...)
+const PICTURE_REGEX = /^(data:image\/|\/uploads\/customer-photos\/)/;
 
 export const CustomerOnboardingSchema = z.object({
   mnemonic:           z.string().min(1, 'Mnemonic is required').max(50),

@@ -70,11 +70,16 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
             isAuthorized = true;
         }
 
-    } else if (fileType === 'profile' || fileType === 'signatures') {
-        // Profile pictures and signatures are viewable by any authenticated user for UI purposes...
+    } else if (fileType === 'profile' || fileType === 'signatures' || fileType === 'customer-photos') {
+        // Profile pictures, signatures, and customer photos are viewable by any authenticated user for UI purposes...
         // BUT direct access (entering the URL in address bar) is restricted for other users' signatures.
         
-        const type = fileType === 'profile' ? 'Profile' : 'Signature';
+        const typeMap: Record<string, string> = {
+            'profile': 'Profile',
+            'signatures': 'Signature',
+            'customer-photos': 'CustomerPhoto'
+        };
+        const type = typeMap[fileType] || 'Unknown';
         eventTarget = { id: dbPath, type };
 
         if (fileType === 'signatures') {
@@ -99,9 +104,13 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
                 });
                 return new NextResponse('Forbidden: Direct access to other users signatures is prohibited.', { status: 403 });
             }
+            isAuthorized = true;
+        } else {
+            // profile and customer-photos are viewable by any authenticated user
+            isAuthorized = true;
         }
-
-        isAuthorized = true;
+    } else {
+        return new NextResponse('Forbidden: Invalid upload category.', { status: 403 });
     }
     // --- End Authorization Check ---
 

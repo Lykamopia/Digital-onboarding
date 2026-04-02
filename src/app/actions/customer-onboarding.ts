@@ -9,6 +9,7 @@ import { ApprovalStatus } from '@prisma/client';
 import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
+import { processBase64Image } from '@/lib/image-processor';
 
 // Helper function to safely parse T24 responses, which may be malformed or double-serialized
 async function safeParseT24Response(response: Response): Promise<[any, string]> {
@@ -93,6 +94,17 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
   // Derive psuToken for presentation alias
   const psuToken = data.psuToken || data.legalIdNumber || data.nationalIDNumber;
 
+  // ── Image Processing ───────────────────────────────────────────────────────
+  // If the picture is a base64 string, process it and store as a file
+  let finalPicturePath = data.picture || null;
+  if (data.picture && data.picture.startsWith('data:image/')) {
+    const result = await processBase64Image(data.picture);
+    if (!result.success) {
+      return { success: false, error: `Image Processing Error: ${result.error}` };
+    }
+    finalPicturePath = result.filePath || null;
+  }
+
   try {
     const record = await prisma.$transaction(async (tx) => {
       // ── Idempotency and Resubmission logic (Inside Transaction) ────────────
@@ -137,7 +149,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           legalIdNumber:      data.legalIdNumber      || null,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
-          picture:            data.picture            || null,
+          picture:            finalPicturePath,
           submittedById:      systemActor ? null : (user as any).id,
           approvalStatus:     status,
           parentCustomerId:   parentId,
