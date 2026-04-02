@@ -629,10 +629,11 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       }
 
       // ── Check for business-level failures within a 200 OK response ─────────
+      // Strict check on T24 response format: { status, message, error }
       const status = String(responseData?.status || '').toLowerCase();
       if (status === 'failed' || status === 'error') {
-        const msg = responseData?.error || responseData?.message || 'T24 returned a failure status without details.';
-        throw new Error(`T24 Business Error: ${msg}`);
+        const errorMsg = responseData?.error || responseData?.message || 'T24 returned a failure status without details.';
+        throw new Error(`T24_BUSINESS_ERROR: ${errorMsg}`);
       }
 
       await prisma.customerOnboarding.update({
@@ -702,7 +703,10 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       targetType: 'CustomerOnboarding',
     });
 
-
+    // Return the actual business error message to the user if it's a T24 business error
+    if (errorMessage.startsWith('T24_BUSINESS_ERROR: ')) {
+      return { success: false, error: errorMessage.replace('T24_BUSINESS_ERROR: ', '') };
+    }
 
     return { success: false, error: 'We were unable to forward the customer information to the core banking system. Please try again later.' };
   }
