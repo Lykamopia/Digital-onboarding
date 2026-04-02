@@ -47,7 +47,7 @@ import type { CustomerOnboarding, CustomerOnboardingAuditLog } from '@/lib/types
 import { T24SuccessResponse } from '@/components/t24-success-response';
 
 // Use string union until prisma generate runs
-type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'MAKER_REJECTED' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW';
+type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'MAKER_REJECTED' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW' | 'RESUBMITTED';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ApprovalStatus }) {
@@ -1131,7 +1131,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="PENDING">Pending Maker</SelectItem>
+            <SelectItem value="PENDING">New (Pending Maker)</SelectItem>
+            <SelectItem value="RESUBMITTED">Resubmitted (Pending Maker)</SelectItem>
             <SelectItem value="MAKER_APPROVED">Pending Checker</SelectItem>
             <SelectItem value="MAKER_REJECTED">Pending Rejection</SelectItem>
             <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>

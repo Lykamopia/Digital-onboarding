@@ -381,9 +381,9 @@ export async function reviewCustomerOnboarding(opts: {
     const isAdmin = hasRolePermission(user, 'admin');
 
     // ─────────────────────────────────────────────────────────────────────────
-    // STAGE 1: Maker Decision (PENDING or REQUIRES_REVIEW)
+    // STAGE 1: Maker Decision (PENDING, REQUIRES_REVIEW, or RESUBMITTED)
     // ─────────────────────────────────────────────────────────────────────────
-    if (existing.approvalStatus === 'PENDING' || existing.approvalStatus === 'REQUIRES_REVIEW') {
+    if (existing.approvalStatus === 'PENDING' || existing.approvalStatus === 'REQUIRES_REVIEW' || existing.approvalStatus === 'RESUBMITTED') {
       if (!isMakerRole && !isAdmin) {
         return { success: false, error: 'You do not have the Maker role required for this action.' };
       }
@@ -800,11 +800,11 @@ export async function bulkReviewCustomerOnboarding(opts: {
     const isAdmin = hasRolePermission(user, 'admin');
 
     const results = await prisma.$transaction(async (tx) => {
-      // 1. Stage 1: Maker Decision (PENDING or REQUIRES_REVIEW)
+      // 1. Stage 1: Maker Decision (PENDING, REQUIRES_REVIEW, or RESUBMITTED)
       const stage1Batch = await tx.customerOnboarding.findMany({
         where: { 
           id: { in: ids }, 
-          approvalStatus: { in: ['PENDING', 'REQUIRES_REVIEW'] },
+          approvalStatus: { in: ['PENDING', 'REQUIRES_REVIEW', 'RESUBMITTED'] },
           ...(isAdmin ? {} : { NOT: { submittedById: user.id } })
         },
         select: { id: true }
