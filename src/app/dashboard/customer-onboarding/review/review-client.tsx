@@ -44,6 +44,7 @@ import { Skeleton }   from '@/components/ui/skeleton';
 import { Checkbox }   from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import type { CustomerOnboarding, CustomerOnboardingAuditLog } from '@/lib/types';
+import { T24SuccessResponse } from '@/components/t24-success-response';
 
 // Use string union until prisma generate runs
 type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'MAKER_REJECTED' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW';
@@ -696,6 +697,11 @@ function RecordDetailDialog({
                   </div>
                   <Separator />
                 </>
+              )}
+
+              {/* T24 Success Response */}
+              {record.forwardedAt && record.forwardResponse && (
+                <T24SuccessResponse response={record.forwardResponse} />
               )}
 
               {/* Forward error */}

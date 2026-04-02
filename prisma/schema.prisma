@@ -336,6 +336,7 @@ model CustomerOnboarding {
   // Downstream transfer metadata
   forwardedAt      DateTime?
   forwardError     String?   @db.Text
+  forwardResponse  Json?
 
   // Final Review (Checker)
   reviewedById     String?

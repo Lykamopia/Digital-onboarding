@@ -140,10 +140,10 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
     return { success: true, id: record.record.id };
   } catch (err: any) {
     if (err.message.startsWith('CONFLICT:')) {
-      return { success: false, error: err.message.replace('CONFLICT: ', '') };
+      return { success: false, error: 'This customer already exists and is awaiting approval.' };
     }
     console.error('[submitCustomerOnboarding]', err);
-    return { success: false, error: 'Failed to save submission. Please try again.' };
+    return { success: false, error: 'We encountered an issue while submitting the customer onboarding. Please try again.' };
   }
 }
 
@@ -296,7 +296,18 @@ export async function getCustomerOnboarding(id: string) {
       return { success: false as const, error: 'Access denied.' };
     }
 
-    return { success: true as const, record };
+    // Extract T24 response data if available
+    const forwardResponse = record.forwardResponse as any;
+    const accountNumber = forwardResponse?.accountNumber || null;
+    const accountHolderName = forwardResponse?.accountHolderName || null;
+
+    const enhancedRecord = {
+      ...record,
+      accountNumber,
+      accountHolderName,
+    };
+
+    return { success: true as const, record: enhancedRecord };
   } catch (err) {
     console.error('[getCustomerOnboarding]', err);
     return { success: false as const, error: 'Failed to fetch record.' };
@@ -470,11 +481,11 @@ export async function reviewCustomerOnboarding(opts: {
       return { success: true };
     }
 
-    return { success: false, error: `Invalid review action: Submission is in ${existing.approvalStatus} state.` };
+    return { success: false, error: `The customer's application is currently in the ${existing.approvalStatus} state and cannot be reviewed at this time.` };
 
   } catch (err) {
     console.error('[reviewCustomerOnboarding]', err);
-    return { success: false, error: 'Failed to process decision. Please try again.' };
+    return { success: false, error: 'An unexpected error occurred while processing the review. Please try again.' };
   }
 }
 
@@ -603,79 +614,55 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
     const duration = Date.now() - startTime;
 
-    console.log(`\n📥 [T24 RESPONSE RECEIVED] - ${duration}ms`);
-    console.log(`📊 STATUS: ${response.status} ${response.statusText}`);
+    const responseBody = await response.text();
+    console.log(` [T24 RESPONSE] Status: ${response.status}, Duration: ${duration}ms`);
+    console.log(responseBody);
+    console.log('================================================================\n');
 
-    const responseText = await response.text();
-    console.log('📄 RAW BODY:', responseText);
-    console.log('----------------------------------------------------------------\n');
-
-    if (!response.ok) {
-      console.error(`❌ T24 HTTP ERROR: ${response.status} - ${responseText}`);
-      throw new Error(`T24 responded with ${response.status}: ${responseText}`);
-    }
-
-    let parsedBody;
-    try {
-      parsedBody = JSON.parse(responseText);
-      console.log('✅ PARSED JSON:', JSON.stringify(parsedBody, null, 2));
-      
-      // Some APIs accidentally double-serialize JSON (returning a string instead of an object)
-      if (typeof parsedBody === 'string') {
-        console.log('🔄 Detected double-serialization, re-parsing...');
-        try {
-          parsedBody = JSON.parse(parsedBody);
-          console.log('✅ RE-PARSED JSON:', JSON.stringify(parsedBody, null, 2));
-        } catch (e) {
-          console.log('ℹ️ Re-parse failed, keeping as string');
-        }
+    if (response.ok) {
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(responseBody);
+      } catch (e) {
+        console.warn('Could not parse T24 JSON response, storing as text.');
+        responseData = { raw: responseBody };
       }
 
-      if (parsedBody && typeof parsedBody === 'object') {
-        const statusValue = parsedBody.status || parsedBody.Status;
-        if (typeof statusValue === 'string' && statusValue.toLowerCase() === 'failed') {
-          const innerErrorMessage = parsedBody.error || parsedBody.Error || parsedBody.message || parsedBody.Message || '';
-          console.error(`❌ T24 BUSINESS LOGIC ERROR: ${innerErrorMessage}`);
-          throw new Error(`T24 Business Logic Failed: ${innerErrorMessage ? innerErrorMessage : responseText}`);
-        }
-      }
-    } catch (e: any) {
-      if (e.message.startsWith('T24 Business Logic Failed')) {
-        throw e;
-      }
-      console.log('⚠️ Response is not valid JSON or parsing failed');
-    }
-
-    console.log('💾 Updating local record status in database...');
-    await prisma.$transaction(async (tx) => {
-      await tx.customerOnboarding.update({
+      await prisma.customerOnboarding.update({
         where: { id },
-        data: { forwardedAt: new Date(), forwardError: null },
+        data: {
+          forwardedAt: new Date(),
+          forwardError: null,
+          forwardResponse: responseData,
+        },
       });
-      await tx.customerOnboardingAuditLog.create({
+
+      await prisma.customerOnboardingAuditLog.create({
         data: {
           customerOnboardingId: id,
-          actorId:   actorId || null,
-          action:    'FORWARDED',
-          details:   `Payload forwarded to core banking (T24). HTTP ${response.status}. Response: ${responseText}`,
+          actorId: actorId || null,
+          action: 'FORWARDED',
+          details: `Record successfully forwarded to T24. Duration: ${duration}ms.`,
           ipAddress,
           userAgent,
         },
       });
-    });
 
-    await logSecurityEvent({
-      event:    SecurityEvent.CUSTOMER_ONBOARDING_FORWARDED,
-      severity: LogSeverity.INFO,
-      actor:    actorId ? { id: actorId, name: null } : null,
-      details:  `Mnemonic ${record.mnemonic} forwarded to T24 core banking. HTTP ${response.status}`,
-      targetId: id,
-      targetType: 'CustomerOnboarding',
-    });
+      await logSecurityEvent({
+        event:    SecurityEvent.CUSTOMER_ONBOARDING_FORWARDED,
+        severity: LogSeverity.INFO,
+        actor:    actorId ? { id: actorId, name: null } : null,
+        details:  `Mnemonic ${record.mnemonic} forwarded to T24 core banking. HTTP ${response.status}`,
+        targetId: id,
+        targetType: 'CustomerOnboarding',
+      });
 
-    console.log(`✨ [T24 INGESTION SUCCESS] Record ${id} is now marked as FORWARDED.\n`);
+      return { success: true };
 
-    return { success: true };
+    } else {
+      const errorDetails = `Status: ${response.status} ${response.statusText}. Body: ${responseBody}`;
+      throw new Error(`T24 forwarding failed. ${errorDetails}`);
+    }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error(`\n💥 [T24 INGESTION FAILED]`);
@@ -710,7 +697,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
 
 
-    return { success: false, error: errorMessage };
+    return { success: false, error: 'We were unable to forward the customer information to the core banking system. Please try again later.' };
   }
 }
 
