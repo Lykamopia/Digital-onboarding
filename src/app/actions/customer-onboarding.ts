@@ -662,7 +662,25 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       const hasErrorField = isObject && !!responseData?.error;
 
       if (status === 'failed' || status === 'error' || hasErrorField) {
-        const errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
+        let errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
+        
+        // Handle nested JSON in the error field (e.g., {"messages": [...]})
+        if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
+          try {
+            const nested = JSON.parse(errorMsg);
+            if (nested.messages && Array.isArray(nested.messages)) {
+              // Deduplicate and join messages
+              errorMsg = Array.from(new Set(nested.messages)).join('; ');
+            } else if (nested.error) {
+              errorMsg = nested.error;
+            } else if (nested.message) {
+              errorMsg = nested.message;
+            }
+          } catch {
+            // If parsing fails, stick with the raw string
+          }
+        }
+
         const finalMsg = errorMsg || 'T24 returned a failure status without details.';
         throw new Error(`T24_BUSINESS_ERROR: ${finalMsg}`);
       }
