@@ -10,9 +10,9 @@ export const permissions: { id: Permission, label: string, description: string }
     { id: 'manage_users', label: 'Manage Users', description: 'Can create, edit, and delete users' },
     { id: 'manage_roles', label: 'Manage Roles', description: 'Can create, edit, and manage roles and permissions' },
     { id: 'manage_security_logs', label: 'View Security Logs', description: 'Can view security-related event logs.' },
-    // Customer Onboarding (Maker-Checker Operations)
-    { id: 'maker_customer_onboarding', label: 'Maker (Onboarding)', description: 'Primary Maker role for customer onboarding submissions.' },
-    { id: 'checker_customer_onboarding', label: 'Checker (Onboarding)', description: 'Primary Checker role for customer onboarding review and approval.' },
+    // Customer Onboarding (Verifier-Approver Operations)
+    { id: 'verifier_customer_onboarding', label: 'Verifier (Onboarding)', description: 'Primary Verifier role for customer onboarding reviews (Stage 1).' },
+    { id: 'approver_customer_onboarding', label: 'Approver (Onboarding)', description: 'Primary Approver role for customer onboarding final authorization (Stage 2).' },
 ];
 
 

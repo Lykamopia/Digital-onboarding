@@ -19,8 +19,8 @@ export type Permission =
     | 'manage_branches' 
     | 'manage_districts' 
     | 'manage_security_logs'
-    | 'checker_customer_onboarding'
-    | 'maker_customer_onboarding'
+    | 'approver_customer_onboarding'
+    | 'verifier_customer_onboarding'
     | 'admin';
 
 export type DateRange = {
@@ -74,7 +74,8 @@ export type OnboardingActor = { id: string, name: string | null, email: string |
 
 export type CustomerOnboarding = PrismaCustomerOnboarding & {
     submittedBy?: OnboardingActor | null;
-    reviewedBy?: OnboardingActor | null;
+    approverReviewedBy?: OnboardingActor | null;
+    verifierReviewedBy?: OnboardingActor | null;
     auditLogs?: CustomerOnboardingAuditLog[];
 };
 

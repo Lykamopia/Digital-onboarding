@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'NIB Customer Onboarding',
   description: 'Dedicated Customer Onboarding Middleware System',

@@ -24,12 +24,14 @@ const roles = [
       'manage_users',
       'manage_roles',
       'manage_security_logs',
-      'maker_customer_onboarding',
-      'checker_customer_onboarding',
+      'verifier_customer_onboarding',
+      'approver_customer_onboarding',
       'admin',
     ].join(','),
   },
-  { id: 'role-2', name: 'Member', permissions: [].join(',') },
+  { id: 'role-2', name: 'Verifier (Onboarding)', permissions: ['verifier_customer_onboarding'].join(',') },
+  { id: 'role-3', name: 'Approver (Onboarding)', permissions: ['approver_customer_onboarding'].join(',') },
+  { id: 'role-4', name: 'Member', permissions: [].join(',') },
 ];
 
 const labels = [

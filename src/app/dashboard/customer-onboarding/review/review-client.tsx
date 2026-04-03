@@ -21,7 +21,8 @@ import {
   getHistoricalComparison,
   bulkReviewCustomerOnboarding,
   exportCustomerOnboardings,
-  retryForwardToCoreBanking
+  retryForwardToCoreBanking,
+  bulkRetryForwardToCoreBanking
 } from '@/app/actions/customer-onboarding';
 import { Button }     from '@/components/ui/button';
 import { Input }      from '@/components/ui/input';
@@ -48,18 +49,22 @@ import type { CustomerOnboarding, CustomerOnboardingAuditLog } from '@/lib/types
 import { T24SuccessResponse } from '@/components/t24-success-response';
 
 // Use string union until prisma generate runs
-type ApprovalStatus = 'PENDING' | 'MAKER_APPROVED' | 'MAKER_REJECTED' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW' | 'RESUBMITTED';
+type ApprovalStatus = 'PENDING' | 'VERIFIER_APPROVED' | 'VERIFIER_REJECTED' | 'AWAITING_T24_SYNC' | 'AWAITING_T24_RESPONSE' | 'SYNC_FAILED' | 'PENDING_APPROVER' | 'APPROVED' | 'REJECTED' | 'REQUIRES_REVIEW' | 'RESUBMITTED';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ApprovalStatus }) {
   const map: Record<ApprovalStatus, { label: string; variant: 'secondary' | 'default' | 'destructive' | 'outline'; className: string }> = {
-    PENDING:         { label: 'Pending Maker',      variant: 'secondary',   className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
-    MAKER_APPROVED:  { label: 'Pending Checker',    variant: 'outline',     className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
-    MAKER_REJECTED:  { label: 'Pending Rejection',  variant: 'outline',     className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
-    APPROVED:        { label: 'Approved',           variant: 'default',     className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    REJECTED:        { label: 'Rejected',           variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
-    REQUIRES_REVIEW: { label: 'Requires Review',    variant: 'outline',     className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
-    RESUBMITTED:     { label: 'Resubmitted',        variant: 'secondary',   className: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400' },
+    PENDING:           { label: 'Pending Verifier',   variant: 'secondary',   className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+    VERIFIER_APPROVED: { label: 'Verifier Approved',  variant: 'outline',     className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
+    VERIFIER_REJECTED: { label: 'Verifier Rejected',  variant: 'outline',     className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
+    AWAITING_T24_SYNC: { label: 'Syncing to T24',     variant: 'outline',     className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 animate-pulse' },
+    AWAITING_T24_RESPONSE: { label: 'Awaiting T24 Response', variant: 'outline', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 animate-pulse' },
+    SYNC_FAILED:       { label: 'T24 Sync Failed',    variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
+    PENDING_APPROVER:  { label: 'Pending Approver',   variant: 'outline',     className: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400' },
+    APPROVED:          { label: 'Approved',           variant: 'default',     className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    REJECTED:          { label: 'Rejected',           variant: 'destructive', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' },
+    REQUIRES_REVIEW:   { label: 'Requires Review',    variant: 'outline',     className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
+    RESUBMITTED:       { label: 'Resubmitted',        variant: 'secondary',   className: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400' },
   };
   const cfg = map[status] || map.PENDING;
   return <Badge variant="outline" className={cn('font-medium text-xs', cfg.className)}>{cfg.label}</Badge>;
@@ -69,12 +74,13 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
 function AuditTimeline({ logs }: { logs: CustomerOnboardingAuditLog[] }) {
   const iconMap: Record<string, React.ReactNode> = {
     SUBMITTED:                 <Clock className="h-3.5 w-3.5 text-blue-500" />,
-    MAKER_APPROVED:            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />,
-    MAKER_REJECTED:            <XCircle className="h-3.5 w-3.5 text-orange-500" />,
-    CHECKER_APPROVED:          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
-    CHECKER_REJECTED_TO_MAKER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
-    CHECKER_REJECTED_CONFIRM:  <XCircle className="h-3.5 w-3.5 text-red-600" />,
-    CHECKER_APPROVED_TO_MAKER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
+    VERIFIER_VERIFIED:         <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />,
+    VERIFIER_REJECTED:         <XCircle className="h-3.5 w-3.5 text-orange-500" />,
+    APPROVER_APPROVED_SENDING_TO_CORE: <Send className="h-3.5 w-3.5 text-amber-500" />,
+    APPROVER_REJECTED_TO_VERIFIER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
+    APPROVER_REJECTED_CONFIRM:  <XCircle className="h-3.5 w-3.5 text-red-600" />,
+    APPROVER_APPROVED_TO_VERIFIER: <RotateCcw className="h-3.5 w-3.5 text-purple-500" />,
+    FORWARDED_AND_APPROVED:    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
     APPROVED:                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
     REJECTED:                  <XCircle className="h-3.5 w-3.5 text-red-500" />,
     FORWARDED:                 <Send className="h-3.5 w-3.5 text-primary" />,
@@ -354,7 +360,7 @@ function HistoricalComparison({
           <div className="space-y-1">
             <p className="text-xs font-bold text-amber-800 dark:text-amber-400">Previous Review Note:</p>
             <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed italic">
-              {previous.reviewNote || previous.makerReviewNote || 'No review comments found on the previous attempt.'}
+              {previous.approverReviewNote || previous.verifierReviewNote || 'No review comments found on the previous attempt.'}
             </p>
           </div>
         </div>
@@ -563,10 +569,10 @@ function RecordDetailDialog({
     // Optimistic Update: Determine next status based on current status and decision
     let nextStatus: ApprovalStatus = record.approvalStatus;
     if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED') {
-      nextStatus = decision === 'APPROVED' ? 'MAKER_APPROVED' : 'MAKER_REJECTED';
-    } else if (record.approvalStatus === 'MAKER_APPROVED') {
-      nextStatus = decision === 'APPROVED' ? 'APPROVED' : 'REQUIRES_REVIEW';
-    } else if (record.approvalStatus === 'MAKER_REJECTED') {
+      nextStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'VERIFIER_REJECTED';
+    } else if (record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED') {
+      nextStatus = decision === 'APPROVED' ? 'AWAITING_T24_RESPONSE' : 'REQUIRES_REVIEW';
+    } else if (record.approvalStatus === 'VERIFIER_REJECTED') {
       nextStatus = decision === 'REJECTED' ? 'REJECTED' : 'REQUIRES_REVIEW';
     }
 
@@ -575,24 +581,50 @@ function RecordDetailDialog({
     setRecord(optimisticRecord);
     onUpdateRecord(optimisticRecord);
 
+    const isStage2 = (record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED');
+    const isApproving = decision === 'APPROVED';
+
     try {
-      const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
-      if (result.success) {
-        toast.success(`Submission ${decision === 'APPROVED' ? 'approved' : 'rejected'} successfully.`);
-        onRefresh();
-        // The load() call will fetch the actual updated record from DB and reconcile
-        load();
+      if (isStage2 && isApproving) {
+        // Use toast.promise for Stage 2 approval (includes real-time T24 sync wait)
+        await toast.promise(
+          reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote }),
+          {
+            loading: 'Approving and synchronizing with T24 core banking...',
+            success: (result: any) => {
+              if (!result.success) throw new Error(result.error || 'Sync failed');
+              onRefresh();
+              load();
+              return result.message || 'Customer successfully approved and synchronized.';
+            },
+            error: (err: any) => {
+              // Rollback on failure
+              setRecord(previousRecord);
+              onUpdateRecord(previousRecord);
+              return err.message || 'Failed to synchronize with T24 core.';
+            }
+          }
+        );
       } else {
-        // Rollback on failure
+        const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
+        if (result.success) {
+          toast.success(`Submission ${decision === 'APPROVED' ? 'verified' : 'rejected'} successfully.`);
+          onRefresh();
+          load();
+        } else {
+          // Rollback on failure
+          setRecord(previousRecord);
+          onUpdateRecord(previousRecord);
+          toast.error(result.error);
+        }
+      }
+    } catch (err: any) {
+      // Only handle non-promise errors here (promise errors handled by toast.promise)
+      if (!(isStage2 && isApproving)) {
         setRecord(previousRecord);
         onUpdateRecord(previousRecord);
-        toast.error(result.error);
+        toast.error('Failed to process decision. Please try again.');
       }
-    } catch (err) {
-      // Rollback on network error
-      setRecord(previousRecord);
-      onUpdateRecord(previousRecord);
-      toast.error('Failed to process decision. Please try again.');
     } finally {
       setActionInProgress(null);
     }
@@ -600,26 +632,27 @@ function RecordDetailDialog({
 
   async function handleRetry() {
     if (!record) return;
-    const previousRecord = { ...record };
-    
     setActionInProgress('RETRY');
     
-    // Optimistic: show syncing state (implicitly via Badge logic in UI)
-    // Actually handleRetry doesn't change status, but we want to show it's in progress
-    
     try {
-      const result = await retryForwardToCoreBanking(recordId);
-      if (result.success) {
-        toast.success('Successfully forwarded to T24 core banking.');
-        onRefresh();
-        load();
-      } else {
-        toast.error(result.error || 'Failed to retry forwarding.');
-        load();
-      }
+      await toast.promise(
+        retryForwardToCoreBanking(recordId),
+        {
+          loading: 'Retrying synchronization with T24 core...',
+          success: (result: any) => {
+            if (!result.success) throw new Error(result.error || 'Retry failed');
+            onRefresh();
+            load();
+            return 'Successfully synchronized with T24 core banking.';
+          },
+          error: (err: any) => {
+            load();
+            return err.message || 'Failed to retry synchronization.';
+          }
+        }
+      );
     } catch (err) {
-      toast.error('Network error during retry.');
-      load();
+      // Promise errors handled by toast
     } finally {
       setActionInProgress(null);
     }
@@ -714,15 +747,28 @@ function RecordDetailDialog({
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
                         <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
                       </Badge>
-                    ) : record.approvalStatus === 'APPROVED' ? (
+                    ) : (record.approvalStatus === 'AWAITING_T24_RESPONSE' || record.approvalStatus === 'AWAITING_T24_SYNC') ? (
                       <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 text-xs animate-pulse">
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Awaiting T24 sync…
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Awaiting T24 response…
                       </Badge>
                     ) : null}
-                    {record.forwardError && !record.forwardedAt && (
-                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
-                        <AlertTriangle className="h-3 w-3 mr-1" /> Forward failed
-                      </Badge>
+                    {record.approvalStatus === 'SYNC_FAILED' && (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> T24 Sync Failed
+                        </Badge>
+                        {(canReview || canMaker) && (
+                          <Button
+                            onClick={handleRetry}
+                            disabled={!!actionInProgress}
+                            size="sm"
+                            className="h-7 px-2 text-[10px] bg-primary shadow-sm"
+                          >
+                            {actionInProgress === 'RETRY' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                            Retry Sync to Core
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {record.approvalStatus === 'RESUBMITTED' && record.parentCustomerId && (
                       <Button 
@@ -897,37 +943,37 @@ function RecordDetailDialog({
                 </div>
               )}
 
-              {/* Stage 1 (Maker) Review Note */}
-              {(record as any).makerReviewedAt && (
+              {/* Stage 1 (Verifier) Review Note */}
+              {(record as any).verifierReviewedAt && (
                 <div className={cn(
                   "rounded-md border p-3",
-                  record.approvalStatus === 'MAKER_REJECTED' 
+                  record.approvalStatus === 'VERIFIER_REJECTED' 
                     ? "border-orange-200/50 bg-orange-50/30 dark:bg-orange-900/10" 
                     : "border-blue-200/50 bg-blue-50/30 dark:bg-blue-900/10"
                 )}>
                   <p className={cn(
                     "text-xs font-bold mb-1",
-                    record.approvalStatus === 'MAKER_REJECTED' ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
+                    record.approvalStatus === 'VERIFIER_REJECTED' ? "text-orange-700 dark:text-orange-400" : "text-blue-700 dark:text-blue-400"
                   )}>
-                    Stage 1: Maker {record.approvalStatus === 'MAKER_REJECTED' ? 'Rejection' : 'Approval'}
+                    Stage 1: Verifier {record.approvalStatus === 'VERIFIER_REJECTED' ? 'Rejection' : 'Approval'}
                   </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{(record as any).makerReviewNote || (record.approvalStatus === 'MAKER_REJECTED' ? 'Rejected at Maker level' : 'Approved at Maker level')}</p>
-                  {(record as any).makerReviewedBy && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">{(record as any).verifierReviewNote || (record.approvalStatus === 'VERIFIER_REJECTED' ? 'Rejected at Verifier level' : 'Approved at Verifier level')}</p>
+                  {(record as any).verifierReviewedBy && (
                     <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
-                      — Reviewed by {(record as any).makerReviewedBy.name} on {format(new Date((record as any).makerReviewedAt), 'dd MMM yyyy HH:mm')}
+                      — Reviewed by {(record as any).verifierReviewedBy.name} on {format(new Date((record as any).verifierReviewedAt), 'dd MMM yyyy HH:mm')}
                     </p>
                   )}
                 </div>
               )}
 
-              {/* Final Review (Checker) Note */}
-              {record.reviewNote && (
+              {/* Final Review (Approver) Note */}
+              {record.approverReviewNote && (
                 <div className="rounded-md border border-emerald-200/50 bg-emerald-50/30 dark:bg-emerald-900/10 p-3">
-                  <p className="text-xs font-bold mb-1 text-emerald-700 dark:text-emerald-400">Stage 2: Final Authorization</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{record.reviewNote}</p>
-                  {record.reviewedBy && (
+                  <p className="text-xs font-bold mb-1 text-emerald-700 dark:text-emerald-400">Stage 2: Final Authorization (Approver)</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{record.approverReviewNote}</p>
+                  {record.approverReviewedBy && (
                     <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
-                      — Authorized by {record.reviewedBy.name}{record.reviewedAt && ` on ${format(new Date(record.reviewedAt), 'dd MMM yyyy HH:mm')}`}
+                      — Authorized by {record.approverReviewedBy.name}{record.approverReviewedAt && ` on ${format(new Date(record.approverReviewedAt), 'dd MMM yyyy HH:mm')}`}
                     </p>
                   )}
                 </div>
@@ -941,15 +987,15 @@ function RecordDetailDialog({
                 </div>
               )}
 
-              {/* Reviewer actions (Two-Step Maker-Checker) */}
+              {/* Reviewer actions (Three-Step Verifier-Sync-Approver) */}
               {((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED')) || 
-                (canReview && (record.approvalStatus === 'MAKER_APPROVED' || record.approvalStatus === 'MAKER_REJECTED'))) && (
+                (canReview && (record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'VERIFIER_REJECTED' || record.approvalStatus === 'SYNC_FAILED'))) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-primary">
                       {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
-                        ? 'Stage 1: Maker Decision' 
-                        : 'Stage 2: Checker Decision'}
+                        ? 'Stage 1: Verifier Decision' 
+                        : 'Stage 2: Approver Decision'}
                     </h3>
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Dual Control Active</Badge>
                   </div>
@@ -957,8 +1003,8 @@ function RecordDetailDialog({
                   <Textarea
                     placeholder={
                       record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
-                        ? "Maker comments (mandatory for rejection)..." 
-                        : "Checker comments (mandatory for rejection)..."
+                        ? "Verifier comments (mandatory for rejection)..." 
+                        : "Approver comments (mandatory for rejection)..."
                     }
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
@@ -978,9 +1024,9 @@ function RecordDetailDialog({
                           <>
                             <CheckCircle2 className="h-4 w-4 mr-1.5" /> 
                             {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
-                              ? 'Approve (Maker)' 
-                              : record.approvalStatus === 'MAKER_APPROVED' 
-                                ? 'Authorize (Checker)' 
+                              ? 'Verify (Verifier)' 
+                              : record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED'
+                                ? 'Approve & Send to Core' 
                                 : 'Approve for Correction'}
                           </>
                         )
@@ -998,15 +1044,18 @@ function RecordDetailDialog({
                           <>
                             <XCircle className="h-4 w-4 mr-1.5" /> 
                             {record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED'
-                              ? 'Reject (Maker)' 
-                              : record.approvalStatus === 'MAKER_APPROVED' 
-                                ? 'Revert to Maker' 
-                                : 'Final Reject (Checker)'}
+                              ? 'Reject (Verifier)' 
+                              : 'Reject / Revert'}
                           </>
                         )
                       }
                     </Button>
                   </div>
+                  {record.approvalStatus === 'AWAITING_T24_RESPONSE' && (
+                    <p className="text-[10px] text-amber-600 font-medium text-center animate-pulse">
+                      Processing core sync... please wait for T24 response.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1076,6 +1125,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [exportType, setExportType] = useState<'SELECTED' | 'ALL' | null>(null);
   const [exportConfig, setExportConfig] = useState<Set<string>>(new Set(['mnemonic', 'givenName', 'familyName', 'gender', 'approvalStatus', 'psuToken', 'createdAt']));
+
+  const syncFailedRecords = records.filter(r => r.approvalStatus === 'SYNC_FAILED');
 
   const resetFilters = useCallback(() => {
     setSearch('');
@@ -1263,7 +1314,41 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
     load();
   }, [load]);
 
+  async function handleBulkRetrySync() {
+    if (!canReview) {
+      toast.error("You do not have permission to perform this action.");
+      return;
+    }
+    const idsToRetry = syncFailedRecords.map(r => r.id);
+    if (idsToRetry.length === 0) {
+      toast.info("No records with a 'SYNC_FAILED' status to retry.");
+      return;
+    }
 
+    setBulkProcessing(true);
+
+    // Process one by one with toasts
+    for (const id of idsToRetry) {
+      const record = records.find(r => r.id === id);
+      const toastId = toast.loading(`Syncing customer: ${record?.givenName} ${record?.familyName}...`);
+      
+      try {
+        const result = await retryForwardToCoreBanking(id);
+        if (result.success) {
+          toast.success(`Successfully synced: ${record?.givenName} ${record?.familyName}`, { id: toastId });
+          // Optimistically update the UI
+          setRecords(prev => prev.map(r => r.id === id ? { ...r, approvalStatus: 'APPROVED' } : r));
+        } else {
+          toast.error(`Failed to sync: ${record?.givenName} ${record?.familyName}. Error: ${result.error}`, { id: toastId });
+        }
+      } catch (err: any) {
+        toast.error(`Failed to sync: ${record?.givenName} ${record?.familyName}. Error: ${err.message}`, { id: toastId });
+      }
+    }
+
+    setBulkProcessing(false);
+    onRefresh(); // Full refresh after all retries are done
+  }
 
   // Stats
   const stats = [
@@ -1299,13 +1384,15 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="PENDING">New (Pending Maker)</SelectItem>
-            <SelectItem value="RESUBMITTED">Resubmitted (Pending Maker)</SelectItem>
-            <SelectItem value="MAKER_APPROVED">Pending Checker</SelectItem>
-            <SelectItem value="MAKER_REJECTED">Pending Rejection</SelectItem>
-            <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>
+            <SelectItem value="PENDING">Pending Verifier</SelectItem>
+            <SelectItem value="VERIFIER_APPROVED">Verifier Approved</SelectItem>
+            <SelectItem value="AWAITING_T24_SYNC">Syncing to T24</SelectItem>
+            <SelectItem value="SYNC_FAILED">T24 Sync Failed</SelectItem>
+            <SelectItem value="PENDING_APPROVER">Pending Approver</SelectItem>
             <SelectItem value="APPROVED">Approved (Final)</SelectItem>
             <SelectItem value="REJECTED">Rejected (Final)</SelectItem>
+            <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>
+            <SelectItem value="RESUBMITTED">Resubmitted</SelectItem>
           </SelectContent>
         </Select>
         <Button 
@@ -1638,13 +1725,11 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                         // Approximate next status for immediate UI feedback
                         let nextStatus: ApprovalStatus = r.approvalStatus;
                         if (confirmBulk.type === 'APPROVED') {
-                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'MAKER_APPROVED';
-                          else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'APPROVED';
-                          else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REQUIRES_REVIEW';
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'AWAITING_T24_SYNC';
+                          else if (r.approvalStatus === 'PENDING_APPROVER') nextStatus = 'APPROVED';
                         } else {
-                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'MAKER_REJECTED';
-                          else if (r.approvalStatus === 'MAKER_APPROVED') nextStatus = 'REQUIRES_REVIEW';
-                          else if (r.approvalStatus === 'MAKER_REJECTED') nextStatus = 'REJECTED';
+                          if (r.approvalStatus === 'PENDING' || r.approvalStatus === 'REQUIRES_REVIEW' || r.approvalStatus === 'RESUBMITTED') nextStatus = 'VERIFIER_REJECTED';
+                          else if (r.approvalStatus === 'PENDING_APPROVER' || r.approvalStatus === 'VERIFIER_REJECTED' || r.approvalStatus === 'SYNC_FAILED') nextStatus = 'REJECTED';
                         }
                         return { ...r, approvalStatus: nextStatus };
                      }
@@ -1703,15 +1788,28 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
-                        const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
-                        return !(canMakerThis || canReviewThis);
+                        const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
+                        const canApproverThis = canReview && (status === 'PENDING_APPROVER');
+                        return !(canVerifierThis || canApproverThis);
                     })
                 }
                 onClick={() => setConfirmBulk({ type: 'APPROVED', count: selection.size })}
               >
                 <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve
               </Button>
+              
+              {canReview && syncFailedRecords.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-primary border-primary/50 hover:bg-primary/5"
+                  disabled={bulkProcessing}
+                  onClick={handleBulkRetrySync}
+                >
+                  {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                  Bulk Sync to Core ({syncFailedRecords.length})
+                </Button>
+              )}
               
               <Button 
                 size="sm" 
@@ -1721,9 +1819,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     bulkProcessing || 
                     selection.size === 0 || 
                     Array.from(selection.values()).some(status => {
-                        const canMakerThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
-                        const canReviewThis = canReview && (status === 'MAKER_APPROVED' || status === 'MAKER_REJECTED');
-                        return !(canMakerThis || canReviewThis);
+                        const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
+                        const canApproverThis = canReview && (status === 'PENDING_APPROVER' || status === 'VERIFIER_REJECTED' || status === 'SYNC_FAILED');
+                        return !(canVerifierThis || canApproverThis);
                     })
                 }
                 onClick={() => setConfirmBulk({ type: 'REJECTED', count: selection.size })}

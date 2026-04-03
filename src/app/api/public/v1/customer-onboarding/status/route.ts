@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       select: {
         approvalStatus: true,
-        reviewNote:     true,
+        approverReviewNote: true,
         createdAt:      true,
         updatedAt:      true,
         forwardResponse: true,
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success:           true,
       status:            record.approvalStatus,
-      reviewNote:        record.reviewNote ?? null,
+      reviewNote:        record.approverReviewNote ?? null,
       submittedAt:       record.createdAt,
       updatedAt:         record.updatedAt,
       accountNumber:     accountNumber,

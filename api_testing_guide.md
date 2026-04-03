@@ -91,13 +91,21 @@ Select **raw** and **JSON** format, then paste this template:
 
 ---
 
-## 4. Status Lookup Endpoint
+## 5. Workflow Statuses
 
-Check the approval status of a submitted customer by their registered phone number.
+The onboarding process follows a multi-stage approval workflow:
 
-> **Authentication required** — either a session cookie (browser) or the `X-API-Key` header.
-
-### Request Configuration
+| Status | Stage | Description |
+| :--- | :--- | :--- |
+| `PENDING` | Initial | Record ingested via API, awaiting first review. |
+| `VERIFIER_APPROVED` | Verifier | Approved by Stage 1 (Verifier), trigger sync to T24. |
+| `AWAITING_T24_SYNC` | T24 Sync | System is currently sending data to Core Banking. |
+| `SYNC_FAILED` | T24 Sync | Ingestion to T24 failed. Requires manual retry. |
+| `PENDING_APPROVER` | Approver | T24 sync successful, awaiting final Stage 2 authorization. |
+| `APPROVED` | Final | Fully authorized and finalized. |
+| `REJECTED` | Final | Record rejected at any stage. |
+| `REQUIRES_REVIEW` | Correction | Reverted to Verifier for corrections. |
+| `RESUBMITTED` | Re-entry | Rejected record corrected and submitted again. |
 
 - **Method**: `GET`
 - **URL**: `http://localhost:3010/api/public/v1/customer-onboarding/status?phoneNumber=%2B251XXXXXXXXX`

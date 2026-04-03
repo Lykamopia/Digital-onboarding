@@ -18,10 +18,10 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
   const isAdmin = permissions.includes('admin');
-  const canReview = permissions.includes('checker_customer_onboarding') || isAdmin;
-  const canMaker = permissions.includes('maker_customer_onboarding') || isAdmin;
+  const canApprover = permissions.includes('approver_customer_onboarding') || isAdmin;
+  const canVerifier = permissions.includes('verifier_customer_onboarding') || isAdmin;
 
-  if (!canReview && !canMaker) redirect('/dashboard/access-denied');
+  if (!canApprover && !canVerifier) redirect('/dashboard/access-denied');
 
   return (
     <div className="space-y-6">
@@ -32,10 +32,10 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
             <ShieldCheck className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Onboarding Review &amp; Approval</h1>
+            <h1 className="text-xl font-bold">Onboarding Verification &amp; Approval</h1>
             <p className="text-sm text-muted-foreground">
-              {(canReview || canMaker)
-                ? 'Approve or reject pending customer onboarding submissions'
+              {(canApprover || canVerifier)
+                ? 'Verify, sync, and authorize pending customer onboarding submissions'
                 : 'Track the status of your submissions'}
             </p>
           </div>
@@ -46,20 +46,20 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
               <ShieldCheck className="h-3 w-3" /> Admin Access
             </Badge>
           )}
-          {canReview && !isAdmin && (
+          {canApprover && !isAdmin && (
             <Badge variant="default" className="gap-1">
-              <ShieldCheck className="h-3 w-3" /> Reviewer Access
+              <ShieldCheck className="h-3 w-3" /> Approver Access
             </Badge>
           )}
-          {canMaker && !isAdmin && (
+          {canVerifier && !isAdmin && (
             <Badge variant="secondary" className="gap-1">
-              <Users2 className="h-3 w-3" /> Maker Access
+              <Users2 className="h-3 w-3" /> Verifier Access
             </Badge>
           )}
         </div>
       </div>
 
-      <CustomerOnboardingReviewPanel canReview={canReview} canMaker={canMaker} />
+      <CustomerOnboardingReviewPanel canReview={canApprover} canMaker={canVerifier} />
     </div>
   );
 }

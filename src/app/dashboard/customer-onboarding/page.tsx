@@ -20,10 +20,10 @@ export default async function OnboardingStatusPage() {
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
-  const canReview = permissions.includes('checker_customer_onboarding');
-  const canMaker = permissions.includes('maker_customer_onboarding');
+  const canApprover = permissions.includes('approver_customer_onboarding');
+  const canVerifier = permissions.includes('verifier_customer_onboarding');
 
-  if (!canMaker && !canReview) redirect('/dashboard/access-denied');
+  if (!canVerifier && !canApprover) redirect('/dashboard/access-denied');
 
   // Fetch quick stats
   const [pendingReq, allReq] = await Promise.all([
@@ -33,10 +33,10 @@ export default async function OnboardingStatusPage() {
 
   const stats = [
     { 
-      label: 'Pending Review', 
+      label: 'Pending Verification', 
       value: pendingReq.total || 0, 
       icon: <Clock className="h-4 w-4 text-amber-500" />,
-      description: 'Awaiting human intervention'
+      description: 'Awaiting human intervention (Stage 1)'
     },
     { 
       label: 'Total Ingested', 
@@ -65,7 +65,7 @@ export default async function OnboardingStatusPage() {
           <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
             <Activity className="h-3 w-3" /> System Active
           </Badge>
-          {canReview || canMaker && (
+          {(canApprover || canVerifier) && (
             <Link href="/dashboard/customer-onboarding/review">
               <Button size="sm" className="gap-1">
                 <ShieldCheck className="h-4 w-4" /> Open Pipeline
@@ -87,7 +87,7 @@ export default async function OnboardingStatusPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 This dashboard acts as a secure buffer between external ingestion APIs and the T24 Core Banking system. 
                 Data is received via API, validated against schema requirements, and stored as <strong>PENDING</strong> for 
-                audit and safety. Once reviewed, it is automatically forwarded to the core app.
+                audit and safety. The workflow follows a <strong>Verifier → Sync → Approver</strong> sequence for maximum security.
               </p>
             </div>
           </div>

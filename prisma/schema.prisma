@@ -51,8 +51,8 @@ model User {
   district              District?              @relation(fields: [districtId], references: [id])
   branch                Branch?                @relation(fields: [branchId], references: [id])
   securityLogs                    SecurityLog[]
-  customerOnboardingsReviewed     CustomerOnboarding[]           @relation("CustomerOnboardingReviewer")
-  customerOnboardingsMaker        CustomerOnboarding[]           @relation("CustomerOnboardingMaker")
+  customerOnboardingsApprover     CustomerOnboarding[]           @relation("CustomerOnboardingApprover")
+  customerOnboardingsVerifier     CustomerOnboarding[]           @relation("CustomerOnboardingVerifier")
   customerOnboardingsSubmitted    CustomerOnboarding[]           @relation("CustomerOnboardingSubmitter")
   customerOnboardingAuditLogs     CustomerOnboardingAuditLog[]   @relation("CustomerOnboardingAuditActor")
 
@@ -257,8 +257,12 @@ model SecurityLog {
 
 enum ApprovalStatus {
   PENDING
-  MAKER_APPROVED
-  MAKER_REJECTED
+  VERIFIER_APPROVED
+  VERIFIER_REJECTED
+  AWAITING_T24_SYNC
+  AWAITING_T24_RESPONSE
+  SYNC_FAILED
+  PENDING_APPROVER
   APPROVED
   REJECTED
   REQUIRES_REVIEW
@@ -339,15 +343,15 @@ model CustomerOnboarding {
   forwardError     String?   @db.Text
   forwardResponse  Json?
 
-  // Final Review (Checker)
-  reviewedById     String?
-  reviewedAt       DateTime?
-  reviewNote       String?   @db.Text
+  // Final Review (Approver)
+  approverReviewedById String?
+  approverReviewedAt   DateTime?
+  approverReviewNote   String?   @db.Text
 
-  // Initial Review (Maker)
-  makerReviewedById String?
-  makerReviewedAt   DateTime?
-  makerReviewNote   String?   @db.Text
+  // Initial Review (Verifier)
+  verifierReviewedById String?
+  verifierReviewedAt   DateTime?
+  verifierReviewNote   String?   @db.Text
 
   // Submitter
   submittedById    String?
@@ -355,17 +359,17 @@ model CustomerOnboarding {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  makerReviewedBy  User?     @relation("CustomerOnboardingMaker", fields: [makerReviewedById], references: [id], onDelete: SetNull)
-  reviewedBy       User?     @relation("CustomerOnboardingReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  submittedBy      User?     @relation("CustomerOnboardingSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  verifierReviewedBy User?     @relation("CustomerOnboardingVerifier", fields: [verifierReviewedById], references: [id], onDelete: SetNull)
+  approverReviewedBy User?     @relation("CustomerOnboardingApprover", fields: [approverReviewedById], references: [id], onDelete: SetNull)
+  submittedBy        User?     @relation("CustomerOnboardingSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   auditLogs        CustomerOnboardingAuditLog[]
 
   @@index([approvalStatus])
   @@index([mnemonic])
   @@index([parentCustomerId])
   @@index([submittedById])
-  @@index([reviewedById])
-  @@index([makerReviewedById])
+  @@index([approverReviewedById])
+  @@index([verifierReviewedById])
   @@index([createdAt])
   @@index([mobilePhoneNumbers])
   @@index([fullName1])

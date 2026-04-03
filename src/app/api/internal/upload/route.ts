@@ -10,6 +10,8 @@ import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
 import { LogSeverity } from '@/lib/types';
 import mime from 'mime-types';
 
+export const dynamic = 'force-dynamic';
+
 // Set a body size limit for file uploads to 10MB
 export const config = {
     api: {
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
     select: { role: { select: { permissions: true } } }
   });
 
-  const canUploadAttachments = user?.role?.permissions?.includes('admin') || user?.role?.permissions?.includes('maker_customer_onboarding');
+  const canUploadAttachments = user?.role?.permissions?.includes('admin') || user?.role?.permissions?.includes('verifier_customer_onboarding');
 
   if (type === 'attachments' && !canUploadAttachments) {
      return NextResponse.json({ success: false, error: 'You do not have permission to upload attachments.' }, { status: 403 });
