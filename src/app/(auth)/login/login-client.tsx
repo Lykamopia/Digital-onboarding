@@ -35,14 +35,22 @@ export default function LoginClientPage() {
     handleSubmit,
     formState: { errors, isDirty },
     watch,
-    trigger
+    trigger,
+    setValue
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: searchParams.get('email') || '',
+      email: '',
       password: '',
     }
   });
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setValue('email', emailParam);
+    }
+  }, [searchParams, setValue]);
 
   const email = watch('email');
 
@@ -86,7 +94,14 @@ export default function LoginClientPage() {
   }, [lockoutTimeLeft]);
   
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/customer-onboarding';
+  const [callbackUrl, setCallbackUrl] = useState('/dashboard/customer-onboarding');
+
+  useEffect(() => {
+    const urlParam = searchParams.get('callbackUrl');
+    if (urlParam) {
+      setCallbackUrl(urlParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const error = searchParams.get('error');
