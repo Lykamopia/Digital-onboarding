@@ -1051,6 +1051,51 @@ export async function bulkRetryForwardToCoreBanking(ids: string[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RETRY SEND SMS (called from review panel if SMS fails)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function retrySendSms(id: string) {
+  const user = await getLoggedInUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+  
+  const record = await prisma.customerOnboarding.findUnique({ where: { id } });
+  if (!record) return { success: false, error: 'Record not found' };
+
+  const phone = record.mobilePhoneNumbers || record.phoneNumbersRes;
+  if (!phone) return { success: false, error: 'No phone number available' };
+
+  let smsText = '';
+  if (record.approvalStatus === 'APPROVED') {
+    smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfully synchronized with T24. Welcome to NIB Bank.`;
+  } else if (record.approvalStatus === 'REJECTED') {
+    const reasonText = record.approverReviewNote ? `: ${record.approverReviewNote}` : '';
+    smsText = `Dear ${record.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB Bank.`;
+  } else {
+    return { success: false, error: 'SMS can only be sent for approved or rejected requests.' };
+  }
+
+  try {
+    const smsRes = await sendSms(phone, smsText);
+    await prisma.customerOnboarding.update({
+      where: { id },
+      data: {
+        smsSentAt: new Date(),
+        smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
+        smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+      }
+    });
+
+    if (smsRes.ok) {
+      return { success: true, message: 'SMS sent successfully.' };
+    } else {
+      return { success: false, error: smsRes.error || `Failed to send SMS (Status ${smsRes.status})` };
+    }
+  } catch (err: any) {
+    console.error('[retrySendSms Error]', err);
+    return { success: false, error: err.message || 'An error occurred while retrying SMS.' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BULK REVIEW – three-step verifier–sync–approver workflow
 // ─────────────────────────────────────────────────────────────────────────────
 export async function bulkReviewCustomerOnboarding(opts: {

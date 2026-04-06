@@ -22,7 +22,8 @@ import {
   bulkReviewCustomerOnboarding,
   exportCustomerOnboardings,
   retryForwardToCoreBanking,
-  bulkRetryForwardToCoreBanking
+  bulkRetryForwardToCoreBanking,
+  retrySendSms
 } from '@/app/actions/customer-onboarding';
 import { Button }     from '@/components/ui/button';
 import { Input }      from '@/components/ui/input';
@@ -456,7 +457,7 @@ function RecordDetailDialog({
   const [error, setError]             = useState<string | null>(null);
   const [reviewNote, setReviewNote]   = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | 'HISTORY' | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | 'HISTORY' | 'RETRY_SMS' | null>(null);
   const [historicalRecord, setHistoricalRecord] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const requestRef = React.useRef(0);
@@ -719,6 +720,34 @@ function RecordDetailDialog({
           error: (err: any) => {
             load();
             return err.message || 'Failed to retry synchronization.';
+          }
+        }
+      );
+    } catch (err) {
+      // Promise errors handled by toast
+    } finally {
+      setActionInProgress(null);
+    }
+  }
+
+  async function handleRetrySms() {
+    if (!record) return;
+    setActionInProgress('RETRY_SMS');
+    
+    try {
+      await toast.promise(
+        retrySendSms(recordId),
+        {
+          loading: 'Retrying SMS notification...',
+          success: (result: any) => {
+            if (!result.success) throw new Error(result.error || 'Retry failed');
+            onRefresh();
+            load();
+            return 'SMS sent successfully.';
+          },
+          error: (err: any) => {
+            load();
+            return err.message || 'Failed to retry SMS.';
           }
         }
       );
@@ -1024,6 +1053,18 @@ function RecordDetailDialog({
                         ? `The customer was successfully notified at ${record.mobilePhoneNumbers || record.phoneNumbersRes}.`
                         : `Failed to notify customer: ${record.smsError || 'Unknown gateway error'}.`}
                     </p>
+                    {record.smsStatus === 'FAILED' && (
+                      <Button
+                        onClick={handleRetrySms}
+                        disabled={!!actionInProgress}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-3 text-[10px] mt-2 bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-700 dark:text-red-400"
+                      >
+                        {actionInProgress === 'RETRY_SMS' ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <RefreshCw className="h-3 w-3 mr-1.5" />}
+                        Retry SMS Notification
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
