@@ -344,6 +344,11 @@ model CustomerOnboarding {
   forwardError     String?   @db.Text
   forwardResponse  Json?
 
+  // SMS Notification tracking
+  smsSentAt        DateTime? @map("sms_sent_at")
+  smsStatus        String?   @map("sms_status") // SENT, FAILED
+  smsError         String?   @db.Text @map("sms_error")
+
   // Final Review (Approver)
   approverReviewedById String?
   approverReviewedAt   DateTime?

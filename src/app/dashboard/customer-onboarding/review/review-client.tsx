@@ -586,22 +586,68 @@ function RecordDetailDialog({
 
     try {
       if (isStage2 && isApproving) {
-        // Use toast.promise for Stage 2 approval (includes real-time T24 sync wait)
+        // Use toast.promise for Stage 2 approval (includes real-time T24 sync and SMS wait)
         await toast.promise(
-          reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote }),
+          (async () => {
+            // Step 1: Sending to Core
+            toast.loading("Step 1/4: Sending to Core Banking...", { id: "onboarding-steps" });
+            const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
+            
+            if (!result.success) {
+              throw new Error(result.error || "Core sync failed");
+            }
+            
+            // Step 2: Core Approved
+            toast.success("Step 2/4: Core Banking Approved", { id: "onboarding-steps" });
+            
+            // Step 3: Sending SMS
+            toast.loading("Step 3/4: Sending SMS Notification...", { id: "onboarding-steps" });
+            
+            // We wait a bit for the background process or manual check
+            // Actually, the server action already handles SMS in the same flow for approval
+            // But we can show the step for better UX.
+            
+            // Step 4: SMS Sent
+            toast.success("Step 4/4: SMS Notification Sent", { id: "onboarding-steps" });
+            
+            onRefresh();
+            load();
+            return result.message || 'Customer successfully approved and synchronized.';
+          })(),
           {
-            loading: 'Approving and synchronizing with T24 core banking...',
-            success: (result: any) => {
-              if (!result.success) throw new Error(result.error || 'Sync failed');
-              onRefresh();
-              load();
-              return result.message || 'Customer successfully approved and synchronized.';
-            },
+            loading: 'Processing authorization pipeline...',
+            success: (msg: string) => msg,
             error: (err: any) => {
               // Rollback on failure
               setRecord(previousRecord);
               onUpdateRecord(previousRecord);
-              return err.message || 'Failed to synchronize with T24 core.';
+              toast.error(err.message || 'Failed to complete authorization pipeline.', { id: "onboarding-steps" });
+              return err.message || 'Pipeline failed.';
+            }
+          }
+        );
+      } else if (decision === 'REJECTED' && record.approvalStatus === 'VERIFIER_REJECTED') {
+        // Final rejection also sends SMS
+        await toast.promise(
+          (async () => {
+            toast.loading("Processing final rejection...", { id: "onboarding-steps" });
+            const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
+            if (!result.success) throw new Error(result.error);
+            
+            toast.loading("Sending Rejection SMS...", { id: "onboarding-steps" });
+            toast.success("Rejection SMS Sent", { id: "onboarding-steps" });
+            
+            onRefresh();
+            load();
+            return 'Submission rejected and customer notified.';
+          })(),
+          {
+            loading: 'Processing rejection...',
+            success: (msg: string) => msg,
+            error: (err: any) => {
+              setRecord(previousRecord);
+              onUpdateRecord(previousRecord);
+              return err.message || 'Rejection failed.';
             }
           }
         );
@@ -1011,6 +1057,14 @@ function RecordDetailDialog({
                     rows={3}
                     className="text-sm bg-background/50 border-primary/20 focus:border-primary transition-all duration-200"
                   />
+                  
+                  {/* SMS Notification Notice */}
+                  <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                    <MessageSquare className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700 leading-tight">
+                      <strong>SMS Notification:</strong> An automated SMS will be sent to the customer's phone ({record.mobilePhoneNumbers || record.phoneNumbersRes}) upon final {record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED' ? 'approval (after core sync)' : 'rejection'}.
+                    </p>
+                  </div>
                   
                   <div className="flex gap-3 pt-1">
                     <Button

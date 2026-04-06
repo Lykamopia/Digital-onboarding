@@ -10,6 +10,7 @@ import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
+import { sendSms } from '@/lib/sms';
 
 // ─── T24 Payload Schema (Strict Whitelist & Validation) ────────────────────────
 // This schema enforces the exact fields and formats required by the T24 core banking API.
@@ -663,6 +664,29 @@ export async function reviewCustomerOnboarding(opts: {
         };
       }
 
+      // Handle Rejection SMS (if decision is REJECTED and it's a final state)
+      if (decision === 'REJECTED' && nextStatus === 'REJECTED') {
+        const phone = existing.mobilePhoneNumbers || existing.phoneNumbersRes;
+        if (phone && !existing.smsSentAt) {
+          const reasonText = note ? `: ${note}` : '';
+          const smsText = `Dear ${existing.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB Bank.`;
+          
+          try {
+            const smsRes = await sendSms(phone, smsText);
+            await prisma.customerOnboarding.update({
+              where: { id },
+              data: {
+                smsSentAt: new Date(),
+                smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
+                smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+              }
+            });
+          } catch (smsErr) {
+            console.error('[SMS Rejection Error]', smsErr);
+          }
+        }
+      }
+
       return { success: true };
     }
 
@@ -872,6 +896,25 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
           approvalStatus: 'APPROVED', // Final status after successful T24 response
         },
       });
+
+      // Handle Approval SMS
+      const phone = record.mobilePhoneNumbers || record.phoneNumbersRes;
+      if (phone && !record.smsSentAt) {
+        const smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfully synchronized with T24. Welcome to NIB Bank.`;
+        try {
+          const smsRes = await sendSms(phone, smsText);
+          await prisma.customerOnboarding.update({
+            where: { id },
+            data: {
+              smsSentAt: new Date(),
+              smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
+              smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+            }
+          });
+        } catch (smsErr) {
+          console.error('[SMS Approval Error]', smsErr);
+        }
+      }
 
       await prisma.customerOnboardingAuditLog.create({
         data: {
