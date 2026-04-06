@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, RefreshCw, Eye, ChevronLeft, ChevronRight,
   Search, Clock, Building2, User, FileText, Loader2, AlertTriangle,
   Send, Filter, RotateCcw, ArrowRightLeft, ArrowUpDown, ChevronUp, ChevronDown, Calendar,
-  Download, FileSpreadsheet, Copy, Check, X, ZoomIn,
+  Download, FileSpreadsheet, Copy, Check, X, ZoomIn, MessageSquare,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
