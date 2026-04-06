@@ -871,7 +871,13 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       const hasErrorField = isObject && !!responseData?.error;
 
       if (status === 'failed' || status === 'error' || hasErrorField) {
+        // Prioritize the detailed 'error' field from T24 over the generic 'message'
         let errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
+        
+        // Handle cases where 'message' is present but 'error' has the actual detail
+        if (isObject && responseData.status === 'Failed' && responseData.error) {
+          errorMsg = responseData.error;
+        }
         
         // Handle nested JSON in the error field (e.g., {"messages": [...]})
         if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
