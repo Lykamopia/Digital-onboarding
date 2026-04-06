@@ -669,7 +669,7 @@ export async function reviewCustomerOnboarding(opts: {
         const phone = existing.mobilePhoneNumbers || existing.phoneNumbersRes;
         if (phone && !existing.smsSentAt) {
           const reasonText = note ? `: ${note}` : '';
-          const smsText = `Dear ${existing.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB Bank.`;
+          const smsText = `Dear ${existing.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB InternationalBank.`;
           
           try {
             const smsRes = await sendSms(phone, smsText);
@@ -900,7 +900,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       // Handle Approval SMS
       const phone = record.mobilePhoneNumbers || record.phoneNumbersRes;
       if (phone && !record.smsSentAt) {
-        const smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfully synchronized with T24. Welcome to NIB Bank.`;
+        const smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfull. Welcome to NIB InternationalBank.`;
         try {
           const smsRes = await sendSms(phone, smsText);
           await prisma.customerOnboarding.update({
