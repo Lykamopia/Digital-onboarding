@@ -69,10 +69,17 @@ function PersonalInfoStep({ form }: { form: ReturnType<typeof useForm<CustomerOn
         <Input {...register('mnemonic')} placeholder="N4560963890" />
       </FormField>
       <FormField label="Title" required error={errors.title?.message}>
-        <Select value={watch('title')} onValueChange={(v) => setValue('title', v, { shouldValidate: true })}>
+        <Select value={watch('title')} onValueChange={(v) => setValue('title', v as CustomerOnboardingInput['title'], { shouldValidate: true })}>
           <SelectTrigger><SelectValue placeholder="Select title" /></SelectTrigger>
-          <SelectContent>
-            {['ATO', 'WRO', 'Dr.', 'Prof.', 'Mr.', 'Mrs.', 'Ms.'].map(t => (
+          <SelectContent className="max-h-[300px]">
+            {[
+              'ABBA', 'ATO', 'Ambassador', 'Assi.Professor', 'B.General', 'Brother', 'CEO', 'CMDR', 'Capitain', 'Colonel', 
+              'Commander', 'DR', 'Dai', 'Daikon', 'Excellency', 'Foreign.Secretary', 'G.Secretary', 'General(Army)', 
+              'GeneralAirForce', 'Haji', 'Honourable', 'Kes', 'L.Colonel', 'L.General', 'Lieutant', 'Lieutenant', 'MISS', 
+              'MR', 'MRS', 'MS', 'Major', 'Major.General', 'Mayor', 'Megabi.Haddis', 'Meri.Geta', 'Muftih', 'Pastor', 
+              'President', 'Professor', 'Qadhi', 'R.Admiral(CMDR)', 'R.AdmiralUpper', 'REV', 'Sheikh', 'Sir', 'Sister', 
+              'Speaker', 'Ustaz', 'V.President', 'Vice.Admiral', 'W/O', 'W/T', 'WOY', 'WRO'
+            ].map(t => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
           </SelectContent>
@@ -109,7 +116,7 @@ function PersonalInfoStep({ form }: { form: ReturnType<typeof useForm<CustomerOn
         <Select value={watch('maritalStatus')} onValueChange={(v) => setValue('maritalStatus', v as CustomerOnboardingInput['maritalStatus'], { shouldValidate: true })}>
           <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
           <SelectContent>
-            {['MARRIED', 'SINGLE', 'DIVORCED', 'WIDOWED'].map(s => (
+            {['DIVORCED', 'MARRIED', 'OTHER', 'PARTNER', 'SINGLE', 'WIDOWED'].map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
