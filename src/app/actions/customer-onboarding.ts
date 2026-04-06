@@ -732,7 +732,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     industry:           record.industry,
     target:             record.target,
     customerStatus:     record.customerStatus,
-    legalIdNumber:      record.legalIdNumber, // Full value, no substring
+    legalIdNumber:      record.legalIdNumber ? record.legalIdNumber.substring(0, 10) : '', // Substring to 10 digits
     documentName:       record.documentName,
     nameOnID:           record.nameOnID,
     issueAuthority:     record.issueAuthority,
@@ -749,7 +749,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     maritalStatus:      record.maritalStatus,
     customerType:       record.customerType,
     ownership:          (record as any).ownership || '1000',
-    faydaPsutoken2:     record.legalIdNumber, // Populated from full legalIdNumber
+    faydaPsutoken2:     record.legalIdNumber || '', // Remains full legalIdNumber as per API contract
   };
 
   // Handle Optional/Nullable Fields (Omit if empty or matches default/null criteria)
@@ -763,7 +763,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
   if (record.woreda)              payload.woreda = record.woreda;
   if (record.subcity)             payload.subcity = record.subcity;
   if (record.motherName)          payload.motherName = record.motherName;
-  if (record.nationalIDNumber)    payload.nationalIDNumber = record.nationalIDNumber; // Sent unchanged
+  if (record.nationalIDNumber)    payload.nationalIDNumber = record.nationalIDNumber.substring(0, 10); // Substring to 10 digits
   if (record.occupation)          payload.occupation = record.occupation;
   if (record.employersName)       payload.employersName = record.employersName;
   if (record.netMonthlyIn)        payload.netMonthlyIn = record.netMonthlyIn;
