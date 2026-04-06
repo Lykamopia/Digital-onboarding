@@ -863,44 +863,45 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     console.log(' [T24 PARSED DATA]', responseData);
     console.log('================================================================\n');
 
-    if (response.ok) {
-      // ── Business-level failure detection (case-insensitive) ───────────────
-      // Ensure we are working with an object for property checks
-      const isObject = responseData && typeof responseData === 'object' && !Array.isArray(responseData);
-      const status = isObject ? String(responseData?.status || '').toLowerCase() : '';
-      const hasErrorField = isObject && !!responseData?.error;
+    // ── Business-level failure detection (case-insensitive) ───────────────
+    // We check both for a failed status field or a non-2xx HTTP response
+    const isObject = responseData && typeof responseData === 'object' && !Array.isArray(responseData);
+    const t24Status = isObject ? String(responseData?.status || '').toLowerCase() : '';
+    const hasErrorField = isObject && !!responseData?.error;
+    const isFailed = t24Status === 'failed' || t24Status === 'error' || hasErrorField || !response.ok;
 
-      if (status === 'failed' || status === 'error' || hasErrorField) {
-        // Prioritize the detailed 'error' field from T24 over the generic 'message'
-        let errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
-        
-        // Handle cases where 'message' is present but 'error' has the actual detail
-        if (isObject && responseData.status === 'Failed' && responseData.error) {
-          errorMsg = responseData.error;
-        }
-        
-        // Handle nested JSON in the error field (e.g., {"messages": [...]})
-        if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
-          try {
-            const nested = JSON.parse(errorMsg);
-            if (nested.messages && Array.isArray(nested.messages)) {
-              // Deduplicate and join messages
-              errorMsg = Array.from(new Set(nested.messages)).join('; ');
-            } else if (nested.error) {
-              errorMsg = nested.error;
-            } else if (nested.message) {
-              errorMsg = nested.message;
-            }
-          } catch {
-            // If parsing fails, stick with the raw string
+    if (isFailed) {
+      // Prioritize the detailed 'error' field from T24 over the generic 'message'
+      let errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
+      
+      // Handle cases where 'message' is present but 'error' has the actual detail
+      if (isObject && responseData.status === 'Failed' && responseData.error) {
+        errorMsg = responseData.error;
+      }
+      
+      // Handle nested JSON in the error field (e.g., {"messages": [...]})
+      if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
+        try {
+          const nested = JSON.parse(errorMsg);
+          if (nested.messages && Array.isArray(nested.messages)) {
+            // Deduplicate and join messages
+            errorMsg = Array.from(new Set(nested.messages)).join('; ');
+          } else if (nested.error) {
+            errorMsg = nested.error;
+          } else if (nested.message) {
+            errorMsg = nested.message;
           }
+        } catch {
+          // If parsing fails, stick with the raw string
         }
-
-        const finalMsg = errorMsg || 'T24 returned a failure status without details.';
-        throw new Error(`T24_BUSINESS_ERROR: ${finalMsg}`);
       }
 
-      await prisma.customerOnboarding.update({
+      const finalMsg = errorMsg || (response.ok ? 'T24 returned a failure status without details.' : `HTTP Error ${response.status}: ${response.statusText}`);
+      throw new Error(`T24_BUSINESS_ERROR: ${finalMsg}`);
+    }
+
+    // If we reach here, response.ok must be true and no business errors were found
+    await prisma.customerOnboarding.update({
         where: { id },
         data: {
           forwardedAt: new Date(),
@@ -951,11 +952,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
       return { success: true };
 
-    } else {
-      const errorDetails = `Status: ${response.status} ${response.statusText}. Body: ${rawBody}`;
-      throw new Error(`T24 forwarding failed. ${errorDetails}`);
-    }
-  } catch (err) {
+    } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error(`\n💥 [T24 INGESTION FAILED]`);
     console.error(`ID: ${id}`);

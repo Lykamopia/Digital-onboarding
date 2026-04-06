@@ -34,7 +34,8 @@ async function hasPermission(permission: Permission | Permission[]): Promise<Log
 
     const userPermissions = user.role?.permissions ? user.role.permissions.split(',') : [];
     
-    const hasRequiredPermission = requiredPermissions.every(p => userPermissions.includes(p));
+    // Use some instead of every to allow OR logic for permission lists (e.g. admin OR auditor)
+    const hasRequiredPermission = requiredPermissions.some(p => userPermissions.includes(p));
 
     if (!hasRequiredPermission) {
         await logSecurityEvent({
@@ -421,7 +422,7 @@ export async function getEmailLogs(page = 1, limit = 10, filters: { status?: str
 }
 
 export async function getSecurityLogs(page = 1, limit = 15, filters: { severity?: string; query?: string } = {}) {
-    await hasPermission(['admin', 'view_audit_logs' as any]);
+    await hasPermission(['admin', 'manage_security_logs' as any]);
     const where: Prisma.SecurityLogWhereInput = {};
 
     if (filters.severity) {

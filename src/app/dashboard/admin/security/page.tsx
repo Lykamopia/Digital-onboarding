@@ -21,6 +21,7 @@ type SecurityLogWithActor = SecurityLog & { actor: User | null };
 function SecurityLogViewer() {
     const [data, setData] = useState<{ logs: SecurityLogWithActor[], total: number, totalPages: number } | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(15);
     const [filters, setFilters] = useState<{ severity?: string; query?: string }>({});
@@ -40,11 +41,13 @@ function SecurityLogViewer() {
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
             const result = await getSecurityLogs(page, limit, filters);
             setData(result as any);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch security logs:", error);
+            setError(error.message || "Failed to load security logs.");
         } finally {
             setLoading(false);
         }
@@ -74,6 +77,12 @@ function SecurityLogViewer() {
                 <CardDescription>An audit trail of security-relevant activities within the system.</CardDescription>
             </CardHeader>
             <CardContent>
+                {error && (
+                    <div className="mb-4 p-4 bg-destructive/15 text-destructive rounded-md flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="text-sm font-medium">{error}</span>
+                    </div>
+                )}
                 <div className="flex gap-2 mb-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -145,7 +154,9 @@ function SecurityLogViewer() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">No security logs found.</TableCell>
+                                    <TableCell colSpan={6} className="h-24 text-center">
+                                        {error ? "Unable to load security logs." : "No security logs found."}
+                                    </TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
