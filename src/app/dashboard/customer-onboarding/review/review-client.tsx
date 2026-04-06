@@ -70,6 +70,28 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
   return <Badge variant="outline" className={cn('font-medium text-xs', cfg.className)}>{cfg.label}</Badge>;
 }
 
+// ─── SMS Status Badge ────────────────────────────────────────────────────────
+function SMSStatusBadge({ status, sentAt }: { status?: string | null, sentAt?: Date | string | null }) {
+  if (!status) return null;
+  
+  const isSent = status === 'SENT';
+  return (
+    <Badge 
+      variant="outline" 
+      className={cn(
+        "gap-1 py-0.5 px-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-300",
+        isSent 
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" 
+          : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400"
+      )}
+    >
+      <MessageSquare className="h-3 w-3" />
+      SMS {isSent ? 'Sent' : 'Failed'}
+      {sentAt && <span className="ml-1 opacity-60 font-normal lowercase italic">at {format(new Date(sentAt), 'HH:mm')}</span>}
+    </Badge>
+  );
+}
+
 // ─── Audit timeline ───────────────────────────────────────────────────────────
 function AuditTimeline({ logs }: { logs: CustomerOnboardingAuditLog[] }) {
   const iconMap: Record<string, React.ReactNode> = {
@@ -225,7 +247,10 @@ const DataRow = React.memo(({
                 {format(new Date(rec.createdAt), 'dd MMM yyyy')}
             </td>
             <td className="px-4 py-3">
-                <StatusBadge status={rec.approvalStatus as any} />
+                <div className="flex flex-col gap-1 items-start">
+                    <StatusBadge status={rec.approvalStatus as any} />
+                    <SMSStatusBadge status={rec.smsStatus} sentAt={rec.smsSentAt} />
+                </div>
             </td>
             <td className="px-4 py-3 text-xs hidden lg:table-cell font-outfit">
                 {rec.forwardedAt
@@ -789,6 +814,7 @@ function RecordDetailDialog({
                   </p>
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
+                    <SMSStatusBadge status={record.smsStatus} sentAt={record.smsSentAt} />
                     {record.forwardedAt ? (
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
                         <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
@@ -962,6 +988,44 @@ function RecordDetailDialog({
               {/* T24 Success Response */}
               {record.forwardedAt && record.forwardResponse && (
                 <T24SuccessResponse response={record.forwardResponse} />
+              )}
+
+              {/* SMS Status */}
+              {(record.smsSentAt || record.smsStatus === 'FAILED') && (
+                <div className={cn(
+                  "rounded-lg border p-4 flex items-start gap-4 transition-all duration-300",
+                  record.smsStatus === 'SENT' 
+                    ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-400" 
+                    : "bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-400"
+                )}>
+                  <div className={cn(
+                    "p-2 rounded-full",
+                    record.smsStatus === 'SENT' ? "bg-emerald-500/10" : "bg-red-500/10"
+                  )}>
+                    {record.smsStatus === 'SENT' ? (
+                      <MessageSquare className="h-5 w-5" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold uppercase tracking-tight">
+                        SMS Notification {record.smsStatus === 'SENT' ? 'Delivered' : 'Delivery Failed'}
+                      </p>
+                      {record.smsSentAt && (
+                        <span className="text-[10px] opacity-60 font-mono">
+                          {format(new Date(record.smsSentAt), 'dd MMM yyyy HH:mm:ss')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs leading-relaxed opacity-90">
+                      {record.smsStatus === 'SENT' 
+                        ? `The customer was successfully notified at ${record.mobilePhoneNumbers || record.phoneNumbersRes}.`
+                        : `Failed to notify customer: ${record.smsError || 'Unknown gateway error'}.`}
+                    </p>
+                  </div>
+                </div>
               )}
 
               {/* Forward error */}
