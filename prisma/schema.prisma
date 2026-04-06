@@ -332,6 +332,7 @@ model CustomerOnboarding {
   residence        String
   customerType     String
   secureMessage    String?
+  ownership        String    @default("1000")
 
   // Employment & Financials
   occupation       String?

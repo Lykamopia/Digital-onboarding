@@ -42,6 +42,7 @@ export const CustomerOnboardingSchema = z.object({
   netMonthlyIn:       z.string().optional().or(z.literal('')),
   customerType:       z.string().min(1),
   secureMessage:      z.enum(['Y', 'N']).optional().or(z.literal('')),
+  ownership:          z.string().min(1).default('1000'),
   houseNo:            z.string().optional().or(z.literal('')),
   flatNo:             z.string().optional().or(z.literal('')),
   woreda:             z.string().optional().or(z.literal('')),

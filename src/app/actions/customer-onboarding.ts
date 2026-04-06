@@ -11,6 +11,56 @@ import { getLoggedInUser } from '@/app/actions/memo';
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
 
+// ─── T24 Payload Schema (Strict Whitelist & Validation) ────────────────────────
+// This schema enforces the exact fields and formats required by the T24 core banking API.
+// It also strips any undefined or extra data to maintain full contract compliance.
+const T24PayloadSchema = z.object({
+  mnemonic:           z.string(),
+  shortName:          z.string(),
+  fullName1:          z.string(),
+  fullName2:          z.string().optional().nullable(),
+  street:             z.string(),
+  townCity:           z.string(),
+  country:            z.string().length(2),
+  sector:             z.string(),
+  accountOfficer:     z.string().optional().nullable(),
+  industry:           z.string(),
+  target:             z.string(),
+  nationality:        z.string().optional().nullable(),
+  customerStatus:     z.string(),
+  residence:          z.string().optional().nullable(),
+  legalIdNumber:      z.string(),
+  documentName:       z.string(),
+  nameOnID:           z.string(),
+  issueAuthority:     z.string(),
+  issueDate:          z.string(),
+  expirationDate:     z.string(),
+  language:           z.string(),
+  region:             z.string(),
+  phoneNumbersRes:    z.string().optional().nullable(),
+  phoneNumber:        z.string(),
+  title:              z.string(),
+  givenName:          z.string(),
+  familyName:         z.string(),
+  gender:             z.string(),
+  dateOfBirth:        z.string(),
+  maritalStatus:      z.string(),
+  occupation:         z.string().optional().nullable(),
+  employersName:      z.string().optional().nullable(),
+  netMonthlyIn:       z.string().optional().nullable(),
+  customerType:       z.string(),
+  secureMessage:      z.string().optional().nullable(),
+  houseNo:            z.string().optional().nullable(),
+  flatNo:             z.string().optional().nullable(),
+  woreda:             z.string().optional().nullable(),
+  kebele:             z.string().optional().nullable(),
+  subcity:            z.string().optional().nullable(),
+  motherName:         z.string().optional().nullable(),
+  nationalIDNumber:   z.string().optional().nullable(),
+  ownership:          z.string(),
+  faydaPsutoken2:     z.string(),
+}).strict(); // Enforce NO extra fields
+
 // Helper function to safely parse T24 responses, which may be malformed or double-serialized
 async function safeParseT24Response(response: Response): Promise<[any, string]> {
   const rawText = await response.text();
@@ -165,6 +215,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           legalIdNumber:      data.legalIdNumber      || null,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
+          ownership:          data.ownership          || '1000',
           picture:            finalPicturePath,
           payloadHash:        currentPayloadHash,
           submittedById:      systemActor ? null : (user as any).id,
@@ -642,96 +693,117 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
   const { ipAddress, userAgent } = await getRequestContext();
 
-  // Enforce strict T24 contract compliance (42 explicitly defined fields)
-  const payload = {
+  // ── Build Whitelisted T24 Payload ─────────────────────────────────────────
+  // We enforce strict contract compliance by only including defined fields
+  // and handling optional/nullable logic as per the new T24 schema.
+  
+  const payload: Record<string, any> = {
     mnemonic:           record.mnemonic,
     shortName:          record.shortName,
     fullName1:          record.fullName1,
-    fullName2:          record.fullName2,
     street:             record.street,
     townCity:           record.townCity,
     country:            record.country,
     sector:             record.sector,
-    accountOfficer:     record.accountOfficer,
     industry:           record.industry,
     target:             record.target,
-    nationality:        record.nationality,
     customerStatus:     record.customerStatus,
-    residence:          record.residence,
-    legalIdNumber:      record.legalIdNumber?.substring(0, 10) ?? null,
+    legalIdNumber:      record.legalIdNumber, // Full value, no substring
     documentName:       record.documentName,
     nameOnID:           record.nameOnID,
     issueAuthority:     record.issueAuthority,
-    issueDate:          record.issueDate ? '01 OCT 2024' : null,
+    issueDate:          record.issueDate,
     expirationDate:     record.expirationDate,
     language:           record.language,
     region:             record.region,
-    phoneNumbersRes:    record.phoneNumbersRes,
-    mobilePhoneNumbers: record.mobilePhoneNumbers,
+    phoneNumber:        record.mobilePhoneNumbers || '', // Mandatory field
     title:              record.title,
     givenName:          record.givenName,
     familyName:         record.familyName,
     gender:             record.gender,
     dateOfBirth:        record.dateOfBirth,
     maritalStatus:      record.maritalStatus,
-    occupation:         record.occupation,
-    employersName:      record.employersName,
-    netMonthlyIn:       record.netMonthlyIn,
     customerType:       record.customerType,
-    secureMessage:      record.secureMessage,
-    houseNo:            record.houseNo,
-    flatNo:             record.flatNo,
-    woreda:             record.woreda,
-    kebele:             record.kebele,
-    subcity:            record.subcity,
-    motherName:         record.motherName,
-    nationalIDNumber:   record.nationalIDNumber?.substring(0, 10) ?? null,
+    ownership:          (record as any).ownership || '1000',
+    faydaPsutoken2:     record.legalIdNumber, // Populated from full legalIdNumber
   };
 
-  const T24_ENDPOINT = process.env.T24_API_URL || 'https://nibteratest.nibbank.com.et/api/Test/CustomerCreate';
-  const T24_API_KEY  = process.env.T24_API_KEY;
+  // Handle Optional/Nullable Fields (Omit if empty or matches default/null criteria)
+  if (record.fullName2)           payload.fullName2 = record.fullName2;
+  if (record.accountOfficer)      payload.accountOfficer = record.accountOfficer;
+  if (record.phoneNumbersRes)     payload.phoneNumbersRes = record.phoneNumbersRes;
+  if (record.secureMessage)       payload.secureMessage = record.secureMessage;
+  if (record.flatNo)              payload.flatNo = record.flatNo;
+  if (record.kebele)              payload.kebele = record.kebele;
+  if (record.houseNo)             payload.houseNo = record.houseNo;
+  if (record.woreda)              payload.woreda = record.woreda;
+  if (record.subcity)             payload.subcity = record.subcity;
+  if (record.motherName)          payload.motherName = record.motherName;
+  if (record.nationalIDNumber)    payload.nationalIDNumber = record.nationalIDNumber; // Sent unchanged
+  if (record.occupation)          payload.occupation = record.occupation;
+  if (record.employersName)       payload.employersName = record.employersName;
+  if (record.netMonthlyIn)        payload.netMonthlyIn = record.netMonthlyIn;
+  
+  // Omit nationality/residence if "ET" as per contract
+  if (record.nationality && record.nationality !== 'ET') payload.nationality = record.nationality;
+  if (record.residence && record.residence !== 'ET')     payload.residence = record.residence;
+ 
+   // ── Final Validation & Whitelisting ───────────────────────────────────────
+   // We parse the payload through the strict schema to strip any undefined
+   // or extra data and ensure all types are correct before transmission.
+   const validation = T24PayloadSchema.safeParse(payload);
+   if (!validation.success) {
+     const errorMsg = `T24 Payload Validation Failed: ${validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`;
+     console.error(`❌ [VALIDATION ERROR] ${errorMsg}`);
+     throw new Error(errorMsg);
+   }
+   
+   const cleanPayload = validation.data;
 
-  console.log('\n================================================================');
-  console.log(`🚀 [T24 INGESTION START] Record ID: ${id}`);
-  console.log(`👤 ACTOR: ${actorId || 'System'}`);
-  console.log(`📍 ENDPOINT: ${T24_ENDPOINT}`);
-  console.log('================================================================\n');
+   const T24_ENDPOINT = process.env.T24_API_URL || 'https://nibteratest.nibbank.com.et/api/Test/CustomerCreate';
+   const T24_API_KEY  = process.env.T24_API_KEY;
 
-  try {
-    const fetchHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept:         'application/json',
-    };
-    if (T24_API_KEY) {
-      fetchHeaders['Authorization'] = `Bearer ${T24_API_KEY}`;
-      console.log('🔑 Auth: API Key provided');
-    } else {
-      console.log('⚠️ Auth: No API Key provided in environment');
-    }
+   console.log('\n================================================================');
+   console.log(`🚀 [T24 INGESTION START] Record ID: ${id}`);
+   console.log(`👤 ACTOR: ${actorId || 'System'}`);
+   console.log(`📍 ENDPOINT: ${T24_ENDPOINT}`);
+   console.log('================================================================\n');
 
-    console.log('\n� [T24 PAYLOAD]');
-    console.log(JSON.stringify(payload, null, 2));
-    console.log('----------------------------------------------------------------\n');
+   try {
+     const fetchHeaders: Record<string, string> = {
+       'Content-Type': 'application/json',
+       Accept:         'application/json',
+     };
+     if (T24_API_KEY) {
+       fetchHeaders['Authorization'] = `Bearer ${T24_API_KEY}`;
+       console.log('🔑 Auth: API Key provided');
+     } else {
+       console.log('⚠️ Auth: No API Key provided in environment');
+     }
 
-    console.log(`⏳ Sending POST request to T24...`);
-    const startTime = Date.now();
-    
-    // Workaround for SSL issues in internal environments
-    const T24_SKIP_SSL = process.env.T24_SKIP_SSL === 'true';
-    if (T24_SKIP_SSL) {
-      console.log('⚠️ SSL verification is disabled for T24 ingestion (T24_SKIP_SSL=true)');
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
+     console.log('\n� [T24 PAYLOAD]');
+     console.log(JSON.stringify(cleanPayload, null, 2));
+     console.log('----------------------------------------------------------------\n');
 
-    let response: Response;
-    try {
-      response = await fetch(T24_ENDPOINT, {
-        method:  'POST',
-        headers: fetchHeaders,
-        body:    JSON.stringify(payload),
-        signal:  AbortSignal.timeout(30_000),
-      });
-    } catch (fetchErr: any) {
+     console.log(`⏳ Sending POST request to T24...`);
+     const startTime = Date.now();
+     
+     // Workaround for SSL issues in internal environments
+     const T24_SKIP_SSL = process.env.T24_SKIP_SSL === 'true';
+     if (T24_SKIP_SSL) {
+       console.log('⚠️ SSL verification is disabled for T24 ingestion (T24_SKIP_SSL=true)');
+       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+     }
+
+     let response: Response;
+     try {
+       response = await fetch(T24_ENDPOINT, {
+         method:  'POST',
+         headers: fetchHeaders,
+         body:    JSON.stringify(cleanPayload),
+         signal:  AbortSignal.timeout(30_000),
+       });
+     } catch (fetchErr: any) {
       console.error('❌ Fetch attempt failed:', fetchErr);
       if (fetchErr.name === 'AbortError' || fetchErr.message?.includes('timeout')) {
         throw new Error(`Connection to T24 timed out after 30 seconds. Please check if the service is reachable.`);

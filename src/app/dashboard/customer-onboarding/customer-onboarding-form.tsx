@@ -223,6 +223,9 @@ function ContactBankingStep({ form }: { form: ReturnType<typeof useForm<Customer
       <FormField label="Customer Type" required error={errors.customerType?.message} hint="e.g. A = Individual">
         <Input {...register('customerType')} placeholder="A" />
       </FormField>
+      <FormField label="Ownership" required error={errors.ownership?.message}>
+        <Input {...register('ownership')} placeholder="1000" />
+      </FormField>
       <FormField label="Secure Message" error={errors.secureMessage?.message}>
         <Select value={watch('secureMessage') || ''} onValueChange={(v) => setValue('secureMessage', v as 'Y' | 'N', { shouldValidate: true })}>
           <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -298,6 +301,7 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomerOnboardi
         { label: 'Sector',      value: data.sector },
         { label: 'Industry',    value: data.industry },
         { label: 'Cust. Type',  value: data.customerType },
+        { label: 'Ownership',   value: data.ownership },
       ],
     },
     {
@@ -355,6 +359,7 @@ export function CustomerOnboardingForm() {
       country: 'ET', nationality: 'ET', residence: 'ET',
       language: '1', region: 'ET00', secureMessage: 'Y',
       gender: 'MALE', maritalStatus: 'MARRIED', customerType: 'A',
+      ownership: '1000',
     },
   });
 
@@ -365,7 +370,7 @@ export function CustomerOnboardingForm() {
     ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality','nationalIDNumber'],
     ['street','townCity','country','region','residence'],
     ['legalIdNumber','documentName','nameOnID','issueAuthority','issueDate','expirationDate'],
-    ['language','sector','accountOfficer','industry','target','customerStatus','customerType'],
+    ['language','sector','accountOfficer','industry','target','customerStatus','customerType', 'ownership'],
     [],
     [],
   ];
