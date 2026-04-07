@@ -758,7 +758,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     documentName:       record.documentName,
     nameOnID:           record.nameOnID,
     issueAuthority:     record.issueAuthority,
-    issueDate:          record.issueDate,
+    issueDate:          record.issueDate = "01 OCT 2024",
     expirationDate:     record.expirationDate,
     language:           record.language,
     region:             getRegionId(record.region),
