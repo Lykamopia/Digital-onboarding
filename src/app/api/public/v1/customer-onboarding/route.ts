@@ -43,6 +43,7 @@ async function authenticate(req: NextRequest): Promise<{ user?: any, isSystem?: 
 
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
 import { LogSeverity } from '@/lib/types';
+import { getRegionLabel } from '@/lib/region-mapping';
 
 // GET /api/public/v1/customer-onboarding?status=PENDING&page=1&pageSize=20&search=...
 export async function GET(req: NextRequest) {
@@ -130,6 +131,11 @@ export async function POST(req: NextRequest) {
     // Presentation Layer Mapping: Ensure psuToken exists as a presentation alias
     if (!body.psuToken) {
       body.psuToken = body.legalIdNumber || body.nationalIDNumber;
+    }
+
+    // Region Mapping: Map region ID to label
+    if (body.region) {
+      body.region = getRegionLabel(body.region);
     }
   } catch (err: any) {
     console.error('JSON Parse Error:', err);

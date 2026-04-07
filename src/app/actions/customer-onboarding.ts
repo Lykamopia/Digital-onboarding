@@ -11,6 +11,7 @@ import { getLoggedInUser } from '@/app/actions/memo';
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
 import { sendSms } from '@/lib/sms';
+import { getRegionLabel } from '@/lib/region-mapping';
 
 // ─── T24 Payload Schema (Strict Whitelist & Validation) ────────────────────────
 // This schema enforces the exact fields and formats required by the T24 core banking API.
@@ -134,6 +135,12 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
   }
 
   const data = parsed.data;
+
+  // Region Mapping: Map region ID to label
+  if (data.region) {
+    data.region = getRegionLabel(data.region);
+  }
+
   const { ipAddress, userAgent } = await getRequestContext();
 
   // ── Name Normalization ─────────────────────────────────────────────────────
@@ -376,12 +383,19 @@ export async function listCustomerOnboardings(opts: {
           submittedBy: { select: { id: true, name: true, email: true } },
           approverReviewedBy:  { select: { id: true, name: true, email: true } },
           verifierReviewedBy: { select: { id: true, name: true, email: true } },
+          region: true,
         },
       }),
       prisma.customerOnboarding.count({ where }),
     ]);
 
-    return { success: true as const, records, total, page, pageSize };
+    // Apply region mapping to all records
+    const mappedRecords = records.map(record => ({
+      ...record,
+      region: getRegionLabel(record.region)
+    }));
+
+    return { success: true as const, records: mappedRecords, total, page, pageSize };
   } catch (err) {
     console.error('[listCustomerOnboardings]', err);
     return { success: false as const, error: 'Failed to fetch records.' };
@@ -429,6 +443,7 @@ export async function getCustomerOnboarding(id: string) {
 
     const enhancedRecord = {
       ...record,
+      region: getRegionLabel(record.region),
       accountNumber,
       accountHolderName,
     };
@@ -1350,13 +1365,19 @@ export async function exportCustomerOnboardings(opts: {
       orderBy: { [sortBy]: sortOrder },
       include: {
         submittedBy: { select: { name: true } },
-        reviewedBy:  { select: { name: true } },
+        approverReviewedBy:  { select: { name: true } },
       },
       // Limit to 50k to prevent server OOM for now
       take: 50000 
     });
 
-    return { success: true as const, records };
+    // Apply region mapping to all records
+    const mappedRecords = records.map(record => ({
+      ...record,
+      region: getRegionLabel(record.region)
+    }));
+
+    return { success: true as const, records: mappedRecords };
   } catch (err) {
     console.error('[exportCustomerOnboardings]', err);
     return { success: false as const, error: 'Failed to export records.' };
