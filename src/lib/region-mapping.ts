@@ -28,43 +28,45 @@ export const REGION_MAPPING: Record<string, string> = {
   "ET07": "Harari Region",
 };
 
-export function getRegionLabel(input: string): string {
-  if (!input) return input;
-  
-  const trimmedInput = input.trim();
-  const lowerInput = trimmedInput.toLowerCase();
+/**
+ * Common search logic to find a region entry (ID + Label)
+ */
+function findRegionEntry(input: string) {
+  if (!input) return null;
+  const trimmed = input.trim();
+  const lowerInput = trimmed.toLowerCase();
   
   // 1. Direct ID match (case-insensitive)
-  const upperInput = trimmedInput.toUpperCase();
+  const upperInput = trimmed.toUpperCase();
   if (REGION_MAPPING[upperInput]) {
-    return REGION_MAPPING[upperInput];
+    return [upperInput, REGION_MAPPING[upperInput]];
   }
 
-  // 2. Intelligent search in labels
-  // We look for any label that contains the input or vice versa (case-insensitive)
-  const entry = Object.entries(REGION_MAPPING).find(([id, label]) => {
-    const lowerLabel = label.toLowerCase();
+  // 2. Search IDs and Labels
+  return Object.entries(REGION_MAPPING).find(([id, label]) => {
     const lowerId = id.toLowerCase();
+    const lowerLabel = label.toLowerCase();
     
-    // Check if input matches ID (case-insensitive)
+    // Exact ID match (redundant but safe)
     if (lowerId === lowerInput) return true;
     
-    // Check if the input is a substring of the label, or vice versa
-    return lowerLabel.includes(lowerInput) || lowerInput.includes(lowerLabel);
-  });
+    // Substring match: Input in label or vice versa
+    if (lowerLabel.includes(lowerInput) || lowerInput.includes(lowerLabel)) return true;
+    
+    // Acronym match (e.g., "AA" for "Addis Ababa City Administration")
+    const labelAcronym = lowerLabel.split(/\s+/).filter(w => w.length > 0).map(w => w[0]).join('');
+    if (labelAcronym.includes(lowerInput)) return true;
 
+    return false;
+  }) || null;
+}
+
+export function getRegionLabel(input: string): string {
+  const entry = findRegionEntry(input);
   return entry ? entry[1] : input;
 }
 
-export function getRegionId(label: string): string {
-  if (!label) return label;
-
-  const trimmedLabel = label.trim().toLowerCase();
-  
-  // Find the ID that matches this label
-  const entry = Object.entries(REGION_MAPPING).find(([id, regionLabel]) => {
-    return regionLabel.toLowerCase() === trimmedLabel;
-  });
-
-  return entry ? entry[0] : label;
+export function getRegionId(input: string): string {
+  const entry = findRegionEntry(input);
+  return entry ? entry[0] : input;
 }
