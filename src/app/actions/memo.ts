@@ -449,7 +449,7 @@ export async function completeOnboardingTour() {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Not authenticated");
     await prisma.user.update({ where: { id: user.id }, data: { onboardingCompleted: true } });
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/customer-onboarding');
     return { success: true };
 }
 
@@ -506,14 +506,14 @@ export async function getDashboardData(folder: string = 'inbox', search: string 
 export async function markAllAsReadForUser() {
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: 'Unauthorized' };
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/customer-onboarding');
     return { success: true };
 }
 
 export async function markAsRead(id: string) {
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: 'Unauthorized' };
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/customer-onboarding');
     return { success: true };
 }
 
@@ -570,6 +570,6 @@ export async function updateUserProfile(userId: string, data: { name: string, em
     const user = await getLoggedInUser();
     if (!user || user.id !== userId) throw new Error("Unauthorized");
     await prisma.user.update({ where: { id: userId }, data: { name: data.name, avatar: data.avatar, signature: data.signature } });
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/customer-onboarding');
     return { success: true };
 }

@@ -51,16 +51,18 @@ export function DashboardLayoutClient({ children, user: initialUser }: Dashboard
     return () => window.removeEventListener('profile-updated', handler as EventListener);
   }, []);
 
-  if (loading) {
-    return <div className="h-screen w-full flex items-center justify-center bg-background"><UserProfileLoader /></div>;
-  }
-
   return (
-    <SidebarProvider>
-        <DashboardContentWrapper user={user}>
-            {children}
-        </DashboardContentWrapper>
-        {isMobile && user && <BottomNavigation user={user} />}
+    <SidebarProvider defaultOpen={true}>
+        {loading ? (
+            <div className="h-screen w-full flex items-center justify-center bg-background"><UserProfileLoader /></div>
+        ) : (
+            <>
+                <DashboardContentWrapper user={user}>
+                    {children}
+                </DashboardContentWrapper>
+                {isMobile && user && <BottomNavigation user={user} />}
+            </>
+        )}
     </SidebarProvider>
   );
 }

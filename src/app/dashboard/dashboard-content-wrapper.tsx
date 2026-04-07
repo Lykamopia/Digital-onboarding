@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
+  SidebarInset,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/logo';
@@ -103,7 +104,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
   return (
     <>
     <SessionTimeoutManager disabled={mustCompleteOnboarding} />
-    <div className="grid min-h-screen w-full transition-[grid-template-columns] ease-in-out duration-300 md:grid-cols-[var(--sidebar-width)_1fr]">
+    <div className="flex min-h-screen w-full transition-all duration-300 ease-in-out">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
         <SidebarContent title="Dashboard">
           <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
@@ -126,7 +127,8 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
           </SidebarMenu>
         </SidebarContent>
       </Sidebar>
-      <div className="flex flex-col h-screen">
+      
+      <SidebarInset className="flex flex-col h-screen min-w-0">
         <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-card/60 backdrop-blur-md no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
             <Sheet>
@@ -172,7 +174,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         <div className="hidden print:block">
           {children}
         </div>
-      </div>
+      </SidebarInset>
     </div>
     </>
   );
