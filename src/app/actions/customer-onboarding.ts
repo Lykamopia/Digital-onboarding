@@ -11,7 +11,7 @@ import { getLoggedInUser } from '@/app/actions/memo';
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
 import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
 import { sendSms } from '@/lib/sms';
-import { getRegionLabel } from '@/lib/region-mapping';
+import { getRegionLabel, getRegionId } from '@/lib/region-mapping';
 
 // ─── T24 Payload Schema (Strict Whitelist & Validation) ────────────────────────
 // This schema enforces the exact fields and formats required by the T24 core banking API.
@@ -761,7 +761,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     issueDate:          record.issueDate,
     expirationDate:     record.expirationDate,
     language:           record.language,
-    region:             record.region,
+    region:             getRegionId(record.region),
     phoneNumber:        record.mobilePhoneNumbers || '', // Mandatory field
     title:              record.title,
     givenName:          record.givenName,

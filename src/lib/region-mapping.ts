@@ -55,3 +55,16 @@ export function getRegionLabel(input: string): string {
 
   return entry ? entry[1] : input;
 }
+
+export function getRegionId(label: string): string {
+  if (!label) return label;
+
+  const trimmedLabel = label.trim().toLowerCase();
+  
+  // Find the ID that matches this label
+  const entry = Object.entries(REGION_MAPPING).find(([id, regionLabel]) => {
+    return regionLabel.toLowerCase() === trimmedLabel;
+  });
+
+  return entry ? entry[0] : label;
+}
