@@ -891,33 +891,48 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     const isFailed = t24Status === 'failed' || t24Status === 'error' || hasErrorField || !response.ok;
 
     if (isFailed) {
-      // Prioritize the detailed 'error' field from T24 over the generic 'message'
-      let errorMsg = isObject ? (responseData?.error || responseData?.message) : null;
-      
-      // Handle cases where 'message' is present but 'error' has the actual detail
-      if (isObject && responseData.status === 'Failed' && responseData.error) {
-        errorMsg = responseData.error;
-      }
+      // User request: Show 'message' in toast, and 'error' in the detailed error area
+      const toastMsg = isObject ? (responseData?.message || 'Customer and account creation failed.') : (response.ok ? 'T24 returned a failure status.' : `HTTP Error ${response.status}`);
+      let detailedError = isObject ? (responseData?.error || responseData?.message || toastMsg) : toastMsg;
       
       // Handle nested JSON in the error field (e.g., {"messages": [...]})
-      if (typeof errorMsg === 'string' && errorMsg.startsWith('{')) {
+      if (typeof detailedError === 'string' && detailedError.startsWith('{')) {
         try {
-          const nested = JSON.parse(errorMsg);
+          const nested = JSON.parse(detailedError);
           if (nested.messages && Array.isArray(nested.messages)) {
-            // Deduplicate and join messages
-            errorMsg = Array.from(new Set(nested.messages)).join('; ');
+            detailedError = Array.from(new Set(nested.messages)).join('; ');
           } else if (nested.error) {
-            errorMsg = nested.error;
+            detailedError = nested.error;
           } else if (nested.message) {
-            errorMsg = nested.message;
+            detailedError = nested.message;
           }
         } catch {
-          // If parsing fails, stick with the raw string
+          // Keep raw if parse fails
         }
       }
 
-      const finalMsg = errorMsg || (response.ok ? 'T24 returned a failure status without details.' : `HTTP Error ${response.status}: ${response.statusText}`);
-      throw new Error(`T24_BUSINESS_ERROR: ${finalMsg}`);
+      await prisma.$transaction(async (tx) => {
+        await tx.customerOnboarding.update({
+          where: { id },
+          data: {
+            forwardResponse: responseData,
+            forwardError: detailedError,
+            approvalStatus: 'SYNC_FAILED',
+          },
+        });
+        await tx.customerOnboardingAuditLog.create({
+          data: {
+            customerOnboardingId: id,
+            actorId: actorId || null,
+            action: 'FORWARD_FAILED',
+            details: `T24 Business Error: ${detailedError}`,
+            ipAddress,
+            userAgent,
+          },
+        });
+      });
+
+      return { success: false, error: toastMsg };
     }
 
     // If we reach here, response.ok must be true and no business errors were found
@@ -928,15 +943,17 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         : typeof digitalFlag === 'string'
           ? ['yes', 'true', '1'].includes(digitalFlag.trim().toLowerCase())
           : false;
+    
     if (!isDigitalAccount) {
-      const responseMessage = (responseData as any)?.message || 'Digital account not created on core banking.';
-      const finalMsg = `Approval blocked: ${responseMessage}`;
+      const toastMsg = (responseData as any)?.message || 'Digital account not created on core banking.';
+      const detailedError = (responseData as any)?.error || toastMsg;
+      
       await prisma.$transaction(async (tx) => {
         await tx.customerOnboarding.update({
           where: { id },
           data: {
             forwardResponse: responseData,
-            forwardError: finalMsg,
+            forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
           },
         });
@@ -945,13 +962,13 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             customerOnboardingId: id,
             actorId: actorId || null,
             action: 'FORWARD_FAILED',
-            details: `T24 success but isDigitalAccount is not YES. ${finalMsg}`,
+            details: `T24 success but isDigitalAccount is not YES. ${detailedError}`,
             ipAddress,
             userAgent,
           },
         });
       });
-      return { success: false, error: finalMsg };
+      return { success: false, error: toastMsg };
     }
 
     await prisma.customerOnboarding.update({
