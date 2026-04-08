@@ -921,6 +921,39 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     }
 
     // If we reach here, response.ok must be true and no business errors were found
+    const digitalFlag = (responseData as any)?.isDigitalAccount;
+    const isDigitalAccount =
+      typeof digitalFlag === 'boolean'
+        ? digitalFlag
+        : typeof digitalFlag === 'string'
+          ? ['yes', 'true', '1'].includes(digitalFlag.trim().toLowerCase())
+          : false;
+    if (!isDigitalAccount) {
+      const responseMessage = (responseData as any)?.message || 'Digital account not created on core banking.';
+      const finalMsg = `Approval blocked: ${responseMessage}`;
+      await prisma.$transaction(async (tx) => {
+        await tx.customerOnboarding.update({
+          where: { id },
+          data: {
+            forwardResponse: responseData,
+            forwardError: finalMsg,
+            approvalStatus: 'SYNC_FAILED',
+          },
+        });
+        await tx.customerOnboardingAuditLog.create({
+          data: {
+            customerOnboardingId: id,
+            actorId: actorId || null,
+            action: 'FORWARD_FAILED',
+            details: `T24 success but isDigitalAccount is not YES. ${finalMsg}`,
+            ipAddress,
+            userAgent,
+          },
+        });
+      });
+      return { success: false, error: finalMsg };
+    }
+
     await prisma.customerOnboarding.update({
         where: { id },
         data: {
