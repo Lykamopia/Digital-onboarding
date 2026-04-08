@@ -207,7 +207,8 @@ const DataRow = React.memo(({
     pageSize, 
     isSelected, 
     onToggle, 
-    onView 
+    onView,
+    canReview
 }: { 
     rec: CustomerOnboarding; 
     index: number; 
@@ -216,6 +217,7 @@ const DataRow = React.memo(({
     isSelected: boolean; 
     onToggle: (checked: boolean) => void;
     onView: () => void;
+    canReview: boolean;
 }) => {
     return (
         <motion.tr
@@ -250,7 +252,7 @@ const DataRow = React.memo(({
             <td className="px-4 py-3">
                 <div className="flex flex-col gap-1 items-start">
                     <StatusBadge status={rec.approvalStatus as any} />
-                    <SMSStatusBadge status={rec.smsStatus} sentAt={rec.smsSentAt} />
+                    {canReview && <SMSStatusBadge status={rec.smsStatus} sentAt={rec.smsSentAt} />}
                 </div>
             </td>
             <td className="px-4 py-3 text-xs hidden lg:table-cell font-outfit">
@@ -843,7 +845,7 @@ function RecordDetailDialog({
                   </p>
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
-                    <SMSStatusBadge status={record.smsStatus} sentAt={record.smsSentAt} />
+                    {canReview && <SMSStatusBadge status={record.smsStatus} sentAt={record.smsSentAt} />}
                     {record.forwardedAt ? (
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
                         <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
@@ -858,7 +860,7 @@ function RecordDetailDialog({
                         <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
                           <AlertTriangle className="h-3 w-3 mr-1" /> T24 Sync Failed
                         </Badge>
-                        {(canReview || canMaker) && (
+                        {canReview && (
                           <Button
                             onClick={handleRetry}
                             disabled={!!actionInProgress}
@@ -1020,7 +1022,7 @@ function RecordDetailDialog({
               )}
 
               {/* SMS Status */}
-              {(record.smsSentAt || record.smsStatus === 'FAILED') && (
+              {canReview && (record.smsSentAt || record.smsStatus === 'FAILED') && (
                 <div className={cn(
                   "rounded-lg border p-4 flex items-start gap-4 transition-all duration-300",
                   record.smsStatus === 'SENT' 
@@ -1053,7 +1055,7 @@ function RecordDetailDialog({
                         ? `The customer was successfully notified at ${record.mobilePhoneNumbers || record.phoneNumbersRes}.`
                         : `Failed to notify customer: ${record.smsError || 'Unknown gateway error'}.`}
                     </p>
-                    {record.smsStatus === 'FAILED' && (
+                    {record.smsStatus === 'FAILED' && canReview && (
                       <Button
                         onClick={handleRetrySms}
                         disabled={!!actionInProgress}
@@ -1164,12 +1166,14 @@ function RecordDetailDialog({
                   />
                   
                   {/* SMS Notification Notice */}
-                  <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
-                    <MessageSquare className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-amber-700 leading-tight">
-                      <strong>SMS Notification:</strong> An automated SMS will be sent to the customer's phone ({record.mobilePhoneNumbers || record.phoneNumbersRes}) upon final {record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED' ? 'approval (after core sync)' : 'rejection'}.
-                    </p>
-                  </div>
+                  {canReview && (
+                    <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                      <MessageSquare className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-amber-700 leading-tight">
+                        <strong>SMS Notification:</strong> An automated SMS will be sent to the customer's phone ({record.mobilePhoneNumbers || record.phoneNumbersRes}) upon final {record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED' ? 'approval (after core sync)' : 'rejection'}.
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="flex gap-3 pt-1">
                     <Button
@@ -1799,6 +1803,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                         params.set('id', rec.id);
                         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
                     }}
+                    canReview={canReview}
                   />
                 ))
               )}

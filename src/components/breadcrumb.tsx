@@ -49,10 +49,15 @@ export function Breadcrumb() {
   const breadcrumbs = relevantSegments.map((segment, index) => {
     const href = '/' + segments.slice(0, dashboardIndex + index + 1).join('/');
     const config = pathConfig[segment] || { icon: null, label: segment.charAt(0).toUpperCase() + segment.slice(1) };
+    
+    // Disable link for 'dashboard' segment as it doesn't have a dedicated page
+    const isClickable = segment !== 'dashboard' && index !== relevantSegments.length - 1;
+
     return {
       href,
       label: config.label,
       icon: config.icon,
+      isClickable,
     };
   });
 
@@ -67,19 +72,28 @@ export function Breadcrumb() {
       {breadcrumbs.map((crumb, index) => (
         <Fragment key={crumb.href}>
           <motion.div variants={itemVariants}>
-            <Link href={crumb.href}>
+            {crumb.isClickable ? (
+              <Link href={crumb.href}>
+                <div
+                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {crumb.icon}
+                  <span className="whitespace-nowrap">{crumb.label}</span>
+                </div>
+              </Link>
+            ) : (
               <div
                 className={cn(
                   "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                   index === breadcrumbs.length - 1
-                    ? 'bg-primary/10 text-primary pointer-events-none'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground'
                 )}
               >
                 {crumb.icon}
                 <span className="whitespace-nowrap">{crumb.label}</span>
               </div>
-            </Link>
+            )}
           </motion.div>
           {index < breadcrumbs.length - 1 && (
             <motion.div variants={itemVariants} className="text-muted-foreground">

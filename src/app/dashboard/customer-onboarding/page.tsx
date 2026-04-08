@@ -29,8 +29,9 @@ export default async function OnboardingStatusPage({
   if (!user) redirect('/login');
 
   const permissions = (user.role?.permissions || '').split(',').map(p => p.trim());
-  const canApprover = permissions.includes('approver_customer_onboarding');
-  const canVerifier = permissions.includes('verifier_customer_onboarding');
+  const isAdmin = permissions.includes('admin');
+  const canApprover = permissions.includes('approver_customer_onboarding') || isAdmin;
+  const canVerifier = permissions.includes('verifier_customer_onboarding') || isAdmin;
 
   if (!canVerifier && !canApprover) redirect('/dashboard/access-denied');
 

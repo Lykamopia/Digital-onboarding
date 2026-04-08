@@ -63,10 +63,10 @@ function findRegionEntry(input: string) {
 
 export function getRegionLabel(input: string): string {
   const entry = findRegionEntry(input);
-  return entry ? entry[1] : input;
+  return entry ? entry[1] : (REGION_MAPPING["ET00"] || "Addis Ababa City Administration");
 }
 
 export function getRegionId(input: string): string {
   const entry = findRegionEntry(input);
-  return entry ? entry[0] : input;
+  return entry ? entry[0] : "ET00";
 }

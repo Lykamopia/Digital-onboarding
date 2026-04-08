@@ -75,14 +75,15 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 
     if (!currentUser) return null;
     
-    (currentUser as any).hashedPassword = null;
+    // Sanitize user object: Remove sensitive fields and return only necessary attributes
+    const { hashedPassword, tokenVersion, ...sanitizedUser } = currentUser;
 
     if (currentUser.status === 'inactive') {
         return null;
     }
 
     const finalUser: LoggedInUser = {
-        ...currentUser as any,
+        ...sanitizedUser as any,
         onboardingCompleted: currentUser.onboardingCompleted,
     };
     
@@ -354,7 +355,7 @@ export async function getAdminUsers(page = 1, limit = 10, filters: any = {}) {
     ]);
 
     return {
-        users: users.map(u => { const { hashedPassword, ...rest } = u; return rest as unknown as User; }),
+        users: users.map(u => { const { hashedPassword, tokenVersion, ...rest } = u; return rest as unknown as User; }),
         total,
         totalPages: Math.ceil(total / limit),
         page,
@@ -390,7 +391,7 @@ export async function getDistricts() { return await prisma.district.findMany({ i
 export async function getOffices() { return await prisma.office.findMany({ include: { departments: true, districts: true } }); }
 export async function getUsers() {
     const users = await prisma.user.findMany({ include: { role: true, office: true, department: true, division: true, district: true, branch: true }, orderBy: { name: 'asc' } });
-    return users.map(user => { const { hashedPassword, ...userWithoutPassword } = user; return userWithoutPassword as unknown as User; });
+    return users.map(user => { const { hashedPassword, tokenVersion, ...userWithoutSensitiveData } = user; return userWithoutSensitiveData as unknown as User; });
 }
 
 export async function revokeUserTokens(userId: string) {
@@ -430,7 +431,27 @@ export async function getSecurityLogs(page = 1, limit = 15, filters: { severity?
     }
 
     const [logs, total] = await prisma.$transaction([
-        prisma.securityLog.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { timestamp: 'desc' }, include: { actor: true }}),
+        prisma.securityLog.findMany({ 
+            where, 
+            skip: (page - 1) * limit, 
+            take: limit, 
+            orderBy: { timestamp: 'desc' }, 
+            include: { 
+                actor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        status: true,
+                        role: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                } 
+            }
+        }),
         prisma.securityLog.count({ where })
     ]);
     return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };

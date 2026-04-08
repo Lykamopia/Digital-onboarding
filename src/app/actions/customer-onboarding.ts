@@ -298,7 +298,7 @@ export async function listCustomerOnboardings(opts: {
   const user = await getLoggedInUser();
   if (!user) return { success: false as const, error: 'Unauthorized' };
 
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
+  const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   const canSubmit = hasRolePermission(user, 'submit_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
   if (!canReview && !canSubmit) return { success: false as const, error: 'Access denied.' };
 
@@ -383,9 +383,9 @@ export async function listCustomerOnboardings(opts: {
           phoneNumbersRes: true,
           
           // Relations (Selected fields only)
-          submittedBy: { select: { id: true, name: true, email: true } },
-          approverReviewedBy:  { select: { id: true, name: true, email: true } },
-          verifierReviewedBy: { select: { id: true, name: true, email: true } },
+          submittedBy: { select: { id: true, name: true, email: true, status: true } },
+          approverReviewedBy:  { select: { id: true, name: true, email: true, status: true } },
+          verifierReviewedBy: { select: { id: true, name: true, email: true, status: true } },
           region: true,
         },
       }),
@@ -412,7 +412,7 @@ export async function getCustomerOnboarding(id: string) {
   const user = await getLoggedInUser();
   if (!user) return { success: false as const, error: 'Unauthorized' };
 
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
+  const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   const canSubmit = hasRolePermission(user, 'submit_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
   if (!canReview && !canSubmit) return { success: false as const, error: 'Access denied.' };
 
@@ -420,12 +420,12 @@ export async function getCustomerOnboarding(id: string) {
     const record = await prisma.customerOnboarding.findUnique({
       where: { id },
       include: {
-        submittedBy: { select: { id: true, name: true, email: true } },
-        approverReviewedBy:  { select: { id: true, name: true, email: true } },
-        verifierReviewedBy: { select: { id: true, name: true, email: true } },
+        submittedBy: { select: { id: true, name: true, email: true, status: true } },
+        approverReviewedBy:  { select: { id: true, name: true, email: true, status: true } },
+        verifierReviewedBy: { select: { id: true, name: true, email: true, status: true } },
         auditLogs: {
           orderBy: { timestamp: 'asc' },
-          include: { actor: { select: { id: true, name: true, email: true } } },
+          include: { actor: { select: { id: true, name: true, email: true, status: true } } },
         },
       },
     });
@@ -466,9 +466,8 @@ export async function getHistoricalComparison(recordId: string) {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || 
-                    hasRolePermission(user, 'approver_customer_onboarding') ||
-                    hasRolePermission(user, 'verifier_customer_onboarding');
+  const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || 
+                    hasRolePermission(user, 'approver_customer_onboarding');
   if (!canReview) return { success: false, error: 'Access denied.' };
 
   const { ipAddress, userAgent } = await getRequestContext();
@@ -486,9 +485,9 @@ export async function getHistoricalComparison(recordId: string) {
     const previous = await prisma.customerOnboarding.findUnique({
       where: { id: current.parentCustomerId },
       include: {
-        submittedBy: { select: { id: true, name: true } },
-        verifierReviewedBy: { select: { id: true, name: true } },
-        approverReviewedBy: { select: { id: true, name: true } },
+        submittedBy: { select: { id: true, name: true, email: true, status: true } },
+        verifierReviewedBy: { select: { id: true, name: true, email: true, status: true } },
+        approverReviewedBy: { select: { id: true, name: true, email: true, status: true } },
       }
     });
 
@@ -538,9 +537,9 @@ export async function reviewCustomerOnboarding(opts: {
     const existing = await prisma.customerOnboarding.findUnique({ 
       where: { id },
       include: { 
-        submittedBy:      { select: { id: true, name: true } }, 
-        verifierReviewedBy:  { select: { id: true, name: true } },
-        approverReviewedBy:       { select: { id: true, name: true } }
+        submittedBy:      { select: { id: true, name: true, email: true, status: true } }, 
+        verifierReviewedBy:  { select: { id: true, name: true, email: true, status: true } },
+        approverReviewedBy:       { select: { id: true, name: true, email: true, status: true } }
       }
     });
     if (!existing) return { success: false, error: 'Record not found.' };
@@ -1193,7 +1192,8 @@ export async function retrySendSms(id: string) {
   if (!user) return { success: false, error: 'Unauthorized' };
   
   // Enforce strict role-based access control on the SMS trigger function
-  const canTriggerSms = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
+  // Requirement: SMS is only active for approver, not verifier
+  const canTriggerSms = hasRolePermission(user, 'approver_customer_onboarding');
   if (!canTriggerSms) {
     return { success: false, error: 'Access denied. You do not have permission to trigger SMS notifications.' };
   }
@@ -1262,7 +1262,7 @@ export async function bulkReviewCustomerOnboarding(opts: {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
   
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
+  const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   if (!canReview) {
     return { success: false, error: 'Access denied.' };
   }
@@ -1465,7 +1465,7 @@ export async function exportCustomerOnboardings(opts: {
   const user = await getLoggedInUser();
   if (!user) return { success: false as const, error: 'Unauthorized' };
 
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'checker_customer_onboarding');
+  const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   if (!canReview) return { success: false as const, error: 'Access denied.' };
 
   const { ids, status, search, sortBy = 'createdAt', sortOrder = 'desc', fromDate, toDate, gender } = opts;
@@ -1496,8 +1496,8 @@ export async function exportCustomerOnboardings(opts: {
       where,
       orderBy: { [sortBy]: sortOrder },
       include: {
-        submittedBy: { select: { name: true } },
-        approverReviewedBy:  { select: { name: true } },
+        submittedBy: { select: { name: true, email: true, status: true } },
+        approverReviewedBy:  { select: { name: true, email: true, status: true } },
       },
       // Limit to 50k to prevent server OOM for now
       take: 50000 

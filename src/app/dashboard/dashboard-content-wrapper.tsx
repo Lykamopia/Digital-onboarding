@@ -101,7 +101,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     <SessionTimeoutManager disabled={mustCompleteOnboarding} />
     <div className="flex min-h-screen w-full transition-all duration-300 ease-in-out">
       <Sidebar collapsible="icon" className="hidden md:flex no-print">
-        <SidebarContent title="Dashboard">
+        <SidebarContent>
           <SidebarHeader className="h-14 lg:h-[60px] border-b justify-center">
             <div className="flex items-center group-data-[collapsible=icon]:justify-center">
               <Logo className="group-data-[collapsible=icon]:hidden" />
@@ -126,30 +126,6 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
       <SidebarInset className="flex flex-col h-screen min-w-0">
         <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-card/60 backdrop-blur-md no-print shrink-0 lg:h-[60px]">
           <div className="flex items-center gap-4 w-full h-full px-4 lg:px-6">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button size="icon" variant="outline" className="md:hidden">
-                  <PanelLeft className="h-5 w-5" />
-                  <span className="sr-only">Toggle Menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="sm:max-w-xs">
-                <SheetHeader className="p-4">
-                  <SheetTitle className="sr-only">Main Menu</SheetTitle>
-                   <Link href="/dashboard/customer-onboarding" className="flex items-center gap-2">
-                      <Logo />
-                  </Link>
-                </SheetHeader>
-                <nav className="grid gap-4 p-4 text-lg font-medium">
-                  {navItems.filter(item => item.visible && !item.className?.includes('hidden')).map(item => (
-                    <Link key={item.label} href={item.href} className={`flex items-center gap-4 px-2.5 ${item.active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                      {item.icon}
-                      {item.label}
-                    </Link>
-                  ))}
-                </nav>
-              </SheetContent>
-            </Sheet>
             <SidebarTrigger className="hidden md:flex" />
             <div className="md:flex items-center">
               <Breadcrumb />

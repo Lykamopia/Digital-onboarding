@@ -151,9 +151,9 @@ export const authOptions: NextAuthOptions = {
             details: `User ${user.email} logged in successfully.`,
         });
 
-        (updatedUser as any).hashedPassword = null;
+        const { hashedPassword: _hashedPassword, tokenVersion: _tokenVersion, ...sanitizedUser } = updatedUser;
 
-        return updatedUser;
+        return sanitizedUser;
       },
     }),
   ],
