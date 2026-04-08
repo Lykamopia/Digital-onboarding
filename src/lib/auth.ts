@@ -158,26 +158,25 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   cookies: (() => {
-    const nextAuthUrl = (process.env.NEXTAUTH_URL || '').trim();
-    const usesHttps = nextAuthUrl.toLowerCase().startsWith('https://');
-    const namePrefix = usesHttps ? '__Secure-' : '';
+    const isProd = process.env.NODE_ENV === 'production';
+    const namePrefix = isProd ? '__Secure-' : '';
 
     return {
       sessionToken: {
         name: `${namePrefix}next-auth.session-token`,
         options: {
           httpOnly: true,
-          sameSite: 'strict',
+          sameSite: 'lax', // Lax is generally better for cross-site auth flows
           path: '/',
-          secure: usesHttps,
+          secure: isProd, // Enforce Secure flag in production
         },
       },
     };
   })(),
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
-    updateAge: 20 * 60, // 20 minutes
+    maxAge: 4 * 60 * 60, // Reduced to 4 hours for more aggressive security
+    updateAge: 15 * 60, // Refresh session every 15 minutes of activity (sliding timeout)
   },
   pages: {
     signIn: "/login",

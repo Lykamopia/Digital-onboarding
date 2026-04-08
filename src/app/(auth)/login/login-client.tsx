@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import Logo from '@/components/logo';
 import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { getUserLockoutStatus } from '@/app/actions/memo';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -54,46 +53,6 @@ export default function LoginClientPage() {
 
   const email = watch('email');
 
-  const checkLockout = useCallback(async (currentEmail: string) => {
-    if (!currentEmail) return;
-    const lockoutStatus = await getUserLockoutStatus(currentEmail);
-    if (lockoutStatus?.lockoutUntil) {
-        const lockoutDate = new Date(lockoutStatus.lockoutUntil);
-        const now = new Date();
-        if (now < lockoutDate) {
-            const timeLeft = Math.ceil((lockoutDate.getTime() - now.getTime()) / 1000);
-            setLockoutTimeLeft(timeLeft);
-        } else {
-            setLockoutTimeLeft(null);
-        }
-    } else {
-        setLockoutTimeLeft(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (email && isDirty) {
-        trigger('email').then(isValid => {
-            if(isValid) checkLockout(email);
-        });
-    } else if (email) {
-        checkLockout(email);
-    }
-  }, [email, checkLockout, isDirty, trigger]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout | undefined;
-    if (lockoutTimeLeft !== null && lockoutTimeLeft > 0) {
-      timer = setInterval(() => {
-        setLockoutTimeLeft(prev => (prev ? prev - 1 : 0));
-      }, 1000);
-    } else if (lockoutTimeLeft === 0) {
-        setLockoutTimeLeft(null); // Unlock
-    }
-    return () => clearInterval(timer);
-  }, [lockoutTimeLeft]);
-  
-
   const [callbackUrl, setCallbackUrl] = useState('/dashboard/customer-onboarding');
 
   useEffect(() => {
@@ -120,9 +79,6 @@ export default function LoginClientPage() {
 
 
   const onSubmit = async (data: LoginFormData) => {
-    await checkLockout(data.email);
-    if (lockoutTimeLeft && lockoutTimeLeft > 0) return;
-
     setLoading(true);
 
     const result = await signIn('credentials', {
@@ -134,7 +90,6 @@ export default function LoginClientPage() {
     setLoading(false);
 
     if (result?.error) {
-      await checkLockout(data.email);
       toast.error('Login Failed', {
         description: result.error,
       });

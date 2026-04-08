@@ -66,8 +66,13 @@ const securityHeaders = [
 export default withAuth(
   function middleware(req: NextRequest) {
     const { token } = req.nextauth;
-    const { pathname } = req.nextUrl;
+    const { pathname, protocol } = req.nextUrl;
     
+    // Enforce HTTPS in production
+    if (process.env.NODE_ENV === 'production' && protocol !== 'https:') {
+        return NextResponse.redirect(`https://${req.nextUrl.host}${pathname}`, 301);
+    }
+
     const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
     const csp = generateCsp(nonce);
 

@@ -1,11 +1,11 @@
 import { writeFile, mkdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, normalize, sep } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import mime from 'mime-types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const UPLOAD_ROOT = join(process.cwd(), 'uploads', 'customer-photos');
+const UPLOAD_ROOT = normalize(join(process.cwd(), 'uploads', 'customer-photos'));
 
 export interface ImageProcessingResult {
   success: boolean;
@@ -16,11 +16,26 @@ export interface ImageProcessingResult {
 }
 
 /**
+ * Validates that a path stays within a base directory (prevents path traversal).
+ */
+function isSafePath(base: string, target: string): boolean {
+  const normalizedBase = normalize(base) + sep;
+  const normalizedTarget = normalize(target);
+  return normalizedTarget.startsWith(normalizedBase);
+}
+
+/**
  * Processes a base64-encoded image: decodes, validates, and stores it.
  * @param base64Data The base64-encoded image string (with or without data URI prefix).
+ * @param category Optional category for the upload (for path isolation)
  * @returns An object containing the success status and the relative file path.
  */
-export async function processBase64Image(base64Data: string): Promise<ImageProcessingResult> {
+export async function processBase64Image(base64Data: string, category: string = 'customer-photos'): Promise<ImageProcessingResult> {
+  // Whitelist validation for category
+  const safeCategories = ['customer-photos', 'attachments', 'signatures', 'profile'];
+  const uploadCategory = safeCategories.includes(category) ? category : 'customer-photos';
+  const categoryRoot = normalize(join(process.cwd(), 'uploads', uploadCategory));
+
   try {
     // 1. Extract mime type and raw base64 data
     const matches = base64Data.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
@@ -56,7 +71,8 @@ export async function processBase64Image(base64Data: string): Promise<ImageProce
     const extension = mime.extension(mimeType) || 'jpg';
     const timestamp = Date.now();
     const uuid = randomUUID();
-    const filename = `${timestamp}-${uuid}.${extension}`;
+    // Sanitize filename parts (though they are generated here)
+    const filename = `${timestamp}-${uuid}.${extension}`.replace(/[^a-zA-Z0-9.-]/g, '_');
     
     // Folder structure: YYYY/MM/DD for scalability
     const now = new Date();
@@ -64,21 +80,25 @@ export async function processBase64Image(base64Data: string): Promise<ImageProce
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const day = now.getDate().toString().padStart(2, '0');
     
+    // Boundary check for path components
     const relativeFolder = join(year, month, day);
-    const absoluteFolder = join(UPLOAD_ROOT, relativeFolder);
+    const absoluteFolder = join(categoryRoot, relativeFolder);
+    const absolutePath = join(absoluteFolder, filename);
+
+    // Strict boundary check: Ensure the resolved path is within the category root
+    if (!isSafePath(categoryRoot, absolutePath)) {
+      console.error(`❌ [SECURITY] Path traversal attempt blocked: ${absolutePath}`);
+      return { success: false, error: 'Security violation: invalid upload path detected.' };
+    }
+
     // Return path starting with /uploads/ for consistency with other upload routes
-    const relativePath = `/uploads/customer-photos/${relativeFolder}/${filename}`.replace(/\\/g, '/');
-    const absolutePath = join(UPLOAD_ROOT, relativeFolder, filename);
+    const relativePath = `/uploads/${uploadCategory}/${relativeFolder}/${filename}`.replace(/\\/g, '/');
 
     // 6. Ensure directory exists
     await mkdir(absoluteFolder, { recursive: true });
 
     // 7. Write file
     await writeFile(absolutePath, buffer);
-
-    // Note: In a real-world scenario, you might want to set permissions here.
-    // On Windows, file permissions are handled differently than Linux.
-    // For Node.js, we could use chmod but it's limited on Windows.
 
     return {
       success: true,

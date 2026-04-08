@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { signOut } from 'next-auth/react';
 
 const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required."),
     newPassword: passwordSchema,
     confirmPassword: z.string(),
 }).refine(data => data.newPassword === data.confirmPassword, {
@@ -28,6 +29,7 @@ type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 
 export default function ChangePasswordClientPage() {
     const [loading, setLoading] = useState(false);
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -45,14 +47,20 @@ export default function ChangePasswordClientPage() {
 
     const onSubmit = async (data: ChangePasswordFormData) => {
         setLoading(true);
-        const result = await changeUserPassword(data.newPassword);
+        const result = await changeUserPassword({ 
+            currentPassword: data.currentPassword, 
+            newPassword: data.newPassword 
+        });
 
         if (result.success) {
             toast.success('Password Changed', {
-                description: 'Your password has been updated successfully.',
+                description: 'Your password has been updated successfully. Redirecting to login...',
             });
-            // You might want to sign out the user to force them to log in with the new password
-            signOut({ callbackUrl: '/login' });
+            // Sign out the user to force them to log in with the new password
+            // This is a sensitive action that should invalidate existing sessions
+            setTimeout(() => {
+                signOut({ callbackUrl: '/login' });
+            }, 2000);
         } else {
             setLoading(false);
             toast.error('Update Failed', {
@@ -77,6 +85,29 @@ export default function ChangePasswordClientPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="currentPassword">Current Password</Label>
+                            <div className="relative">
+                                <Input
+                                    id="currentPassword"
+                                    type={showCurrentPassword ? 'text' : 'password'}
+                                    {...register('currentPassword')}
+                                    placeholder="Enter your current password"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute inset-y-0 right-0 h-full px-3"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                >
+                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    <span className="sr-only">{showCurrentPassword ? 'Hide password' : 'Show password'}</span>
+                                </Button>
+                            </div>
+                            {errors.currentPassword && <p className="text-sm text-destructive">{errors.currentPassword.message}</p>}
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="newPassword">New Password</Label>
                             <div className="relative">

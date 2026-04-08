@@ -836,19 +836,27 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
      
      // Workaround for SSL issues in internal environments
      const T24_SKIP_SSL = process.env.T24_SKIP_SSL === 'true';
-     if (T24_SKIP_SSL) {
-       console.log('⚠️ SSL verification is disabled for T24 ingestion (T24_SKIP_SSL=true)');
-       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-     }
 
      let response: Response;
      try {
-       response = await fetch(T24_ENDPOINT, {
+       // @ts-ignore - 'agent' is supported in Node.js fetch
+       const fetchOptions: any = {
          method:  'POST',
          headers: fetchHeaders,
          body:    JSON.stringify(cleanPayload),
          signal:  AbortSignal.timeout(30_000),
-       });
+       };
+
+       // Use a scoped HTTPS agent if SSL verification needs to be disabled for this specific request
+       if (T24_SKIP_SSL) {
+         console.log('⚠️ SSL verification is disabled ONLY for this T24 ingestion request (T24_SKIP_SSL=true)');
+         const https = require('https');
+         fetchOptions.agent = new https.Agent({
+           rejectUnauthorized: false
+         });
+       }
+
+       response = await fetch(T24_ENDPOINT, fetchOptions);
      } catch (fetchErr: any) {
       console.error('❌ Fetch attempt failed:', fetchErr);
       if (fetchErr.name === 'AbortError' || fetchErr.message?.includes('timeout')) {
@@ -859,13 +867,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       }
       throw fetchErr;
     } finally {
-      // Reset SSL check after the call if we changed it
-      if (T24_SKIP_SSL) {
-        // We don't want to leave it as '0' forever, but setting it back to '1' 
-        // might be tricky if other concurrent requests need it.
-        // However, in a bank internal server, it might be acceptable.
-        // process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
-      }
+      // SSL check is now scoped to the request agent, no global cleanup needed
     }
 
     const duration = Date.now() - startTime;
@@ -1017,15 +1019,42 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 export async function retryForwardToCoreBanking(id: string) {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
-  if (!canReview) {
-    return { success: false, error: 'Access denied.' };
+  
+  // Strict Access: Only users with approver role should be allowed to retry forwarding
+  const canRetry = hasRolePermission(user, 'approver_customer_onboarding');
+  if (!canRetry) {
+    return { success: false, error: 'Access denied. Only approvers can retry T24 synchronization.' };
+  }
+
+  const record = await prisma.customerOnboarding.findUnique({ where: { id } });
+  if (!record) return { success: false, error: 'Record not found' };
+
+  // Validate Record State: Only allow retry if status is SYNC_FAILED
+  if (record.approvalStatus !== 'SYNC_FAILED') {
+    return { success: false, error: `Retry rejected. Record must be in SYNC_FAILED state (current state: ${record.approvalStatus}).` };
   }
   
+  // Enforce Workflow Integrity: Do not allow direct overwriting without validation
   // Set status back to AWAITING_T24_RESPONSE before retrying
   await prisma.customerOnboarding.update({
       where: { id },
-      data: { approvalStatus: 'AWAITING_T24_RESPONSE', forwardError: null }
+      data: { 
+        approvalStatus: 'AWAITING_T24_RESPONSE', 
+        forwardError: null 
+      }
+  });
+
+  // Add Audit Logging
+  const { ipAddress, userAgent } = await getRequestContext();
+  await prisma.customerOnboardingAuditLog.create({
+    data: {
+      customerOnboardingId: id,
+      actorId: user.id,
+      action: 'T24_SYNC_RETRY_INITIATED',
+      details: `User ${user.email} initiated a manual T24 sync retry for mnemonic ${record.mnemonic}.`,
+      ipAddress,
+      userAgent
+    }
   });
 
   return forwardToCoreBanking(id, user.id);
@@ -1037,9 +1066,11 @@ export async function retryForwardToCoreBanking(id: string) {
 export async function bulkRetryForwardToCoreBanking(ids: string[]) {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
-  const canReview = hasRolePermission(user, 'review_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
-  if (!canReview) {
-    return { success: false, error: 'Access denied.' };
+  
+  // Strict Access: Only users with approver role should be allowed to retry forwarding
+  const canRetry = hasRolePermission(user, 'approver_customer_onboarding');
+  if (!canRetry) {
+    return { success: false, error: 'Access denied. Only approvers can perform bulk T24 synchronization retries.' };
   }
 
   if (!ids.length) {
@@ -1047,14 +1078,40 @@ export async function bulkRetryForwardToCoreBanking(ids: string[]) {
   }
 
   const results: { id: string; success: boolean; error?: string }[] = [];
+  const { ipAddress, userAgent } = await getRequestContext();
 
   for (const id of ids) {
     try {
+      const record = await prisma.customerOnboarding.findUnique({ where: { id }, select: { approvalStatus: true, mnemonic: true } });
+      
+      // Validate Record State: Only allow retry if status is SYNC_FAILED
+      if (!record || record.approvalStatus !== 'SYNC_FAILED') {
+        results.push({ id, success: false, error: `Invalid state: ${record?.approvalStatus || 'Not found'}` });
+        continue;
+      }
+
+      // Enforce Workflow Integrity: Do not allow direct overwriting without validation
       // Set status back to AWAITING_T24_RESPONSE before retrying
       await prisma.customerOnboarding.update({
           where: { id },
-          data: { approvalStatus: 'AWAITING_T24_RESPONSE', forwardError: null }
+          data: { 
+            approvalStatus: 'AWAITING_T24_RESPONSE', 
+            forwardError: null 
+          }
       });
+
+      // Add Audit Logging for Bulk Retry
+      await prisma.customerOnboardingAuditLog.create({
+        data: {
+          customerOnboardingId: id,
+          actorId: user.id,
+          action: 'T24_SYNC_RETRY_INITIATED',
+          details: `User ${user.email} initiated a manual T24 sync retry (Bulk).`,
+          ipAddress,
+          userAgent
+        }
+      });
+
       const result = await forwardToCoreBanking(id, user.id);
       results.push({ id, success: result.success, error: result.error });
     } catch (err: any) {
@@ -1082,6 +1139,12 @@ export async function retrySendSms(id: string) {
   const user = await getLoggedInUser();
   if (!user) return { success: false, error: 'Unauthorized' };
   
+  // Enforce strict role-based access control on the SMS trigger function
+  const canTriggerSms = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
+  if (!canTriggerSms) {
+    return { success: false, error: 'Access denied. You do not have permission to trigger SMS notifications.' };
+  }
+
   const record = await prisma.customerOnboarding.findUnique({ where: { id } });
   if (!record) return { success: false, error: 'Record not found' };
 
@@ -1100,12 +1163,28 @@ export async function retrySendSms(id: string) {
 
   try {
     const smsRes = await sendSms(phone, smsText);
+    
+    // Implement safeguards to preserve historical SMS records
+    // We update current status but logging ensures historical trail
     await prisma.customerOnboarding.update({
       where: { id },
       data: {
         smsSentAt: new Date(),
         smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
         smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+      }
+    });
+
+    // Add Audit Logging for SMS Retry
+    const { ipAddress, userAgent } = await getRequestContext();
+    await prisma.customerOnboardingAuditLog.create({
+      data: {
+        customerOnboardingId: id,
+        actorId: user.id,
+        action: smsRes.ok ? 'SMS_RETRY_SUCCESS' : 'SMS_RETRY_FAILED',
+        details: `User ${user.email} retried SMS notification to ${phone}. Result: ${smsRes.ok ? 'Success' : 'Failed'}.`,
+        ipAddress,
+        userAgent
       }
     });
 

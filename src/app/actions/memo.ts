@@ -97,15 +97,6 @@ export async function getLoggedInUser(): Promise<LoggedInUser | null> {
 // ADMIN ACTIONS – structure, users, roles (Rebranded for Onboarding)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getUserLockoutStatus(email: string) {
-    if (!email) return null;
-    const user = await prisma.user.findUnique({
-        where: { email },
-        select: { lockoutUntil: true }
-    });
-    return user;
-}
-
 export async function saveDivision(data: { id?: string, name: string, code: string, departmentId: string }) {
     const user = await hasPermission('admin');
     if (data.id) {
@@ -475,12 +466,56 @@ export async function setPasswordWithToken({ token, password }: { token: string,
     return { success: true };
 }
 
-export async function changeUserPassword(password: string) {
+export async function changeUserPassword({ currentPassword, newPassword }: { currentPassword?: string, newPassword: string }) {
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: 'Not authenticated.' };
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser) return { success: false, error: 'User not found.' };
+
     const bcrypt = require('bcrypt');
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.update({ where: { id: user.id }, data: { hashedPassword, tokenVersion: { increment: 1 } } });
+
+    // If a current password is provided, we must validate it.
+    // For sensitive actions like password change, this is mandatory.
+    if (currentPassword) {
+        const isValid = await bcrypt.compare(currentPassword, dbUser.hashedPassword);
+        if (!isValid) {
+            await logSecurityEvent({
+                event: SecurityEvent.PASSWORD_CHANGE_FAILED,
+                severity: LogSeverity.WARNING,
+                actor: { id: user.id, name: user.name },
+                details: `Failed password change attempt for user ${user.email} (Incorrect current password).`,
+                targetId: user.id,
+                targetType: 'User'
+            });
+            return { success: false, error: 'Incorrect current password.' };
+        }
+    } else {
+        // In a production environment, currentPassword should be strictly required.
+        // We'll enforce it here to align with security best practices.
+        return { success: false, error: 'Current password is required.' };
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Incrementing tokenVersion invalidates all existing sessions/JWTs
+    await prisma.user.update({ 
+        where: { id: user.id }, 
+        data: { 
+            hashedPassword: hashedNewPassword, 
+            tokenVersion: { increment: 1 } 
+        } 
+    });
+
+    await logSecurityEvent({
+        event: SecurityEvent.PASSWORD_CHANGE_SUCCESS,
+        severity: LogSeverity.INFO,
+        actor: { id: user.id, name: user.name },
+        details: `User ${user.email} successfully changed their password. All existing sessions invalidated.`,
+        targetId: user.id,
+        targetType: 'User'
+    });
+
     return { success: true };
 }
 
