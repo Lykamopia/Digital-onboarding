@@ -7,13 +7,20 @@ import prisma from './prisma';
 const baseUrl = process.env.BASE_URL || 'http://localhost:3010';
 const logoUrl = 'https://cdn.brandfetch.io/id3xwknDM-/w/2048/h/2048/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1769246323397';
 
+const allowSelfSigned = process.env.EMAIL_ALLOW_SELF_SIGNED === 'true';
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT) || 465,
-  secure: true, // For port 465, this should be true
+  secure: Number(process.env.EMAIL_PORT) === 465,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    // If allowSelfSigned is true, we disable unauthorized certificate rejection.
+    // This is safer than setting process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0' globally.
+    rejectUnauthorized: !allowSelfSigned,
   },
 });
 
