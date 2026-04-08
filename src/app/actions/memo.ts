@@ -573,7 +573,9 @@ export async function markAsRead(id: string) {
     return { success: true };
 }
 
-export const markMemoAsRead = markAsRead;
+export async function markMemoAsRead(id: string) {
+    return await markAsRead(id);
+}
 
 export async function resetUserPassword(id: string) {
     const admin = await hasPermission('manage_users');
@@ -620,12 +622,4 @@ export async function verifyEmailChange(token: string) {
     ]);
 
     return { success: true, message: "Email successfully verified." };
-}
-
-export async function updateUserProfile(userId: string, data: { name: string, email: string, avatar?: string, signature?: string }) {
-    const user = await getLoggedInUser();
-    if (!user || user.id !== userId) throw new Error("Unauthorized");
-    await prisma.user.update({ where: { id: userId }, data: { name: data.name, avatar: data.avatar, signature: data.signature } });
-    revalidatePath('/dashboard/customer-onboarding');
-    return { success: true };
 }

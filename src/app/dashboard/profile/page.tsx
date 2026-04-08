@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { getLoggedInUser, updateUserProfile, getUsers } from '@/app/actions/memo';
+import { getLoggedInUser, getUsers } from '@/app/actions/memo';
+import { updateUserProfile } from '@/app/actions/user-profile';
 import type { User, Office, Department, Division, District, Branch, LoggedInUser } from '@/lib/types';
 import { Camera, Briefcase, Building, Globe, Loader2, Edit } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -83,7 +84,7 @@ export default function ProfilePage() {
     formData.append('type', type);
     
     try {
-      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      const response = await fetch('/api/internal/upload', { method: 'POST', body: formData });
       if (!response.ok) {
         throw new Error((await response.json()).error || `${type} upload failed`);
       }
@@ -123,7 +124,7 @@ export default function ProfilePage() {
 
         if (!result.message) {
             if (pendingAvatar && oldAvatar) {
-                await fetch('/api/upload', {
+                await fetch('/api/internal/upload', {
                   method: 'DELETE',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ path: oldAvatar }),
