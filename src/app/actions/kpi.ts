@@ -5,6 +5,8 @@ import { getLoggedInUser } from '@/app/actions/memo';
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subMonths, format, eachDayOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 
+import { REGION_MAPPING } from '@/lib/region-mapping';
+
 export type KPIData = {
   summary: {
     totalOnboarded: number;
@@ -58,12 +60,14 @@ export type KPIFilters = {
   branchId?: string;
   districtId?: string;
   role?: string;
+  region?: string;
 };
 
 export type KPIMetadata = {
   branches: { id: string; name: string }[];
   districts: { id: string; name: string }[];
   roles: { id: string; name: string }[];
+  regions: { id: string; label: string }[];
 };
 
 export async function getKPIMetadata(): Promise<{ success: true; data: KPIMetadata } | { success: false; error: string }> {
@@ -77,7 +81,9 @@ export async function getKPIMetadata(): Promise<{ success: true; data: KPIMetada
       prisma.role.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     ]);
 
-    return { success: true, data: { branches, districts, roles } };
+    const regions = Object.entries(REGION_MAPPING).map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
+
+    return { success: true, data: { branches, districts, roles, regions } };
   } catch (err) {
     console.error('[getKPIMetadata]', err);
     return { success: false, error: 'Failed to fetch metadata.' };
@@ -115,6 +121,7 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
   if (filters.districtId) where.submittedBy = { ...where.submittedBy as any, districtId: filters.districtId };
   if (filters.role) where.submittedBy = { ...where.submittedBy as any, roleId: filters.role };
   if (filters.status) where.approvalStatus = filters.status;
+  if (filters.region) where.region = filters.region;
 
   // Date Range logic
   let start: Date;

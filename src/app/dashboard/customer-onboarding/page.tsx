@@ -1,15 +1,17 @@
 import { redirect } from 'next/navigation';
 import { getLoggedInUser } from '@/app/actions/memo';
 import { listCustomerOnboardings } from '@/app/actions/customer-onboarding';
-import { getKPIData } from '@/app/actions/kpi';
+import { getKPIData, getKPIMetadata, KPIFilters } from '@/app/actions/kpi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Users2, ShieldCheck, Activity, ArrowRightLeft, 
-  CheckCircle2, Clock, XCircle, Database, TrendingUp, AlertTriangle, Users
+  CheckCircle2, Clock, XCircle, Database, TrendingUp, AlertTriangle, Users, Filter
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/export-button';
+import { StatusFilters } from './status-filters';
 
 import { OnboardingCharts } from './onboarding-charts';
 
@@ -18,7 +20,11 @@ export const metadata = {
   description: 'Monitor automated customer onboarding middleware requests.',
 };
 
-export default async function OnboardingStatusPage() {
+export default async function OnboardingStatusPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await getLoggedInUser();
   if (!user) redirect('/login');
 
@@ -28,9 +34,23 @@ export default async function OnboardingStatusPage() {
 
   if (!canVerifier && !canApprover) redirect('/dashboard/access-denied');
 
-  // Fetch KPI data for the current month
-  const kpiResult = await getKPIData({ dateRange: 'month' });
+  // Parse filters from search params
+  const resolvedSearchParams = await searchParams;
+  const filters: KPIFilters = {
+    dateRange: (resolvedSearchParams.dateRange as any) || 'month',
+    region: resolvedSearchParams.region as string,
+    fromDate: resolvedSearchParams.fromDate ? new Date(resolvedSearchParams.fromDate as string) : undefined,
+    toDate: resolvedSearchParams.toDate ? new Date(resolvedSearchParams.toDate as string) : undefined,
+  };
+
+  // Fetch KPI data and metadata
+  const [kpiResult, metadataResult] = await Promise.all([
+    getKPIData(filters),
+    getKPIMetadata()
+  ]);
+
   const kpi = kpiResult.success ? kpiResult.data : null;
+  const metadata = metadataResult.success ? metadataResult.data : null;
 
   const stats = kpi ? [
     { 
@@ -92,11 +112,11 @@ export default async function OnboardingStatusPage() {
           <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
             <Activity className="h-3 w-3" /> System Active
           </Badge>
-          <Link href="/dashboard/kpi">
-            <Button variant="outline" size="sm" className="gap-1">
-              Full Analytics
-            </Button>
-          </Link>
+          <ExportButton 
+            region={filters.region}
+            fromDate={filters.fromDate?.toISOString()}
+            toDate={filters.toDate?.toISOString()}
+          />
           {(canApprover || canVerifier) && (
             <Link href="/dashboard/customer-onboarding/review">
               <Button size="sm" className="gap-1">
@@ -106,6 +126,9 @@ export default async function OnboardingStatusPage() {
           )}
         </div>
       </div>
+
+      {/* Filters Section */}
+      <StatusFilters metadata={metadata} />
 
       {/* Middleware Role Banner */}
       <Card className="border-blue-500/20 bg-blue-500/5">

@@ -72,13 +72,14 @@ const SidebarProvider = React.forwardRef<
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
-    const [_open, _setOpen] = React.useState(() => {
-      if (typeof window === 'undefined') {
-        return defaultOpen;
+    const [_open, _setOpen] = React.useState(defaultOpen)
+
+    React.useEffect(() => {
+      const savedState = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+      if (savedState !== null) {
+        _setOpen(JSON.parse(savedState))
       }
-      const savedState = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      return savedState !== null ? JSON.parse(savedState) : defaultOpen;
-    });
+    }, [])
 
     const open = openProp ?? _open
     
@@ -227,7 +228,7 @@ const Sidebar = React.forwardRef<
         ref={ref}
         className="group peer hidden md:block text-sidebar-foreground"
         data-state={state}
-        data-collapsible={state === "collapsed" ? collapsible : ""}
+        data-collapsible={state === "collapsed" && collapsible === "icon" ? "icon" : undefined}
         data-variant={variant}
         data-side={side}
       >

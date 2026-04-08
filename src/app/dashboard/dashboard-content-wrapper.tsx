@@ -37,7 +37,6 @@ interface DashboardContentWrapperProps {
 
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
-  const [isMounted, setIsMounted] = useState(false);
 
   const permissions = useMemo(() => user?.role?.permissions?.split(',') || [], [user?.role?.permissions]);
 
@@ -91,11 +90,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     ];
   }, [user, pathname, hasAdminAccess, canSubmitOnboarding, canReviewOnboarding]);
   
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted || !user) {
+  if (!user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;
   }
 

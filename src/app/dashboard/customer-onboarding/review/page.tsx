@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldCheck, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { ExportButton } from '@/components/export-button';
 
 export const metadata = {
   title: 'Customer Onboarding Review | NibTera Onboarding',
@@ -56,6 +57,7 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
               <Users2 className="h-3 w-3" /> Verifier Access
             </Badge>
           )}
+          <ExportButton />
         </div>
       </div>
 

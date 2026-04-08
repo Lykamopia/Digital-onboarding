@@ -293,6 +293,7 @@ export async function listCustomerOnboardings(opts: {
   fromDate?: string;
   toDate?: string;
   gender?: string;
+  region?: string;
 } = {}) {
   const user = await getLoggedInUser();
   if (!user) return { success: false as const, error: 'Unauthorized' };
@@ -310,12 +311,14 @@ export async function listCustomerOnboardings(opts: {
     sortOrder = 'desc',
     fromDate,
     toDate,
-    gender
+    gender,
+    region
   } = opts;
   const skip = (page - 1) * pageSize;
 
   const where: Record<string, any> = {};
   if (status) where.approvalStatus = status;
+  if (region && region !== 'ALL') where.region = region;
   // Approvers and Verifiers can see all submissions for review purposes.
   // Others (if any) are restricted to their own submissions.
   const isApprover = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');

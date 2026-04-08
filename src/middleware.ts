@@ -3,7 +3,7 @@ import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
 function generateCsp(nonce: string) {
-    const policies = {
+    const policies: Record<string, string[]> = {
         'default-src': ["'self'"],
         'script-src': ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk='"],
         'style-src': ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
@@ -14,11 +14,18 @@ function generateCsp(nonce: string) {
         'base-uri': ["'self'"],
         'form-action': ["'self'"],
         'frame-ancestors': ["'none'"],
-        'upgrade-insecure-requests': [],
     };
 
+    // Only force HTTPS upgrade in production
+    if (process.env.NODE_ENV === 'production') {
+        policies['upgrade-insecure-requests'] = [];
+    }
+
     const csp = Object.entries(policies)
-        .map(([key, value]) => `${key} ${value.join(' ')}`)
+        .map(([key, value]) => {
+            if (value.length === 0) return key;
+            return `${key} ${value.join(' ')}`;
+        })
         .join('; ');
 
     return csp;
@@ -32,10 +39,6 @@ const securityHeaders = [
     {
         key: 'X-Frame-Options',
         value: 'DENY',
-    },
-    {
-        key: 'Strict-Transport-Security',
-        value: 'max-age=63072000; includeSubDomains; preload',
     },
     {
         key: 'X-Content-Type-Options',
@@ -89,6 +92,11 @@ export default withAuth(
     securityHeaders.forEach(header => {
         response.headers.set(header.key, header.value);
     });
+
+    if (process.env.NODE_ENV === 'production') {
+        response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    }
+
     response.headers.set('Content-Security-Policy', csp);
     
     return response;
