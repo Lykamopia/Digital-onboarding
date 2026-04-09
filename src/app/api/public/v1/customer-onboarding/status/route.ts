@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getLoggedInUser } from '@/app/actions/memo';
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
 import { LogSeverity } from '@/lib/types';
+import { errorResponse, successResponse } from '@/lib/api-response';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -74,45 +75,12 @@ async function authenticate(
   return { limitKey: `anon:${getClientIp(req)}`, isSystem: false, error: 'Unauthorized' };
 }
 
-// ─── Standard error/success response shapes ───────────────────────────────────
-
-/**
- * All error responses share the same top-level shape:
- * { success: false, error: string, code: string }
- * This prevents callers from detecting application internals via response-shape differences.
- */
-function errorResponse(
-  message: string,
-  code: string,
-  httpStatus: number,
-  extra?: Record<string, string>,
-): NextResponse {
-  return NextResponse.json(
-    { success: false, error: message, code, ...extra },
-    { status: httpStatus },
-  );
-}
-
 // ─── GET handler ──────────────────────────────────────────────────────────────
 
 /**
  * GET /api/customer-onboarding/status?phoneNumber=%2B251XXXXXXXXX
  *
- * Query parameter:
- *   phoneNumber  – must be URL-encoded, e.g. %2B251912345678
- *
- * Validation:
- *   1. Parameter must be present.
- *   2. Must match /^\+251\d{9}$/ exactly — no normalisation, no fuzzy matching.
- *
- * Lookup:
- *   Exact-match (case-sensitive, no partial match) against the
- *   mobilePhoneNumbers and phoneNumbersRes columns.
- *
- * Security:
- *   - Per-identity rate limiting (10 req/min) to deter enumeration.
- *   - Every valid-format lookup is logged (hit or miss) to the SecurityLog.
- *   - Invalid-format requests are rejected before any DB access.
+ * Checks the current approval status of a customer onboarding request by phone number.
  */
 export async function GET(req: NextRequest) {
   // ── 1. Authentication ────────────────────────────────────────────────────
@@ -122,27 +90,16 @@ export async function GET(req: NextRequest) {
   if (!checkRateLimit(auth.limitKey)) {
     return errorResponse(
       'Too many requests. Please wait before trying again.',
-      'RATE_LIMITED',
-      429,
-      { 'Retry-After': '60' },
+      'RATE_LIMIT_EXCEEDED',
+      429
     );
   }
 
   if (auth.error) {
-    return errorResponse(auth.error, 'UNAUTHORIZED', 401);
+    return errorResponse('You are not authorized to access this information.', 'UNAUTHORIZED', 401);
   }
 
   // ── 3. Extract & validate the phone number ───────────────────────────────
-  //
-  // ⚠️  URLSearchParams (and the WHATWG URL spec for query strings) follows the
-  // application/x-www-form-urlencoded rules where a bare '+' is decoded as a
-  // SPACE character. That means ?phoneNumber=+251999999999 would be read as
-  // " 251999999999" and fail the regex even though the caller sent a valid
-  // Ethiopian number.
-  //
-  // Fix: extract the raw parameter segment from req.url and decode it with
-  // decodeURIComponent, which preserves a literal '+' while still converting
-  // '%2B' → '+'. Both input styles therefore produce '+251...' correctly.
   const rawQuery  = req.url.split('?')[1] ?? '';
   const rawParam  = rawQuery.split('&').find((p) => p.startsWith('phoneNumber='));
   const phoneNumber = rawParam
@@ -151,32 +108,23 @@ export async function GET(req: NextRequest) {
 
   if (!phoneNumber) {
     return errorResponse(
-      'phoneNumber query parameter is required.',
-      'MISSING_PARAMETER',
+      'Please provide a phone number to check the status.',
+      'BAD_REQUEST',
       400,
     );
   }
 
-  // Strict format validation — no normalisation, no trimming, no stripping.
-  // The regex enforces the complete canonical Ethiopian format.
+  // Strict format validation
   if (!ETHIOPIAN_PHONE_REGEX.test(phoneNumber)) {
     return errorResponse(
-      'Invalid phone number format. Expected format: +251XXXXXXXXX (9 digits after the country code).',
-      'INVALID_PHONE_FORMAT',
+      'The phone number format is incorrect. Please use the format +251XXXXXXXXX.',
+      'BAD_REQUEST',
       400,
     );
   }
 
   // ── 4. Exact-match database lookup ──────────────────────────────────────
   try {
-    /**
-     * We perform two separate exact-match queries (equals, not contains) to
-     * avoid substring matches and guarantee deterministic results.
-     *
-     * Prisma `equals` does a strict string equality check. The mode is NOT set
-     * to 'insensitive' — phone numbers are case-independent by nature, but
-     * keeping the check binary ensures no fuzzy collation issues.
-     */
     const record = await prisma.customerOnboarding.findFirst({
       where: {
         OR: [
@@ -191,14 +139,12 @@ export async function GET(req: NextRequest) {
         createdAt:      true,
         updatedAt:      true,
         forwardResponse: true,
+        givenName: true,
+        familyName: true,
       },
     });
 
     // ── 5. Log the lookup outcome ────────────────────────────────────────
-    // We log EVERY valid-format lookup (both hits and misses) so security
-    // teams can detect enumeration patterns in the SecurityLog.
-    // The phone number itself is intentionally NOT included in the log
-    // details to limit PII exposure in audit trails.
     await logSecurityEvent({
       event:    record ? SecurityEvent.PHONE_STATUS_LOOKUP_HIT : SecurityEvent.PHONE_STATUS_LOOKUP_MISS,
       severity: LogSeverity.INFO,
@@ -207,14 +153,11 @@ export async function GET(req: NextRequest) {
         ? `Phone status lookup returned a record. Status: ${record.approvalStatus}. Key: ${auth.limitKey}`
         : `Phone status lookup found no matching record. Key: ${auth.limitKey}`,
     }).catch((err) =>
-      // Non-fatal — never let logging failure degrade the API response.
       console.error('[status-lookup] Failed to write security log:', err),
     );
 
     // ── 6. Return standardised response ─────────────────────────────────
     if (!record) {
-      // Uniform 404 — identical wording regardless of whether the number
-      // is close to an existing one, preventing information leakage.
       return errorResponse(
         'No onboarding record found for the provided phone number.',
         'NOT_FOUND',
@@ -224,11 +167,10 @@ export async function GET(req: NextRequest) {
 
     // Extract account details if they exist in the T24 response
     const forwardResponse = record.forwardResponse as any;
-    const accountNumber = forwardResponse?.accountNumber || null;
-    const accountHolderName = forwardResponse?.accountHolderName || null;
+    const accountNumber = forwardResponse?.accountNumber || forwardResponse?.CustomerNo || null;
+    const accountHolderName = forwardResponse?.accountHolderName || `${record.givenName} ${record.familyName}`.trim() || null;
 
-    return NextResponse.json({
-      success:           true,
+    return successResponse({
       status:            record.approvalStatus,
       reviewNote:        record.approverReviewNote ?? null,
       submittedAt:       record.createdAt,
@@ -240,6 +182,7 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[status-lookup] Unexpected error:', message);
-    return errorResponse('An internal error occurred. Please try again later.', 'INTERNAL_ERROR', 500);
+    return errorResponse('An internal error occurred. Please try again later.', 'INTERNAL_SERVER_ERROR', 500);
   }
 }
+

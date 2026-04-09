@@ -5,6 +5,7 @@ import {
   retryForwardToCoreBanking,
 } from '@/app/actions/customer-onboarding';
 import { getLoggedInUser } from '@/app/actions/memo';
+import { errorResponse, successResponse } from '@/lib/api-response';
 
 type Params = { params: { id: string } };
 
@@ -12,18 +13,21 @@ type Params = { params: { id: string } };
 export async function GET(_req: NextRequest, { params }: Params) {
   const user = await getLoggedInUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('You are not authorized to view this record.', 'UNAUTHORIZED', 401);
   }
 
   const result = await getCustomerOnboarding(params.id);
   if (!result.success) {
-    const status = result.error === 'Unauthorized' ? 401
-      : result.error === 'Record not found.' ? 404
-      : 403;
-    return NextResponse.json({ error: result.error }, { status });
+    if (result.error === 'Unauthorized') {
+      return errorResponse('You are not authorized to view this record.', 'UNAUTHORIZED', 401);
+    }
+    if (result.error === 'Record not found.') {
+      return errorResponse('The requested onboarding record could not be found.', 'NOT_FOUND', 404);
+    }
+    return errorResponse('Could not retrieve the onboarding record. Please try again later.', 'FORBIDDEN', 403);
   }
 
-  return NextResponse.json(result.record);
+  return successResponse(result.record);
 }
 
 // PATCH /api/customer-onboarding/[id]
@@ -31,14 +35,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await getLoggedInUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('You are not authorized to perform this action.', 'UNAUTHORIZED', 401);
   }
 
   let body: { action?: string; note?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return errorResponse('The request body is not a valid JSON. Please check your formatting.', 'INVALID_JSON', 400);
   }
 
   const { action, note } = body;
@@ -46,26 +50,27 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (action === 'APPROVE') {
     const result = await reviewCustomerOnboarding({ id: params.id, decision: 'APPROVED', note });
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return errorResponse(result.error || 'Could not approve the record. Please try again.', 'BAD_REQUEST', 400);
     }
-    return NextResponse.json({ success: true });
+    return successResponse({}, 'Record approved successfully.');
   }
 
   if (action === 'REJECT') {
     const result = await reviewCustomerOnboarding({ id: params.id, decision: 'REJECTED', note });
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return errorResponse(result.error || 'Could not reject the record. Please try again.', 'BAD_REQUEST', 400);
     }
-    return NextResponse.json({ success: true });
+    return successResponse({}, 'Record rejected successfully.');
   }
 
   if (action === 'RETRY_FORWARD') {
     const result = await retryForwardToCoreBanking(params.id);
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return errorResponse(result.error || 'Could not retry the core banking sync. Please try again.', 'BAD_REQUEST', 400);
     }
-    return NextResponse.json({ success: true });
+    return successResponse({}, 'Core banking sync retried successfully.');
   }
 
-  return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+  return errorResponse(`Unknown action: ${action}`, 'BAD_REQUEST', 400);
 }
+

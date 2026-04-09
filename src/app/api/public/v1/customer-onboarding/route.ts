@@ -6,6 +6,7 @@ import {
 import { CustomerOnboardingSchema } from '@/lib/validations/customer-onboarding';
 import { ApprovalStatus, User } from '@prisma/client';
 import { getLoggedInUser } from '@/app/actions/memo';
+import { errorResponse, successResponse, formatZodError } from '@/lib/api-response';
 
 // Simple in-memory rate limiter per key (resets on server restart)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -38,7 +39,7 @@ async function authenticate(req: NextRequest): Promise<{ user?: any, isSystem?: 
   const user = await getLoggedInUser();
   if (user) return { user };
 
-  return { error: 'Unauthorized' };
+  return { error: 'Unauthorized access' };
 }
 
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
         actor: null,
         details: `Unauthorized access attempt to GET /api/public/v1/customer-onboarding.`,
     });
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return errorResponse('You are not authorized to perform this action.', 'UNAUTHORIZED', 401);
   }
 
   const { searchParams } = new URL(req.url);
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
         actor: auth.user,
         details: `Failed to list customer onboardings. Error: ${result.error}`,
     });
-    return NextResponse.json({ error: result.error }, { status: 403 });
+    return errorResponse('Could not retrieve onboarding records. Please try again later.', 'FORBIDDEN', 403);
   }
 
   await logSecurityEvent({
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
     details: `Successfully listed customer onboardings.`,
   });
 
-  return NextResponse.json(result);
+  return successResponse(result);
 }
 
 // POST /api/public/v1/customer-onboarding
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
         actor: null,
         details: `Unauthorized access attempt to POST /api/public/v1/customer-onboarding.`,
     });
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return errorResponse('You are not authorized to perform this action.', 'UNAUTHORIZED', 401);
   }
 
   // Rate limiting (using user ID or 'system' as key)
@@ -113,17 +114,14 @@ export async function POST(req: NextRequest) {
         actor: auth.user,
         details: `Rate limit exceeded for customer onboarding submission.`,
     });
-    return NextResponse.json(
-      { error: 'Too many requests. Please wait before submitting again.' },
-      { status: 429, headers: { 'Retry-After': '60' } }
-    );
+    return errorResponse('Too many requests. Please wait before submitting again.', 'RATE_LIMIT_EXCEEDED', 429);
   }
 
   let body: any;
   try {
     const text = await req.text();
     if (!text) {
-      return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
+      return errorResponse('Request body is empty. Please provide valid JSON data.', 'BAD_REQUEST', 400);
     }
     body = JSON.parse(text);
     console.log('New customer onboarding request:', body);
@@ -145,24 +143,19 @@ export async function POST(req: NextRequest) {
         actor: auth.user,
         details: `Failed to parse customer onboarding request body. Error: ${err.message}`,
     });
-    return NextResponse.json({ 
-      error: 'Invalid JSON body', 
-      details: err.message 
-    }, { status: 400 });
+    return errorResponse('The request body is not a valid JSON. Please check your formatting.', 'INVALID_JSON', 400);
   }
 
   const parsed = CustomerOnboardingSchema.safeParse(body);
   if (!parsed.success) {
+    const userFriendlyMessage = formatZodError(parsed.error);
     await logSecurityEvent({
         event: SecurityEvent.CUSTOMER_ONBOARDING_FORWARD_FAILED,
         severity: LogSeverity.CRITICAL,
         actor: auth.user,
         details: `Failed to validate customer onboarding request body. Error: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`,
     });
-    return NextResponse.json(
-      { error: 'Validation failed', fieldErrors: parsed.error.flatten().fieldErrors },
-      { status: 422 }
-    );
+    return errorResponse(userFriendlyMessage, 'VALIDATION_ERROR', 422);
   }
 
   // Note: if auth.isSystem is true, submitCustomerOnboarding needs to handle a system "actor"
@@ -180,11 +173,21 @@ export async function POST(req: NextRequest) {
         actor: auth.user,
         details: `Failed to submit customer onboarding. Error: ${result.error}`,
     });
-    const statusCode = result.error === 'Unauthorized' ? 401
-      : result.error?.startsWith('You do not have') ? 403
-      : result.fieldErrors ? 422
-      : 409;
-    return NextResponse.json({ error: result.error, fieldErrors: result.fieldErrors }, { status: statusCode });
+
+    if (result.error === 'Unauthorized') {
+      return errorResponse('You are not authorized to perform this action.', 'UNAUTHORIZED', 401);
+    }
+
+    if (result.error?.startsWith('You do not have')) {
+      return errorResponse('You do not have permission to perform this action.', 'FORBIDDEN', 403);
+    }
+
+    if (result.fieldErrors) {
+      return errorResponse('The provided information is invalid. Please check your data and try again.', 'VALIDATION_ERROR', 422);
+    }
+
+    // Default error for conflicts or other issues
+    return errorResponse(result.error || 'Submission failed. Please check for duplicate records or try again later.', 'CONFLICT', 409);
   }
 
   await logSecurityEvent({
@@ -194,5 +197,6 @@ export async function POST(req: NextRequest) {
     details: `Successfully submitted customer onboarding. ID: ${result.id}`,
   });
 
-  return NextResponse.json({ success: true, id: result.id }, { status: 201 });
+  return successResponse({ id: result.id }, 'Customer onboarding submission received successfully.', 201);
 }
+
