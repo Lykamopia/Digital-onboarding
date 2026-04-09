@@ -82,6 +82,7 @@ export function T24SuccessResponse({ response }: { response: any }) {
   const isDigitalAccount = get('isDigitalAccount');
   const linkingError = get('linkingError');
   const transactionId = get('transactionId');
+  const allAccounts = get('allAccounts');
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/30 dark:bg-emerald-950/10 overflow-hidden shadow-sm">
@@ -144,6 +145,49 @@ export function T24SuccessResponse({ response }: { response: any }) {
             </div>
           )}
         </div>
+
+        {/* All Accounts - Audit View */}
+        {Array.isArray(allAccounts) && allAccounts.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-3.5 w-3.5 text-primary" />
+              <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary/70">All Customer Accounts (Audit View)</h4>
+            </div>
+            
+            <div className="overflow-x-auto rounded-lg border border-emerald-100/50 dark:border-emerald-900/20 bg-background/40">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-emerald-100/50 dark:border-emerald-900/20">
+                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Account Number</th>
+                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product ID</th>
+                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product Name</th>
+                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Digital?</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-emerald-100/30 dark:divide-emerald-900/10">
+                  {allAccounts.map((acc: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-emerald-500/5 transition-colors">
+                      <td className="px-3 py-2 text-xs font-mono font-bold text-primary/90">{acc.accountNumber}</td>
+                      <td className="px-3 py-2 text-xs font-medium text-muted-foreground">{acc.productId}</td>
+                      <td className="px-3 py-2 text-xs font-medium text-muted-foreground">{acc.productName}</td>
+                      <td className="px-3 py-2">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "h-4 text-[9px] font-bold px-1.5",
+                            acc.isDigitalAccount === 'YES' ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground border-border"
+                          )}
+                        >
+                          {acc.isDigitalAccount}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Raw Toggle */}
         <div className="pt-2">

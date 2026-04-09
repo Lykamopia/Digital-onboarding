@@ -443,12 +443,14 @@ export async function getCustomerOnboarding(id: string) {
     const forwardResponse = record.forwardResponse as any;
     const accountNumber = forwardResponse?.accountNumber || null;
     const accountHolderName = forwardResponse?.accountHolderName || null;
+    const allAccounts = forwardResponse?.allAccounts || null;
 
     const enhancedRecord = {
       ...record,
       region: getRegionLabel(record.region),
       accountNumber,
       accountHolderName,
+      allAccounts,
     };
 
     return { success: true as const, record: enhancedRecord };
