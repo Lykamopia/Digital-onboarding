@@ -231,6 +231,11 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
           ownership:          data.ownership          || '1000',
+          industry:           '1499',
+          target:             '220',
+          customerStatus:     '1',
+          documentName:       'NATIONAL.ID',
+          issueAuthority:     'NID',
           picture:            finalPicturePath,
           payloadHash:        currentPayloadHash,
           submittedById:      systemActor ? null : (user as any).id,
@@ -919,6 +924,11 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
+            industry:       record.industry,
+            target:         record.target,
+            customerStatus: record.customerStatus,
+            documentName:   record.documentName,
+            issueAuthority: record.issueAuthority,
           },
         });
         await tx.customerOnboardingAuditLog.create({
@@ -956,6 +966,11 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
+            industry:       record.industry,
+            target:         record.target,
+            customerStatus: record.customerStatus,
+            documentName:   record.documentName,
+            issueAuthority: record.issueAuthority,
           },
         });
         await tx.customerOnboardingAuditLog.create({
@@ -979,6 +994,12 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
           forwardError: null,
           forwardResponse: responseData, // Always store the parsed (or raw) response
           approvalStatus: 'APPROVED', // Final status after successful T24 response
+          // Persist the forced defaults to the database
+          industry:       record.industry,
+          target:         record.target,
+          customerStatus: record.customerStatus,
+          documentName:   record.documentName,
+          issueAuthority: record.issueAuthority,
         },
       });
 
@@ -1034,7 +1055,12 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         where: { id },
         data:  { 
             forwardError: errorMessage,
-            approvalStatus: 'SYNC_FAILED' // Failure moves to SYNC_FAILED
+            approvalStatus: 'SYNC_FAILED', // Failure moves to SYNC_FAILED
+            industry:       record.industry,
+            target:         record.target,
+            customerStatus: record.customerStatus,
+            documentName:   record.documentName,
+            issueAuthority: record.issueAuthority,
         },
       });
       await tx.customerOnboardingAuditLog.create({

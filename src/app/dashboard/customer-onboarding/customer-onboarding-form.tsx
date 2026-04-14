@@ -180,14 +180,14 @@ function IdentificationStep({ form }: { form: ReturnType<typeof useForm<Customer
       <FormField label="Legal ID Number" required error={errors.legalIdNumber?.message}>
         <Input {...register('legalIdNumber')} placeholder="121212" />
       </FormField>
-      <FormField label="Document Name" required error={errors.documentName?.message} hint="e.g. EIC, Passport, Kebele ID">
-        <Input {...register('documentName')} placeholder="EIC" />
+      <FormField label="Document Name" required error={errors.documentName?.message} hint="e.g. NATIONAL.ID, Passport, Kebele ID">
+        <Input {...register('documentName')} placeholder="NATIONAL.ID" />
       </FormField>
       <FormField label="Name on ID" required error={errors.nameOnID?.message}>
         <Input {...register('nameOnID')} placeholder="12459636" />
       </FormField>
       <FormField label="Issue Authority" required error={errors.issueAuthority?.message}>
-        <Input {...register('issueAuthority')} placeholder="MIBBANL" />
+        <Input {...register('issueAuthority')} placeholder="NID" />
       </FormField>
       <FormField label="Issue Date" required error={errors.issueDate?.message} hint="Format: DD MMM YYYY (e.g. 01 OCT 2024)">
         <Input {...register('issueDate')} placeholder="01 OCT 2024" />
@@ -219,13 +219,13 @@ function ContactBankingStep({ form }: { form: ReturnType<typeof useForm<Customer
         <Input {...register('accountOfficer')} placeholder="6001" />
       </FormField>
       <FormField label="Industry" required error={errors.industry?.message}>
-        <Input {...register('industry')} placeholder="1001" />
+        <Input {...register('industry')} placeholder="1499" />
       </FormField>
       <FormField label="Target" required error={errors.target?.message}>
-        <Input {...register('target')} placeholder="2" />
+        <Input {...register('target')} placeholder="220" />
       </FormField>
       <FormField label="Customer Status" required error={errors.customerStatus?.message}>
-        <Input {...register('customerStatus')} placeholder="2" />
+        <Input {...register('customerStatus')} placeholder="1" />
       </FormField>
       <FormField label="Customer Type" required error={errors.customerType?.message} hint="e.g. A = Individual">
         <Input {...register('customerType')} placeholder="A" />
@@ -367,6 +367,11 @@ export function CustomerOnboardingForm() {
       language: '1', region: 'ET00', secureMessage: 'Y',
       gender: 'MALE', maritalStatus: 'MARRIED', customerType: 'A',
       ownership: '1000',
+      industry: '1499',
+      target: '220',
+      customerStatus: '1',
+      documentName: 'NATIONAL.ID',
+      issueAuthority: 'NID',
     },
   });
 
