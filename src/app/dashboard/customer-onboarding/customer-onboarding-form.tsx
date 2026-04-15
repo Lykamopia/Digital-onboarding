@@ -216,7 +216,7 @@ function ContactBankingStep({ form }: { form: ReturnType<typeof useForm<Customer
         <Input {...register('sector')} placeholder="1000" />
       </FormField>
       <FormField label="Account Officer" required error={errors.accountOfficer?.message}>
-        <Input {...register('accountOfficer')} placeholder="6001" />
+        <Input {...register('accountOfficer')} placeholder="6409" />
       </FormField>
       <FormField label="Industry" required error={errors.industry?.message}>
         <Input {...register('industry')} placeholder="1499" />
@@ -367,6 +367,7 @@ export function CustomerOnboardingForm() {
       language: '1', region: 'ET00', secureMessage: 'Y',
       gender: 'MALE', maritalStatus: 'MARRIED', customerType: 'A',
       ownership: '1000',
+      accountOfficer: '6409',
       industry: '1499',
       target: '220',
       customerStatus: '1',

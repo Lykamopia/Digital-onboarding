@@ -231,6 +231,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
           ownership:          data.ownership          || '1000',
+          accountOfficer:     '6409',
           industry:           '1499',
           target:             '220',
           customerStatus:     '1',
@@ -759,6 +760,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     townCity:           record.townCity,
     country:            record.country,
     sector:             record.sector,
+    accountOfficer:     record.accountOfficer = "6409",
     industry:           record.industry = "1499",
     target:             record.target = "220",
     customerStatus:     record.customerStatus = "1",
@@ -922,6 +924,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
+            accountOfficer: record.accountOfficer,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,
@@ -964,6 +967,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
+            accountOfficer: record.accountOfficer,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,
@@ -993,6 +997,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
           forwardResponse: responseData, // Always store the parsed (or raw) response
           approvalStatus: 'APPROVED', // Final status after successful T24 response
           // Persist the forced defaults to the database
+          accountOfficer: record.accountOfficer,
           industry:       record.industry,
           target:         record.target,
           customerStatus: record.customerStatus,
@@ -1054,6 +1059,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         data:  { 
             forwardError: errorMessage,
             approvalStatus: 'SYNC_FAILED', // Failure moves to SYNC_FAILED
+            accountOfficer: record.accountOfficer,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,
