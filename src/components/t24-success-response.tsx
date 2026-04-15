@@ -80,9 +80,32 @@ export function T24SuccessResponse({ response }: { response: any }) {
   const isDigitalCustomer = get('isDigitalCustomer');
   const accountExists = get('accountExists');
   const isDigitalAccount = get('isDigitalAccount');
+  const hasDigitalAccount = get('hasDigitalAccount');
+  const isDigitalCustomer = get('isDigitalCustomer');
   const linkingError = get('linkingError');
   const transactionId = get('transactionId');
   const allAccounts = get('allAccounts');
+
+  // Build a human-readable summary based on the flags
+  const summaryMessages = [];
+  if (customerExists === true || String(customerExists).toUpperCase() === 'YES') {
+    summaryMessages.push("Customer already exists in T24 core banking.");
+  }
+  if (accountExists === true || String(accountExists).toUpperCase() === 'YES') {
+    summaryMessages.push("Account already exists for this customer.");
+  }
+  if (isDigitalAccount === 'YES' || isDigitalAccount === true) {
+    summaryMessages.push("Digital account successfully created/verified.");
+  }
+  if (isDigitalCustomer === 'YES' || isDigitalCustomer === true) {
+    summaryMessages.push("Customer is registered as a digital banking user.");
+  }
+  if (hasDigitalAccount === true || String(hasDigitalAccount).toUpperCase() === 'YES') {
+    summaryMessages.push("Customer already has a digital account linked.");
+  }
+  if (linkingError) {
+    summaryMessages.push("Note: Core records are ready, but SuperApp linking requires manual attention.");
+  }
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/30 dark:bg-emerald-950/10 overflow-hidden shadow-sm">
@@ -108,12 +131,27 @@ export function T24SuccessResponse({ response }: { response: any }) {
         </div>
 
         {/* Messaging */}
-        {message && (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-background/50 border border-emerald-100 dark:border-emerald-900/30">
-            <Smartphone className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-            <p className="text-xs text-emerald-800/80 dark:text-emerald-400 leading-relaxed font-medium">
-              {message}
-            </p>
+        {(message || summaryMessages.length > 0) && (
+          <div className="space-y-2">
+            {message && (
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-background/50 border border-emerald-100 dark:border-emerald-900/30">
+                <Smartphone className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-emerald-800/80 dark:text-emerald-400 leading-relaxed font-medium">
+                  {message}
+                </p>
+              </div>
+            )}
+            
+            {summaryMessages.length > 0 && (
+              <div className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50 dark:border-emerald-900/20">
+                {summaryMessages.map((msg, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">{msg}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -126,11 +164,12 @@ export function T24SuccessResponse({ response }: { response: any }) {
             <h4 className="text-[11px] font-bold uppercase tracking-widest text-primary/70">SuperApp & Digital Status</h4>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-background/40 p-3 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-background/40 p-3 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
             <InfoRow label="Customer Exists" value={customerExists} isStatus />
             <InfoRow label="Digital Customer" value={isDigitalCustomer} isStatus />
             <InfoRow label="Account Exists" value={accountExists} isStatus />
             <InfoRow label="Digital Account" value={isDigitalAccount} isStatus />
+            <InfoRow label="Linked Digital Account" value={hasDigitalAccount} isStatus />
           </div>
 
           {linkingError && (
