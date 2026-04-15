@@ -853,7 +853,6 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
          method:  'POST',
          headers: fetchHeaders,
          body:    JSON.stringify(cleanPayload),
-         signal:  AbortSignal.timeout(30_000),
        };
 
        // Use a scoped HTTPS agent if SSL verification needs to be disabled for this specific request
@@ -869,7 +868,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
      } catch (fetchErr: any) {
       console.error('❌ Fetch attempt failed:', fetchErr);
       if (fetchErr.name === 'AbortError' || fetchErr.message?.includes('timeout')) {
-        throw new Error(`Connection to T24 timed out after 30 seconds. Please check if the service is reachable.`);
+        throw new Error(`The connection to T24 timed out. Please check if the service is reachable.`);
       }
       if (fetchErr.message?.includes('fetch failed')) {
         throw new Error(`Network error: Could not connect to T24 at ${T24_ENDPOINT}. This is likely a DNS, firewall, or SSL issue.`);
