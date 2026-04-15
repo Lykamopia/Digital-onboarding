@@ -699,8 +699,7 @@ export async function reviewCustomerOnboarding(opts: {
       if (decision === 'REJECTED' && nextStatus === 'REJECTED') {
         const phone = existing.mobilePhoneNumbers || existing.phoneNumbersRes;
         if (phone && !existing.smsSentAt) {
-          const reasonText = note ? `: ${note}` : '';
-          const smsText = `Dear ${existing.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB InternationalBank.`;
+          const smsText = `Dear ${existing.givenName}, your onboarding request is rejected. Please contact us for further clarification or assistance. For enquiries, call toll-free 9698.`;
           
           try {
             const smsRes = await sendSms(phone, smsText);
@@ -1005,7 +1004,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
       // Handle Approval SMS
       const phone = record.mobilePhoneNumbers || record.phoneNumbersRes;
       if (phone && !record.smsSentAt) {
-        const smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfull. Welcome to NIB InternationalBank.`;
+        const smsText = `Dear ${record.givenName}, your onboarding request is approved. Welcome to NIB International Bank. Please complete your NIBtera Online registration within 24 hrs to activate your account. For enquiries, call toll-free 9698.`;
         try {
           const smsRes = await sendSms(phone, smsText);
           await prisma.customerOnboarding.update({
@@ -1233,10 +1232,9 @@ export async function retrySendSms(id: string) {
 
   let smsText = '';
   if (record.approvalStatus === 'APPROVED') {
-    smsText = `Dear ${record.givenName}, your onboarding request has been approved and successfully synchronized with T24. Welcome to NIB Bank.`;
+    smsText = `Dear ${record.givenName}, your onboarding request is approved. Welcome to NIB International Bank. Please complete your NIBtera Online registration within 24 hrs to activate your account. For enquiries, call toll-free 9698.`;
   } else if (record.approvalStatus === 'REJECTED') {
-    const reasonText = record.approverReviewNote ? `: ${record.approverReviewNote}` : '';
-    smsText = `Dear ${record.givenName}, your onboarding request has been rejected${reasonText}. Please contact your branch for more details. NIB Bank.`;
+    smsText = `Dear ${record.givenName}, your onboarding request is rejected. Please contact us for further clarification or assistance. For enquiries, call toll-free 9698.`;
   } else {
     return { success: false, error: 'SMS can only be sent for approved or rejected requests.' };
   }
