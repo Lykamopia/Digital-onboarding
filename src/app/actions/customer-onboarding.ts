@@ -197,7 +197,7 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
 
         // 2. Exact Payload Duplicate Check
         if (existing.payloadHash === currentPayloadHash && (s === 'REJECTED' || s === 'MAKER_REJECTED' || s === 'RESUBMITTED' || s === 'PENDING')) {
-           throw new Error(`DUPLICATE: A submission with identical data already exists for mnemonic "${data.mnemonic}". No changes detected.`);
+           throw new Error(`DUPLICATE: ${s} A submission with identical data already exists for mnemonic "${data.mnemonic}". No changes detected.`);
         }
 
         // 3. Resubmission logic
@@ -273,12 +273,20 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
     return { success: true, id: record.record.id };
   } catch (err: any) {
     if (err.message.startsWith('CONFLICT:')) {
+      const status = err.message.split(': ')[1] || 'PENDING';
+      if (status === 'PENDING' || status === 'AWAITING_T24_SYNC' || status === 'AWAITING_T24_RESPONSE' || status === 'VERIFIER_APPROVED' || status === 'PENDING_APPROVER') {
+        return { success: false, error: `You have already submitted a request for this customer, and it is currently in a PENDING state. Please wait for the initial request to be processed.` };
+      }
       return { success: false, error: 'This customer already exists and is awaiting approval.' };
     }
     if (err.message.startsWith('THROTTLED:')) {
       return { success: false, error: err.message.replace('THROTTLED: ', '') };
     }
     if (err.message.startsWith('DUPLICATE:')) {
+      const status = err.message.split('DUPLICATE: ')[1]?.split(' ')[0] || '';
+      if (status === 'PENDING') {
+        return { success: false, error: `You have already submitted a request for this customer, and it is currently in a PENDING state. Please wait for the initial request to be processed.` };
+      }
       return { success: false, error: 'Identical data submission detected. Please ensure you have made necessary corrections before resubmitting.' };
     }
     console.error('[submitCustomerOnboarding]', err);
