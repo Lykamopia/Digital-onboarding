@@ -81,7 +81,6 @@ export function T24SuccessResponse({ response }: { response: any }) {
   const accountExists = get('accountExists');
   const isDigitalAccount = get('isDigitalAccount');
   const hasDigitalAccount = get('hasDigitalAccount');
-  const isDigitalCustomer = get('isDigitalCustomer');
   const linkingError = get('linkingError');
   const transactionId = get('transactionId');
   const allAccounts = get('allAccounts');
