@@ -38,15 +38,28 @@ export const CustomerOnboardingSchema = z.object({
     'MR', 'MRS', 'MS', 'Major', 'Major.General', 'Mayor', 'Megabi.Haddis', 'Meri.Geta', 'Muftih', 'Pastor', 
     'President', 'Professor', 'Qadhi', 'R.Admiral(CMDR)', 'R.AdmiralUpper', 'REV', 'Sheikh', 'Sir', 'Sister', 
     'Speaker', 'Ustaz', 'V.President', 'Vice.Admiral', 'W/O', 'W/T', 'WOY', 'WRO'
-  ]),
+  ], {
+    required_error: 'Title is required',
+    invalid_type_error: 'Invalid title',
+  }),
   givenName:          z.string().min(1, 'Given name is required'),
   familyName:         z.string().min(1, 'Family name is required'),
   gender:             z.enum(['MALE', 'FEMALE'], { errorMap: () => ({ message: 'Gender must be MALE or FEMALE' }) }),
   dateOfBirth:        z.string().regex(DATE_REGEX, 'Date of birth must be in format DD MMM YYYY'),
-  maritalStatus:      z.enum(['DIVORCED', 'MARRIED', 'OTHER', 'PARTNER', 'SINGLE', 'WIDOWED']),
-  occupation:         z.string().optional().nullable().or(z.literal('')),
-  employersName:      z.string().optional().nullable().or(z.literal('')),
-  netMonthlyIn:       z.string().optional().nullable().or(z.literal('')),
+  maritalStatus:      z.enum(['DIVORCED', 'MARRIED', 'OTHER', 'PARTNER', 'SINGLE', 'WIDOWED'], {
+                        required_error: 'Marital status is required',
+                        invalid_type_error: 'Invalid marital status',
+                      }),
+  occupation:         z.string().min(1, 'Occupation is required'),
+  employersName:      z.string().min(1, 'Employer name is required'),
+  netMonthlyIn:       z.string()
+                        .min(1, 'Net monthly income is required')
+                        .refine((v) => {
+                          const num = parseFloat(v);
+                          return !isNaN(num) && num !== 0;
+                        }, {
+                          message: 'Net monthly income must not be 0',
+                        }),
   customerType:       z.string().min(1),
   secureMessage:      z.string().optional().nullable().or(z.literal('')),
   ownership:          z.string().min(1).default('1000'),
@@ -55,7 +68,11 @@ export const CustomerOnboardingSchema = z.object({
   woreda:             z.string().optional().nullable().or(z.literal('')),
   kebele:             z.string().optional().nullable().or(z.literal('')),
   subcity:            z.string().optional().nullable().or(z.literal('')),
-  motherName:         z.string().optional().nullable().or(z.literal('')),
+  motherName:         z.string()
+                        .min(1, "Mother's full name is required")
+                        .refine((v) => v.trim().split(/\s+/).length >= 2, {
+                          message: "Mother's full name must contain at least two words",
+                        }),
   // Optional base64-encoded photo — must be a data URI if provided
   picture:            z.string()
                         .refine((v) => !v || PICTURE_REGEX.test(v), {

@@ -128,8 +128,8 @@ function PersonalInfoStep({ form }: { form: ReturnType<typeof useForm<CustomerOn
       <FormField label="National ID" error={errors.nationalIDNumber?.message}>
         <Input {...register('nationalIDNumber')} placeholder="324235434" />
       </FormField>
-      <FormField label="Mother's Name" error={errors.motherName?.message}>
-        <Input {...register('motherName')} placeholder="Mother's name" />
+      <FormField label="Mother's Full Name" required error={errors.motherName?.message}>
+        <Input {...register('motherName')} placeholder="Full name of mother" />
       </FormField>
     </div>
   );
@@ -250,13 +250,13 @@ function EmploymentStep({ form }: { form: ReturnType<typeof useForm<CustomerOnbo
   const { register, formState: { errors } } = form;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <FormField label="Occupation" error={errors.occupation?.message}>
+      <FormField label="Occupation" required error={errors.occupation?.message}>
         <Input {...register('occupation')} placeholder="BANK" />
       </FormField>
-      <FormField label="Employer's Name" error={errors.employersName?.message}>
+      <FormField label="Employer's Name" required error={errors.employersName?.message}>
         <Input {...register('employersName')} placeholder="NIB" />
       </FormField>
-      <FormField label="Net Monthly Income (ETB)" error={errors.netMonthlyIn?.message}>
+      <FormField label="Net Monthly Income (ETB)" required error={errors.netMonthlyIn?.message}>
         <Input {...register('netMonthlyIn')} placeholder="40000" type="number" min="0" />
       </FormField>
     </div>
@@ -277,6 +277,7 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomerOnboardi
         { label: 'Date of Birth',  value: data.dateOfBirth },
         { label: 'Marital Status', value: data.maritalStatus },
         { label: 'Nationality',    value: data.nationality },
+        { label: "Mother's Full Name", value: data.motherName },
         { label: 'PSU Token',      value: data.psuToken || data.legalIdNumber || data.nationalIDNumber },
       ],
     },
@@ -380,11 +381,11 @@ export function CustomerOnboardingForm() {
 
   // Fields that belong to each step for targeted validation
   const STEP_FIELDS: (keyof CustomerOnboardingInput)[][] = [
-    ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality','nationalIDNumber'],
+    ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality','nationalIDNumber', 'motherName'],
     ['street','townCity','country','region','residence'],
     ['legalIdNumber','documentName','nameOnID','issueAuthority','issueDate','expirationDate'],
     ['language','sector','accountOfficer','industry','target','customerStatus','customerType', 'ownership'],
-    [],
+    ['occupation', 'employersName', 'netMonthlyIn'],
     [],
   ];
 

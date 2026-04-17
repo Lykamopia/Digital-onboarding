@@ -308,6 +308,9 @@ export async function listCustomerOnboardings(opts: {
   toDate?: string;
   gender?: string;
   region?: string;
+  maritalStatus?: string;
+  ageMin?: number;
+  ageMax?: number;
 } = {}) {
   const user = await getLoggedInUser();
   if (!user) return { success: false as const, error: 'Unauthorized' };
@@ -326,18 +329,46 @@ export async function listCustomerOnboardings(opts: {
     fromDate,
     toDate,
     gender,
-    region
+    region,
+    maritalStatus,
+    ageMin,
+    ageMax,
   } = opts;
+
+  // Sanitize age inputs: enforce non-negative and integer values
+  const sanitizedAgeMin = (ageMin !== undefined && ageMin !== null && !isNaN(Number(ageMin))) ? Math.max(0, Math.floor(Number(ageMin))) : undefined;
+  const sanitizedAgeMax = (ageMax !== undefined && ageMax !== null && !isNaN(Number(ageMax))) ? Math.max(0, Math.floor(Number(ageMax))) : undefined;
+
   const skip = (page - 1) * pageSize;
 
+  // Build the base 'where' object for Prisma
   const where: Record<string, any> = {};
-  if (status) where.approvalStatus = status;
-  if (region && region !== 'ALL') where.region = region;
-  // Approvers and Verifiers can see all submissions for review purposes.
-  // Others (if any) are restricted to their own submissions.
+  
+  if (status && status !== 'ALL') {
+    where.approvalStatus = status;
+  }
+
+  if (region && region !== 'ALL') {
+    where.region = region;
+  }
+
+  if (maritalStatus && maritalStatus !== 'ALL') {
+    where.maritalStatus = maritalStatus; 
+  }
+
+  if (gender && gender !== 'ALL') {
+    where.gender = gender;
+  }
+
+  if (fromDate || toDate) {
+    const dateQuery: any = {};
+    if (fromDate) dateQuery.gte = new Date(fromDate);
+    if (toDate)   dateQuery.lte = new Date(toDate);
+    where.createdAt = dateQuery;
+  }
+
   const isApprover = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');
   const isVerifier = hasRolePermission(user, 'verifier_customer_onboarding');
-  
   if (!isApprover && !isVerifier) {
     where.submittedById = user.id;
   }
@@ -351,62 +382,94 @@ export async function listCustomerOnboardings(opts: {
     ];
   }
 
-  if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate)   where.createdAt.lte = new Date(toDate);
-  }
-
-  if (gender && gender !== 'ALL') {
-    where.gender = gender;
-  }
-
   try {
-    const [records, total] = await Promise.all([
-      prisma.customerOnboarding.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { [sortBy]: sortOrder },
-        select: {
-          // Standard metadata
-          id: true,
-          mnemonic: true,
-          approvalStatus: true,
-          createdAt: true,
-          updatedAt: true,
-          forwardedAt: true,
-          forwardError: true,
-          
-          // Identity (List essentials)
-          shortName: true,
-          fullName1: true,
-          fullName2: true,
-          givenName: true,
-          familyName: true,
-          title: true,
-          gender: true,
-          dateOfBirth: true,
-          nationality: true,
-          legalIdNumber: true,
-          nationalIDNumber: true,
-          psuToken: true,
-          
-          // Contact (List essentials)
-          mobilePhoneNumbers: true,
-          phoneNumbersRes: true,
-          
-          // Relations (Selected fields only)
-          submittedBy: { select: { id: true, name: true, email: true, status: true } },
-          approverReviewedBy:  { select: { id: true, name: true, email: true, status: true } },
-          verifierReviewedBy: { select: { id: true, name: true, email: true, status: true } },
-          region: true,
-        },
-      }),
-      prisma.customerOnboarding.count({ where }),
-    ]);
+    let records: any[] = [];
+    let total = 0;
 
-    // Apply region mapping to all records
+    // Use Raw SQL ONLY if age filtering is required
+    if (sanitizedAgeMin !== undefined || sanitizedAgeMax !== undefined) {
+      const conditions: string[] = [];
+      const values: any[] = [];
+
+      // Rebuild conditions for Raw SQL - ENSURE INDEPENDENCE
+      if (status && status !== 'ALL') {
+        conditions.push(`"approvalStatus" = $${values.length + 1}::"ApprovalStatus"`);
+        values.push(status);
+      }
+      if (region && region !== 'ALL') {
+        conditions.push(`"region" = $${values.length + 1}`);
+        values.push(region);
+      }
+      if (maritalStatus && maritalStatus !== 'ALL') {
+        conditions.push(`"maritalStatus" = $${values.length + 1}`);
+        values.push(maritalStatus);
+      }
+      if (gender && gender !== 'ALL') {
+        conditions.push(`"gender" = $${values.length + 1}`);
+        values.push(gender);
+      }
+      if (fromDate) {
+        conditions.push(`"createdAt" >= $${values.length + 1}::timestamp`);
+        values.push(new Date(fromDate));
+      }
+      if (toDate) {
+        conditions.push(`"createdAt" <= $${values.length + 1}::timestamp`);
+        values.push(new Date(toDate));
+      }
+      if (!isApprover && !isVerifier) {
+        conditions.push(`"submittedById" = $${values.length + 1}`);
+        values.push(user.id);
+      }
+      if (search) {
+        const s = `%${search}%`;
+        conditions.push(`("mnemonic" ILIKE $${values.length + 1} OR "fullName1" ILIKE $${values.length + 1} OR "givenName" ILIKE $${values.length + 1} OR "familyName" ILIKE $${values.length + 1})`);
+        values.push(s);
+      }
+
+      // Age conditions (The reason we are in this block)
+      if (sanitizedAgeMin !== undefined) {
+        conditions.push(`to_date("dateOfBirth", 'DD MON YYYY') <= (CURRENT_DATE - (INTERVAL '1 year' * $${values.length + 1}))`);
+        values.push(sanitizedAgeMin);
+      }
+      if (sanitizedAgeMax !== undefined) {
+        conditions.push(`to_date("dateOfBirth", 'DD MON YYYY') >= (CURRENT_DATE - (INTERVAL '1 year' * ($${values.length + 1} + 1)) + INTERVAL '1 day')`);
+        values.push(sanitizedAgeMax);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const orderClause = `ORDER BY "${sortBy}" ${sortOrder.toUpperCase()}`;
+      const limitClause = `LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+      
+      const countQuery = `SELECT COUNT(*)::int as total FROM "CustomerOnboarding" ${whereClause}`;
+      const dataQuery = `SELECT * FROM "CustomerOnboarding" ${whereClause} ${orderClause} ${limitClause}`;
+
+      const [countResult, dataResult] = await Promise.all([
+        prisma.$queryRawUnsafe<any[]>(countQuery, ...values),
+        prisma.$queryRawUnsafe<any[]>(dataQuery, ...values, pageSize, skip)
+      ]);
+
+      total = countResult[0]?.total || 0;
+      records = dataResult;
+    } else {
+      // Standard Prisma query for cases without age filtering
+      const [prismaRecords, prismaTotal] = await Promise.all([
+        prisma.customerOnboarding.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: { [sortBy]: sortOrder },
+          include: {
+            submittedBy: { select: { id: true, name: true, email: true, status: true } },
+            approverReviewedBy:  { select: { id: true, name: true, email: true, status: true } },
+            verifierReviewedBy: { select: { id: true, name: true, email: true, status: true } },
+          },
+        }),
+        prisma.customerOnboarding.count({ where }),
+      ]);
+      records = prismaRecords;
+      total = prismaTotal;
+    }
+
     const mappedRecords = records.map(record => ({
       ...record,
       region: getRegionLabel(record.region)

@@ -56,7 +56,11 @@ export function formatZodError(error: z.ZodError): string {
     dateOfBirth: 'Date of Birth',
     maritalStatus: 'Marital Status',
     customerType: 'Customer Type',
-    picture: 'Profile Picture'
+    picture: 'Profile Picture',
+    occupation: 'Occupation',
+    employersName: 'Employer Name',
+    netMonthlyIn: 'Net Monthly Income',
+    motherName: "Mother's Full Name"
   };
 
   const formattedIssues = issues.map((issue) => {

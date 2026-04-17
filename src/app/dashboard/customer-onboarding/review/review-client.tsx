@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, RefreshCw, Eye, ChevronLeft, ChevronRight,
   Search, Clock, Building2, User, FileText, Loader2, AlertTriangle,
   Send, Filter, RotateCcw, ArrowRightLeft, ArrowUpDown, ChevronUp, ChevronDown, Calendar,
-  Download, FileSpreadsheet, Copy, Check, X, ZoomIn, MessageSquare,
+  Download, FileSpreadsheet, Copy, Check, X, ZoomIn, MessageSquare, Heart, Hash,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
@@ -25,6 +25,11 @@ import {
   bulkRetryForwardToCoreBanking,
   retrySendSms
 } from '@/app/actions/customer-onboarding';
+import { 
+  formatTimestamp, 
+  calculateAge, 
+  formatDOBWithAge 
+} from '@/lib/data';
 import { Button }     from '@/components/ui/button';
 import { Input }      from '@/components/ui/input';
 import { Badge }      from '@/components/ui/badge';
@@ -841,7 +846,7 @@ function RecordDetailDialog({
                     <CopyButton value={record.mnemonic} label="Mnemonic" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {record.gender}{record.dateOfBirth ? ` · ${record.dateOfBirth}` : ''}
+                    {record.gender}{record.dateOfBirth ? ` · ${formatDOBWithAge(record.dateOfBirth)}` : ''}
                   </p>
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
@@ -942,7 +947,7 @@ function RecordDetailDialog({
                   <InfoRow label="Full Name"       value={record.fullName1}      copyable />
                   <InfoRow label="Short Name"      value={record.shortName} />
                   <InfoRow label="Gender"          value={record.gender} />
-                  <InfoRow label="Date of Birth"   value={record.dateOfBirth} />
+                  <InfoRow label="Date of Birth"   value={formatDOBWithAge(record.dateOfBirth)} />
                   <InfoRow label="Marital Status"  value={record.maritalStatus} />
                   <InfoRow label="Nationality"     value={record.nationality} />
                   <InfoRow label="PSU Token"       value={record.psuToken || record.legalIdNumber || record.nationalIDNumber} copyable />
@@ -1270,6 +1275,44 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
   const [fromDate, setFromDate]         = useState(searchParams.get('fromDate') || '');
   const [toDate, setToDate]             = useState(searchParams.get('toDate') || '');
   const [gender, setGender]             = useState(searchParams.get('gender') || 'ALL');
+  const [maritalStatusFilter, setMaritalStatusFilter] = useState(searchParams.get('maritalStatus') || 'ALL');
+  const [ageMin, setAgeMin]             = useState(searchParams.get('ageMin') ? Number(searchParams.get('ageMin')) : '');
+  const [ageMax, setAgeMax]             = useState(searchParams.get('ageMax') ? Number(searchParams.get('ageMax')) : '');
+  const [refreshKey, setRefreshKey]     = useState(0);
+
+  // Debounced age values for immediate yet controlled filtering
+  const [debouncedAgeMin, setDebouncedAgeMin] = useState(ageMin);
+  const [debouncedAgeMax, setDebouncedAgeMax] = useState(ageMax);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAgeMin(ageMin);
+      setDebouncedAgeMax(ageMax);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [ageMin, ageMax]);
+
+  const onStatusChange = (v: string) => { 
+    setStatusFilter(v as any); 
+    setPage(1); 
+  };
+  const onGenderChange = (v: string) => { 
+    setGender(v); 
+    setPage(1); 
+  };
+  const onMaritalChange = (v: string) => { 
+    setMaritalStatusFilter(v); 
+    setPage(1); 
+  };
+  const onFromDateChange = (v: string) => { 
+    setFromDate(v); 
+    setPage(1); 
+  };
+  const onToDateChange = (v: string) => { 
+    setToDate(v); 
+    setPage(1); 
+  };
   
   const [selectedId, setSelectedId]     = useState<string | null>(null);
 
@@ -1295,6 +1338,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
     setSearch('');
     setStatusFilter('ALL');
     setGender('ALL');
+    setMaritalStatusFilter('ALL');
+    setAgeMin('');
+    setAgeMax('');
     setFromDate('');
     setToDate('');
     setPage(1);
@@ -1315,12 +1361,15 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     if (gender !== 'ALL') params.set('gender', gender);
+    if (maritalStatusFilter !== 'ALL') params.set('maritalStatus', maritalStatusFilter);
+    if (ageMin !== '') params.set('ageMin', ageMin.toString());
+    if (ageMax !== '') params.set('ageMax', ageMax.toString());
 
     const newUrl = `${pathname}?${params.toString()}`;
     if (window.location.search !== `?${params.toString()}`) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, pathname, router]);
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, maritalStatusFilter, ageMin, ageMax, pathname, router]);
 
   // Sync state FROM URL when navigating back/forward — only run if URL actually diverges
   useEffect(() => {
@@ -1333,6 +1382,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
     const urlFromDate = searchParams.get('fromDate') || '';
     const urlToDate = searchParams.get('toDate') || '';
     const urlGender = searchParams.get('gender') || 'ALL';
+    const urlMarital = searchParams.get('maritalStatus') || 'ALL';
+    const urlAgeMin = searchParams.get('ageMin') ? Number(searchParams.get('ageMin')) : '';
+    const urlAgeMax = searchParams.get('ageMax') ? Number(searchParams.get('ageMax')) : '';
     const urlId = searchParams.get('id') || null;
 
     if (page !== urlPage) setPage(urlPage);
@@ -1344,6 +1396,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
     if (fromDate !== urlFromDate) setFromDate(urlFromDate);
     if (toDate !== urlToDate) setToDate(urlToDate);
     if (gender !== urlGender) setGender(urlGender);
+    if (maritalStatusFilter !== urlMarital) setMaritalStatusFilter(urlMarital);
+    if (ageMin !== urlAgeMin) setAgeMin(urlAgeMin);
+    if (ageMax !== urlAgeMax) setAgeMax(urlAgeMax);
   }, [searchParams]); // Only run when URL searchParams change, not when internal state changes
 
   const handleExport = async (exportIds?: string[]) => {
@@ -1361,6 +1416,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         gender: gender || undefined,
+        maritalStatus: maritalStatusFilter === 'ALL' ? undefined : maritalStatusFilter,
+        ageMin: ageMin !== '' ? Number(ageMin) : undefined,
+        ageMax: ageMax !== '' ? Number(ageMax) : undefined,
       });
 
       if (!result.success || !result.records) {
@@ -1409,73 +1467,94 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
 
   const requestRef = React.useRef(0);
 
-  const load = useCallback(async (retryCount = 0) => {
-    // Wait for auth to hydrate if it's currently loading
-    if (authStatus === 'loading') return;
+  // Consolidated loading effect for all filters and pagination
+  useEffect(() => {
+    const fetchData = async (retryCount = 0) => {
+      // Wait for auth to hydrate if it's currently loading
+      if (authStatus === 'loading') return;
 
-    const requestId = ++requestRef.current;
-    
-    // Minimalistic loading state management
-    setLoading(true);
-    setError(null);
-    
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT')), 20000)
-    );
+      const requestId = ++requestRef.current;
+      
+      setLoading(true);
+      setError(null);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('TIMEOUT')), 20000)
+      );
 
-    try {
-      const result = await Promise.race([
-        listCustomerOnboardings({
-          status:   statusFilter === 'ALL' ? undefined : statusFilter,
-          page,
-          pageSize,
-          search:   search || undefined,
-          sortBy,
-          sortOrder,
-          fromDate: fromDate || undefined,
-          toDate:   toDate || undefined,
-          gender:   gender || undefined,
-        }),
-        timeoutPromise
-      ]) as any;
+      try {
+        const result = await Promise.race([
+          listCustomerOnboardings({
+            status:   statusFilter === 'ALL' ? undefined : statusFilter,
+            page,
+            pageSize,
+            search:   search || undefined,
+            sortBy,
+            sortOrder,
+            fromDate: fromDate || undefined,
+            toDate:   toDate || undefined,
+            gender:   gender === 'ALL' ? undefined : gender,
+            maritalStatus: maritalStatusFilter === 'ALL' ? undefined : maritalStatusFilter,
+            ageMin: debouncedAgeMin !== '' ? Number(debouncedAgeMin) : undefined,
+            ageMax: debouncedAgeMax !== '' ? Number(debouncedAgeMax) : undefined,
+          }),
+          timeoutPromise
+        ]) as any;
 
-      // Drop stale results
-      if (requestId !== requestRef.current) return;
+        // Drop stale results
+        if (requestId !== requestRef.current) return;
 
-      if (result.success) {
-        setRecords(result.records);
-        setTotal(result.total);
-      } else {
+        if (result.success) {
+          setRecords(result.records);
+          setTotal(result.total);
+        } else {
+          if (retryCount < 2) {
+            setTimeout(() => fetchData(retryCount + 1), 1000);
+            return;
+          }
+          setError(result.error || "Failed to fetch records.");
+          toast.error(result.error || "Failed to fetch records.");
+        }
+      } catch (err: any) {
+        if (requestId !== requestRef.current) return;
         if (retryCount < 2) {
-          console.log(`Retrying list load... (${retryCount + 1})`);
-          setTimeout(() => load(retryCount + 1), 1000);
+          setTimeout(() => fetchData(retryCount + 1), 1000);
           return;
         }
-        setError(result.error || "Failed to fetch records.");
-        toast.error(result.error || "Failed to fetch records.");
+        console.error('[fetch-error]', err);
+        const msg = err.message === 'TIMEOUT' ? "The request timed out." : "A network error occurred.";
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        if (requestId === requestRef.current) {
+          setLoading(false);
+        }
       }
-    } catch (err: any) {
-      if (requestId !== requestRef.current) return;
-      if (retryCount < 2) {
-        console.log(`Retrying list load after error... (${retryCount + 1})`);
-        setTimeout(() => load(retryCount + 1), 1000);
-        return;
-      }
-      console.error('[load-error]', err);
-      const msg = err.message === 'TIMEOUT' ? "The request timed out." : "A network error occurred.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      if (requestId === requestRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [authStatus, statusFilter, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, gender]);
+    };
 
-  // Use a targeted effect for loading — avoids re-running on URL sync triggers if state hasn't changed.
-  useEffect(() => {
-    load();
-  }, [load]);
+    fetchData();
+  }, [
+    authStatus, 
+    statusFilter, 
+    page, 
+    pageSize, 
+    search, 
+    sortBy, 
+    sortOrder, 
+    fromDate, 
+    toDate, 
+    gender, 
+    maritalStatusFilter, 
+     debouncedAgeMin, 
+     debouncedAgeMax,
+     refreshKey
+   ]);
+
+  const load = useCallback(() => {
+     setRefreshKey(k => k + 1);
+   }, []);
+
+   const onRefresh = load;
 
   async function handleBulkRetrySync() {
     if (!canReview) {
@@ -1539,7 +1618,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(v) => { setStatusFilter(v as ApprovalStatus | 'ALL'); setPage(1); }}
+          onValueChange={onStatusChange}
         >
           <SelectTrigger className="w-full sm:w-[180px]">
             <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -1599,12 +1678,12 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <Card className="p-4 border-dashed bg-muted/20 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="p-4 border-dashed bg-muted/20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" /> Gender
                 </label>
-                <Select value={gender} onValueChange={setGender}>
+                <Select value={gender} onValueChange={onGenderChange}>
                   <SelectTrigger className="h-9 bg-background">
                     <SelectValue placeholder="All Genders" />
                   </SelectTrigger>
@@ -1618,26 +1697,82 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
 
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Ingested From
+                  <Heart className="h-3 w-3" /> Marital Status
                 </label>
-                <Input 
-                   type="date" 
-                   value={fromDate} 
-                   onChange={(e) => { setFromDate(e.target.value); setPage(1); }} 
-                   className="h-9 bg-background" 
-                />
+                <Select value={maritalStatusFilter} onValueChange={onMaritalChange}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Statuses</SelectItem>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="MARRIED">Married</SelectItem>
+                    <SelectItem value="DIVORCED">Divorced</SelectItem>
+                    <SelectItem value="WIDOWED">Widowed</SelectItem>
+                    <SelectItem value="PARTNER">Partner</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Ingested To
+                  <Hash className="h-3 w-3" /> Age Range
                 </label>
-                <Input 
-                   type="date" 
-                   value={toDate} 
-                   onChange={(e) => { setToDate(e.target.value); setPage(1); }} 
-                   className="h-9 bg-background" 
-                />
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="number" 
+                    placeholder="Min" 
+                    min="0"
+                    value={ageMin} 
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault();
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10));
+                      setAgeMin(val);
+                    }} 
+                    className="h-9 bg-background [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                  />
+                  <span className="text-muted-foreground text-xs">to</span>
+                  <Input 
+                    type="number" 
+                    placeholder="Max" 
+                    min="0"
+                    value={ageMax} 
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault();
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10));
+                      setAgeMax(val);
+                    }} 
+                    className="h-9 bg-background [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> Ingested Date Range
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="date" 
+                    value={fromDate} 
+                    onChange={(e) => onFromDateChange(e.target.value)} 
+                    className="h-9 bg-background text-xs" 
+                  />
+                  <span className="text-muted-foreground text-xs">to</span>
+                  <Input 
+                    type="date" 
+                    value={toDate} 
+                    onChange={(e) => onToDateChange(e.target.value)} 
+                    className="h-9 bg-background text-xs" 
+                  />
+                </div>
               </div>
             </Card>
           </motion.div>

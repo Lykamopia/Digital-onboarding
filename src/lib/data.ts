@@ -1,5 +1,5 @@
 import { Permission } from '@/lib/types';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, differenceInYears, parse } from 'date-fns';
 
 export const permissions: { id: Permission, label: string, description: string }[] = [
     { id: 'manage_divisions', label: 'Manage Divisions', description: 'Can create, edit, and delete divisions' },
@@ -26,4 +26,29 @@ export const formatTimestamp = (timestamp: string | Date, relative: boolean = tr
   } catch (e) {
     return '';
   }
+};
+
+/**
+ * Calculates age from a DOB string in format "DD MMM YYYY"
+ */
+export const calculateAge = (dobString: string | null | undefined): number | null => {
+  if (!dobString) return null;
+  try {
+    // dobString format: "DD MMM YYYY" (e.g. "23 OCT 2000")
+    const date = parse(dobString, "dd MMM yyyy", new Date());
+    if (isNaN(date.getTime())) return null;
+    return differenceInYears(new Date(), date);
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
+ * Formats DOB string to include age: "23 OCT 2000 (25 years)"
+ */
+export const formatDOBWithAge = (dobString: string | null | undefined): string => {
+  if (!dobString) return '';
+  const age = calculateAge(dobString);
+  if (age === null) return dobString;
+  return `${dobString} (${age} year${age === 1 ? '' : 's'})`;
 };
