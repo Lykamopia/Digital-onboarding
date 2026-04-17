@@ -317,7 +317,8 @@ export async function listCustomerOnboardings(opts: {
 
   const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   const canSubmit = hasRolePermission(user, 'submit_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
-  if (!canReview && !canSubmit) return { success: false as const, error: 'Access denied.' };
+  const canView   = hasRolePermission(user, 'viewer_customer_onboarding');
+  if (!canReview && !canSubmit && !canView) return { success: false as const, error: 'Access denied.' };
 
   const { 
     status, 
@@ -369,7 +370,8 @@ export async function listCustomerOnboardings(opts: {
 
   const isApprover = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');
   const isVerifier = hasRolePermission(user, 'verifier_customer_onboarding');
-  if (!isApprover && !isVerifier) {
+  const isViewer   = hasRolePermission(user, 'viewer_customer_onboarding');
+  if (!isApprover && !isVerifier && !isViewer) {
     where.submittedById = user.id;
   }
 
@@ -416,7 +418,7 @@ export async function listCustomerOnboardings(opts: {
         conditions.push(`"createdAt" <= $${values.length + 1}::timestamp`);
         values.push(new Date(toDate));
       }
-      if (!isApprover && !isVerifier) {
+      if (!isApprover && !isVerifier && !isViewer) {
         conditions.push(`"submittedById" = $${values.length + 1}`);
         values.push(user.id);
       }
@@ -491,7 +493,8 @@ export async function getCustomerOnboarding(id: string) {
 
   const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
   const canSubmit = hasRolePermission(user, 'submit_customer_onboarding') || hasRolePermission(user, 'verifier_customer_onboarding');
-  if (!canReview && !canSubmit) return { success: false as const, error: 'Access denied.' };
+  const canView   = hasRolePermission(user, 'viewer_customer_onboarding');
+  if (!canReview && !canSubmit && !canView) return { success: false as const, error: 'Access denied.' };
 
   try {
     const record = await prisma.customerOnboarding.findUnique({
@@ -511,8 +514,9 @@ export async function getCustomerOnboarding(id: string) {
     
     const isApprover = hasRolePermission(user, 'approver_customer_onboarding') || hasRolePermission(user, 'review_customer_onboarding');
     const isVerifier = hasRolePermission(user, 'verifier_customer_onboarding');
+    const isViewer   = hasRolePermission(user, 'viewer_customer_onboarding');
 
-    if (!isApprover && !isVerifier && record.submittedById !== user.id) {
+    if (!isApprover && !isVerifier && !isViewer && record.submittedById !== user.id) {
       return { success: false as const, error: 'Access denied.' };
     }
 
@@ -546,7 +550,8 @@ export async function getHistoricalComparison(recordId: string) {
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || 
-                    hasRolePermission(user, 'approver_customer_onboarding');
+                    hasRolePermission(user, 'approver_customer_onboarding') ||
+                    hasRolePermission(user, 'viewer_customer_onboarding');
   if (!canReview) return { success: false, error: 'Access denied.' };
 
   const { ipAddress, userAgent } = await getRequestContext();

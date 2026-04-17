@@ -32,8 +32,9 @@ export default async function OnboardingStatusPage({
   const isAdmin = permissions.includes('admin');
   const canApprover = permissions.includes('approver_customer_onboarding') || isAdmin;
   const canVerifier = permissions.includes('verifier_customer_onboarding') || isAdmin;
+  const canViewer   = permissions.includes('viewer_customer_onboarding');
 
-  if (!canVerifier && !canApprover) redirect('/dashboard/access-denied');
+  if (!canVerifier && !canApprover && !canViewer) redirect('/dashboard/access-denied');
 
   // Parse filters from search params
   const resolvedSearchParams = await searchParams;
@@ -113,15 +114,17 @@ export default async function OnboardingStatusPage({
           <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
             <Activity className="h-3 w-3" /> System Active
           </Badge>
-          <ExportButton 
-            region={filters.region}
-            fromDate={filters.fromDate?.toISOString()}
-            toDate={filters.toDate?.toISOString()}
-          />
-          {(canApprover || canVerifier) && (
+          {!canViewer && (
+            <ExportButton 
+              region={filters.region}
+              fromDate={filters.fromDate?.toISOString()}
+              toDate={filters.toDate?.toISOString()}
+            />
+          )}
+          {(canApprover || canVerifier || canViewer) && (
             <Link href="/dashboard/customer-onboarding/review">
               <Button size="sm" className="gap-1">
-                <ShieldCheck className="h-4 w-4" /> Open Pipeline
+                <ShieldCheck className="h-4 w-4" /> {canViewer && !canApprover && !canVerifier ? 'View Pipeline' : 'Open Pipeline'}
               </Button>
             </Link>
           )}

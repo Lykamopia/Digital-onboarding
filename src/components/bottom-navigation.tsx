@@ -22,15 +22,17 @@ interface BottomNavigationProps {
 export function BottomNavigation({ user }: BottomNavigationProps) {
   const pathname = usePathname();
 
-  const permissions = useMemo(() => user.role?.permissions?.split(',') || [], [user.role?.permissions]);
+  const permissions = useMemo(() => user.role?.permissions?.split(',').map(p => p.trim()) || [], [user.role?.permissions]);
   
-  const canReviewOnboarding = useMemo(() => permissions.includes('review_customer_onboarding'), [permissions]);
-  const canSubmitOnboarding = useMemo(() => permissions.includes('submit_customer_onboarding'), [permissions]);
+  const isAdmin = useMemo(() => permissions.includes('admin'), [permissions]);
+  const canReviewOnboarding = useMemo(() => permissions.includes('approver_customer_onboarding') || permissions.includes('verifier_customer_onboarding') || isAdmin, [permissions, isAdmin]);
+  const canSubmitOnboarding = useMemo(() => permissions.includes('verifier_customer_onboarding') || isAdmin, [permissions, isAdmin]);
+  const canViewOnboarding = useMemo(() => permissions.includes('viewer_customer_onboarding'), [permissions]);
 
   const allNavItems = [
     // Onboarding Middleware
-    { href: "/dashboard/customer-onboarding", icon: <Users2 />, label: "Status", active: pathname === '/dashboard/customer-onboarding', visible: (canSubmitOnboarding || canReviewOnboarding) && !user.actingUser },
-    { href: "/dashboard/customer-onboarding/review", icon: <ClipboardCheck />, label: "Pipeline", active: pathname.startsWith('/dashboard/customer-onboarding/review'), visible: canReviewOnboarding && !user.actingUser },
+    { href: "/dashboard/customer-onboarding", icon: <Users2 />, label: "Status", active: pathname === '/dashboard/customer-onboarding', visible: (canSubmitOnboarding || canReviewOnboarding || canViewOnboarding) && !user.actingUser },
+    { href: "/dashboard/customer-onboarding/review", icon: <ClipboardCheck />, label: "Pipeline", active: pathname.startsWith('/dashboard/customer-onboarding/review'), visible: (canReviewOnboarding || canViewOnboarding) && !user.actingUser },
 
     { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", active: pathname === '/dashboard/profile', visible: !user.actingUser },
     { href: "/dashboard/admin", icon: <Shield />, label: "Admin", active: pathname.startsWith('/dashboard/admin'), visible: permissions.some(p => p.startsWith('manage_')) && !user.actingUser },

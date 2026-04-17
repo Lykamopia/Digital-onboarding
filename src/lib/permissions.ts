@@ -13,6 +13,7 @@ export const permissions: { id: Permission, label: string, description: string }
     // Customer Onboarding (Verifier-Approver Operations)
     { id: 'verifier_customer_onboarding', label: 'Verifier (Onboarding)', description: 'Primary Verifier role for customer onboarding reviews (Stage 1).' },
     { id: 'approver_customer_onboarding', label: 'Approver (Onboarding)', description: 'Primary Approver role for customer onboarding final authorization (Stage 2).' },
+    { id: 'viewer_customer_onboarding', label: 'Viewer (Onboarding)', description: 'Read-only access to customer onboarding data and status (No actions).' },
 ];
 
 

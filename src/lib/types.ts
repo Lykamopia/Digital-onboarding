@@ -21,6 +21,7 @@ export type Permission =
     | 'manage_security_logs'
     | 'approver_customer_onboarding'
     | 'verifier_customer_onboarding'
+    | 'viewer_customer_onboarding'
     | 'admin';
 
 export type DateRange = {

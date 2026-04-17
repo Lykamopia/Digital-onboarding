@@ -213,7 +213,8 @@ const DataRow = React.memo(({
     isSelected, 
     onToggle, 
     onView,
-    canReview
+    canReview,
+    isViewer
 }: { 
     rec: CustomerOnboarding; 
     index: number; 
@@ -223,6 +224,7 @@ const DataRow = React.memo(({
     onToggle: (checked: boolean) => void;
     onView: () => void;
     canReview: boolean;
+    isViewer: boolean;
 }) => {
     return (
         <motion.tr
@@ -237,6 +239,7 @@ const DataRow = React.memo(({
                 <Checkbox 
                     checked={isSelected}
                     onCheckedChange={onToggle}
+                    disabled={isViewer}
                 />
             </td>
             <td className="px-4 py-3 text-[10px] text-muted-foreground font-mono text-center">
@@ -446,6 +449,7 @@ function RecordDetailDialog({
   recordId,
   canReview,
   canMaker,
+  isViewer,
   onClose,
   onRefresh,
   onUpdateRecord,
@@ -453,6 +457,7 @@ function RecordDetailDialog({
   recordId: string;
   canReview: boolean;
   canMaker: boolean;
+  isViewer: boolean;
   onClose: () => void;
   onRefresh: () => void;
   onUpdateRecord: (record: CustomerOnboarding) => void;
@@ -850,7 +855,7 @@ function RecordDetailDialog({
                   </p>
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
-                    {canReview && <SMSStatusBadge status={record.smsStatus} sentAt={record.smsSentAt} />}
+                    {(canReview || isViewer) && <SMSStatusBadge status={record.smsStatus} sentAt={record.smsSentAt} />}
                     {record.forwardedAt ? (
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 text-xs">
                         <Send className="h-3 w-3 mr-1" /> Forwarded {format(new Date(record.forwardedAt), 'dd MMM yyyy')}
@@ -865,7 +870,7 @@ function RecordDetailDialog({
                         <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 text-xs">
                           <AlertTriangle className="h-3 w-3 mr-1" /> T24 Sync Failed
                         </Badge>
-                        {canReview && (
+                        {canReview && !isViewer && (
                           <Button
                             onClick={handleRetry}
                             disabled={!!actionInProgress}
@@ -1027,7 +1032,7 @@ function RecordDetailDialog({
               )}
 
               {/* SMS Status */}
-              {canReview && (record.smsSentAt || record.smsStatus === 'FAILED') && (
+              {(canReview || isViewer) && (record.smsSentAt || record.smsStatus === 'FAILED') && (
                 <div className={cn(
                   "rounded-lg border p-4 flex items-start gap-4 transition-all duration-300",
                   record.smsStatus === 'SENT' 
@@ -1060,7 +1065,7 @@ function RecordDetailDialog({
                         ? `The customer was successfully notified at ${record.mobilePhoneNumbers || record.phoneNumbersRes}.`
                         : `Failed to notify customer: ${record.smsError || 'Unknown gateway error'}.`}
                     </p>
-                    {record.smsStatus === 'FAILED' && canReview && (
+                    {record.smsStatus === 'FAILED' && canReview && !isViewer && (
                       <Button
                         onClick={handleRetrySms}
                         disabled={!!actionInProgress}
@@ -1087,7 +1092,7 @@ function RecordDetailDialog({
                       {record.forwardError}
                     </div>
                   </div>
-                  {canReview && (
+                  {canReview && !isViewer && (
                     <Button
                       onClick={handleRetry}
                       disabled={!!actionInProgress}
@@ -1145,8 +1150,16 @@ function RecordDetailDialog({
                 </div>
               )}
 
+              {/* View Only Indicator */}
+              {isViewer && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
+                  <Eye className="h-4 w-4" />
+                  <p className="text-xs font-medium">You are in <strong>View Only</strong> mode. Interactive actions are restricted for your role.</p>
+                </div>
+              )}
+
               {/* Reviewer actions (Three-Step Verifier-Sync-Approver) */}
-              {((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED')) || 
+              {!isViewer && ((canMaker && (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED')) || 
                 (canReview && (record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'VERIFIER_REJECTED' || record.approvalStatus === 'SYNC_FAILED'))) && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1242,7 +1255,7 @@ function RecordDetailDialog({
 }
 
 // ─── Main review panel ────────────────────────────────────────────────────────
-export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canReview: boolean; canMaker: boolean }) {
+export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }: { canReview: boolean; canMaker: boolean; isViewer: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1646,14 +1659,16 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
           {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
         </Button>
 
-        <Button 
-          variant="outline" 
-          onClick={() => setExportType('ALL')} 
-          className="gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          Export All
-        </Button>
+        {!isViewer && (
+          <Button 
+            variant="outline" 
+            onClick={() => setExportType('ALL')} 
+            className="gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Export All
+          </Button>
+        )}
 
         <Button 
           variant="outline" 
@@ -1789,6 +1804,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                   <Checkbox 
                     checked={records.length > 0 && records.every(r => selection.has(r.id))}
                     onCheckedChange={(checked) => {
+                      if (isViewer) return;
                       const next = new Map(selection);
                       if (checked) {
                         records.forEach(r => next.set(r.id, r.approvalStatus));
@@ -1797,6 +1813,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                       }
                       setSelection(next);
                     }}
+                    disabled={isViewer}
                   />
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[10px] uppercase w-12 text-center">#</th>
@@ -1928,6 +1945,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                     pageSize={pageSize} 
                     isSelected={selection.has(rec.id)}
                     onToggle={(checked: boolean) => {
+                        if (isViewer) return;
                         const next = new Map(selection);
                         if (checked) next.set(rec.id, rec.approvalStatus);
                         else next.delete(rec.id);
@@ -1938,7 +1956,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
                         params.set('id', rec.id);
                         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
                     }}
-                    canReview={canReview}
+                    canReview={canReview || isViewer}
+                    isViewer={isViewer}
                   />
                 ))
               )}
@@ -2071,65 +2090,71 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
             <div className="h-8 w-px bg-border" />
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 gap-1.5"
-                onClick={() => setExportType('SELECTED')}
-              >
-                <Download className="h-4 w-4" /> Export
-              </Button>
-
-              <Button 
-                size="sm" 
-                className="bg-emerald-600 hover:bg-emerald-700 h-9"
-                disabled={
-                    bulkProcessing || 
-                    selection.size === 0 || 
-                    Array.from(selection.values()).some(status => {
-                        const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
-                        const canApproverThis = canReview && (status === 'PENDING_APPROVER');
-                        return !(canVerifierThis || canApproverThis);
-                    })
-                }
-                onClick={() => setConfirmBulk({ type: 'APPROVED', count: selection.size })}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve
-              </Button>
-              
-              {canReview && syncFailedRecords.length > 0 && (
+              {!isViewer && (
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-9 text-primary border-primary/50 hover:bg-primary/5"
-                  disabled={bulkProcessing}
-                  onClick={handleBulkRetrySync}
+                  size="sm"
+                  className="h-9 gap-1.5"
+                  onClick={() => setExportType('SELECTED')}
                 >
-                  {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
-                  Bulk Sync to Core ({syncFailedRecords.length})
+                  <Download className="h-4 w-4" /> Export
                 </Button>
               )}
-              
-              <Button 
-                size="sm" 
-                variant="destructive"
-                className="h-9"
-                disabled={
-                    bulkProcessing || 
-                    selection.size === 0 || 
-                    Array.from(selection.values()).some(status => {
-                        const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
-                        const canApproverThis = canReview && (status === 'PENDING_APPROVER' || status === 'VERIFIER_REJECTED' || status === 'SYNC_FAILED');
-                        return !(canVerifierThis || canApproverThis);
-                    })
-                }
-                onClick={() => setConfirmBulk({ type: 'REJECTED', count: selection.size })}
-              >
-                <XCircle className="h-4 w-4 mr-1.5" /> Reject
-              </Button>
+
+              {!isViewer && (
+                <>
+                  <Button 
+                    size="sm" 
+                    className="bg-emerald-600 hover:bg-emerald-700 h-9"
+                    disabled={
+                        bulkProcessing || 
+                        selection.size === 0 || 
+                        Array.from(selection.values()).some(status => {
+                            const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
+                            const canApproverThis = canReview && (status === 'PENDING_APPROVER');
+                            return !(canVerifierThis || canApproverThis);
+                        })
+                    }
+                    onClick={() => setConfirmBulk({ type: 'APPROVED', count: selection.size })}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve
+                  </Button>
+                  
+                  {canReview && syncFailedRecords.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-primary border-primary/50 hover:bg-primary/5"
+                      disabled={bulkProcessing}
+                      onClick={handleBulkRetrySync}
+                    >
+                      {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                      Bulk Sync to Core ({syncFailedRecords.length})
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    className="h-9"
+                    disabled={
+                        bulkProcessing || 
+                        selection.size === 0 || 
+                        Array.from(selection.values()).some(status => {
+                            const canVerifierThis = canMaker && (status === 'PENDING' || status === 'REQUIRES_REVIEW' || status === 'RESUBMITTED');
+                            const canApproverThis = canReview && (status === 'PENDING_APPROVER' || status === 'VERIFIER_REJECTED' || status === 'SYNC_FAILED');
+                            return !(canVerifierThis || canApproverThis);
+                        })
+                    }
+                    onClick={() => setConfirmBulk({ type: 'REJECTED', count: selection.size })}
+                  >
+                    <XCircle className="h-4 w-4 mr-1.5" /> Reject
+                  </Button>
+                </>
+              )}
               
               <Button size="sm" variant="ghost" onClick={() => setSelection(new Map())} className="h-9">
-                Cancel
+                {isViewer ? 'Clear Selection' : 'Cancel'}
               </Button>
             </div>
           </motion.div>
@@ -2144,6 +2169,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker }: { canRevi
             recordId={selectedId}
             canReview={canReview}
             canMaker={canMaker}
+            isViewer={isViewer}
             onClose={() => {
                 const params = new URLSearchParams(window.location.search);
                 params.delete('id');

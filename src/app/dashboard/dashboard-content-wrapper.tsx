@@ -38,7 +38,7 @@ interface DashboardContentWrapperProps {
 export function DashboardContentWrapper({ user, children }: DashboardContentWrapperProps) {
   const pathname = usePathname();
 
-  const permissions = useMemo(() => user?.role?.permissions?.split(',') || [], [user?.role?.permissions]);
+  const permissions = useMemo(() => user?.role?.permissions?.split(',').map(p => p.trim()) || [], [user?.role?.permissions]);
 
   const adminPermissions = useMemo(() => [
     'manage_users', 'manage_roles', 'manage_security_logs',
@@ -51,8 +51,10 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
     return adminPermissions.some(p => permissions.includes(p as any));
   }, [user, permissions, adminPermissions]);
 
-  const canSubmitOnboarding = useMemo(() => permissions.includes('verifier_customer_onboarding' as Permission), [permissions]);
-  const canReviewOnboarding = useMemo(() => permissions.includes('approver_customer_onboarding' as Permission) || permissions.includes('verifier_customer_onboarding' as Permission), [permissions]);
+  const isAdmin = useMemo(() => permissions.includes('admin' as Permission), [permissions]);
+  const canSubmitOnboarding = useMemo(() => permissions.includes('verifier_customer_onboarding' as Permission) || isAdmin, [permissions, isAdmin]);
+  const canReviewOnboarding = useMemo(() => permissions.includes('approver_customer_onboarding' as Permission) || permissions.includes('verifier_customer_onboarding' as Permission) || isAdmin, [permissions, isAdmin]);
+  const canViewOnboarding = useMemo(() => permissions.includes('viewer_customer_onboarding' as Permission), [permissions]);
 
   const navItems = useMemo(() => {
     if (!user) return [];
@@ -63,14 +65,14 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
         icon: <Users2 className="h-4 w-4" />, 
         label: "Onboarding Status", 
         active: pathname === '/dashboard/customer-onboarding', 
-        visible: (canSubmitOnboarding || canReviewOnboarding) 
+        visible: (canSubmitOnboarding || canReviewOnboarding || canViewOnboarding) 
       },
       { 
         href: "/dashboard/customer-onboarding/review", 
         icon: <ClipboardCheck className="h-4 w-4" />, 
         label: "Onboarding Pipeline", 
         active: pathname.startsWith('/dashboard/customer-onboarding/review'), 
-        visible: canReviewOnboarding 
+        visible: (canReviewOnboarding || canViewOnboarding) 
       },
       { 
         href: "/dashboard/profile", 
@@ -88,7 +90,7 @@ export function DashboardContentWrapper({ user, children }: DashboardContentWrap
       },
       { href: "/dashboard/access-denied", icon: <ShieldAlert />, label: "Access Denied", active: pathname === '/dashboard/access-denied', visible: true, className: "hidden" },
     ];
-  }, [user, pathname, hasAdminAccess, canSubmitOnboarding, canReviewOnboarding]);
+  }, [user, pathname, hasAdminAccess, canSubmitOnboarding, canReviewOnboarding, canViewOnboarding]);
   
   if (!user) {
     return <div className="h-screen w-full flex items-center justify-center bg-background"><HoneycombLoader /></div>;

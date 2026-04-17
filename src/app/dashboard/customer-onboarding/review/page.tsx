@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getLoggedInUser } from '@/app/actions/memo';
 import { CustomerOnboardingReviewPanel } from './review-client';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Users2 } from 'lucide-react';
+import { ShieldCheck, Users2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -20,8 +20,9 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
   const isAdmin = permissions.includes('admin');
   const canApprover = permissions.includes('approver_customer_onboarding') || isAdmin;
   const canVerifier = permissions.includes('verifier_customer_onboarding') || isAdmin;
+  const canViewer   = permissions.includes('viewer_customer_onboarding');
 
-  if (!canApprover && !canVerifier) redirect('/dashboard/access-denied');
+  if (!canApprover && !canVerifier && !canViewer) redirect('/dashboard/access-denied');
 
   return (
     <div className="space-y-6">
@@ -56,10 +57,15 @@ export default async function CustomerOnboardingReviewPage(props: { searchParams
               <Users2 className="h-3 w-3" /> Verifier Access
             </Badge>
           )}
+          {canViewer && !isAdmin && !canApprover && !canVerifier && (
+            <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
+              <Eye className="h-3 w-3" /> Viewer Access
+            </Badge>
+          )}
         </div>
       </div>
 
-      <CustomerOnboardingReviewPanel canReview={canApprover} canMaker={canVerifier} />
+      <CustomerOnboardingReviewPanel canReview={canApprover} canMaker={canVerifier} isViewer={canViewer} />
     </div>
   );
 }
