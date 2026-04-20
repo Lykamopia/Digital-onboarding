@@ -105,6 +105,43 @@ export default function LoginClientPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/20">
+        <div className="absolute top-0 right-4 sm:right-10 z-20 pointer-events-none select-none group hidden sm:block"> 
+             <div className="relative flex flex-col items-center"> 
+                 {/* Decorative Pin/Nut at the very top */} 
+                 <div className="w-1.5 h-1.5 rounded-full bg-primary/90 border border-white/40 shadow-sm z-30" /> 
+ 
+ 
+                 {/* Thin Hanging Cord */} 
+                 <div className="w-px h-8 bg-gradient-to-b from-primary/80 via-primary/40 to-transparent" /> 
+ 
+ 
+                 {/* Shield Badge - Scaled down for a more subtle look */} 
+                 <div 
+                     className="relative -mt-0.5 flex flex-col items-center justify-center w-16 h-20 bg-primary shadow-[0_8px_15px_-3px_rgba(0,0,0,0.4),0_4px_6px_-2px_rgba(0,0,0,0.2)] transition-all duration-500 hover:scale-105 animate-in fade-in slide-in-from-top-2" 
+                     style={{ 
+                         clipPath: 'polygon(0% 0%, 100% 0%, 100% 85%, 50% 100%, 0% 85%)', 
+                         background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.9) 100%)' 
+                     }} 
+                 > 
+                     {/* Inner Border Effect */} 
+                     <div 
+                         className="absolute inset-0.5 border border-white/10" 
+                         style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 85%, 50% 100%, 0% 85%)' }} 
+                     /> 
+ 
+ 
+                     <div className="flex flex-col items-center gap-0.5 z-10 px-1 text-center"> 
+                         <span className="text-[6px] font-medium text-white/70 leading-none uppercase tracking-tighter">System by</span> 
+                         <h3 className="text-sm font-black text-white tracking-widest drop-shadow-md">EPMO</h3> 
+                     </div> 
+                 </div> 
+ 
+ 
+                 {/* Subtle depth shadow behind the shield */} 
+                 <div className="absolute top-10 w-10 h-10 bg-black/20 blur-xl -z-10 rounded-full opacity-60" /> 
+             </div> 
+         </div> 
+
         <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full" />
         <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-accent/5 rounded-full" />
         
