@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { 
   Users2, ShieldCheck, Activity, ArrowRightLeft, 
-  CheckCircle2, Clock, XCircle, Database, TrendingUp, AlertTriangle, Users, Filter
+  CheckCircle2, Clock, XCircle, Database, TrendingUp, AlertTriangle, Users, Filter, Link as LinkIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -92,6 +92,13 @@ export default async function OnboardingStatusPage({
           Critical: High failure rate
         </div>
       ) : null
+    },
+    { 
+      label: 'Linked Accounts', 
+      value: kpi.summary.linkedAccounts, 
+      icon: <LinkIcon className="h-4 w-4 text-primary" />,
+      description: 'SuperApp linked successfully',
+      subText: null
     },
   ] : [];
 

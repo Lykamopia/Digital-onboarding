@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, RefreshCw, Eye, ChevronLeft, ChevronRight,
   Search, Clock, Building2, User, FileText, Loader2, AlertTriangle,
   Send, Filter, RotateCcw, ArrowRightLeft, ArrowUpDown, ChevronUp, ChevronDown, Calendar,
-  Download, FileSpreadsheet, Copy, Check, X, ZoomIn, MessageSquare, Heart, Hash,
+  Download, FileSpreadsheet, Copy, Check, X, ZoomIn, MessageSquare, Heart, Hash, MapPin,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
@@ -30,6 +30,7 @@ import {
   calculateAge, 
   formatDOBWithAge 
 } from '@/lib/data';
+import { REGION_MAPPING } from '@/lib/region-mapping';
 import { Button }     from '@/components/ui/button';
 import { Input }      from '@/components/ui/input';
 import { Badge }      from '@/components/ui/badge';
@@ -1287,8 +1288,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
   
   const [fromDate, setFromDate]         = useState(searchParams.get('fromDate') || '');
   const [toDate, setToDate]             = useState(searchParams.get('toDate') || '');
-  const [gender, setGender]             = useState(searchParams.get('gender') || 'ALL');
-  const [maritalStatusFilter, setMaritalStatusFilter] = useState(searchParams.get('maritalStatus') || 'ALL');
+  const [region, setRegion]             = useState(searchParams.get('region') || 'ALL');
   const [ageMin, setAgeMin]             = useState(searchParams.get('ageMin') ? Number(searchParams.get('ageMin')) : '');
   const [ageMax, setAgeMax]             = useState(searchParams.get('ageMax') ? Number(searchParams.get('ageMax')) : '');
   const [refreshKey, setRefreshKey]     = useState(0);
@@ -1310,12 +1310,8 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     setStatusFilter(v as any); 
     setPage(1); 
   };
-  const onGenderChange = (v: string) => { 
-    setGender(v); 
-    setPage(1); 
-  };
-  const onMaritalChange = (v: string) => { 
-    setMaritalStatusFilter(v); 
+  const onRegionChange = (v: string) => { 
+    setRegion(v); 
     setPage(1); 
   };
   const onFromDateChange = (v: string) => { 
@@ -1350,8 +1346,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
   const resetFilters = useCallback(() => {
     setSearch('');
     setStatusFilter('ALL');
-    setGender('ALL');
-    setMaritalStatusFilter('ALL');
+    setRegion('ALL');
     setAgeMin('');
     setAgeMax('');
     setFromDate('');
@@ -1373,8 +1368,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     if (sortOrder !== 'desc') params.set('sortOrder', sortOrder);
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
-    if (gender !== 'ALL') params.set('gender', gender);
-    if (maritalStatusFilter !== 'ALL') params.set('maritalStatus', maritalStatusFilter);
+    if (region !== 'ALL') params.set('region', region);
     if (ageMin !== '') params.set('ageMin', ageMin.toString());
     if (ageMax !== '') params.set('ageMax', ageMax.toString());
 
@@ -1382,7 +1376,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     if (window.location.search !== `?${params.toString()}`) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, gender, maritalStatusFilter, ageMin, ageMax, pathname, router]);
+  }, [page, pageSize, search, statusFilter, sortBy, sortOrder, fromDate, toDate, region, ageMin, ageMax, pathname, router]);
 
   // Sync state FROM URL when navigating back/forward — only run if URL actually diverges
   useEffect(() => {
@@ -1394,8 +1388,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     const urlSortOrder = (searchParams.get('sortOrder') as any) || 'desc';
     const urlFromDate = searchParams.get('fromDate') || '';
     const urlToDate = searchParams.get('toDate') || '';
-    const urlGender = searchParams.get('gender') || 'ALL';
-    const urlMarital = searchParams.get('maritalStatus') || 'ALL';
+    const urlRegion = searchParams.get('region') || 'ALL';
     const urlAgeMin = searchParams.get('ageMin') ? Number(searchParams.get('ageMin')) : '';
     const urlAgeMax = searchParams.get('ageMax') ? Number(searchParams.get('ageMax')) : '';
     const urlId = searchParams.get('id') || null;
@@ -1408,8 +1401,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     if (sortOrder !== urlSortOrder) setSortOrder(urlSortOrder);
     if (fromDate !== urlFromDate) setFromDate(urlFromDate);
     if (toDate !== urlToDate) setToDate(urlToDate);
-    if (gender !== urlGender) setGender(urlGender);
-    if (maritalStatusFilter !== urlMarital) setMaritalStatusFilter(urlMarital);
+    if (region !== urlRegion) setRegion(urlRegion);
     if (ageMin !== urlAgeMin) setAgeMin(urlAgeMin);
     if (ageMax !== urlAgeMax) setAgeMax(urlAgeMax);
   }, [searchParams]); // Only run when URL searchParams change, not when internal state changes
@@ -1428,8 +1420,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
         sortOrder,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
-        gender: gender || undefined,
-        maritalStatus: maritalStatusFilter === 'ALL' ? undefined : maritalStatusFilter,
+        region: region === 'ALL' ? undefined : region,
         ageMin: ageMin !== '' ? Number(ageMin) : undefined,
         ageMax: ageMax !== '' ? Number(ageMax) : undefined,
       });
@@ -1452,6 +1443,9 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
           let val = r[col.id];
           if (col.id === 'submittedBy') val = r.submittedBy?.name || 'System';
           else if (col.id === 'reviewedBy') val = r.reviewedBy?.name || 'N/A';
+          else if (['psuToken', 'legalIdNumber', 'nationalIDNumber'].includes(col.id)) {
+            val = val ? `="${val}"` : 'N/A';
+          }
           else if (['createdAt', 'reviewedAt', 'forwardedAt'].includes(col.id)) {
             val = val ? format(new Date(val), 'yyyy-MM-dd HH:mm') : 'N/A';
           }
@@ -1506,8 +1500,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
             sortOrder,
             fromDate: fromDate || undefined,
             toDate:   toDate || undefined,
-            gender:   gender === 'ALL' ? undefined : gender,
-            maritalStatus: maritalStatusFilter === 'ALL' ? undefined : maritalStatusFilter,
+            region:   region === 'ALL' ? undefined : region,
             ageMin: debouncedAgeMin !== '' ? Number(debouncedAgeMin) : undefined,
             ageMax: debouncedAgeMax !== '' ? Number(debouncedAgeMax) : undefined,
           }),
@@ -1556,8 +1549,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     sortOrder, 
     fromDate, 
     toDate, 
-    gender, 
-    maritalStatusFilter, 
+    region, 
      debouncedAgeMin, 
      debouncedAgeMax,
      refreshKey
@@ -1640,14 +1632,15 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="PENDING">Pending Verifier</SelectItem>
-            <SelectItem value="VERIFIER_APPROVED">Verifier Approved</SelectItem>
-            <SelectItem value="AWAITING_T24_SYNC">Syncing to T24</SelectItem>
-            <SelectItem value="SYNC_FAILED">T24 Sync Failed</SelectItem>
+            <SelectItem value="VERIFIER_REJECTED">Verifier Rejected</SelectItem>
+            <SelectItem value="RESUBMITTED">Resubmitted</SelectItem>
+            <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>
             <SelectItem value="PENDING_APPROVER">Pending Approver</SelectItem>
+            <SelectItem value="AWAITING_T24_SYNC">Syncing to T24</SelectItem>
+            <SelectItem value="AWAITING_T24_RESPONSE">Awaiting T24 Response</SelectItem>
+            <SelectItem value="SYNC_FAILED">T24 Sync Failed</SelectItem>
             <SelectItem value="APPROVED">Approved (Final)</SelectItem>
             <SelectItem value="REJECTED">Rejected (Final)</SelectItem>
-            <SelectItem value="REQUIRES_REVIEW">Requires Review</SelectItem>
-            <SelectItem value="RESUBMITTED">Resubmitted</SelectItem>
           </SelectContent>
         </Select>
         <Button 
@@ -1696,38 +1689,40 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
             <Card className="p-4 border-dashed bg-muted/20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
-                  <User className="h-3 w-3" /> Gender
+                  <MapPin className="h-3 w-3" /> Region
                 </label>
-                <Select value={gender} onValueChange={onGenderChange}>
+                <Select value={region} onValueChange={onRegionChange}>
                   <SelectTrigger className="h-9 bg-background">
-                    <SelectValue placeholder="All Genders" />
+                    <SelectValue placeholder="All Regions" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ALL">All Genders</SelectItem>
-                    <SelectItem value="MALE">Male</SelectItem>
-                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="ALL">All Regions</SelectItem>
+                    {Object.entries(REGION_MAPPING).sort((a,b) => a[1].localeCompare(b[1])).map(([id, label]) => (
+                      <SelectItem key={id} value={id}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
-                  <Heart className="h-3 w-3" /> Marital Status
+                  <Calendar className="h-3 w-3" /> Ingested Date Range
                 </label>
-                <Select value={maritalStatusFilter} onValueChange={onMaritalChange}>
-                  <SelectTrigger className="h-9 bg-background">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Statuses</SelectItem>
-                    <SelectItem value="SINGLE">Single</SelectItem>
-                    <SelectItem value="MARRIED">Married</SelectItem>
-                    <SelectItem value="DIVORCED">Divorced</SelectItem>
-                    <SelectItem value="WIDOWED">Widowed</SelectItem>
-                    <SelectItem value="PARTNER">Partner</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="date" 
+                    value={fromDate} 
+                    onChange={(e) => onFromDateChange(e.target.value)} 
+                    className="h-9 bg-background text-xs" 
+                  />
+                  <span className="text-muted-foreground text-xs">to</span>
+                  <Input 
+                    type="date" 
+                    value={toDate} 
+                    onChange={(e) => onToDateChange(e.target.value)} 
+                    className="h-9 bg-background text-xs" 
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1765,27 +1760,6 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
                       setAgeMax(val);
                     }} 
                     className="h-9 bg-background [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Ingested Date Range
-                </label>
-                <div className="flex items-center gap-2">
-                  <Input 
-                    type="date" 
-                    value={fromDate} 
-                    onChange={(e) => onFromDateChange(e.target.value)} 
-                    className="h-9 bg-background text-xs" 
-                  />
-                  <span className="text-muted-foreground text-xs">to</span>
-                  <Input 
-                    type="date" 
-                    value={toDate} 
-                    onChange={(e) => onToDateChange(e.target.value)} 
-                    className="h-9 bg-background text-xs" 
                   />
                 </div>
               </div>

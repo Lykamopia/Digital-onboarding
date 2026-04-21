@@ -15,7 +15,8 @@ export type KPIData = {
     syncFailed: number;
     approvalRate: number;
     rejectionRate: number;
-    averageProcessingTime: number; // in hours
+    averageProcessingTime: number;
+    linkedAccounts: number;
   };
   workload: {
     verifiers: { name: string; count: number }[];
@@ -170,6 +171,14 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
     const rejected = records.filter(r => r.approvalStatus === 'REJECTED' || r.approvalStatus === 'VERIFIER_REJECTED').length;
     const resubmissions = records.filter(r => r.parentCustomerId !== null).length;
 
+    // Calculate linked accounts (where linkingError is null in the T24 response)
+    const linkedAccounts = records.filter(r => {
+      if (r.approvalStatus !== 'APPROVED' || !r.forwardResponse) return false;
+      const response = r.forwardResponse as any;
+      const linkingError = response.linkingError;
+      return linkingError === null || linkingError === undefined;
+    }).length;
+
     // 2. Workload
     const verifierWorkload: Record<string, number> = {};
     const approverWorkload: Record<string, number> = {};
@@ -304,6 +313,7 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
           approvalRate: total > 0 ? (onboarded / total) * 100 : 0,
           rejectionRate: total > 0 ? (rejected / total) * 100 : 0,
           averageProcessingTime: avgVerification + avgApproval + avgSync,
+          linkedAccounts,
         },
         workload: {
           verifiers: Object.entries(verifierWorkload).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),

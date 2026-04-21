@@ -85,6 +85,8 @@ export function T24SuccessResponse({ response }: { response: any }) {
   const transactionId = get('transactionId');
   const allAccounts = get('allAccounts');
 
+  const linkedDigitalAccountDisplay = linkingError === null || linkingError === undefined ? 'YES' : (hasDigitalAccount ?? 'NO');
+
   // Build a human-readable summary based on the flags
   const summaryMessages = [];
   if (customerExists === true || String(customerExists).toUpperCase() === 'YES') {
@@ -168,7 +170,7 @@ export function T24SuccessResponse({ response }: { response: any }) {
             <InfoRow label="Digital Customer" value={isDigitalCustomer} isStatus />
             <InfoRow label="Account Exists" value={accountExists} isStatus />
             <InfoRow label="Digital Account" value={isDigitalAccount} isStatus />
-            <InfoRow label="Linked Digital Account" value={hasDigitalAccount} isStatus />
+            <InfoRow label="Linked Digital Account" value={linkedDigitalAccountDisplay} isStatus />
           </div>
 
           {linkingError && (
