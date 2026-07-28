@@ -215,8 +215,11 @@ function ContactBankingStep({ form }: { form: ReturnType<typeof useForm<Customer
       <FormField label="Sector" required error={errors.sector?.message}>
         <Input {...register('sector')} placeholder="1000" />
       </FormField>
-      <FormField label="Account Officer" required error={errors.accountOfficer?.message}>
+      <FormField label="Account Officer" error={errors.accountOfficer?.message} hint="Leave blank to use the system default">
         <Input {...register('accountOfficer')} placeholder="6409" />
+      </FormField>
+      <FormField label="Product Type" error={errors.productType?.message} hint="T24 product the account is opened under. Leave blank to use the system default">
+        <Input {...register('productType')} placeholder="e.g. 1001" />
       </FormField>
       <FormField label="Industry" required error={errors.industry?.message}>
         <Input {...register('industry')} placeholder="1499" />
@@ -368,7 +371,8 @@ export function CustomerOnboardingForm() {
       language: '1', region: 'ET00', secureMessage: 'Y',
       gender: 'MALE', maritalStatus: 'MARRIED', customerType: 'A',
       ownership: '1000',
-      accountOfficer: '6409',
+      // accountOfficer / productType intentionally blank — the server fills in
+      // DEFAULT_ACCOUNT_OFFICER / DEFAULT_PRODUCT_TYPE when left empty.
       industry: '1499',
       target: '220',
       customerStatus: '1',
@@ -384,7 +388,7 @@ export function CustomerOnboardingForm() {
     ['mnemonic','title','givenName','familyName','shortName','fullName1','gender','dateOfBirth','maritalStatus','nationality','nationalIDNumber', 'motherName'],
     ['street','townCity','country','region','residence'],
     ['legalIdNumber','documentName','nameOnID','issueAuthority','issueDate','expirationDate'],
-    ['language','sector','accountOfficer','industry','target','customerStatus','customerType', 'ownership'],
+    ['language','sector','accountOfficer','productType','industry','target','customerStatus','customerType', 'ownership'],
     ['occupation', 'employersName', 'netMonthlyIn'],
     [],
   ];

@@ -12,6 +12,7 @@ import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/va
 import { processBase64Image, computePayloadHash } from '@/lib/image-processor';
 import { sendSms } from '@/lib/sms';
 import { getRegionLabel, getRegionId } from '@/lib/region-mapping';
+import { resolveAccountOfficer, resolveProductType } from '@/lib/onboarding-defaults';
 
 // ─── T24 Payload Schema (Strict Whitelist & Validation) ────────────────────────
 // This schema enforces the exact fields and formats required by the T24 core banking API.
@@ -25,7 +26,9 @@ const T24PayloadSchema = z.object({
   townCity:           z.string(),
   country:            z.string().length(2),
   sector:             z.string(),
-  accountOfficer:     z.string().optional().nullable(),
+  // Channel routing — T24 opens the account under this officer and product.
+  accountOfficer:     z.string().min(1, 'accountOfficer is required by T24; set DEFAULT_ACCOUNT_OFFICER or have the channel send accountOfficer'),
+  product:            z.string().min(1, 'product is required by T24; set DEFAULT_PRODUCT_TYPE in the environment or have the channel send productType'),
   industry:           z.string(),
   target:             z.string(),
   nationality:        z.string().optional().nullable(),
@@ -256,7 +259,9 @@ export async function submitCustomerOnboarding(rawData: CustomerOnboardingInput,
           nationalIDNumber:   data.nationalIDNumber   || null,
           psuToken:           psuToken                || null,
           ownership:          data.ownership          || '1000',
-          accountOfficer:     '6409',
+          // Channel routing: honour what the requester sent, else fall back
+          accountOfficer:     resolveAccountOfficer(data.accountOfficer),
+          productType:        resolveProductType(data.productType) || null,
           industry:           '1499',
           target:             '220',
           customerStatus:     '1',
@@ -871,10 +876,17 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
   const { ipAddress, userAgent } = await getRequestContext();
 
+  // ── Channel Routing ───────────────────────────────────────────────────────
+  // The officer and product decide which account T24 opens and under whom, so
+  // the channel's own values win. Resolved again here (not just at submit time)
+  // so records created before this field existed still forward cleanly.
+  const resolvedAccountOfficer = resolveAccountOfficer(record.accountOfficer);
+  const resolvedProductType    = resolveProductType(record.productType);
+
   // ── Build Whitelisted T24 Payload ─────────────────────────────────────────
   // We enforce strict contract compliance by only including defined fields
   // and handling optional/nullable logic as per the new T24 schema.
-  
+
   const payload: Record<string, any> = {
     mnemonic:           record.mnemonic.toUpperCase(),
     shortName:          record.shortName.toUpperCase(),
@@ -883,7 +895,8 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
     townCity:           sanitizeForT24(record.townCity),
     country:            sanitizeForT24(record.country),
     sector:             record.sector.toUpperCase(),
-    accountOfficer:     record.accountOfficer = "6409",
+    accountOfficer:     resolvedAccountOfficer.toUpperCase(),
+    product:            resolvedProductType.toUpperCase(),
     industry:           record.industry = "1499",
     target:             record.target = "220",
     customerStatus:     record.customerStatus = "1",
@@ -909,7 +922,6 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
 
   // Handle Optional/Nullable Fields (Omit if empty or matches default/null criteria)
   if (record.fullName2)           payload.fullName2 = record.fullName2.toUpperCase();
-  if (record.accountOfficer)       payload.accountOfficer = record.accountOfficer.toUpperCase();
   if (record.phoneNumbersRes)      payload.phoneNumbersRes = record.phoneNumbersRes.toUpperCase();
   if (record.secureMessage)        payload.secureMessage = record.secureMessage.toUpperCase();
   if (record.flatNo)               payload.flatNo = record.flatNo.toUpperCase();
@@ -1047,7 +1059,8 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
-            accountOfficer: record.accountOfficer,
+            accountOfficer: resolvedAccountOfficer,
+            productType:    resolvedProductType || null,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,
@@ -1090,7 +1103,8 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
             forwardResponse: responseData,
             forwardError: detailedError,
             approvalStatus: 'SYNC_FAILED',
-            accountOfficer: record.accountOfficer,
+            accountOfficer: resolvedAccountOfficer,
+            productType:    resolvedProductType || null,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,
@@ -1120,7 +1134,8 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
           forwardResponse: responseData, // Always store the parsed (or raw) response
           approvalStatus: 'APPROVED', // Final status after successful T24 response
           // Persist the forced defaults to the database
-          accountOfficer: record.accountOfficer,
+          accountOfficer: resolvedAccountOfficer,
+          productType:    resolvedProductType || null,
           industry:       record.industry,
           target:         record.target,
           customerStatus: record.customerStatus,
@@ -1153,7 +1168,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
           customerOnboardingId: id,
           actorId: actorId || null,
           action: 'FORWARDED_AND_APPROVED',
-          details: `Record successfully forwarded to T24 and officially APPROVED. Duration: ${duration}ms.`,
+          details: `Record successfully forwarded to T24 and officially APPROVED. Account officer: ${resolvedAccountOfficer}, product: ${resolvedProductType}. Duration: ${duration}ms.`,
           ipAddress,
           userAgent,
         },
@@ -1182,7 +1197,8 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         data:  { 
             forwardError: errorMessage,
             approvalStatus: 'SYNC_FAILED', // Failure moves to SYNC_FAILED
-            accountOfficer: record.accountOfficer,
+            accountOfficer: resolvedAccountOfficer,
+            productType:    resolvedProductType || null,
             industry:       record.industry,
             target:         record.target,
             customerStatus: record.customerStatus,

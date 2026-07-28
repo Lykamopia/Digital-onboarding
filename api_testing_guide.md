@@ -38,6 +38,7 @@ Select **raw** and **JSON** format, then paste this template:
   "country": "ET",
   "sector": "1001",
   "accountOfficer": "RO-001",
+  "productType": "1001",
   "industry": "2000",
   "target": "RETAIL",
   "nationality": "ET",
@@ -71,6 +72,32 @@ Select **raw** and **JSON** format, then paste this template:
   "nationalIDNumber": "NID123456"
 }
 ```
+
+### Channel Routing: `accountOfficer` and `productType`
+
+These two fields tell T24 **who owns the relationship** and **which product to open the account under**, so one middleware can serve several onboarding channels (digital account at a premium branch, savings at a specific branch, and so on).
+
+| Field | Required? | Behaviour |
+| :--- | :--- | :--- |
+| `accountOfficer` | Optional | Sent to T24 as `accountOfficer`. If omitted or blank, the middleware substitutes `DEFAULT_ACCOUNT_OFFICER` from the environment (falls back to `6409`). |
+| `productType` | Optional | Sent to T24 as **`product`** (note the different key on the T24 side). If omitted or blank, the middleware substitutes `DEFAULT_PRODUCT_TYPE` from the environment. |
+
+Each channel should send its own pair, e.g.:
+
+```jsonc
+// Digital account, premium branch
+{ "accountOfficer": "7101", "productType": "1001", ... }
+
+// Savings account, specific branch
+{ "accountOfficer": "6409", "productType": "6001", ... }
+
+// Channel with no opinion — middleware defaults apply
+{ ... }   // accountOfficer and productType simply omitted
+```
+
+The resolved values are stored on the record, shown on the review panel as **Acct. Officer** and **Product**, available as CSV export columns, and written into the `FORWARDED_AND_APPROVED` audit log entry.
+
+> **Configuration:** `DEFAULT_PRODUCT_TYPE` has no built-in fallback. If it is left blank *and* a channel sends no `productType`, the record fails T24 payload validation before any request is sent, with the message `product is required by T24; set DEFAULT_PRODUCT_TYPE in the environment or have the channel send productType`. This is deliberate — guessing a product code would open accounts under the wrong product.
 
 ## 3. Verify the Result
 1. Click **Send** in Postman.

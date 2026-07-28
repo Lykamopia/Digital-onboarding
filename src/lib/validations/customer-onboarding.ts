@@ -14,7 +14,11 @@ export const CustomerOnboardingSchema = z.object({
   townCity:           z.string().min(1, 'Town/City is required'),
   country:            z.string().length(2, 'Country must be a 2-letter code'),
   sector:             z.string().min(1, 'Sector is required'),
-  accountOfficer:     z.string().optional().nullable().or(z.literal('')).default('6409'),
+  // Channel routing — optional on the wire. Omit either one and the middleware
+  // substitutes DEFAULT_ACCOUNT_OFFICER / DEFAULT_PRODUCT_TYPE server-side, so
+  // no default is baked in here (this schema is also used in the browser).
+  accountOfficer:     z.string().optional().nullable().or(z.literal('')),
+  productType:        z.string().max(20).optional().nullable().or(z.literal('')),
   industry:           z.string().min(1, 'Industry is required').default('1499'),
   target:             z.string().min(1).default('220'),
   nationality:        z.string().length(2).optional().nullable().or(z.literal('')),

@@ -1017,6 +1017,7 @@ function RecordDetailDialog({
                   <InfoRow label="Sector"          value={record.sector.toUpperCase()} />
                   <InfoRow label="Industry"        value={record.industry.toUpperCase()} />
                   <InfoRow label="Acct. Officer"   value={record.accountOfficer.toUpperCase()} />
+                  <InfoRow label="Product"         value={record.productType?.toUpperCase()} />
                   <InfoRow label="Customer Type"   value={record.customerType.toUpperCase()} />
                   <InfoRow label="Customer Status" value={record.customerStatus.toUpperCase()} />
                   <InfoRow label="Target"          value={record.target.toUpperCase()} />
@@ -2293,6 +2294,7 @@ const EXPORT_COLUMNS = [
   
   { id: 'sector', label: 'Sector', category: 'Banking' },
   { id: 'accountOfficer', label: 'Account Officer', category: 'Banking' },
+  { id: 'productType', label: 'Product Type', category: 'Banking' },
   { id: 'industry', label: 'Industry', category: 'Banking' },
   { id: 'target', label: 'Target', category: 'Banking' },
   { id: 'customerStatus', label: 'Customer Status', category: 'Banking' },

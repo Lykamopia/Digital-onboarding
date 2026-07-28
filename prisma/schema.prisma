@@ -325,7 +325,11 @@ model CustomerOnboarding {
 
   // Banking / Classification
   sector           String
+  // Channel-supplied routing. Each requesting channel (digital, branch, …) may
+  // attach its own account officer and product; when absent the middleware
+  // falls back to DEFAULT_ACCOUNT_OFFICER / DEFAULT_PRODUCT_TYPE.
   accountOfficer   String
+  productType      String?   @map("product_type")
   industry         String
   target           String
   customerStatus   String
