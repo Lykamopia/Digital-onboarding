@@ -17,10 +17,16 @@ export type KPIData = {
     rejectionRate: number;
     averageProcessingTime: number;
     linkedAccounts: number;
+    totalRejected: number;
+    backlog: number;
+    resubmissionRate: number;
+    successRateAfterResubmission: number;
+    avgAttemptsBeforeApproval: number;
+    statusCounts: Record<ApprovalStatus, number>;
   };
   workload: {
-    verifiers: { name: string; count: number }[];
-    approvers: { name: string; count: number }[];
+    verifiers: { name: string; count: number; approved: number; rejected: number }[];
+    approvers: { name: string; count: number; approved: number; rejected: number }[];
   };
   trends: {
     labels: string[];
@@ -169,7 +175,57 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
     const pendingApproval = records.filter(r => r.approvalStatus === 'PENDING_APPROVER').length;
     const syncFailed = records.filter(r => r.approvalStatus === 'SYNC_FAILED').length;
     const rejected = records.filter(r => r.approvalStatus === 'REJECTED' || r.approvalStatus === 'VERIFIER_REJECTED').length;
-    const resubmissions = records.filter(r => r.parentCustomerId !== null).length;
+    const resubmissionsCount = records.filter(r => r.parentCustomerId !== null).length;
+
+    // Backlog includes all statuses where interaction is needed:
+    // PENDING, RESUBMITTED, REQUIRES_REVIEW (for Verifier)
+    // PENDING_APPROVER (for Approver)
+    // SYNC_FAILED (for Retry)
+    const backlog = records.filter(r => 
+      ['PENDING', 'RESUBMITTED', 'REQUIRES_REVIEW', 'PENDING_APPROVER', 'SYNC_FAILED'].includes(r.approvalStatus)
+    ).length;
+
+    // Status counts for one KPI
+    const statusCounts: Record<ApprovalStatus, number> = {
+      PENDING: 0,
+      VERIFIER_REJECTED: 0,
+      SYNC_FAILED: 0,
+      PENDING_APPROVER: 0,
+      APPROVED: 0,
+      REJECTED: 0,
+      REQUIRES_REVIEW: 0,
+      RESUBMITTED: 0,
+      AWAITING_T24_SYNC: 0,
+      AWAITING_T24_RESPONSE: 0,
+      VERIFIER_APPROVED: 0,
+    };
+    records.forEach(r => {
+      if (r.approvalStatus in statusCounts) {
+        statusCounts[r.approvalStatus]++;
+      }
+    });
+
+    // KPI: % of rejected users who resubmit
+    // We need to look at historical data for this. Since we only have current records in 'where',
+    // this might be tricky with just 'records'. 
+    // Let's approximate from the loaded records if they have parentCustomerId.
+    const resubmissionRate = rejected > 0 ? (resubmissionsCount / rejected) * 100 : 0;
+
+    // KPI: Success rate after resubmission
+    const resubmittedRecords = records.filter(r => r.parentCustomerId !== null);
+    const successAfterResubmit = resubmittedRecords.filter(r => r.approvalStatus === 'APPROVED').length;
+    const successRateAfterResubmission = resubmittedRecords.length > 0 
+      ? (successAfterResubmit / resubmittedRecords.length) * 100 
+      : 0;
+
+    // KPI: Avg number of attempts before approval
+    // We calculate this based on approved records that were resubmissions
+    const approvedResubmissions = records.filter(r => r.approvalStatus === 'APPROVED' && r.parentCustomerId !== null);
+    // This is hard to calculate accurately without recursive lookups, so we'll estimate 
+    // based on audit logs if possible, or just default to 1 + resubmission flag.
+    const avgAttemptsBeforeApproval = onboarded > 0 
+      ? (onboarded + approvedResubmissions.length) / onboarded 
+      : 0;
 
     // Calculate linked accounts (where linkingError is null in the T24 response)
     const linkedAccounts = records.filter(r => {
@@ -180,15 +236,29 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
     }).length;
 
     // 2. Workload
-    const verifierWorkload: Record<string, number> = {};
-    const approverWorkload: Record<string, number> = {};
+    const verifierWorkload: Record<string, { count: number; approved: number; rejected: number }> = {};
+    const approverWorkload: Record<string, { count: number; approved: number; rejected: number }> = {};
 
     records.forEach(r => {
       if (r.verifierReviewedBy?.name) {
-        verifierWorkload[r.verifierReviewedBy.name] = (verifierWorkload[r.verifierReviewedBy.name] || 0) + 1;
+        const name = r.verifierReviewedBy.name;
+        if (!verifierWorkload[name]) verifierWorkload[name] = { count: 0, approved: 0, rejected: 0 };
+        verifierWorkload[name].count++;
+        if (r.approvalStatus === 'PENDING_APPROVER' || r.approvalStatus === 'APPROVED') {
+          verifierWorkload[name].approved++;
+        } else if (r.approvalStatus === 'REJECTED' || r.approvalStatus === 'VERIFIER_REJECTED') {
+          verifierWorkload[name].rejected++;
+        }
       }
       if (r.approverReviewedBy?.name) {
-        approverWorkload[r.approverReviewedBy.name] = (approverWorkload[r.approverReviewedBy.name] || 0) + 1;
+        const name = r.approverReviewedBy.name;
+        if (!approverWorkload[name]) approverWorkload[name] = { count: 0, approved: 0, rejected: 0 };
+        approverWorkload[name].count++;
+        if (r.approvalStatus === 'APPROVED' || r.approvalStatus === 'AWAITING_T24_RESPONSE' || r.approvalStatus === 'AWAITING_T24_SYNC') {
+          approverWorkload[name].approved++;
+        } else if (r.approvalStatus === 'REQUIRES_REVIEW') {
+          approverWorkload[name].rejected++;
+        }
       }
     });
 
@@ -314,10 +384,16 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
           rejectionRate: total > 0 ? (rejected / total) * 100 : 0,
           averageProcessingTime: avgVerification + avgApproval + avgSync,
           linkedAccounts,
+          totalRejected: rejected,
+          backlog,
+          resubmissionRate,
+          successRateAfterResubmission,
+          avgAttemptsBeforeApproval,
+          statusCounts,
         },
         workload: {
-          verifiers: Object.entries(verifierWorkload).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
-          approvers: Object.entries(approverWorkload).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+          verifiers: Object.entries(verifierWorkload).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.count - a.count).slice(0, 10),
+          approvers: Object.entries(approverWorkload).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.count - a.count).slice(0, 10),
         },
         trends: {
           labels,
@@ -347,7 +423,7 @@ export async function getKPIData(filters: KPIFilters): Promise<{ success: true; 
           townCity: Object.entries(townCityDist).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
           subcity: Object.entries(subcityDist).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
         },
-        resubmissions,
+        resubmissions: resubmissionsCount,
       },
     };
   } catch (err) {

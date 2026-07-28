@@ -63,35 +63,47 @@ export default async function OnboardingStatusPage({
       subText: null
     },
     { 
-      label: 'Approval Rate', 
-      value: `${kpi.summary.approvalRate.toFixed(1)}%`, 
-      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-      description: 'Over processed records',
+      label: 'Backlog Queue', 
+      value: kpi.summary.backlog, 
+      icon: <Clock className="h-4 w-4 text-amber-500" />,
+      description: 'Interactive tasks requiring action',
       subText: (
-        <div className="flex items-center text-xs text-green-500 mt-1">
-          <TrendingUp className="mr-1 h-3 w-3" />
-          Trend analysis active
+        <div className="text-[10px] text-muted-foreground mt-1 flex flex-wrap gap-1">
+          <Badge variant="secondary" className="px-1 py-0 h-4 text-[9px]">V: {kpi.summary.pendingVerification}</Badge>
+          <Badge variant="secondary" className="px-1 py-0 h-4 text-[9px]">A: {kpi.summary.pendingApproval}</Badge>
+          <Badge variant="secondary" className="px-1 py-0 h-4 text-[9px]">F: {kpi.summary.syncFailed}</Badge>
         </div>
       )
     },
     { 
-      label: 'Avg Processing Time', 
-      value: `${kpi.summary.averageProcessingTime.toFixed(1)} hrs`, 
-      icon: <Clock className="h-4 w-4 text-muted-foreground" />,
-      description: 'From submission to sync',
-      subText: null
+      label: 'Approval Rate', 
+      value: `${kpi.summary.approvalRate.toFixed(1)}%`, 
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      description: 'Success vs Total records',
+      subText: (
+        <div className="flex items-center text-xs text-green-500 mt-1">
+          <TrendingUp className="mr-1 h-3 w-3" />
+          {kpi.summary.successRateAfterResubmission.toFixed(1)}% after retry
+        </div>
+      )
     },
     { 
-      label: 'Sync Failures', 
-      value: kpi.summary.syncFailed, 
+      label: 'Rejection Analytics', 
+      value: kpi.summary.totalRejected, 
       icon: <XCircle className="h-4 w-4 text-destructive" />,
-      description: 'Failed T24 core transmissions',
-      subText: kpi.summary.syncFailed > 5 ? (
-        <div className="flex items-center text-xs text-destructive mt-1">
-          <AlertTriangle className="mr-1 h-3 w-3" />
-          Critical: High failure rate
+      description: `${kpi.summary.rejectionRate.toFixed(1)}% rejection rate`,
+      subText: (
+        <div className="text-[10px] text-muted-foreground mt-1">
+          {kpi.summary.resubmissionRate.toFixed(1)}% resubmission rate
         </div>
-      ) : null
+      )
+    },
+    { 
+      label: 'Attempts / Approval', 
+      value: kpi.summary.avgAttemptsBeforeApproval.toFixed(2), 
+      icon: <Activity className="h-4 w-4 text-indigo-500" />,
+      description: 'Avg submissions per success',
+      subText: null
     },
     { 
       label: 'Linked Accounts', 
@@ -224,18 +236,33 @@ export default async function OnboardingStatusPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold">Top Verifier Workload</CardTitle>
-              <CardDescription className="text-xs">Most active Stage 1 reviewers</CardDescription>
+              <CardTitle className="text-sm font-semibold">Verifier Performance</CardTitle>
+              <CardDescription className="text-xs">Approved vs Rejected by Stage 1</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {kpi.workload.verifiers.slice(0, 5).map((v, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-[#935724]" />
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{v.name}</span>
+                      <span className="text-xs text-muted-foreground">{v.count} total</span>
                     </div>
-                    <Badge variant="secondary" className="font-mono">{v.count} records</Badge>
+                    <div className="flex gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
+                        <div 
+                          className="h-full bg-emerald-500" 
+                          style={{ width: `${v.count > 0 ? (v.approved / v.count) * 100 : 0}%` }} 
+                        />
+                        <div 
+                          className="h-full bg-destructive" 
+                          style={{ width: `${v.count > 0 ? (v.rejected / v.count) * 100 : 0}%` }} 
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-emerald-600 font-medium">{v.approved} Verified</span>
+                      <span className="text-destructive font-medium">{v.rejected} Rejected</span>
+                    </div>
                   </div>
                 ))}
                 {kpi.workload.verifiers.length === 0 && (
@@ -247,18 +274,33 @@ export default async function OnboardingStatusPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold">Top Approver Workload</CardTitle>
-              <CardDescription className="text-xs">Most active Stage 2 reviewers</CardDescription>
+              <CardTitle className="text-sm font-semibold">Approver Performance</CardTitle>
+              <CardDescription className="text-xs">Final Decisions by Stage 2</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {kpi.workload.approvers.slice(0, 5).map((a, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-[#f6bb14]" />
-                      <span className="text-sm font-medium">{a.name}</span>
+                {kpi.workload.approvers.slice(0, 5).map((v, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{v.name}</span>
+                      <span className="text-xs text-muted-foreground">{v.count} total</span>
                     </div>
-                    <Badge variant="secondary" className="font-mono">{a.count} records</Badge>
+                    <div className="flex gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
+                        <div 
+                          className="h-full bg-emerald-500" 
+                          style={{ width: `${v.count > 0 ? (v.approved / v.count) * 100 : 0}%` }} 
+                        />
+                        <div 
+                          className="h-full bg-amber-500" 
+                          style={{ width: `${v.count > 0 ? (v.rejected / v.count) * 100 : 0}%` }} 
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-emerald-600 font-medium">{v.approved} Approved</span>
+                      <span className="text-amber-600 font-medium">{v.rejected} Reverted</span>
+                    </div>
                   </div>
                 ))}
                 {kpi.workload.approvers.length === 0 && (
@@ -268,6 +310,29 @@ export default async function OnboardingStatusPage({
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Detailed Status Distribution (One KPI) */}
+      {kpi && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Full Pipeline Distribution</CardTitle>
+            <CardDescription className="text-xs">Current state of all filtered records</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {Object.entries(kpi.summary.statusCounts)
+                .filter(([_, count]) => (count as number) > 0)
+                .sort(([_, a], [__, b]) => (b as number) - (a as number))
+                .map(([status, count]) => (
+                <div key={status} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-1">
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase truncate">{status.replace(/_/g, ' ')}</span>
+                  <span className="text-xl font-bold">{count as number}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -45,7 +45,34 @@ export const CustomerOnboardingSchema = z.object({
   givenName:          z.string().min(1, 'Given name is required'),
   familyName:         z.string().min(1, 'Family name is required'),
   gender:             z.enum(['MALE', 'FEMALE'], { errorMap: () => ({ message: 'Gender must be MALE or FEMALE' }) }),
-  dateOfBirth:        z.string().regex(DATE_REGEX, 'Date of birth must be in format DD MMM YYYY'),
+  dateOfBirth:        z.string()
+                        .regex(DATE_REGEX, 'Date of birth must be in format DD MMM YYYY')
+                        .refine((dobStr) => {
+                          try {
+                            const [day, monthStr, year] = dobStr.split(' ');
+                            const months: Record<string, number> = {
+                              'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'MAY': 4, 'JUN': 5,
+                              'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
+                            };
+                            const month = months[monthStr.toUpperCase()];
+                            if (month === undefined) return false;
+
+                            const dob = new Date(parseInt(year), month, parseInt(day));
+                            const today = new Date();
+                            
+                            let age = today.getFullYear() - dob.getFullYear();
+                            const m = today.getMonth() - dob.getMonth();
+                            if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+                              age--;
+                            }
+                            
+                            return age >= 18;
+                          } catch (e) {
+                            return false;
+                          }
+                        }, {
+                          message: 'Customer must be at least 18 years old to be onboarded',
+                        }),
   maritalStatus:      z.enum(['DIVORCED', 'MARRIED', 'OTHER', 'PARTNER', 'SINGLE', 'WIDOWED'], {
                         required_error: 'Marital status is required',
                         invalid_type_error: 'Invalid marital status',

@@ -240,16 +240,15 @@ const DataRow = React.memo(({
                 <Checkbox 
                     checked={isSelected}
                     onCheckedChange={onToggle}
-                    disabled={isViewer}
                 />
             </td>
             <td className="px-4 py-3 text-[10px] text-muted-foreground font-mono text-center">
                 {(page - 1) * pageSize + index + 1}
             </td>
-            <td className="px-4 py-3 font-mono text-xs">{rec.mnemonic}</td>
+            <td className="px-4 py-3 font-mono text-xs">{rec.mnemonic.toUpperCase()}</td>
             <td className="px-4 py-3">
-                <div className="font-medium text-xs font-outfit">{rec.givenName} {rec.familyName}</div>
-                <div className="text-muted-foreground text-[11px]">{rec.shortName}</div>
+                <div className="font-medium text-xs font-outfit">{rec.fullName1.toUpperCase()}</div>
+                <div className="text-muted-foreground text-[11px]">{rec.motherName ? `Mother: ${rec.motherName.toUpperCase()}` : rec.mobilePhoneNumbers || rec.phoneNumbersRes || '—'}</div>
             </td>
             <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
                 <div className="font-medium text-gray-900">{(rec as any).submittedBy?.name || 'System'}</div>
@@ -473,6 +472,7 @@ function RecordDetailDialog({
   const [actionInProgress, setActionInProgress] = useState<'APPROVE' | 'REJECT' | 'RETRY' | 'HISTORY' | 'RETRY_SMS' | null>(null);
   const [historicalRecord, setHistoricalRecord] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const requestRef = React.useRef(0);
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -608,11 +608,9 @@ function RecordDetailDialog({
     // Optimistic Update: Determine next status based on current status and decision
     let nextStatus: ApprovalStatus = record.approvalStatus;
     if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED') {
-      nextStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'VERIFIER_REJECTED';
+      nextStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'REJECTED';
     } else if (record.approvalStatus === 'PENDING_APPROVER' || record.approvalStatus === 'SYNC_FAILED') {
       nextStatus = decision === 'APPROVED' ? 'AWAITING_T24_RESPONSE' : 'REQUIRES_REVIEW';
-    } else if (record.approvalStatus === 'VERIFIER_REJECTED') {
-      nextStatus = decision === 'REJECTED' ? 'REJECTED' : 'REQUIRES_REVIEW';
     }
 
     // Apply optimistic update to local and parent state
@@ -642,15 +640,20 @@ function RecordDetailDialog({
             // Step 3: Sending SMS
             toast.loading("Step 3/4: Sending SMS Notification...", { id: "onboarding-steps" });
             
-            // We wait a bit for the background process or manual check
-            // Actually, the server action already handles SMS in the same flow for approval
-            // But we can show the step for better UX.
-            
             // Step 4: SMS Sent
             toast.success("Step 4/4: SMS Notification Sent", { id: "onboarding-steps" });
             
-            onRefresh();
-            load();
+            // Final state update from backend response
+            const updated = await getCustomerOnboarding(recordId);
+            if (updated.success && updated.record) {
+              const next = updated.record as CustomerOnboarding;
+              setRecord(next);
+              onUpdateRecord(next);
+            } else {
+              // Fallback if detail fetch fails
+              onRefresh();
+              load();
+            }
             return result.message || 'Customer successfully approved and synchronized.';
           })(),
           {
@@ -665,52 +668,62 @@ function RecordDetailDialog({
             }
           }
         );
-      } else if (decision === 'REJECTED' && record.approvalStatus === 'VERIFIER_REJECTED') {
-        // Final rejection also sends SMS
+      } else {
+        // For Verifier actions (Verify/Reject) and Approver Rejection
+        const isVerifierStage = (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED');
+        const loadingMsg = isVerifierStage 
+          ? (decision === 'APPROVED' ? 'Verifying customer...' : 'Rejecting customer...')
+          : (decision === 'REJECTED' ? 'Reverting to Verifier...' : 'Processing decision...');
+
         await toast.promise(
           (async () => {
-            toast.loading("Processing final rejection...", { id: "onboarding-steps" });
             const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
             if (!result.success) throw new Error(result.error);
             
-            toast.loading("Sending Rejection SMS...", { id: "onboarding-steps" });
-            toast.success("Rejection SMS Sent", { id: "onboarding-steps" });
-            
-            onRefresh();
-            load();
-            return 'Submission rejected and customer notified.';
+            // Final state update from backend response
+            // We fetch the full record to ensure all relations and fields are up to date
+            const updated = await getCustomerOnboarding(recordId);
+            if (updated.success && updated.record) {
+              const next = updated.record as CustomerOnboarding;
+              // CRITICAL: Ensure we update both the local detail state AND the parent list state
+              // This prevents "flickering" or reverting to old state from the list.
+              setRecord(next);
+              onUpdateRecord(next);
+            } else {
+              // If single fetch fails, trigger full refresh
+              onRefresh();
+              load();
+            }
+
+            if (isVerifierStage) {
+              return decision === 'APPROVED' 
+                ? "Customer successfully verified. Pending final approval."
+                : "Customer has been rejected and SMS notification sent to the customer.";
+            } else {
+              return "Submission sent back to Verifier for review.";
+            }
           })(),
           {
-            loading: 'Processing rejection...',
+            loading: loadingMsg,
             success: (msg: string) => msg,
             error: (err: any) => {
+              // Rollback to previous known good state on API error
               setRecord(previousRecord);
               onUpdateRecord(previousRecord);
-              return err.message || 'Rejection failed.';
+              return err.message || 'Operation failed.';
             }
           }
         );
-      } else {
-        const result = await reviewCustomerOnboarding({ id: recordId, decision, note: reviewNote });
-        if (result.success) {
-          toast.success(`Submission ${decision === 'APPROVED' ? 'verified' : 'rejected'} successfully.`);
-          onRefresh();
-          load();
-        } else {
-          // Rollback on failure
-          setRecord(previousRecord);
-          onUpdateRecord(previousRecord);
-          toast.error(result.error);
-        }
       }
     } catch (err: any) {
-      // Only handle non-promise errors here (promise errors handled by toast.promise)
+      // Catch-all for unexpected errors not handled by toast.promise
       if (!(isStage2 && isApproving)) {
         setRecord(previousRecord);
         onUpdateRecord(previousRecord);
-        toast.error('Failed to process decision. Please try again.');
+        toast.error('An unexpected error occurred. Please try again.');
       }
     } finally {
+      // Clear action state to re-enable buttons
       setActionInProgress(null);
     }
   }
@@ -845,14 +858,14 @@ function RecordDetailDialog({
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-base font-bold leading-tight">
                     {[record.title, record.fullName1 || `${record.givenName} ${record.familyName}`]
-                      .filter(Boolean).join(' ')}
+                      .filter(Boolean).join(' ').toUpperCase()}
                   </p>
                   <div className="flex items-center gap-1">
-                    <p className="text-xs text-muted-foreground font-mono">{record.mnemonic}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{record.mnemonic.toUpperCase()}</p>
                     <CopyButton value={record.mnemonic} label="Mnemonic" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {record.gender}{record.dateOfBirth ? ` · ${formatDOBWithAge(record.dateOfBirth)}` : ''}
+                    {record.gender.toUpperCase()}{record.dateOfBirth ? ` · ${formatDOBWithAge(record.dateOfBirth)}` : ''}
                   </p>
                   <div className="flex items-center gap-2 flex-wrap pt-1">
                     <StatusBadge status={record.approvalStatus} />
@@ -946,18 +959,18 @@ function RecordDetailDialog({
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Payload Information (Ingested)</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Mnemonic"       value={record.mnemonic}        copyable />
-                  <InfoRow label="Title"           value={record.title} />
-                  <InfoRow label="Given Name"      value={record.givenName} />
-                  <InfoRow label="Family Name"     value={record.familyName} />
-                  <InfoRow label="Full Name"       value={record.fullName1}      copyable />
-                  <InfoRow label="Short Name"      value={record.shortName} />
-                  <InfoRow label="Gender"          value={record.gender} />
+                  <InfoRow label="Mnemonic"       value={record.mnemonic.toUpperCase()}        copyable />
+                  <InfoRow label="Title"           value={record.title.toUpperCase()} />
+                  <InfoRow label="Given Name"      value={record.givenName.toUpperCase()} />
+                  <InfoRow label="Family Name"     value={record.familyName.toUpperCase()} />
+                  <InfoRow label="Full Name"       value={record.fullName1.toUpperCase()}      copyable />
+                  <InfoRow label="Short Name"      value={record.shortName.toUpperCase()} />
+                  <InfoRow label="Gender"          value={record.gender.toUpperCase()} />
                   <InfoRow label="Date of Birth"   value={formatDOBWithAge(record.dateOfBirth)} />
-                  <InfoRow label="Marital Status"  value={record.maritalStatus} />
-                  <InfoRow label="Nationality"     value={record.nationality} />
-                  <InfoRow label="PSU Token"       value={record.psuToken || record.legalIdNumber || record.nationalIDNumber} copyable />
-                  <InfoRow label="Mother's Name"   value={record.motherName} />
+                  <InfoRow label="Marital Status"  value={record.maritalStatus.toUpperCase()} />
+                  <InfoRow label="Nationality"     value={record.nationality?.toUpperCase()} />
+                  <InfoRow label="PSU Token"       value={(record.psuToken || record.legalIdNumber || record.nationalIDNumber)?.toUpperCase()} copyable />
+                  <InfoRow label="Mother's Name"   value={record.motherName.toUpperCase()} />
                 </div>
               </div>
               <Separator />
@@ -967,16 +980,16 @@ function RecordDetailDialog({
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Address</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Street"   value={record.street} />
-                  <InfoRow label="Town/City" value={record.townCity} />
-                  <InfoRow label="Country"  value={record.country} />
-                  <InfoRow label="Region"   value={record.region} />
-                  <InfoRow label="Sub-city" value={record.subcity} />
-                  <InfoRow label="Woreda"   value={record.woreda} />
-                  <InfoRow label="Kebele"   value={record.kebele} />
-                  <InfoRow label="House No" value={record.houseNo} />
-                  <InfoRow label="Flat No"  value={record.flatNo} />
-                  <InfoRow label="Residence" value={record.residence} />
+                  <InfoRow label="Street"   value={record.street.toUpperCase()} />
+                  <InfoRow label="Town/City" value={record.townCity.toUpperCase()} />
+                  <InfoRow label="Country"  value={record.country.toUpperCase()} />
+                  <InfoRow label="Region"   value={record.region.toUpperCase()} />
+                  <InfoRow label="Sub-city" value={record.subcity?.toUpperCase()} />
+                  <InfoRow label="Woreda"   value={record.woreda?.toUpperCase()} />
+                  <InfoRow label="Kebele"   value={record.kebele?.toUpperCase()} />
+                  <InfoRow label="House No" value={record.houseNo?.toUpperCase()} />
+                  <InfoRow label="Flat No"  value={record.flatNo?.toUpperCase()} />
+                  <InfoRow label="Residence" value={record.residence?.toUpperCase()} />
                 </div>
               </div>
               <Separator />
@@ -985,11 +998,11 @@ function RecordDetailDialog({
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Identification</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Document"       value={record.documentName} />
-                  <InfoRow label="Name on ID"     value={record.nameOnID} />
-                  <InfoRow label="Issue Authority" value={record.issueAuthority} />
-                  <InfoRow label="Issue Date"     value={record.issueDate} />
-                  <InfoRow label="Expiry Date"    value={record.expirationDate} />
+                  <InfoRow label="Document"       value={record.documentName.toUpperCase()} />
+                  <InfoRow label="Name on ID"     value={record.nameOnID.toUpperCase()} />
+                  <InfoRow label="Issue Authority" value={record.issueAuthority.toUpperCase()} />
+                  <InfoRow label="Issue Date"     value={record.issueDate.toUpperCase()} />
+                  <InfoRow label="Expiry Date"    value={record.expirationDate.toUpperCase()} />
                 </div>
               </div>
               <Separator />
@@ -1000,14 +1013,14 @@ function RecordDetailDialog({
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <InfoRow label="Mobile"          value={record.mobilePhoneNumbers} copyable />
                   <InfoRow label="Residential Ph." value={record.phoneNumbersRes}    copyable />
-                  <InfoRow label="Language"        value={record.language} />
-                  <InfoRow label="Sector"          value={record.sector} />
-                  <InfoRow label="Industry"        value={record.industry} />
-                  <InfoRow label="Acct. Officer"   value={record.accountOfficer} />
-                  <InfoRow label="Customer Type"   value={record.customerType} />
-                  <InfoRow label="Customer Status" value={record.customerStatus} />
-                  <InfoRow label="Target"          value={record.target} />
-                  <InfoRow label="Secure Message"  value={record.secureMessage} />
+                  <InfoRow label="Language"        value={record.language.toUpperCase()} />
+                  <InfoRow label="Sector"          value={record.sector.toUpperCase()} />
+                  <InfoRow label="Industry"        value={record.industry.toUpperCase()} />
+                  <InfoRow label="Acct. Officer"   value={record.accountOfficer.toUpperCase()} />
+                  <InfoRow label="Customer Type"   value={record.customerType.toUpperCase()} />
+                  <InfoRow label="Customer Status" value={record.customerStatus.toUpperCase()} />
+                  <InfoRow label="Target"          value={record.target.toUpperCase()} />
+                  <InfoRow label="Secure Message"  value={record.secureMessage?.toUpperCase()} />
                 </div>
               </div>
               <Separator />
@@ -1018,9 +1031,9 @@ function RecordDetailDialog({
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Employment</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <InfoRow label="Occupation"  value={record.occupation} />
-                      <InfoRow label="Employer"    value={record.employersName} />
-                      <InfoRow label="Monthly Inc." value={record.netMonthlyIn ? `ETB ${record.netMonthlyIn}` : null} />
+                      <InfoRow label="Occupation"  value={record.occupation.toUpperCase()} />
+                      <InfoRow label="Employer"    value={record.employersName.toUpperCase()} />
+                      <InfoRow label="Monthly Inc." value={record.netMonthlyIn ? `ETB ${record.netMonthlyIn.toUpperCase()}` : null} />
                     </div>
                   </div>
                   <Separator />
@@ -1215,7 +1228,13 @@ function RecordDetailDialog({
                       }
                     </Button>
                     <Button
-                      onClick={() => handleDecision('REJECTED')}
+                      onClick={() => {
+                        if (record.approvalStatus === 'PENDING' || record.approvalStatus === 'REQUIRES_REVIEW' || record.approvalStatus === 'RESUBMITTED') {
+                          setConfirmRejectOpen(true);
+                        } else {
+                          handleDecision('REJECTED');
+                        }
+                      }}
                       disabled={!!actionInProgress}
                       variant="destructive"
                       className="flex-1 shadow-lg shadow-destructive/20 disabled:opacity-50"
@@ -1250,6 +1269,35 @@ function RecordDetailDialog({
         <DialogFooter className="px-6 py-4 border-t">
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
+
+        {/* Verifier Rejection Confirmation Dialog */}
+        <AlertDialog open={confirmRejectOpen} onOpenChange={setConfirmRejectOpen}>
+          <AlertDialogContent className="max-w-[400px] border-destructive/20 shadow-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-lg font-bold text-destructive">
+                <XCircle className="h-5 w-5" />
+                Reject Application?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                This will permanently reject the request and notify the customer via SMS. 
+                <span className="block mt-1 font-medium text-destructive/80">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6">
+              <AlertDialogCancel onClick={() => setConfirmRejectOpen(false)} className="h-9 text-xs font-semibold">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async (e) => {
+                  e.preventDefault();
+                  setConfirmRejectOpen(false);
+                  handleDecision('REJECTED');
+                }}
+                className="h-9 bg-destructive hover:bg-destructive/90 text-xs font-bold"
+              >
+                Confirm Rejection
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
@@ -1281,7 +1329,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
     }, 300);
     return () => clearTimeout(timer);
   }, [debouncedSearch]);
-  const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>((searchParams.get('status') as any) || 'ALL');
+  const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL' | 'ACCOUNT_NOT_LINKED'>((searchParams.get('status') as any) || 'ALL');
   
   const [sortBy, setSortBy]             = useState(searchParams.get('sortBy') || 'createdAt');
   const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>((searchParams.get('sortOrder') as any) || 'desc');
@@ -1641,6 +1689,7 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
             <SelectItem value="SYNC_FAILED">T24 Sync Failed</SelectItem>
             <SelectItem value="APPROVED">Approved (Final)</SelectItem>
             <SelectItem value="REJECTED">Rejected (Final)</SelectItem>
+            <SelectItem value="ACCOUNT_NOT_LINKED">Account Not Linked</SelectItem>
           </SelectContent>
         </Select>
         <Button 
@@ -1652,16 +1701,14 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
           {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
         </Button>
 
-        {!isViewer && (
-          <Button 
-            variant="outline" 
-            onClick={() => setExportType('ALL')} 
-            className="gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Export All
-          </Button>
-        )}
+        <Button 
+          variant="outline" 
+          onClick={() => setExportType('ALL')} 
+          className="gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Export All
+        </Button>
 
         <Button 
           variant="outline" 
@@ -1778,7 +1825,6 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
                   <Checkbox 
                     checked={records.length > 0 && records.every(r => selection.has(r.id))}
                     onCheckedChange={(checked) => {
-                      if (isViewer) return;
                       const next = new Map(selection);
                       if (checked) {
                         records.forEach(r => next.set(r.id, r.approvalStatus));
@@ -1787,7 +1833,6 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
                       }
                       setSelection(next);
                     }}
-                    disabled={isViewer}
                   />
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[10px] uppercase w-12 text-center">#</th>
@@ -1979,24 +2024,22 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
 
       {/* Bulk Confirmation Dialog */}
       <AlertDialog open={!!confirmBulk} onOpenChange={(open) => !open && setConfirmBulk(null)}>
-        <AlertDialogContent className="border-primary/20 shadow-2xl">
+        <AlertDialogContent className="max-w-[400px] border-primary/20 shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-xl">
+            <AlertDialogTitle className="flex items-center gap-2 text-lg font-bold">
               {confirmBulk?.type === 'APPROVED' ? (
-                <><CheckCircle2 className="h-5 w-5 text-emerald-500" /> Confirm Bulk Approval</>
+                <><CheckCircle2 className="h-5 w-5 text-emerald-500" /> Bulk Approval</>
               ) : (
-                <><XCircle className="h-5 w-5 text-destructive" /> Confirm Bulk Rejection</>
+                <><XCircle className="h-5 w-5 text-destructive" /> Bulk Rejection</>
               )}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-base pt-2">
+            <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
                 You are about to <strong>{confirmBulk?.type.toLowerCase()}</strong> {confirmBulk?.count} onboarding requests. 
-                This action will trigger automated core banking forwarding and cannot be easily undone.
-                <br /><br />
-                Are you sure you want to proceed?
+                <span className="block mt-1 font-medium">This action will trigger automated processes and cannot be easily undone.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4">
-            <AlertDialogCancel disabled={bulkProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogCancel disabled={bulkProcessing} className="h-9 text-xs font-semibold">Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={bulkProcessing}
               onClick={async (e) => {
@@ -2037,11 +2080,11 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
                 setBulkProcessing(false);
               }}
               className={cn(
-                "min-w-32",
+                "h-9 min-w-32 text-xs font-bold",
                 confirmBulk?.type === 'APPROVED' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-destructive hover:bg-destructive/90"
               )}
             >
-              {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : `Yes, ${confirmBulk?.type.toLowerCase()}`}
+              {bulkProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : `Confirm ${confirmBulk?.type.toLowerCase()}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2064,16 +2107,14 @@ export function CustomerOnboardingReviewPanel({ canReview, canMaker, isViewer }:
             <div className="h-8 w-px bg-border" />
 
             <div className="flex gap-2">
-              {!isViewer && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5"
-                  onClick={() => setExportType('SELECTED')}
-                >
-                  <Download className="h-4 w-4" /> Export
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={() => setExportType('SELECTED')}
+              >
+                <Download className="h-4 w-4" /> Export
+              </Button>
 
               {!isViewer && (
                 <>

@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { logSecurityEvent, SecurityEvent } from '@/lib/security-logger';
 import { LogSeverity } from '@/lib/types';
-import { ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import { getLoggedInUser } from '@/app/actions/memo';
 
 import { CustomerOnboardingSchema, type CustomerOnboardingInput } from '@/lib/validations/customer-onboarding';
@@ -103,6 +103,31 @@ async function safeParseT24Response(response: Response): Promise<[any, string]> 
 
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
+/**
+ * Sanitizes fields for T24 core banking ingestion.
+ * Rules:
+ * 1. Remove/Replace special characters: ',/-_*' (underscore becomes space)
+ * 2. Trim to max 15 characters
+ * 3. Convert to uppercase
+ */
+function sanitizeForT24(val: string | null | undefined): string {
+  if (!val) return '';
+  
+  // Replace underscore with space as per user example 'SELF_EMPLOYED' -> 'SELF EMPLOYED'
+  let cleaned = val.replace(/_/g, ' ');
+  
+  // Remove other specified characters: ', / - * and others
+  // We keep alphanumeric and spaces, removing everything else to be safe
+  cleaned = cleaned.replace(/[',/\-*]/g, '');
+  cleaned = cleaned.replace(/[^a-zA-Z0-9\s]/g, '');
+  
+  // Collapse multiple spaces and trim
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  // Max 15 characters and uppercase
+  return cleaned.substring(0, 15).toUpperCase();
+}
+
 async function getRequestContext() {
   const headerList = await headers();
   const rawIp = headerList.get('x-forwarded-for') || headerList.get('cf-connecting-ip') || 'unknown';
@@ -346,7 +371,16 @@ export async function listCustomerOnboardings(opts: {
   const where: Record<string, any> = {};
   
   if (status && status !== 'ALL') {
-    where.approvalStatus = status;
+    if (status === 'ACCOUNT_NOT_LINKED') {
+      where.approvalStatus = 'APPROVED';
+      where.forwardedAt = { not: null };
+      where.forwardResponse = {
+        path: ['linkingError'],
+        not: Prisma.AnyNull,
+      };
+    } else {
+      where.approvalStatus = status;
+    }
   }
 
   if (region && region !== 'ALL') {
@@ -395,8 +429,14 @@ export async function listCustomerOnboardings(opts: {
 
       // Rebuild conditions for Raw SQL - ENSURE INDEPENDENCE
       if (status && status !== 'ALL') {
-        conditions.push(`"approvalStatus" = $${values.length + 1}::"ApprovalStatus"`);
-        values.push(status);
+        if (status === 'ACCOUNT_NOT_LINKED') {
+          conditions.push(`"approvalStatus" = 'APPROVED'`);
+          conditions.push(`"forwardedAt" IS NOT NULL`);
+          conditions.push(`("forwardResponse"::jsonb->>'linkingError' IS NOT NULL AND "forwardResponse"::jsonb->>'linkingError' != '')`);
+        } else {
+          conditions.push(`"approvalStatus" = $${values.length + 1}::"ApprovalStatus"`);
+          values.push(status);
+        }
       }
       if (region && region !== 'ALL') {
         conditions.push(`"region" = $${values.length + 1}`);
@@ -645,7 +685,7 @@ export async function reviewCustomerOnboarding(opts: {
         return { success: false, error: 'Internal Control Violation: As the submitter, you cannot perform the first review.' };
       }
 
-      const nextStatus: ApprovalStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'VERIFIER_REJECTED';
+      const nextStatus: ApprovalStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'REJECTED';
       const auditAction = decision === 'APPROVED' ? 'VERIFIER_VERIFIED' : 'VERIFIER_REJECTED';
 
       await prisma.$transaction(async (tx) => {
@@ -680,13 +720,34 @@ export async function reviewCustomerOnboarding(opts: {
         targetType: 'CustomerOnboarding',
       });
 
+      if (decision === 'REJECTED') {
+        const phone = existing.mobilePhoneNumbers || existing.phoneNumbersRes;
+        if (phone) {
+          const smsText = `Dear ${existing.givenName}, your onboarding request is rejected. Please contact us for further clarification or assistance. For enquiries, call toll-free 9698.`;
+          try {
+            const smsRes = await sendSms(phone, smsText);
+            await prisma.customerOnboarding.update({
+              where: { id },
+              data: {
+                smsSentAt: new Date(),
+                smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
+                smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+              }
+            });
+          } catch (smsErr) {
+            console.error('[SMS Rejection Error]', smsErr);
+          }
+        }
+        return { success: true, rejectedByVerifier: true };
+      }
+
       return { success: true };
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // STAGE 2: Approver Decision (PENDING_APPROVER, SYNC_FAILED, or VERIFIER_REJECTED)
+    // STAGE 2: Approver Decision (PENDING_APPROVER or SYNC_FAILED)
     // ─────────────────────────────────────────────────────────────────────────
-    if (existing.approvalStatus === 'PENDING_APPROVER' || existing.approvalStatus === 'SYNC_FAILED' || existing.approvalStatus === 'VERIFIER_REJECTED') {
+    if (existing.approvalStatus === 'PENDING_APPROVER' || existing.approvalStatus === 'SYNC_FAILED') {
       if (!isApproverRole && !isAdmin) {
         return { success: false, error: 'You do not have the Approver role required for this action.' };
       }
@@ -700,30 +761,13 @@ export async function reviewCustomerOnboarding(opts: {
       let auditAction: string;
       let triggerT24 = false;
 
-      if (existing.approvalStatus === 'PENDING_APPROVER' || (existing.approvalStatus === 'SYNC_FAILED' && decision === 'APPROVED')) {
-        if (decision === 'APPROVED') {
-          nextStatus = 'AWAITING_T24_RESPONSE';
-          auditAction = 'APPROVER_APPROVED_SENDING_TO_CORE';
-          triggerT24 = true;
-        } else {
-          // Approver rejects Verifier's approval -> Revert to Verifier
-          nextStatus = 'REQUIRES_REVIEW';
-          auditAction = 'APPROVER_REJECTED_TO_VERIFIER';
-        }
-      } else if (existing.approvalStatus === 'VERIFIER_REJECTED') {
-        if (decision === 'REJECTED') {
-          // Approver confirms Verifier's rejection -> Final REJECTED
-          nextStatus = 'REJECTED';
-          auditAction = 'APPROVER_REJECTED_CONFIRM';
-        } else {
-          // Approver approves Verifier's rejection -> Revert to Verifier for correction
-          nextStatus = 'REQUIRES_REVIEW';
-          auditAction = 'APPROVER_APPROVED_TO_VERIFIER';
-        }
+      if (decision === 'APPROVED') {
+        nextStatus = 'AWAITING_T24_RESPONSE';
+        auditAction = 'APPROVER_APPROVED_SENDING_TO_CORE';
+        triggerT24 = true;
       } else {
-          // SYNC_FAILED and decision is REJECTED
-          nextStatus = 'REQUIRES_REVIEW';
-          auditAction = 'APPROVER_REJECTED_SYNC_FAILED';
+        nextStatus = 'REQUIRES_REVIEW';
+        auditAction = 'APPROVER_REJECTED_TO_VERIFIER';
       }
 
       await prisma.$transaction(async (tx) => {
@@ -766,9 +810,12 @@ export async function reviewCustomerOnboarding(opts: {
             error: syncResult.error || 'The approval was recorded, but the T24 core sync failed. Please check the sync error and retry.' 
           };
         }
+        const customerId = syncResult.responseData?.customerId;
         return { 
           success: true, 
-          message: 'Customer successfully approved and synchronized with T24 core banking.' 
+          message: customerId 
+            ? `Customer successfully approved and synchronized with T24 core banking. Customer ID: ${customerId}`
+            : 'Customer successfully approved and synchronized with T24 core banking.'
         };
       }
 
@@ -829,56 +876,56 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
   // and handling optional/nullable logic as per the new T24 schema.
   
   const payload: Record<string, any> = {
-    mnemonic:           record.mnemonic,
-    shortName:          record.shortName,
-    fullName1:          record.fullName1,
-    street:             record.street,
-    townCity:           record.townCity,
-    country:            record.country,
-    sector:             record.sector,
+    mnemonic:           record.mnemonic.toUpperCase(),
+    shortName:          record.shortName.toUpperCase(),
+    fullName1:          record.fullName1.toUpperCase(),
+    street:             sanitizeForT24(record.street),
+    townCity:           sanitizeForT24(record.townCity),
+    country:            sanitizeForT24(record.country),
+    sector:             record.sector.toUpperCase(),
     accountOfficer:     record.accountOfficer = "6409",
     industry:           record.industry = "1499",
     target:             record.target = "220",
     customerStatus:     record.customerStatus = "1",
-    legalIdNumber:      record.legalIdNumber ? record.legalIdNumber.substring(0, 10) : '', // Substring to 10 digits
+    legalIdNumber:      record.legalIdNumber ? record.legalIdNumber.substring(0, 10).toUpperCase() : '',
     documentName:       record.documentName = "NATIONAL.ID",
-    nameOnID:           record.nameOnID,
+    nameOnID:           record.nameOnID.toUpperCase(),
     issueAuthority:     record.issueAuthority = "NID",
-    issueDate:          record.issueDate,
-    expirationDate:     record.expirationDate,
-    language:           record.language,
-    region:             getRegionId(record.region),
-    phoneNumber:        record.mobilePhoneNumbers || '', // Mandatory field
-    title:              record.title,
-    givenName:          record.givenName,
-    familyName:         record.familyName,
-    gender:             record.gender,
-    dateOfBirth:        record.dateOfBirth,
-    maritalStatus:      record.maritalStatus,
-    customerType:       record.customerType,
-    ownership:          (record as any).ownership || '1000',
-    faydaPsutoken2:     record.legalIdNumber || '', // Remains full legalIdNumber as per API contract
+    issueDate:          record.issueDate.toUpperCase(),
+    expirationDate:     record.expirationDate.toUpperCase(),
+    language:           record.language.toUpperCase(),
+    region:             sanitizeForT24(getRegionId(record.region)),
+    phoneNumber:        (record.mobilePhoneNumbers || '').toUpperCase(),
+    title:              record.title.toUpperCase(),
+    givenName:          record.givenName.toUpperCase(),
+    familyName:         record.familyName.toUpperCase(),
+    gender:             record.gender.toUpperCase(),
+    dateOfBirth:        record.dateOfBirth.toUpperCase(),
+    maritalStatus:      record.maritalStatus.toUpperCase(),
+    customerType:       record.customerType.toUpperCase(),
+    ownership:          ((record as any).ownership || '1000').toUpperCase(),
+    faydaPsutoken2:     record.legalIdNumber ? record.legalIdNumber.toUpperCase() : '',
   };
 
   // Handle Optional/Nullable Fields (Omit if empty or matches default/null criteria)
-  if (record.fullName2)           payload.fullName2 = record.fullName2;
-  if (record.accountOfficer)      payload.accountOfficer = record.accountOfficer;
-  if (record.phoneNumbersRes)     payload.phoneNumbersRes = record.phoneNumbersRes;
-  if (record.secureMessage)       payload.secureMessage = record.secureMessage;
-  if (record.flatNo)              payload.flatNo = record.flatNo;
-  if (record.kebele)              payload.kebele = record.kebele;
-  if (record.houseNo)             payload.houseNo = record.houseNo;
-  if (record.woreda)              payload.woreda = record.woreda;
-  if (record.subcity)             payload.subcity = record.subcity;
-  if (record.motherName)          payload.motherName = record.motherName;
-  if (record.nationalIDNumber)    payload.nationalIDNumber = record.nationalIDNumber.substring(0, 10); // Substring to 10 digits
-  if (record.occupation)          payload.occupation = record.occupation;
-  if (record.employersName)       payload.employersName = record.employersName;
-  if (record.netMonthlyIn)        payload.netMonthlyIn = record.netMonthlyIn;
-  
+  if (record.fullName2)           payload.fullName2 = record.fullName2.toUpperCase();
+  if (record.accountOfficer)       payload.accountOfficer = record.accountOfficer.toUpperCase();
+  if (record.phoneNumbersRes)      payload.phoneNumbersRes = record.phoneNumbersRes.toUpperCase();
+  if (record.secureMessage)        payload.secureMessage = record.secureMessage.toUpperCase();
+  if (record.flatNo)               payload.flatNo = record.flatNo.toUpperCase();
+  if (record.kebele)               payload.kebele = record.kebele.toUpperCase();
+  if (record.houseNo)              payload.houseNo = record.houseNo.toUpperCase();
+  if (record.woreda)              payload.woreda = sanitizeForT24(record.woreda);
+  if (record.subcity)             payload.subcity = sanitizeForT24(record.subcity);
+  if (record.motherName)           payload.motherName = record.motherName.toUpperCase();
+  if (record.nationalIDNumber)     payload.nationalIDNumber = record.nationalIDNumber.substring(0, 10).toUpperCase();
+  if (record.occupation)           payload.occupation = sanitizeForT24(record.occupation);
+  if (record.employersName)        payload.employersName = sanitizeForT24(record.employersName);
+  if (record.netMonthlyIn)         payload.netMonthlyIn = record.netMonthlyIn.toUpperCase();
+
   // Omit nationality/residence if "ET" as per contract
-  if (record.nationality && record.nationality !== 'ET') payload.nationality = record.nationality;
-  if (record.residence && record.residence !== 'ET')     payload.residence = record.residence;
+  if (record.nationality && record.nationality !== 'ET') payload.nationality = record.nationality.toUpperCase();
+  if (record.residence && record.residence !== 'ET')     payload.residence = record.residence.toUpperCase();
  
    // ── Final Validation & Whitelisting ───────────────────────────────────────
    // We parse the payload through the strict schema to strip any undefined
@@ -1121,7 +1168,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
         targetType: 'CustomerOnboarding',
       });
 
-      return { success: true };
+      return { success: true, responseData };
 
     } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -1401,7 +1448,7 @@ export async function bulkReviewCustomerOnboarding(opts: {
       
       const stage1Ids = stage1Batch.map(r => r.id);
       if (stage1Ids.length > 0) {
-        const nextStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'VERIFIER_REJECTED';
+        const nextStatus = decision === 'APPROVED' ? 'PENDING_APPROVER' : 'REJECTED';
 
         await tx.customerOnboarding.updateMany({
           where: { id: { in: stage1Ids } },
@@ -1421,11 +1468,34 @@ export async function bulkReviewCustomerOnboarding(opts: {
             ipAddress, userAgent
           }))
         });
+
+        if (decision === 'REJECTED') {
+          for (const rid of stage1Ids) {
+            const record = await tx.customerOnboarding.findUnique({ where: { id: rid } });
+            if (record) {
+              const phone = record.mobilePhoneNumbers || record.phoneNumbersRes;
+              if (phone) {
+                const smsText = `Dear ${record.givenName}, your onboarding request is rejected. Please contact us for further clarification or assistance. For enquiries, call toll-free 9698.`;
+                try {
+                  const smsRes = await sendSms(phone, smsText);
+                  await tx.customerOnboarding.update({
+                    where: { id: rid },
+                    data: {
+                      smsSentAt: new Date(),
+                      smsStatus: smsRes.ok ? 'SENT' : 'FAILED',
+                      smsError: smsRes.ok ? null : (smsRes.error || `Status ${smsRes.status}`),
+                    }
+                  });
+                } catch (smsErr) {
+                  console.error('[SMS Rejection Error]', smsErr);
+                }
+              }
+            }
+          }
+        }
       }
 
-      // 2. Stage 2: Approver Decision (PENDING_APPROVER, SYNC_FAILED, or VERIFIER_REJECTED)
-      
-      // 2a. Handle PENDING_APPROVER or SYNC_FAILED (only approvals)
+      // 2. Stage 2: Approver Decision (PENDING_APPROVER or SYNC_FAILED)
       const stage2ApproveBatch = await tx.customerOnboarding.findMany({
         where: { 
           id: { in: ids }, 
@@ -1488,47 +1558,8 @@ export async function bulkReviewCustomerOnboarding(opts: {
         }
       }
 
-      // 2b. Handle VERIFIER_REJECTED (only rejections)
-      const stage2ConfirmRejectBatch = await tx.customerOnboarding.findMany({
-        where: { 
-          id: { in: ids }, 
-          approvalStatus: 'VERIFIER_REJECTED', 
-          ...(isAdmin ? {} : { NOT: { verifierReviewedById: user.id } })
-        },
-        select: { id: true }
-      });
-
-      if (stage2ConfirmRejectBatch.length > 0 && !isApprover && !isAdmin) {
-          throw new Error("You do not have permission to perform Stage 2 (Approver) bulk actions.");
-      }
-
-      const stage2ConfirmRejectIds = stage2ConfirmRejectBatch.map(r => r.id);
-      if (stage2ConfirmRejectIds.length > 0) {
-        if (decision === 'REJECTED') {
-            const nextStatus = 'REJECTED'; // Confirmed final rejection
-            await tx.customerOnboarding.updateMany({
-              where: { id: { in: stage2ConfirmRejectIds } },
-              data: { 
-                approvalStatus: nextStatus, 
-                approverReviewedById: user.id, 
-                approverReviewedAt: new Date(),
-                approverReviewNote: 'Bulk rejection confirmed by Approver'
-              }
-            });
-            await tx.customerOnboardingAuditLog.createMany({
-              data: stage2ConfirmRejectIds.map(rid => ({
-                customerOnboardingId: rid,
-                actorId: user.id,
-                action: 'APPROVER_REJECTED_CONFIRM',
-                details: `Bulk Stage 2 (Approver) final rejection confirmed.`,
-                ipAddress, userAgent
-              }))
-            });
-        }
-      }
-
       return { 
-        count: stage1Ids.length + stage2ApproveIds.length + stage2ConfirmRejectIds.length, 
+        count: stage1Ids.length + stage2ApproveIds.length, 
         approverApproved: approverApprovedIds
       };
     });
@@ -1573,7 +1604,8 @@ export async function exportCustomerOnboardings(opts: {
   if (!user) return { success: false as const, error: 'Unauthorized' };
 
   const canReview = hasRolePermission(user, 'verifier_customer_onboarding') || hasRolePermission(user, 'approver_customer_onboarding');
-  if (!canReview) return { success: false as const, error: 'Access denied.' };
+  const canViewer = hasRolePermission(user, 'viewer_customer_onboarding');
+  if (!canReview && !canViewer) return { success: false as const, error: 'Access denied.' };
 
   const { ids, status, search, sortBy = 'createdAt', sortOrder = 'desc', fromDate, toDate, gender } = opts;
 
@@ -1581,7 +1613,18 @@ export async function exportCustomerOnboardings(opts: {
   if (ids && ids.length > 0) {
     where.id = { in: ids };
   } else {
-    if (status) where.approvalStatus = status;
+    if (status) {
+      if ((status as string) === 'ACCOUNT_NOT_LINKED') {
+        where.approvalStatus = 'APPROVED';
+        where.forwardedAt = { not: null };
+        where.forwardResponse = {
+          path: ['linkingError'],
+          not: Prisma.AnyNull,
+        };
+      } else {
+        where.approvalStatus = status;
+      }
+    }
     if (search) {
       where.OR = [
         { mnemonic:   { contains: search, mode: 'insensitive' } },

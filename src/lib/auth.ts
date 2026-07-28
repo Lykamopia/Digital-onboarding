@@ -158,8 +158,13 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   cookies: (() => {
-    const isProd = process.env.NODE_ENV === 'production';
-    const namePrefix = isProd ? '__Secure-' : '';
+    // Tie cookie security to the actual scheme being served (NEXTAUTH_URL),
+    // NOT to NODE_ENV. `next start` forces NODE_ENV=production, but the app may
+    // still be served over plain HTTP (e.g. http://localhost:3012). A `Secure`
+    // cookie — and the `__Secure-` prefix — is dropped by browsers over HTTP,
+    // which silently breaks login. Only enforce Secure when serving over HTTPS.
+    const isHttps = (process.env.NEXTAUTH_URL || '').startsWith('https://');
+    const namePrefix = isHttps ? '__Secure-' : '';
 
     return {
       sessionToken: {
@@ -168,7 +173,7 @@ export const authOptions: NextAuthOptions = {
           httpOnly: true,
           sameSite: 'lax', // Lax is generally better for cross-site auth flows
           path: '/',
-          secure: isProd, // Enforce Secure flag in production
+          secure: isHttps, // Enforce Secure flag only when served over HTTPS
         },
       },
     };

@@ -2,6 +2,13 @@
 import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
+// Whether this deployment is actually served over HTTPS. `next start` forces
+// NODE_ENV=production even when serving plain HTTP (e.g. http://localhost:3012),
+// so gating HTTPS enforcement on NODE_ENV breaks such deployments (forced
+// redirect to a non-existent https listener + persistent HSTS). Gate on the
+// real scheme via NEXTAUTH_URL instead.
+const isHttpsDeployment = (process.env.NEXTAUTH_URL || '').startsWith('https://');
+
 function generateCsp(nonce: string) {
     const policies: Record<string, string[]> = {
         'default-src': ["'self'"],
@@ -16,8 +23,8 @@ function generateCsp(nonce: string) {
         'frame-ancestors': ["'none'"],
     };
 
-    // Only force HTTPS upgrade in production
-    if (process.env.NODE_ENV === 'production') {
+    // Only force HTTPS upgrade when actually served over HTTPS
+    if (isHttpsDeployment) {
         policies['upgrade-insecure-requests'] = [];
     }
 
@@ -71,8 +78,8 @@ export default withAuth(
     const { token } = req.nextauth;
     const { pathname, protocol } = req.nextUrl;
     
-    // Enforce HTTPS in production
-    if (process.env.NODE_ENV === 'production' && protocol !== 'https:') {
+    // Enforce HTTPS only when the deployment is actually served over HTTPS
+    if (isHttpsDeployment && protocol !== 'https:') {
         return NextResponse.redirect(`https://${req.nextUrl.host}${pathname}`, 301);
     }
 
@@ -93,7 +100,7 @@ export default withAuth(
         response.headers.set(header.key, header.value);
     });
 
-    if (process.env.NODE_ENV === 'production') {
+    if (isHttpsDeployment) {
         response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     }
 
