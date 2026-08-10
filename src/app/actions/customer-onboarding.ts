@@ -967,6 +967,7 @@ export async function forwardToCoreBanking(id: string, actorId?: string) {
      };
      if (T24_API_KEY) {
        fetchHeaders['Authorization'] = `Bearer ${T24_API_KEY}`;
+       fetchHeaders['X-API-Key'] = T24_API_KEY;
        console.log('🔑 Auth: API Key provided');
      } else {
        console.log('⚠️ Auth: No API Key provided in environment');

@@ -35,9 +35,19 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string {
   return '';
 }
 
-/** Channel value if supplied, otherwise the configured default. */
+/**
+ * Channel value if supplied, otherwise the configured default.
+ *
+ * If any request sends an outdated officer value such as 6001, ignore it and
+ * fall back to the server-configured default so all traffic uses the same
+ * routing officer.
+ */
 export function resolveAccountOfficer(supplied?: string | null): string {
-  return firstNonEmpty(supplied, DEFAULT_ACCOUNT_OFFICER);
+  const normalized = (supplied || '').trim();
+  if (!normalized || normalized === '6001') {
+    return DEFAULT_ACCOUNT_OFFICER;
+  }
+  return normalized;
 }
 
 /** Channel value if supplied, otherwise the configured default (may be ''). */
